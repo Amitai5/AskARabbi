@@ -1,0 +1,55 @@
+{
+  "countsByActualLanguage": {
+    "ar": 1,
+    "ca": 2,
+    "de": 203,
+    "en": 970,
+    "eo": 39,
+    "es": 10,
+    "fa": 14,
+    "fi": 5,
+    "fr": 161,
+    "he": 824,
+    "hu": 1,
+    "it": 8,
+    "itk": 1,
+    "lad": 1,
+    "pl": 34,
+    "pt": 76,
+    "ru": 15,
+    "yi": 40
+  },
+  "countsByCollection": {
+    "Mishnah": 791,
+    "Talmud": 767,
+    "Tanakh": 663,
+    "Torah": 184
+  },
+  "countsByLicenseStatus": {
+    "noncommercial": 294,
+    "permissive": 1255,
+    "review_required": 856
+  },
+  "downloadErrorCount": 0,
+  "downloadedAtUtc": "2026-08-20T05:08:57Z",
+  "schemaFileCount": 193,
+  "selection": {
+    "collections": [
+      "Torah",
+      "Tanakh (Prophets and Writings)",
+      "Mishnah",
+      "Talmud (Bavli and Yerushalmi)"
+    ],
+    "commentariesIncluded": false,
+    "formats": [
+      "json"
+    ],
+    "includeMerged": true
+  },
+  "source": "https://github.com/Sefaria/Sefaria-Export",
+  "sourceIndexGeneratedAtUtc": "2026-08-02T06:50:17Z",
+  "sourceIndexSha256": "14ff88ef0727312f28c7e839831d1f595fac2383f1b76b269da2cd978791aa53",
+  "sourceIndexUrl": "https://raw.githubusercontent.com/Sefaria/Sefaria-Export/master/books.json",
+  "textByteCount": 516443752,
+  "textFileCount": 2405
+}

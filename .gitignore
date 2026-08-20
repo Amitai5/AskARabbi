@@ -376,6 +376,16 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
+# Downloaded and normalized corpora are reproducible, large, and carry their own licenses.
+/Data/Raw/**/*.json
+!/Data/Raw/**/summary.json
+/Data/Raw/**/manifest.jsonl
+/Data/Raw/**/download-errors.jsonl
+/Data/NormalizedData/**/*.md
+!/Data/NormalizedData/**/README.md
+/Data/NormalizedData/**/manifest.jsonl
+/Data/NormalizedData/**/normalization-errors.jsonl
+
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
