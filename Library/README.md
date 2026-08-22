@@ -21,7 +21,7 @@ Library/
 
 1. `ManifestLoader` reads the complete `document-manifest.json` into memory and validates schema version 1.1.
 2. `ManifestSearchIndex` builds immutable keyword and metadata indexes once.
-3. Callers use `ManifestSearchQuery` to filter by keywords, language, collection, category, title, version, license, license status, segment range, and pagination.
+3. Callers use `ManifestSearchQuery` to filter by keywords, language, collection, category, title, version, exact license, segment range, and pagination. License-status filtering is intentionally absent because every catalog entry is permissive.
 4. `SefariaDocumentFileLoader` lazily loads only a selected result. `LoadRawFileAsync` uses the entry's `rawFilePath`; `LoadNormalizedMarkdownAsync` uses `filePath`.
 
 `SefariaDocumentFile` preserves the complete original JSON, exposes every top-level metadata property except `text`, retains the nested `text` value as structured JSON, and can enumerate or join its unmodified string leaves in source order.

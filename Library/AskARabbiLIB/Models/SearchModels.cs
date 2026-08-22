@@ -26,8 +26,6 @@ public sealed record ManifestSearchQuery
 
     public IReadOnlyCollection<string> Licenses { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyCollection<string> LicenseStatuses { get; init; } = Array.Empty<string>();
-
     public int? MinimumSegmentCount { get; init; }
 
     public int? MaximumSegmentCount { get; init; }
@@ -51,5 +49,4 @@ public sealed record ManifestFacetSummary(
     IReadOnlyDictionary<string, int> Categories,
     IReadOnlyDictionary<string, int> Titles,
     IReadOnlyDictionary<string, int> VersionTitles,
-    IReadOnlyDictionary<string, int> Licenses,
-    IReadOnlyDictionary<string, int> LicenseStatuses);
+    IReadOnlyDictionary<string, int> Licenses);

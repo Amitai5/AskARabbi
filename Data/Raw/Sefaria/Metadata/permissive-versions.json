@@ -1,7 +1,7 @@
 {
   "allowedLicenseStatus": "permissive",
   "description": "Allowlist of Sefaria export text versions whose version-level license is classified as permissive.",
-  "generatedAtUtc": "2026-08-22T07:54:10Z",
+  "generatedAtUtc": "2026-08-22T21:14:07Z",
   "licenseMetadataSource": "https://www.sefaria.org/api/texts/versions",
   "schemaVersion": "1",
   "sourceIndexSha256": "14ff88ef0727312f28c7e839831d1f595fac2383f1b76b269da2cd978791aa53",

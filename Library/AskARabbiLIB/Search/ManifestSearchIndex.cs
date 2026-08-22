@@ -17,7 +17,6 @@ public sealed class ManifestSearchIndex
     private readonly FrozenDictionary<string, int[]> titlePostings;
     private readonly FrozenDictionary<string, int[]> versionTitlePostings;
     private readonly FrozenDictionary<string, int[]> licensePostings;
-    private readonly FrozenDictionary<string, int[]> licenseStatusPostings;
     private readonly ManifestFacetSummary facets;
 
     private ManifestSearchIndex(DocumentManifest manifest)
@@ -31,7 +30,6 @@ public sealed class ManifestSearchIndex
         titlePostings = BuildPostings(indexedDocuments, value => new[] { value.Document.FileTitle, value.Document.HebrewTitle });
         versionTitlePostings = BuildPostings(indexedDocuments, value => new[] { value.Document.VersionTitle });
         licensePostings = BuildPostings(indexedDocuments, value => new[] { value.Document.License });
-        licenseStatusPostings = BuildPostings(indexedDocuments, value => new[] { value.Document.LicenseStatus });
         facets = CreateFacets(manifest.Documents);
     }
 
@@ -64,7 +62,6 @@ public sealed class ManifestSearchIndex
         ApplyFacetFilter(ref candidates, titlePostings, query.Titles, nameof(query.Titles));
         ApplyFacetFilter(ref candidates, versionTitlePostings, query.VersionTitles, nameof(query.VersionTitles));
         ApplyFacetFilter(ref candidates, licensePostings, query.Licenses, nameof(query.Licenses));
-        ApplyFacetFilter(ref candidates, licenseStatusPostings, query.LicenseStatuses, nameof(query.LicenseStatuses));
 
         var keywordTokens = SearchTextNormalizer.Tokenize(query.Keywords);
         if (!string.IsNullOrWhiteSpace(query.Keywords) && keywordTokens.Length == 0)
@@ -115,7 +112,6 @@ public sealed class ManifestSearchIndex
             CreateField("fileLanguageCode", 40, document.FileLanguageCode),
             CreateField("versionTitle", 40, document.VersionTitle),
             CreateField("license", 40, document.License),
-            CreateField("licenseStatus", 40, document.LicenseStatus),
             CreateField("fileDescription", 20, document.FileDescription),
             CreateField("filePath", 10, document.FilePath),
             CreateField("rawFilePath", 10, document.RawFilePath),
@@ -318,8 +314,7 @@ public sealed class ManifestSearchIndex
             CreateFacet(documents.SelectMany(document => document.Categories.Append(string.Join(" > ", document.Categories)))),
             CreateFacet(documents.Select(document => document.FileTitle)),
             CreateFacet(documents.Select(document => document.VersionTitle)),
-            CreateFacet(documents.Select(document => document.License)),
-            CreateFacet(documents.Select(document => document.LicenseStatus)));
+            CreateFacet(documents.Select(document => document.License)));
     }
 
     private static IReadOnlyDictionary<string, int> CreateFacet(IEnumerable<string?> values)

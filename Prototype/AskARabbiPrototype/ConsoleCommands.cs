@@ -62,7 +62,6 @@ internal sealed class ConsoleCommandParser
         var titles = new List<string>();
         var versionTitles = new List<string>();
         var licenses = new List<string>();
-        var licenseStatuses = new List<string>();
         var matchMode = KeywordMatchMode.All;
         var outputFormat = ConsoleOutputFormat.Table;
         int? minimumSegmentCount = null;
@@ -106,9 +105,6 @@ internal sealed class ConsoleCommandParser
                     break;
                 case "--license":
                     licenses.Add(value);
-                    break;
-                case "--license-status":
-                    licenseStatuses.Add(value);
                     break;
                 case "--match":
                     if (!Enum.TryParse(value, true, out matchMode))
@@ -162,7 +158,6 @@ internal sealed class ConsoleCommandParser
             Titles = titles,
             VersionTitles = versionTitles,
             Licenses = licenses,
-            LicenseStatuses = licenseStatuses,
             MinimumSegmentCount = minimumSegmentCount,
             MaximumSegmentCount = maximumSegmentCount,
             Skip = skip,

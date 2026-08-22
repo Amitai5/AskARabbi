@@ -142,13 +142,11 @@ internal sealed class ConsoleApplication
         string? language = null;
         string? collection = null;
         string? category = null;
-        string? licenseStatus = null;
         if (AnsiConsole.Confirm("Add metadata filters?", false))
         {
             language = PromptFacet("language", facets.Languages);
             collection = PromptFacet("collection", facets.Collections);
             category = PromptFacet("category", facets.Categories);
-            licenseStatus = PromptFacet("license status", facets.LicenseStatuses);
         }
 
         var limit = AnsiConsole.Prompt(
@@ -164,7 +162,6 @@ internal sealed class ConsoleApplication
             Languages = ToFilter(language),
             Collections = ToFilter(collection),
             Categories = ToFilter(category),
-            LicenseStatuses = ToFilter(licenseStatus),
             Limit = limit,
         };
 
@@ -242,7 +239,6 @@ internal sealed class ConsoleApplication
             new FacetGroup("Languages", facets.Languages),
             new FacetGroup("Collections", facets.Collections),
             new FacetGroup("Categories", facets.Categories),
-            new FacetGroup("License statuses", facets.LicenseStatuses),
             new FacetGroup("Licenses", facets.Licenses),
         };
         var selected = AnsiConsole.Prompt(
@@ -305,7 +301,7 @@ internal sealed class ConsoleApplication
             return;
         }
 
-        var table = CreateTable("#", "Score", "Title", "Language", "Collection", "Reference", "License status");
+        var table = CreateTable("#", "Score", "Title", "Language", "Collection", "Reference", "License");
         for (var index = 0; index < result.Hits.Count; index++)
         {
             var hit = result.Hits[index];
@@ -316,7 +312,7 @@ internal sealed class ConsoleApplication
                 Escape(hit.Document.FileLanguage),
                 Escape(hit.Document.Collection),
                 Escape(FormatReferenceRange(hit.Document)),
-                Escape(hit.Document.LicenseStatus));
+                Escape(hit.Document.License));
         }
         AnsiConsole.Write(table);
     }
@@ -334,7 +330,6 @@ internal sealed class ConsoleApplication
         AddFacetRows(table, "Language", facets.Languages);
         AddFacetRows(table, "Collection", facets.Collections);
         AddFacetRows(table, "Category", facets.Categories);
-        AddFacetRows(table, "License status", facets.LicenseStatuses);
         AddFacetRows(table, "License", facets.Licenses);
         AnsiConsole.Write(table);
     }
@@ -494,7 +489,7 @@ internal sealed class ConsoleApplication
         table.AddRow($"[cyan]stats[/] {Escape("[--format table|json]")}", "Show manifest and in-memory index statistics");
         table.AddRow("[cyan]help[/]", "Show this help");
         AnsiConsole.Write(table);
-        AnsiConsole.MarkupLine("[bold]Search options:[/] --language, --collection, --category, --title, --version, --license, --license-status, --match all|any, --min-segments, --max-segments, --skip, --limit 1-200, --format table|json");
+        AnsiConsole.MarkupLine("[bold]Search options:[/] --language, --collection, --category, --title, --version, --license, --match all|any, --min-segments, --max-segments, --skip, --limit 1-200, --format table|json");
         AnsiConsole.MarkupLine("[bold]Global options:[/] --manifest path --repository-root path");
         AnsiConsole.MarkupLine("[grey]Example: dotnet run --project Prototype/AskARabbiPrototype -- search \"Shabbat fire\" --language English --collection Talmud --limit 10[/]");
     }

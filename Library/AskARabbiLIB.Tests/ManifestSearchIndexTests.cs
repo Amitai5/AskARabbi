@@ -27,8 +27,7 @@ public sealed class ManifestSearchIndexTests
             languageCode: "he",
             description: "Genesis in Hebrew.",
             versionTitle: "Hebrew Genesis",
-            license: null,
-            licenseStatus: "review_required",
+            license: "CC-BY-SA",
             segmentCount: 120,
             filePath: "Data/Normalized/Genesis-Hebrew.md",
             rawFilePath: "Data/Raw/Genesis-Hebrew.json");
@@ -53,8 +52,7 @@ public sealed class ManifestSearchIndexTests
             categories: new[] { "Mishnah", "Seder Zeraim" },
             description: "A tractate whose notes mention Shabbat practices.",
             versionTitle: "Hebrew Mishnah",
-            license: "CC-BY-NC",
-            licenseStatus: "noncommercial",
+            license: "CC0",
             segmentCount: 50,
             firstReference: "Mishnah Berakhot 1:1",
             lastReference: "Mishnah Berakhot 9:5",
@@ -144,7 +142,7 @@ public sealed class ManifestSearchIndexTests
             Languages = new[] { "en", "Hebrew" },
             Collections = new[] { "Talmud", "Mishnah" },
             Categories = new[] { "Seder Moed", "Seder Zeraim" },
-            LicenseStatuses = new[] { "permissive", "noncommercial" },
+            Licenses = new[] { "CC-BY", "CC0" },
         };
 
         // Act
@@ -224,7 +222,21 @@ public sealed class ManifestSearchIndexTests
         Assert.AreEqual(2, facets.Languages["English"]);
         Assert.AreEqual(2, facets.Languages["Hebrew"]);
         Assert.AreEqual(2, facets.Collections["Torah"]);
-        Assert.AreEqual(1, facets.LicenseStatuses["noncommercial"]);
+        Assert.AreEqual(1, facets.Licenses["CC0"]);
         Assert.AreEqual(1, facets.Categories["Talmud > Bavli > Seder Moed"]);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void Search_LicenseStatusKeyword_DoesNotMatchDocuments()
+    {
+        // Arrange
+        var query = new ManifestSearchQuery { Keywords = "permissive" };
+
+        // Act
+        var result = index.Search(query);
+
+        // Assert
+        Assert.AreEqual(0, result.TotalMatches);
     }
 }

@@ -26,7 +26,7 @@ dotnet run --project Prototype/AskARabbiPrototype --
 The guided interface can:
 
 - Search by keywords and choose whether all or any terms must match.
-- Filter with searchable language, collection, category, and license-status selectors.
+- Filter with searchable language, collection, and category selectors.
 - Rank and display results in a compact table.
 - Open a result and inspect its manifest metadata, raw text, complete source metadata, original Sefaria JSON, or normalized Markdown.
 - Browse available facets, inspect load/index statistics, and reload the manifest.
@@ -45,7 +45,7 @@ dotnet run --project Prototype/AskARabbiPrototype -- facets --format json
 dotnet run --project Prototype/AskARabbiPrototype -- stats --format json
 ```
 
-Search supports `--language`, `--collection`, `--category`, `--title`, `--version`, `--license`, `--license-status`, `--match all|any`, `--min-segments`, `--max-segments`, `--skip`, `--limit 1-200`, and `--format table|json`.
+Search supports `--language`, `--collection`, `--category`, `--title`, `--version`, `--license`, `--match all|any`, `--min-segments`, `--max-segments`, `--skip`, `--limit 1-200`, and `--format table|json`. The redundant license-status filter is intentionally omitted because the manifest is permissive-only.
 
 ## Build
 

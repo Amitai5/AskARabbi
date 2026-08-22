@@ -25,11 +25,11 @@
   },
   "documentCount": 1244,
   "normalizationErrorCount": 0,
-  "normalizedAtUtc": "2026-08-22T07:54:37Z",
+  "normalizedAtUtc": "2026-08-22T21:14:50Z",
   "normalizerVersion": "1",
-  "prunedDocumentFileCount": 11,
+  "prunedDocumentFileCount": 0,
   "rawManifestPath": "Raw/Sefaria/Metadata/manifest.jsonl",
-  "rawManifestSha256": "b2ece746712d300833367619103c6174396eb28d148f2ca0274bbbcd13ba399a",
+  "rawManifestSha256": "2c3514d173438a3d41c4f199abad22254e1bee1a9c5a74d9e7bf8bbd8972fc42",
   "segmentCount": 416186,
   "sourceProvider": "Sefaria"
 }

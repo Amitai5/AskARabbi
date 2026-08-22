@@ -1,15 +1,15 @@
 {
   "schemaVersion": "1.1",
   "sourceProvider": "Sefaria",
-  "generatedAtUtc": "2026-08-22T07:55:19.538995Z",
+  "generatedAtUtc": "2026-08-22T21:15:33.913910Z",
   "filePathBase": "repository root",
   "description": "AI-facing catalog of permissively licensed normalized Sefaria documents. Select candidate files by collection, title, language, description, and canonical reference range before reading their Markdown content.",
   "documentCount": 1244,
   "sourceManifests": {
     "raw": "Data/Raw/Sefaria/Metadata/manifest.jsonl",
-    "rawSha256": "b2ece746712d300833367619103c6174396eb28d148f2ca0274bbbcd13ba399a",
+    "rawSha256": "2c3514d173438a3d41c4f199abad22254e1bee1a9c5a74d9e7bf8bbd8972fc42",
     "normalized": "Data/NormalizedData/Sefaria/Metadata/manifest.jsonl",
-    "normalizedSha256": "fb5ede01ac30ec96a52f1bee3d145f953a1d3b8317c80f3d5d4eb1414a6d5e2f"
+    "normalizedSha256": "f94b5a092900c9a6bb38728a5ecc8aa66fd3ee25a36b0926ec63d0fee18a7a06"
   },
   "documents": [
     {
