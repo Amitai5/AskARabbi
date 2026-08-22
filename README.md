@@ -147,6 +147,12 @@ The broad delivery path is:
 5. Conduct scholarly review, privacy review, accessibility testing, and adversarial evaluation.
 6. Prepare the initial release for [askrabbi.ai](https://askrabbi.ai).
 
+## Continuous integration
+
+The separate `Verify` workflow runs for pushes to every branch and for every pull request. It restores and builds both .NET solutions, runs the `AskARabbiLIB` MSTest suite with coverage collection, and retains the test results for troubleshooting.
+
+The `Deploy` workflow runs only after `Verify` succeeds for a push to `production`. Until a hosting platform is selected, deployment publishes a versioned `AskARabbiPrototype` artifact with the compact searchable corpus metadata; it does not represent a live deployment of askrabbi.ai. Full source-text browsing still requires the locally generated raw and normalized corpus.
+
 ## Contributing
 
 The contribution workflow will be documented when the first application projects are scaffolded. In the meantime, issues and design discussions are welcome for:

@@ -1,0 +1,67 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - Verify
+    types:
+      - completed
+    branches:
+      - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_NOLOGO: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  deploy:
+    name: Publish production artifact
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    steps:
+      - name: Check out verified commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+          dotnet-quality: ga
+
+      - name: Restore prototype
+        run: dotnet restore Prototype/AskARabbiPrototype/AskARabbiPrototype.csproj
+
+      - name: Publish prototype
+        run: dotnet publish Prototype/AskARabbiPrototype/AskARabbiPrototype.csproj --configuration Release --no-restore --output artifacts/AskARabbiPrototype
+
+      - name: Include searchable corpus metadata
+        shell: bash
+        run: |
+          mkdir -p artifacts/AskARabbiPrototype/Data/NormalizedData/Sefaria/Metadata
+          mkdir -p artifacts/AskARabbiPrototype/Data/Raw/Sefaria/Metadata
+          cp Data/NormalizedData/Sefaria/Metadata/document-manifest.json artifacts/AskARabbiPrototype/Data/NormalizedData/Sefaria/Metadata/
+          cp Data/NormalizedData/Sefaria/Metadata/summary.json artifacts/AskARabbiPrototype/Data/NormalizedData/Sefaria/Metadata/
+          cp Data/Raw/Sefaria/Metadata/permissive-versions.json artifacts/AskARabbiPrototype/Data/Raw/Sefaria/Metadata/
+          cp Data/Raw/Sefaria/Metadata/summary.json artifacts/AskARabbiPrototype/Data/Raw/Sefaria/Metadata/
+
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: AskARabbiPrototype-${{ github.event.workflow_run.head_sha }}
+          path: artifacts/AskARabbiPrototype/**
+          if-no-files-found: error
+          retention-days: 30
