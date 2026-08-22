@@ -12,6 +12,7 @@ import os
 import re
 import tempfile
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,9 +24,19 @@ from typing import Any
 BooksIndexUrl = "https://raw.githubusercontent.com/Sefaria/Sefaria-Export/master/books.json"
 TableOfContentsUrl = "https://storage.googleapis.com/sefaria-export/table_of_contents.json"
 SchemaBaseUrl = "https://storage.googleapis.com/sefaria-export/schemas"
+VersionsApiBaseUrl = "https://www.sefaria.org/api/texts/versions"
 InvalidFileNameCharacters = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 ReservedWindowsNames = {"CON", "PRN", "AUX", "NUL", *(f"COM{number}" for number in range(1, 10)), *(f"LPT{number}" for number in range(1, 10))}
-PermissiveLicensePrefixes = ("public domain", "cc0", "cc-by", "cc by")
+PermissiveLicenseStatus = "permissive"
+PermissiveLicensePatterns = (
+    re.compile(r"public domain"),
+    re.compile(r"pd"),
+    re.compile(r"cc0(?:[ -]\d+(?:\.\d+)*)?"),
+    re.compile(r"cc(?:-| )by(?:[ -]\d+(?:\.\d+)*)?"),
+    re.compile(r"cc(?:-| )by(?:-| )sa(?:[ -]\d+(?:\.\d+)*)?"),
+)
+CoreCollections = ("Torah", "Tanakh", "Mishnah", "Talmud")
+LanguageBucketCodes = {"english": "en", "hebrew": "he"}
 
 
 def parseArguments() -> argparse.Namespace:
@@ -34,7 +45,8 @@ def parseArguments() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=Path("Data"), help="Project data directory (default: Data).")
     parser.add_argument("--workers", type=int, default=8, help="Concurrent downloads (default: 8).")
     parser.add_argument("--refresh-index", action="store_true", help="Replace the local books.json with the latest upstream index.")
-    parser.add_argument("--exclude-merged", action="store_true", help="Exclude merged files, which maximize coverage but omit a top-level license.")
+    parser.add_argument("--refresh-license-metadata", action="store_true", help="Refresh the permissive-version catalog from Sefaria's Versions API before downloading texts.")
+    parser.add_argument("--exclude-merged", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -139,9 +151,184 @@ def licenseStatus(versionTitle: str, licenseName: str | None) -> str:
         return "review_required"
     if "-nc" in normalized or "noncommercial" in normalized or "non-commercial" in normalized:
         return "noncommercial"
-    if normalized == "pd" or normalized.startswith(PermissiveLicensePrefixes):
-        return "permissive"
+    if any(pattern.fullmatch(normalized) for pattern in PermissiveLicensePatterns):
+        return PermissiveLicenseStatus
     return "review_required"
+
+
+def normalizeVersionIdentifier(value: str) -> str:
+    """Normalize a version title for matching API metadata to export filenames."""
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return "".join(character for character in normalized if character.isalnum())
+
+
+def readJsonLines(path: Path) -> list[dict[str, Any]]:
+    """Read and validate one UTF-8 JSON Lines file."""
+    records: list[dict[str, Any]] = []
+    for lineNumber, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        value = json.loads(line)
+        if not isinstance(value, dict):
+            raise ValueError(f"Expected a JSON object in {path} at line {lineNumber}.")
+        records.append(value)
+    return records
+
+
+def createPermissiveCatalogFromRawManifest(manifestPath: Path, candidateBooks: list[dict[str, Any]], sourceIndexSha256: str, generatedAtUtc: str) -> dict[str, Any]:
+    """Bootstrap a permissive source catalog from an already-audited raw manifest."""
+    candidateUrls = {str(book["json_url"]) for book in candidateBooks}
+    versions: list[dict[str, Any]] = []
+    for record in readJsonLines(manifestPath):
+        if record.get("artifactType") != "text" or record.get("licenseStatus") != PermissiveLicenseStatus:
+            continue
+        sourceUrl = str(record.get("sourceUrl") or "")
+        versionTitle = str(record.get("versionTitle") or "")
+        licenseName = str(record.get("license") or "")
+        if sourceUrl not in candidateUrls or licenseStatus(versionTitle, licenseName) != PermissiveLicenseStatus:
+            continue
+        versions.append({
+            "sourceUrl": sourceUrl,
+            "title": record.get("title"),
+            "versionTitle": versionTitle,
+            "languageBucket": record.get("languageBucket"),
+            "actualLanguage": record.get("actualLanguage"),
+            "license": record.get("license"),
+            "licenseStatus": PermissiveLicenseStatus,
+        })
+    return createPermissiveCatalog(versions, sourceIndexSha256, generatedAtUtc, "Raw/Sefaria/Metadata/manifest.jsonl")
+
+
+def fetchPermissiveVersionMetadata(title: str) -> list[dict[str, Any]]:
+    """Fetch only permissively licensed version metadata for one Sefaria index title."""
+    sourceUrl = f"{VersionsApiBaseUrl}/{urllib.parse.quote(title, safe='')}"
+    value = json.loads(downloadBytes(sourceUrl).decode("utf-8"))
+    if not isinstance(value, list):
+        raise ValueError(f"Sefaria Versions API did not return a list for {title!r}.")
+    versions: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        versionTitle = str(item.get("versionTitle") or "")
+        licenseName = str(item.get("license") or "")
+        if licenseStatus(versionTitle, licenseName) == PermissiveLicenseStatus:
+            versions.append(item)
+    return versions
+
+
+def selectPermissiveVersionMetadata(book: dict[str, Any], metadataByTitle: dict[str, list[dict[str, Any]]]) -> dict[str, Any] | None:
+    """Match one export entry to unambiguous permissive metadata, tolerating equivalent punctuation variants."""
+    title = str(book["title"])
+    languageCode = LanguageBucketCodes.get(str(book.get("language") or "").casefold())
+    versionIdentifier = normalizeVersionIdentifier(str(book.get("versionTitle") or ""))
+    matches = [
+        item
+        for item in metadataByTitle.get(title, [])
+        if str(item.get("language") or "").casefold() == languageCode and normalizeVersionIdentifier(str(item.get("versionTitle") or "")) == versionIdentifier
+    ]
+    if not matches:
+        return None
+    identities = {
+        (
+            str(item.get("license") or "").strip().casefold(),
+            str(item.get("language") or "").strip().casefold(),
+            str(item.get("actualLanguage") or "").strip().casefold(),
+            str(item.get("versionSource") or "").strip(),
+        )
+        for item in matches
+    }
+    if len(identities) > 1:
+        raise ValueError(f"Multiple conflicting permissive API versions matched {title!r} / {book.get('versionTitle')!r} / {book.get('language')!r}.")
+    return min(matches, key=lambda item: str(item.get("versionTitle") or ""))
+
+
+def createPermissiveCatalogFromApi(candidateBooks: list[dict[str, Any]], sourceIndexSha256: str, generatedAtUtc: str, workers: int) -> dict[str, Any]:
+    """Build a fail-closed permissive source catalog from Sefaria's Versions API."""
+    titles = sorted({str(book["title"]) for book in candidateBooks})
+    metadataByTitle: dict[str, list[dict[str, Any]]] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, 4)) as executor:
+        futureToTitle = {executor.submit(fetchPermissiveVersionMetadata, title): title for title in titles}
+        for completedCount, future in enumerate(concurrent.futures.as_completed(futureToTitle), start=1):
+            title = futureToTitle[future]
+            metadataByTitle[title] = future.result()
+            if completedCount % 25 == 0 or completedCount == len(titles):
+                print(f"License metadata: {completedCount}/{len(titles)} titles processed.", flush=True)
+
+    versions: list[dict[str, Any]] = []
+    for book in candidateBooks:
+        title = str(book["title"])
+        metadata = selectPermissiveVersionMetadata(book, metadataByTitle)
+        if metadata is None:
+            continue
+        versions.append({
+            "sourceUrl": book["json_url"],
+            "title": title,
+            "versionTitle": metadata.get("versionTitle"),
+            "exportVersionTitle": book.get("versionTitle"),
+            "languageBucket": book.get("language"),
+            "actualLanguage": metadata.get("actualLanguage"),
+            "license": metadata.get("license"),
+            "licenseStatus": PermissiveLicenseStatus,
+        })
+    return createPermissiveCatalog(versions, sourceIndexSha256, generatedAtUtc, VersionsApiBaseUrl)
+
+
+def createPermissiveCatalog(versions: list[dict[str, Any]], sourceIndexSha256: str, generatedAtUtc: str, metadataSource: str) -> dict[str, Any]:
+    """Create a deterministic allowlist containing permissive version metadata only."""
+    orderedVersions = sorted(versions, key=lambda version: str(version.get("sourceUrl") or ""))
+    sourceUrls = [str(version.get("sourceUrl") or "") for version in orderedVersions]
+    if not sourceUrls or any(not sourceUrl for sourceUrl in sourceUrls):
+        raise ValueError("The permissive source catalog must contain at least one valid source URL.")
+    if len(sourceUrls) != len(set(sourceUrls)):
+        raise ValueError("The permissive source catalog contains duplicate source URLs.")
+    return {
+        "schemaVersion": "1",
+        "sourceProvider": "Sefaria",
+        "generatedAtUtc": generatedAtUtc,
+        "sourceIndexSha256": sourceIndexSha256,
+        "licenseMetadataSource": metadataSource,
+        "allowedLicenseStatus": PermissiveLicenseStatus,
+        "description": "Allowlist of Sefaria export text versions whose version-level license is classified as permissive.",
+        "versionCount": len(orderedVersions),
+        "versions": orderedVersions,
+    }
+
+
+def loadPermissiveCatalog(path: Path, expectedSourceIndexSha256: str) -> dict[str, Any]:
+    """Load and validate the permissive source catalog against the active books index."""
+    value = readJson(path)
+    if not isinstance(value, dict) or value.get("schemaVersion") != "1" or value.get("allowedLicenseStatus") != PermissiveLicenseStatus:
+        raise ValueError(f"Invalid permissive source catalog: {path}")
+    if value.get("sourceIndexSha256") != expectedSourceIndexSha256:
+        raise ValueError(f"The permissive source catalog was built for a different books index. Run with --refresh-license-metadata: {path}")
+    versions = value.get("versions")
+    if not isinstance(versions, list) or value.get("versionCount") != len(versions):
+        raise ValueError(f"Invalid version list in permissive source catalog: {path}")
+    for version in versions:
+        if not isinstance(version, dict):
+            raise ValueError(f"Invalid version entry in permissive source catalog: {path}")
+        versionTitle = str(version.get("versionTitle") or "")
+        licenseName = str(version.get("license") or "")
+        if version.get("licenseStatus") != PermissiveLicenseStatus or licenseStatus(versionTitle, licenseName) != PermissiveLicenseStatus or not version.get("sourceUrl"):
+            raise ValueError(f"Non-permissive or incomplete entry in permissive source catalog: {path}")
+    return value
+
+
+def resolvePermissiveCatalog(catalogPath: Path, rawManifestPath: Path, candidateBooks: list[dict[str, Any]], sourceIndexSha256: str, generatedAtUtc: str, refresh: bool, workers: int) -> dict[str, Any]:
+    """Load, bootstrap, or refresh the catalog used to prevent non-permissive text downloads."""
+    if refresh:
+        catalog = createPermissiveCatalogFromApi(candidateBooks, sourceIndexSha256, generatedAtUtc, workers)
+        writeJson(catalogPath, catalog)
+        return catalog
+    if catalogPath.is_file():
+        return loadPermissiveCatalog(catalogPath, sourceIndexSha256)
+    if rawManifestPath.is_file():
+        catalog = createPermissiveCatalogFromRawManifest(rawManifestPath, candidateBooks, sourceIndexSha256, generatedAtUtc)
+        writeJson(catalogPath, catalog)
+        return catalog
+    catalog = createPermissiveCatalogFromApi(candidateBooks, sourceIndexSha256, generatedAtUtc, workers)
+    writeJson(catalogPath, catalog)
+    return catalog
 
 
 def inspectText(path: Path, book: dict[str, Any], dataRoot: Path, downloadedAtUtc: str) -> dict[str, Any]:
@@ -178,7 +365,7 @@ def inspectText(path: Path, book: dict[str, Any], dataRoot: Path, downloadedAtUt
 
 
 def downloadText(dataRoot: Path, book: dict[str, Any], downloadedAtUtc: str) -> dict[str, Any]:
-    """Download or reuse one Sefaria JSON text and return its validated manifest record."""
+    """Download or reuse one allowlisted Sefaria JSON text and reject license drift."""
     classification = classifyBook(book)
     if classification is None:
         raise ValueError(f"Book is outside the core selection: {book.get('title')}")
@@ -188,11 +375,21 @@ def downloadText(dataRoot: Path, book: dict[str, Any], downloadedAtUtc: str) -> 
     path = localTextPath(dataRoot, selectedBook, relativeParts)
     if path.exists():
         try:
-            return inspectText(path, selectedBook, dataRoot, downloadedAtUtc)
+            record = inspectText(path, selectedBook, dataRoot, downloadedAtUtc)
+            if record.get("licenseStatus") != PermissiveLicenseStatus:
+                raise ValueError(f"Text is no longer permissively licensed: {book.get('title')} / {book.get('versionTitle')}")
+            return record
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
             path.unlink(missing_ok=True)
     writeBytesAtomically(path, downloadBytes(str(selectedBook["json_url"])))
-    return inspectText(path, selectedBook, dataRoot, downloadedAtUtc)
+    try:
+        record = inspectText(path, selectedBook, dataRoot, downloadedAtUtc)
+        if record.get("licenseStatus") != PermissiveLicenseStatus:
+            raise ValueError(f"Downloaded text is not permissively licensed: {book.get('title')} / {book.get('versionTitle')}")
+        return record
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
 
 
 def downloadSchema(dataRoot: Path, title: str, downloadedAtUtc: str) -> dict[str, Any]:
@@ -228,7 +425,41 @@ def writeJsonLines(path: Path, values: list[dict[str, Any]]) -> None:
     writeBytesAtomically(path, content)
 
 
-def summarize(records: list[dict[str, Any]], booksIndex: dict[str, Any], indexPath: Path, downloadedAtUtc: str, includeMerged: bool, errors: list[dict[str, Any]]) -> dict[str, Any]:
+def pruneUnlistedFiles(root: Path, expectedPaths: set[Path], pattern: str) -> int:
+    """Delete generated files absent from the new allowlisted manifest and remove empty directories."""
+    if not root.is_dir():
+        return 0
+    resolvedRoot = root.resolve()
+    removedCount = 0
+    for path in root.rglob(pattern):
+        resolvedPath = path.resolve()
+        try:
+            resolvedPath.relative_to(resolvedRoot)
+        except ValueError as exception:
+            raise ValueError(f"Refusing to prune a path outside {resolvedRoot}: {resolvedPath}") from exception
+        if resolvedPath not in expectedPaths:
+            path.unlink()
+            removedCount += 1
+    directories = sorted((path for path in root.rglob("*") if path.is_dir()), key=lambda path: len(path.parts), reverse=True)
+    for directory in directories:
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+    return removedCount
+
+
+def pruneRawCorpus(dataRoot: Path, records: list[dict[str, Any]]) -> tuple[int, int]:
+    """Prune raw text and schema files that are not referenced by the permissive manifest."""
+    providerRoot = dataRoot / "Raw" / "Sefaria"
+    expectedTextPaths = {(dataRoot / str(record["localPath"])).resolve() for record in records if record.get("artifactType") == "text"}
+    expectedSchemaPaths = {(dataRoot / str(record["localPath"])).resolve() for record in records if record.get("artifactType") == "schema"}
+    removedTextCount = sum(pruneUnlistedFiles(providerRoot / collection, expectedTextPaths, "*.json") for collection in CoreCollections)
+    removedSchemaCount = pruneUnlistedFiles(providerRoot / "Metadata" / "Schemas", expectedSchemaPaths, "*.json")
+    return removedTextCount, removedSchemaCount
+
+
+def summarize(records: list[dict[str, Any]], booksIndex: dict[str, Any], indexPath: Path, downloadedAtUtc: str, errors: list[dict[str, Any]], prunedTextFileCount: int, prunedSchemaFileCount: int) -> dict[str, Any]:
     """Build a compact reproducibility and licensing summary for the completed snapshot."""
     textRecords = [record for record in records if record.get("artifactType") == "text"]
     schemaRecords = [record for record in records if record.get("artifactType") == "schema"]
@@ -241,11 +472,14 @@ def summarize(records: list[dict[str, Any]], booksIndex: dict[str, Any], indexPa
         "selection": {
             "collections": ["Torah", "Tanakh (Prophets and Writings)", "Mishnah", "Talmud (Bavli and Yerushalmi)"],
             "formats": ["json"],
-            "includeMerged": includeMerged,
+            "includeMerged": False,
             "commentariesIncluded": False,
+            "licenseStatuses": [PermissiveLicenseStatus],
         },
         "textFileCount": len(textRecords),
         "schemaFileCount": len(schemaRecords),
+        "prunedTextFileCount": prunedTextFileCount,
+        "prunedSchemaFileCount": prunedSchemaFileCount,
         "downloadErrorCount": len(errors),
         "textByteCount": sum(int(record["byteCount"]) for record in textRecords),
         "countsByCollection": dict(sorted(Counter(str(record["collection"]) for record in textRecords).items())),
@@ -263,21 +497,36 @@ def main() -> int:
     dataRoot = arguments.data_root.resolve()
     metadataRoot = dataRoot / "Raw" / "Sefaria" / "Metadata"
     indexPath = metadataRoot / "books.json"
+    rawManifestPath = metadataRoot / "manifest.jsonl"
+    permissiveCatalogPath = metadataRoot / "permissive-versions.json"
     downloadedAtUtc = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     booksIndex = ensureJsonArtifact(indexPath, BooksIndexUrl, arguments.refresh_index)
     if not isinstance(booksIndex, dict) or not isinstance(booksIndex.get("books"), list):
         raise ValueError("The Sefaria books index is not a JSON object with a books array.")
     ensureJsonArtifact(metadataRoot / "table_of_contents.json", TableOfContentsUrl, arguments.refresh_index)
 
-    selectedBooks: list[dict[str, Any]] = []
+    candidateBooks: list[dict[str, Any]] = []
     for book in booksIndex.get("books", []):
         if not isinstance(book, dict) or not book.get("json_url") or classifyBook(book) is None:
             continue
-        if arguments.exclude_merged and str(book.get("versionTitle", "")).casefold() == "merged":
+        if str(book.get("versionTitle", "")).casefold() == "merged":
             continue
-        selectedBooks.append(book)
+        candidateBooks.append(book)
 
-    print(f"Selected {len(selectedBooks)} core text versions from the Sefaria index.", flush=True)
+    sourceIndexSha256 = hashlib.sha256(indexPath.read_bytes()).hexdigest()
+    permissiveCatalog = resolvePermissiveCatalog(
+        permissiveCatalogPath,
+        rawManifestPath,
+        candidateBooks,
+        sourceIndexSha256,
+        downloadedAtUtc,
+        arguments.refresh_license_metadata or arguments.refresh_index,
+        arguments.workers,
+    )
+    allowedSourceUrls = {str(version["sourceUrl"]) for version in permissiveCatalog["versions"]}
+    selectedBooks = [book for book in candidateBooks if str(book["json_url"]) in allowedSourceUrls]
+
+    print(f"Selected {len(selectedBooks)} permissively licensed core text versions from {len(candidateBooks)} non-merged candidates.", flush=True)
     records: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
@@ -305,12 +554,16 @@ def main() -> int:
             if completedCount % 25 == 0 or completedCount == len(titles):
                 print(f"Schemas: {completedCount}/{len(titles)} processed; {len(errors)} total errors.", flush=True)
 
-    writeJsonLines(metadataRoot / "manifest.jsonl", records)
+    writeJsonLines(rawManifestPath, records)
     if errors:
         writeJsonLines(metadataRoot / "download-errors.jsonl", errors)
     else:
         (metadataRoot / "download-errors.jsonl").unlink(missing_ok=True)
-    summary = summarize(records, booksIndex, indexPath, downloadedAtUtc, not arguments.exclude_merged, errors)
+    prunedTextFileCount = 0
+    prunedSchemaFileCount = 0
+    if not errors:
+        prunedTextFileCount, prunedSchemaFileCount = pruneRawCorpus(dataRoot, records)
+    summary = summarize(records, booksIndex, indexPath, downloadedAtUtc, errors, prunedTextFileCount, prunedSchemaFileCount)
     writeJson(metadataRoot / "summary.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
     return 1 if errors else 0

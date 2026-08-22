@@ -384,7 +384,19 @@ The release gate should include review by people with appropriate Jewish textual
 
 ## Suggested repository layout
 
-This is a proposed layout for the scaffolding milestone, not a directory structure that currently exists:
+This remains the proposed production-application layout. The current repository also has two independent proof-of-concept solutions used before the production scaffolding milestone:
+
+```text
+Library/
+├── AskARabbiLIB.slnx
+├── AskARabbiLIB/
+└── AskARabbiLIB.Tests/
+Prototype/
+├── AskARabbiPrototype.slnx
+└── AskARabbiPrototype/
+```
+
+`AskARabbiLIB.slnx` owns the reusable manifest/search library and all of its MSTest coverage. `AskARabbiPrototype.slnx` contains only the Spectre.Console host and references the library project; it has no test project and owns no search algorithms or corpus models.
 
 ```text
 AskARabbi/
@@ -473,4 +485,13 @@ The following choices should be made through small proof-of-concept measurements
 
 ## Local development
 
-There is nothing to build or run yet. Setup commands will be added after the application projects and supported toolchain versions are committed. At that point this section should include exact prerequisites, configuration keys, database setup, migrations, test commands, and one-command local startup without requiring production credentials.
+The production application does not exist yet. The .NET 10 manifest-search prototype can be built and exercised locally without credentials:
+
+```powershell
+dotnet build Library/AskARabbiLIB.slnx -c Release
+dotnet test Library/AskARabbiLIB.slnx -c Release --no-build
+dotnet build Prototype/AskARabbiPrototype.slnx -c Release
+dotnet run --project Prototype/AskARabbiPrototype --
+```
+
+See `Library/README.md` for the reusable API and isolated test solution. See `Prototype/README.md` for guided search, one-shot arguments, source-file inspection, and license caveats. Production setup documentation will still need exact configuration, database, identity, migration, and one-command startup instructions after those projects exist.

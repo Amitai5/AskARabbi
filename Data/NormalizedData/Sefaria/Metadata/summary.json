@@ -1,42 +1,35 @@
 {
-  "byteCount": 458838925,
+  "allowedLicenseStatuses": [
+    "permissive"
+  ],
+  "byteCount": 132731405,
   "countsByActualLanguage": {
-    "ar": 1,
-    "ca": 2,
-    "de": 203,
-    "en": 970,
+    "de": 120,
+    "en": 471,
     "eo": 39,
-    "es": 10,
-    "fa": 14,
-    "fi": 5,
-    "fr": 161,
-    "he": 824,
-    "hu": 1,
-    "it": 8,
-    "itk": 1,
-    "lad": 1,
+    "es": 1,
+    "fr": 78,
+    "he": 458,
+    "it": 4,
     "pl": 34,
-    "pt": 76,
-    "ru": 15,
-    "yi": 40
+    "yi": 39
   },
   "countsByCollection": {
-    "Mishnah": 791,
-    "Talmud": 767,
-    "Tanakh": 663,
-    "Torah": 184
+    "Mishnah": 517,
+    "Talmud": 243,
+    "Tanakh": 402,
+    "Torah": 82
   },
   "countsByLicenseStatus": {
-    "noncommercial": 294,
-    "permissive": 1255,
-    "review_required": 856
+    "permissive": 1244
   },
-  "documentCount": 2405,
+  "documentCount": 1244,
   "normalizationErrorCount": 0,
-  "normalizedAtUtc": "2026-08-20T05:26:43Z",
+  "normalizedAtUtc": "2026-08-22T07:54:37Z",
   "normalizerVersion": "1",
+  "prunedDocumentFileCount": 11,
   "rawManifestPath": "Raw/Sefaria/Metadata/manifest.jsonl",
-  "rawManifestSha256": "32f9a277513c3aae85ec019026be65a8aea5d45f4ff6b4fe119ecd97226118a1",
-  "segmentCount": 1195155,
+  "rawManifestSha256": "b2ece746712d300833367619103c6174396eb28d148f2ca0274bbbcd13ba399a",
+  "segmentCount": 416186,
   "sourceProvider": "Sefaria"
 }

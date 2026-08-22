@@ -134,7 +134,9 @@ For the proposed architecture, privacy contract, API shape, retrieval pipeline, 
 
 ## Project status
 
-AskRabbi is in **early development**. This repository currently contains the product definition and technical direction; the application has not yet been scaffolded, and none of the planned behavior should be treated as a deployed feature.
+AskRabbi is in **early development**. This repository contains the product definition, technical direction, Sefaria data pipeline, and a local .NET manifest-search prototype. The production web application and API have not been scaffolded, and none of the prototype behavior should be treated as a deployed feature.
+
+The reusable `AskARabbiLIB` project and its tests live under `Library`, while the separate `AskARabbiPrototype` solution contains only a thin Spectre.Console host for bilingual metadata searches and checksum-verified source inspection. See the [library guide](Library/README.md) and [prototype guide](Prototype/README.md) for build and usage commands.
 
 The broad delivery path is:
 

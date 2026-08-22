@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AskARabbiLIB/AskARabbiLIB.csproj" />
+  <Project Path="AskARabbiLIB.Tests/AskARabbiLIB.Tests.csproj" />
+</Solution>

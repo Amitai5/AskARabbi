@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize the complete raw Sefaria corpus into provenance-rich Markdown documents."""
+"""Normalize the permissively licensed raw Sefaria corpus into provenance-rich Markdown documents."""
 
 from __future__ import annotations
 
@@ -20,6 +20,15 @@ from typing import Any, Iterable, Iterator
 
 
 NormalizerVersion = "1"
+PermissiveLicenseStatus = "permissive"
+PermissiveLicensePatterns = (
+    re.compile(r"public domain"),
+    re.compile(r"pd"),
+    re.compile(r"cc0(?:[ -]\d+(?:\.\d+)*)?"),
+    re.compile(r"cc(?:-| )by(?:[ -]\d+(?:\.\d+)*)?"),
+    re.compile(r"cc(?:-| )by(?:-| )sa(?:[ -]\d+(?:\.\d+)*)?"),
+)
+CoreCollections = ("Torah", "Tanakh", "Mishnah", "Talmud")
 HtmlTagPattern = re.compile(r"</?[A-Za-z][^>]*>")
 AngleMarkupPattern = re.compile(r"<([^<>\n]+)>")
 HorizontalWhitespacePattern = re.compile(r"[ \t\f\v]+")
@@ -141,6 +150,16 @@ def parseArguments() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=Path("Data"), help="Project data directory (default: Data).")
     parser.add_argument("--workers", type=int, default=4, help="Concurrent normalization workers (default: 4).")
     return parser.parse_args()
+
+
+def isPermissiveRecord(record: dict[str, Any]) -> bool:
+    """Return whether a raw manifest record has an explicitly permissive version license."""
+    if record.get("licenseStatus") != PermissiveLicenseStatus or str(record.get("versionTitle") or "").casefold() == "merged":
+        return False
+    normalizedLicense = str(record.get("license") or "").strip().casefold()
+    if "-nc" in normalizedLicense or "noncommercial" in normalizedLicense or "non-commercial" in normalizedLicense:
+        return False
+    return any(pattern.fullmatch(normalizedLicense) for pattern in PermissiveLicensePatterns)
 
 
 def writeBytesAtomically(path: Path, content: bytes) -> None:
@@ -334,6 +353,8 @@ def renderMarkdown(payload: dict[str, Any], rawRecord: dict[str, Any], schemaDoc
 
 def normalizeDocument(dataRoot: Path, rawProviderRoot: Path, normalizedProviderRoot: Path, rawRecord: dict[str, Any], schemaDocument: dict[str, Any], normalizedAtUtc: str) -> dict[str, Any]:
     """Validate and normalize one raw Sefaria text into Markdown and return its manifest record."""
+    if not isPermissiveRecord(rawRecord):
+        raise ValueError(f"Refusing to normalize a non-permissive text: {rawRecord.get('localPath')}")
     rawPath = dataRoot / str(rawRecord["localPath"])
     relativePath = rawPath.relative_to(rawProviderRoot)
     normalizedPath = (normalizedProviderRoot / relativePath).with_suffix(".md")
@@ -394,7 +415,34 @@ def loadSchemas(dataRoot: Path, records: list[dict[str, Any]]) -> dict[str, dict
     return schemas
 
 
-def summarize(records: list[dict[str, Any]], dataRoot: Path, rawManifestPath: Path, normalizedAtUtc: str, errors: list[dict[str, Any]]) -> dict[str, Any]:
+def pruneUnlistedDocuments(normalizedProviderRoot: Path, records: list[dict[str, Any]], dataRoot: Path) -> int:
+    """Delete normalized Markdown files absent from the permissive manifest and remove empty directories."""
+    expectedPaths = {(dataRoot / str(record["normalizedPath"])).resolve() for record in records}
+    removedCount = 0
+    for collection in CoreCollections:
+        collectionRoot = normalizedProviderRoot / collection
+        if not collectionRoot.is_dir():
+            continue
+        resolvedRoot = collectionRoot.resolve()
+        for path in collectionRoot.rglob("*.md"):
+            resolvedPath = path.resolve()
+            try:
+                resolvedPath.relative_to(resolvedRoot)
+            except ValueError as exception:
+                raise ValueError(f"Refusing to prune a path outside {resolvedRoot}: {resolvedPath}") from exception
+            if resolvedPath not in expectedPaths:
+                path.unlink()
+                removedCount += 1
+        directories = sorted((path for path in collectionRoot.rglob("*") if path.is_dir()), key=lambda path: len(path.parts), reverse=True)
+        for directory in directories:
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+    return removedCount
+
+
+def summarize(records: list[dict[str, Any]], dataRoot: Path, rawManifestPath: Path, normalizedAtUtc: str, errors: list[dict[str, Any]], prunedDocumentFileCount: int) -> dict[str, Any]:
     """Build a compact normalization summary for audit and downstream planning."""
     return {
         "sourceProvider": "Sefaria",
@@ -406,6 +454,8 @@ def summarize(records: list[dict[str, Any]], dataRoot: Path, rawManifestPath: Pa
         "segmentCount": sum(int(record["segmentCount"]) for record in records),
         "byteCount": sum(int(record["byteCount"]) for record in records),
         "normalizationErrorCount": len(errors),
+        "prunedDocumentFileCount": prunedDocumentFileCount,
+        "allowedLicenseStatuses": [PermissiveLicenseStatus],
         "countsByCollection": dict(sorted(Counter(str(record.get("collection")) for record in records).items())),
         "countsByLicenseStatus": dict(sorted(Counter(str(record.get("licenseStatus")) for record in records).items())),
         "countsByActualLanguage": dict(sorted(Counter(str(record.get("actualLanguage") or "unknown") for record in records).items())),
@@ -413,7 +463,7 @@ def summarize(records: list[dict[str, Any]], dataRoot: Path, rawManifestPath: Pa
 
 
 def main() -> int:
-    """Normalize every raw Sefaria text and write normalized manifests and summaries."""
+    """Normalize every permissive raw Sefaria text and write manifests and summaries."""
     arguments = parseArguments()
     if arguments.workers < 1 or arguments.workers > 32:
         raise ValueError("--workers must be between 1 and 32.")
@@ -426,6 +476,9 @@ def main() -> int:
     normalizedAtUtc = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     rawRecords = loadRawManifest(rawManifestPath)
     textRecords = [record for record in rawRecords if record.get("artifactType") == "text"]
+    nonPermissiveRecords = [record for record in textRecords if not isPermissiveRecord(record)]
+    if nonPermissiveRecords:
+        raise ValueError(f"Raw manifest contains {len(nonPermissiveRecords)} non-permissive text records. Run download-sefaria-core.py to rebuild the allowlisted raw corpus first.")
     schemas = loadSchemas(dataRoot, rawRecords)
     missingSchemas = sorted({str(record.get("title")) for record in textRecords if str(record.get("title")) not in schemas})
     if missingSchemas:
@@ -458,7 +511,8 @@ def main() -> int:
         writeJsonLines(normalizedMetadataRoot / "normalization-errors.jsonl", errors)
     else:
         (normalizedMetadataRoot / "normalization-errors.jsonl").unlink(missing_ok=True)
-    summary = summarize(records, dataRoot, rawManifestPath, normalizedAtUtc, errors)
+    prunedDocumentFileCount = pruneUnlistedDocuments(normalizedProviderRoot, records, dataRoot) if not errors else 0
+    summary = summarize(records, dataRoot, rawManifestPath, normalizedAtUtc, errors, prunedDocumentFileCount)
     writeJson(normalizedMetadataRoot / "summary.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
     return 1 if errors else 0
