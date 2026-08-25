@@ -36,6 +36,22 @@ jobs:
           dotnet-version: "10.0.x"
           dotnet-quality: ga
 
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v1
+        with:
+          version: 11.19.0
+          runtime: node@24
+          cache: true
+          cache-dependency-path: Frontend/pnpm-lock.yaml
+          package-json-file: Frontend/package.json
+          install: false
+
+      - name: Install frontend dependencies
+        run: pnpm --dir Frontend install --frozen-lockfile
+
+      - name: Verify frontend
+        run: pnpm --dir Frontend verify
+
       - name: Restore library solution
         run: dotnet restore Library/AskARabbiLIB.slnx
 

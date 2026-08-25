@@ -1,13 +1,13 @@
 # AskRabbi technical design
 
 [![Architecture](https://img.shields.io/badge/architecture-proposed-475569?style=for-the-badge&logo=diagramsdotnet&logoColor=white)](#status-and-scope)
-[![Vite](https://img.shields.io/badge/Vite-planned-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
-[![React](https://img.shields.io/badge/React-planned-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-planned-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-implemented-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
+[![React](https://img.shields.io/badge/React-implemented-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-implemented-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-planned-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet)
 [![Sefaria](https://img.shields.io/badge/texts-Sefaria-7C3AED?style=for-the-badge)](https://developers.sefaria.org/)
 
-This document describes both the implemented local grounding prototype and the proposed production direction for an account-based, source-grounded AI chat application. The prototype is real code; the web application, accounts, durable chats, and production infrastructure remain design targets.
+This document describes the implemented local grounding prototype, the initial production frontend shell, and the proposed production direction for an account-based, source-grounded AI chat application. The web shell is real code; connected accounts, the API, durable chats, and production infrastructure remain design targets.
 
 For the product mission, intended experience, and guiding principles, read the [project README](../README.md). For the step-by-step implemented question, retrieval, grounding, validation, and follow-up path, read the [chat workflow](CHAT_WORKFLOW.md).
 
@@ -35,10 +35,11 @@ For the product mission, intended experience, and guiding principles, read the [
 
 ## Status and scope
 
-The repository now contains a reusable .NET library and a thin console application, but it does not yet contain the production web/API application. The decisions below are divided into two groups:
+The repository now contains a reusable .NET library, a thin console application, and the first production frontend shell. The production API is reserved but has not been scaffolded. The decisions below are divided into two groups:
 
-- **Committed direction:** Vite, React, and TypeScript on the frontend; an ASP.NET Core API; user accounts; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
-- **Open implementation choices:** identity provider, database, vector or hybrid search technology, model provider, hosting platform, background-job system, and deployment topology.
+- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable authentication-client boundary; process-memory demo conversations; and frontend lint, component-test, and build verification.
+- **Committed direction:** An ASP.NET Core API with backend-owned WorkOS AuthKit integration; user-facing Google, email Magic Auth, Apple, and Microsoft methods; user accounts; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
+- **Open implementation choices:** database, vector or hybrid search technology, model provider, hosting platform, background-job system, and deployment topology.
 
 Dependencies and infrastructure should be selected only when an implementation milestone needs them. This keeps the first version small and prevents an early prototype from silently becoming the permanent privacy or security architecture.
 
@@ -380,7 +381,7 @@ Integration tests should use disposable local dependencies or in-memory substitu
 
 ### Frontend tests
 
-Frontend tests should cover:
+The current Vitest and Testing Library suite covers invalid login input, the complete demo Google login/logout flow, disabled profile placeholders, and creation of a local conversation without a backend. Later milestones should add coverage for:
 
 - Mode selection and unmistakable privacy language.
 - Streaming, cancellation, retry, and error states.
@@ -408,7 +409,7 @@ The release gate should include review by people with appropriate Jewish textual
 
 ## Suggested repository layout
 
-This remains the proposed production-application layout. The current repository also has two independent proof-of-concept solutions used before the production scaffolding milestone:
+The repository now has explicit production frontend and backend boundaries alongside the two independent proof-of-concept solutions:
 
 ```text
 Library/
@@ -424,20 +425,13 @@ Prototype/
 
 ```text
 AskARabbi/
-├── src/
-│   ├── AskRabbi.Api/             # ASP.NET Core entry point and HTTP concerns
-│   ├── AskRabbi.Application/     # Use cases, policies, and provider interfaces
-│   ├── AskRabbi.Domain/          # Core models and invariants
-│   ├── AskRabbi.Infrastructure/  # Persistence, retrieval, identity, and AI adapters
-│   └── AskRabbi.Web/             # Vite, React, and TypeScript application
-├── tests/
-│   ├── AskRabbi.Api.Tests/
-│   ├── AskRabbi.Application.Tests/
-│   ├── AskRabbi.Domain.Tests/
-│   └── AskRabbi.Infrastructure.Tests/
+├── Frontend/                     # Implemented Vite, React, TypeScript, and Tailwind shell
+├── Backend/                      # Reserved ASP.NET Core production boundary
+├── Library/                      # Reusable corpus, retrieval, AI, and grounding code
+├── Prototype/                    # Local Spectre.Console search and AI host
+├── Data/                         # Raw and normalized licensed corpus metadata
 ├── docs/
 │   └── TECHNICAL.md
-├── AskRabbi.slnx
 └── README.md
 ```
 
@@ -449,13 +443,13 @@ The number of .NET projects should be revisited during scaffolding. If the first
 
 - Record the behavior contract and non-goals.
 - Evaluate text licenses and required attribution.
-- Select identity, storage, retrieval, model, and hosting providers.
+- Configure WorkOS environments and select storage, retrieval, model, and hosting providers.
 - Define the private-chat threat model and retention contract.
 - Assemble the first expert-reviewed evaluation set.
 
 ### Phase 1: application foundation
 
-- Scaffold the Vite/React frontend and ASP.NET Core API.
+- Extend the implemented Vite/React frontend and scaffold the ASP.NET Core API when the first server contract is approved.
 - Implement authentication, user preferences, and account authorization.
 - Add CI, configuration validation, health checks, and test foundations.
 - Establish content-free observability.
@@ -486,7 +480,7 @@ The number of .NET projects should be revisited during scaffolding. If the first
 
 The following choices should be made through small proof-of-concept measurements and documented before production:
 
-- Managed identity versus application-owned identity data.
+- Server-session persistence, revocation, and retention strategy for the WorkOS-backed login flow.
 - Relational database and migration strategy.
 - Search engine and vector-storage approach.
 - Sefaria live API, periodic export, or hybrid ingestion.
@@ -509,7 +503,18 @@ The following choices should be made through small proof-of-concept measurements
 
 ## Local development
 
-The production application does not exist yet. Source Search and index management need no Azure configuration. AI Chat additionally requires an Azure OpenAI resource endpoint, a deployed model name, and the matching resource API key in the ignored root `appsettings.json` or environment:
+The production frontend shell runs independently and does not require Azure, WorkOS, or a backend:
+
+```powershell
+cd Frontend
+pnpm install
+pnpm dev
+pnpm verify
+```
+
+Node.js 22.12 or newer and pnpm 11 are required. The demo authentication adapter and questions entered into the shell remain in process memory and are cleared by logout or reload. See `Frontend/README.md` for the current behavior and replacement boundary. `Backend/README.md` records the deliberately empty API boundary.
+
+Source Search and index management need no Azure configuration. Prototype AI Chat additionally requires an Azure OpenAI resource endpoint, a deployed model name, and the matching resource API key in the ignored root `appsettings.json` or environment:
 
 ```powershell
 dotnet build Library/AskARabbiLIB.slnx -c Release
@@ -525,4 +530,4 @@ dotnet run --project Prototype/AskARabbiPrototype -- ask "What do the retrieved 
 dotnet run --project Prototype/AskARabbiPrototype --
 ```
 
-The prototype does not initialize Key Vault; the empty example section only documents that decision while the reusable library retains an optional lazy secret-store adapter for future hosts. The root `appsettings.json` is ignored and is not copied into build or publish output. Questions, answers, prompts, and evidence are not logged or persisted by this prototype. See `Library/README.md` for reusable APIs and tests and `Prototype/README.md` for complete commands. Production setup documentation will still need exact identity, secret management, persistence, retention, hybrid retrieval, deployment, and migration instructions after those projects exist.
+The prototype does not initialize Key Vault; the empty example section only documents that decision while the reusable library retains an optional lazy secret-store adapter for future hosts. The root `appsettings.json` is ignored and is not copied into build or publish output. Questions, answers, prompts, and evidence are not logged or persisted by this prototype. See `Library/README.md` for reusable APIs and tests and `Prototype/README.md` for complete commands. Production setup documentation will still need exact identity, secret management, persistence, retention, hybrid retrieval, deployment, and migration instructions after those services exist.
