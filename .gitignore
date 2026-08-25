@@ -386,6 +386,22 @@ MigrationBackup/
 !/Data/NormalizedData/**/README.md
 /Data/NormalizedData/**/manifest.jsonl
 /Data/NormalizedData/**/normalization-errors.jsonl
+/Data/NormalizedData/**/*.sqlite
+/Data/NormalizedData/**/*.sqlite-shm
+/Data/NormalizedData/**/*.sqlite-wal
+/Data/NormalizedData/**/*.sqlite.*.tmp
+
+# Local prototype configuration may contain endpoints or future secrets.
+/appsettings.json
+/appsettings.*.json
+!/appsettings.example.json
+
+# Local user profiles contain personal, religious, and cultural information.
+/Prototype/Profiles/*.json
+!/Prototype/Profiles/profile.example.json
+
+# Local working notes are not part of the project documentation.
+/docs/TemporaryNotes.txt
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd

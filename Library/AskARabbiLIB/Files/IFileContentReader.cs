@@ -9,10 +9,3 @@ public interface IFileContentReader
     /// <returns>The complete file contents.</returns>
     Task<byte[]> ReadAllBytesAsync(string path, CancellationToken cancellationToken);
 }
-
-/// <summary>Reads source documents from the physical filesystem.</summary>
-public sealed class PhysicalFileContentReader : IFileContentReader
-{
-    /// <inheritdoc cref="IFileContentReader.ReadAllBytesAsync"/>
-    public Task<byte[]> ReadAllBytesAsync(string path, CancellationToken cancellationToken) => File.ReadAllBytesAsync(path, cancellationToken);
-}

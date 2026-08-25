@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "statementId": { "type": "string" },
+          "isRelevant": { "type": "boolean" },
+          "isSupported": { "type": "boolean" },
+          "explanation": { "type": "string" }
+        },
+        "required": ["statementId", "isRelevant", "isSupported", "explanation"]
+      }
+    }
+  },
+  "required": ["evaluations"]
+}

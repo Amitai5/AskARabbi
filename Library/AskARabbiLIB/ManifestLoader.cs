@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AskARabbiLIB.Models;
 
 namespace AskARabbiLIB;
@@ -6,13 +7,15 @@ namespace AskARabbiLIB;
 /// <summary>Loads and validates AI-facing Sefaria document manifests.</summary>
 public sealed class ManifestLoader
 {
-    public const string SupportedSchemaVersion = "1.1";
+    /// <summary>Gets the only manifest schema version accepted by this library build.</summary>
+    public const string SupportedSchemaVersion = "1.3";
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNameCaseInsensitive = false,
         ReadCommentHandling = JsonCommentHandling.Disallow,
         AllowTrailingCommas = false,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     };
 
     /// <summary>Loads and validates a manifest from a file.</summary>
@@ -72,6 +75,10 @@ public sealed class ManifestLoader
         {
             throw new InvalidDataException("Manifest field 'generatedAtUtc' is required.");
         }
+        if (manifest.GeneratedAtUtc.Offset != TimeSpan.Zero)
+        {
+            throw new InvalidDataException("Manifest field 'generatedAtUtc' must use UTC (offset +00:00).");
+        }
         if (manifest.DocumentCount < 0)
         {
             throw new InvalidDataException("Manifest field 'documentCount' cannot be negative.");
@@ -90,12 +97,17 @@ public sealed class ManifestLoader
         }
 
         ValidateSourceManifests(manifest.SourceManifests);
+        var documentIds = new HashSet<string>(StringComparer.Ordinal);
         var normalizedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var rawPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < manifest.Documents.Count; index++)
         {
             var document = manifest.Documents[index] ?? throw new InvalidDataException($"Manifest document at index {index} is null.");
             ValidateDocument(document, index);
+            if (!documentIds.Add(document.DocumentId))
+            {
+                throw new InvalidDataException($"Manifest contains duplicate documentId '{document.DocumentId}'.");
+            }
             if (!normalizedPaths.Add(document.FilePath))
             {
                 throw new InvalidDataException($"Manifest contains duplicate filePath '{document.FilePath}'.");
@@ -118,6 +130,7 @@ public sealed class ManifestLoader
     private static void ValidateDocument(ManifestDocument document, int index)
     {
         var prefix = $"documents[{index}]";
+        RequireString(document.DocumentId, $"{prefix}.documentId");
         RequireString(document.FilePath, $"{prefix}.filePath");
         RequireString(document.FileDescription, $"{prefix}.fileDescription");
         RequireString(document.FileLanguage, $"{prefix}.fileLanguage");
@@ -126,14 +139,57 @@ public sealed class ManifestLoader
         RequireString(document.Collection, $"{prefix}.collection");
         RequireString(document.HebrewTitle, $"{prefix}.hebrewTitle");
         RequireString(document.VersionTitle, $"{prefix}.versionTitle");
+        RequireString(document.License, $"{prefix}.license");
         RequireString(document.LicenseStatus, $"{prefix}.licenseStatus");
+        if (!string.Equals(document.LicenseStatus, "permissive", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException($"Manifest field '{prefix}.licenseStatus' must be 'permissive'.");
+        }
         RequireString(document.SourceUrl, $"{prefix}.sourceUrl");
+        RequireString(document.AttributionUrl, $"{prefix}.attributionUrl");
         RequireString(document.RawFilePath, $"{prefix}.rawFilePath");
         RequireSha256(document.RawSha256, $"{prefix}.rawSha256");
         RequireSha256(document.Sha256, $"{prefix}.sha256");
+        var expectedDocumentId = $"sefaria:{document.RawSha256.ToLowerInvariant()}";
+        if (!string.Equals(document.DocumentId, expectedDocumentId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException($"Manifest field '{prefix}.documentId' must equal '{expectedDocumentId}'.");
+        }
+        SourceLicenseCategory expectedCategory;
+        try
+        {
+            expectedCategory = SourceLicensePolicy.Classify(document.License);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException($"Manifest field '{prefix}.license' is unsupported.", exception);
+        }
+        if (document.LicenseCategory != expectedCategory)
+        {
+            throw new InvalidDataException($"Manifest field '{prefix}.licenseCategory' does not match license '{document.License}'.");
+        }
+        if (document.RequiresAttribution != SourceLicensePolicy.RequiresAttribution(expectedCategory))
+        {
+            throw new InvalidDataException($"Manifest field '{prefix}.requiresAttribution' does not match license category '{expectedCategory}'.");
+        }
+        if (document.RequiresShareAlike != SourceLicensePolicy.RequiresShareAlike(expectedCategory))
+        {
+            throw new InvalidDataException($"Manifest field '{prefix}.requiresShareAlike' does not match license category '{expectedCategory}'.");
+        }
+        RequireHttpUrl(document.SourceUrl, $"{prefix}.sourceUrl");
+        RequireHttpUrl(document.AttributionUrl, $"{prefix}.attributionUrl");
         if (document.Categories is null || document.Categories.Count == 0 || document.Categories.Any(string.IsNullOrWhiteSpace))
         {
             throw new InvalidDataException($"Manifest field '{prefix}.categories' must contain nonempty values.");
+        }
+        if ((document.WorkKey is null) != (document.UsageNote is null))
+        {
+            throw new InvalidDataException($"Manifest fields '{prefix}.workKey' and '{prefix}.usageNote' must both be present or both be null.");
+        }
+        if (document.WorkKey is not null)
+        {
+            RequireString(document.WorkKey, $"{prefix}.workKey");
+            RequireString(document.UsageNote, $"{prefix}.usageNote");
         }
         if (document.SegmentCount < 0)
         {
@@ -165,10 +221,17 @@ public sealed class ManifestLoader
 
     private static void RequireSha256(string? value, string fieldName)
     {
-        RequireString(value, fieldName);
-        if (value!.Length != 64 || value.Any(character => !Uri.IsHexDigit(character)))
+        if (string.IsNullOrWhiteSpace(value) || value.Length != 64 || value.Any(character => !Uri.IsHexDigit(character)))
         {
             throw new InvalidDataException($"Manifest field '{fieldName}' must be a 64-character SHA-256 value.");
+        }
+    }
+
+    private static void RequireHttpUrl(string value, string fieldName)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            throw new InvalidDataException($"Manifest field '{fieldName}' must be an absolute HTTP or HTTPS URL.");
         }
     }
 }

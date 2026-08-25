@@ -6,6 +6,7 @@ namespace AskARabbiLIB.Search;
 /// <summary>Provides deterministic, indexed searches over an in-memory document manifest.</summary>
 public sealed class ManifestSearchIndex
 {
+    /// <summary>Gets the largest result page accepted by document search.</summary>
     public const int MaximumResultLimit = 200;
 
     private readonly IndexedDocument[] indexedDocuments;

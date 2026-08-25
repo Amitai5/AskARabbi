@@ -2,53 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace AskARabbiLIB.Models;
 
-/// <summary>Represents the complete AI-facing Sefaria document manifest.</summary>
-public sealed record DocumentManifest
-{
-    [JsonPropertyName("schemaVersion")]
-    public required string SchemaVersion { get; init; }
-
-    [JsonPropertyName("sourceProvider")]
-    public required string SourceProvider { get; init; }
-
-    [JsonPropertyName("generatedAtUtc")]
-    public required DateTimeOffset GeneratedAtUtc { get; init; }
-
-    [JsonPropertyName("filePathBase")]
-    public required string FilePathBase { get; init; }
-
-    [JsonPropertyName("description")]
-    public required string Description { get; init; }
-
-    [JsonPropertyName("documentCount")]
-    public required int DocumentCount { get; init; }
-
-    [JsonPropertyName("sourceManifests")]
-    public required SourceManifestReferences SourceManifests { get; init; }
-
-    [JsonPropertyName("documents")]
-    public required IReadOnlyList<ManifestDocument> Documents { get; init; }
-}
-
-/// <summary>Identifies the raw and normalized manifests used to build the document catalog.</summary>
-public sealed record SourceManifestReferences
-{
-    [JsonPropertyName("raw")]
-    public required string Raw { get; init; }
-
-    [JsonPropertyName("rawSha256")]
-    public required string RawSha256 { get; init; }
-
-    [JsonPropertyName("normalized")]
-    public required string Normalized { get; init; }
-
-    [JsonPropertyName("normalizedSha256")]
-    public required string NormalizedSha256 { get; init; }
-}
-
 /// <summary>Describes one normalized document and its original Sefaria JSON source.</summary>
 public sealed record ManifestDocument
 {
+    [JsonPropertyName("documentId")]
+    public required string DocumentId { get; init; }
+
     [JsonPropertyName("filePath")]
     public required string FilePath { get; init; }
 
@@ -70,6 +29,12 @@ public sealed record ManifestDocument
     [JsonPropertyName("categories")]
     public required IReadOnlyList<string> Categories { get; init; }
 
+    [JsonPropertyName("workKey")]
+    public string? WorkKey { get; init; }
+
+    [JsonPropertyName("usageNote")]
+    public string? UsageNote { get; init; }
+
     [JsonPropertyName("hebrewTitle")]
     public required string HebrewTitle { get; init; }
 
@@ -89,13 +54,25 @@ public sealed record ManifestDocument
     public required int SegmentCount { get; init; }
 
     [JsonPropertyName("license")]
-    public string? License { get; init; }
+    public required string License { get; init; }
+
+    [JsonPropertyName("licenseCategory")]
+    public required SourceLicenseCategory LicenseCategory { get; init; }
+
+    [JsonPropertyName("requiresAttribution")]
+    public required bool RequiresAttribution { get; init; }
+
+    [JsonPropertyName("requiresShareAlike")]
+    public required bool RequiresShareAlike { get; init; }
 
     [JsonPropertyName("licenseStatus")]
     public required string LicenseStatus { get; init; }
 
     [JsonPropertyName("sourceUrl")]
     public required string SourceUrl { get; init; }
+
+    [JsonPropertyName("attributionUrl")]
+    public required string AttributionUrl { get; init; }
 
     [JsonPropertyName("rawFilePath")]
     public required string RawFilePath { get; init; }

@@ -51,6 +51,9 @@ jobs:
       - name: Run library tests
         run: dotnet test Library/AskARabbiLIB.slnx --configuration Release --no-build --no-restore --collect:"XPlat Code Coverage" --logger "trx;LogFileName=verification.trx" --results-directory Library/TestResults/Verification
 
+      - name: Enforce library branch coverage
+        run: python3 scripts/check-cobertura-coverage.py Library/TestResults/Verification --minimum-branch-rate 80
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7

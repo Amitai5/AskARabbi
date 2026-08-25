@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 
-NormalizerVersion = "1"
+NormalizerVersion = "2"
 PermissiveLicenseStatus = "permissive"
 PermissiveLicensePatterns = (
     re.compile(r"public domain"),
@@ -28,22 +28,28 @@ PermissiveLicensePatterns = (
     re.compile(r"cc(?:-| )by(?:[ -]\d+(?:\.\d+)*)?"),
     re.compile(r"cc(?:-| )by(?:-| )sa(?:[ -]\d+(?:\.\d+)*)?"),
 )
-CoreCollections = ("Torah", "Tanakh", "Mishnah", "Talmud")
+DeniedVersionTitles = frozenset({
+    "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
+})
+DeniedVersionTitleKeys = frozenset(title.casefold() for title in DeniedVersionTitles)
+CorpusCollections = ("Torah", "Tanakh", "Mishnah", "Talmud", "Halakhah", "Kabbalah", "Musar")
 HtmlTagPattern = re.compile(r"</?[A-Za-z][^>]*>")
 AngleMarkupPattern = re.compile(r"<([^<>\n]+)>")
 HorizontalWhitespacePattern = re.compile(r"[ \t\f\v]+")
 SpaceAroundNewlinePattern = re.compile(r" *\n *")
 ExcessBlankLinesPattern = re.compile(r"\n{3,}")
+ExcessEmphasisMarkerPattern = re.compile(r"\*{4,}")
 
 
 class MarkdownTextParser(HTMLParser):
     """Convert the small semantic subset of HTML used by Sefaria into Markdown text."""
 
-    def __init__(self) -> None:
+    def __init__(self, smallTextLabel: str | None = None) -> None:
         super().__init__(convert_charrefs=True)
         self.Parts: list[str] = []
         self.EndMarkers: dict[str, list[str]] = {}
         self.SuppressedTags: list[str] = []
+        self.SmallTextLabel = smallTextLabel
 
     def handle_starttag(self, tag: str, attributes: list[tuple[str, str | None]]) -> None:
         """Translate one HTML start tag into a Markdown marker or structural break."""
@@ -69,7 +75,9 @@ class MarkdownTextParser(HTMLParser):
 
         startMarker = ""
         endMarker = ""
-        if normalizedTag in {"b", "strong"}:
+        if normalizedTag in {"i", "em"} and "data-commentator" in attributeMap:
+            pass
+        elif normalizedTag in {"b", "strong"}:
             startMarker = "**"
             endMarker = "**"
         elif normalizedTag in {"i", "em"} and "footnote" in classes:
@@ -104,6 +112,9 @@ class MarkdownTextParser(HTMLParser):
             endMarker = "]"
         elif normalizedTag.startswith("figure_"):
             startMarker = f"[Figure: {normalizedTag}]"
+        elif normalizedTag == "small" and self.SmallTextLabel:
+            startMarker = f"\n\n**{self.SmallTextLabel}:** "
+            endMarker = "\n\n"
         elif normalizedTag not in {"a", "big", "center", "code", "del", "font", "folio", "ftnote", "mark", "pre", "rp", "rt", "ruby", "s", "small", "span", "strike", "sub", "sup", "u"}:
             editorialParts = [normalizedTag, *(name for name, _ in attributes)]
             editorialText = " ".join(part for part in editorialParts if part).replace('=""', "").strip()
@@ -154,7 +165,8 @@ def parseArguments() -> argparse.Namespace:
 
 def isPermissiveRecord(record: dict[str, Any]) -> bool:
     """Return whether a raw manifest record has an explicitly permissive version license."""
-    if record.get("licenseStatus") != PermissiveLicenseStatus or str(record.get("versionTitle") or "").casefold() == "merged":
+    versionTitle = str(record.get("versionTitle") or "")
+    if record.get("licenseStatus") != PermissiveLicenseStatus or versionTitle.casefold() == "merged" or versionTitle.casefold() in DeniedVersionTitleKeys:
         return False
     normalizedLicense = str(record.get("license") or "").strip().casefold()
     if "-nc" in normalizedLicense or "noncommercial" in normalizedLicense or "non-commercial" in normalizedLicense:
@@ -191,14 +203,14 @@ def writeJsonLines(path: Path, values: Iterable[dict[str, Any]]) -> None:
     writeBytesAtomically(path, content)
 
 
-def normalizeText(value: str) -> str:
+def normalizeText(value: str, smallTextLabel: str | None = None) -> str:
     """Normalize Unicode, embedded Sefaria HTML, and whitespace into readable Markdown."""
     normalized = value
     for _ in range(3):
         if not HtmlTagPattern.search(normalized):
             normalized = html.unescape(normalized)
             break
-        parser = MarkdownTextParser()
+        parser = MarkdownTextParser(smallTextLabel)
         parser.feed(normalized)
         parser.close()
         parsed = parser.markdown()
@@ -222,6 +234,7 @@ def normalizeText(value: str) -> str:
     normalized = HorizontalWhitespacePattern.sub(" ", normalized)
     normalized = SpaceAroundNewlinePattern.sub("\n", normalized)
     normalized = ExcessBlankLinesPattern.sub("\n\n", normalized)
+    normalized = ExcessEmphasisMarkerPattern.sub("", normalized)
     return normalized.strip()
 
 
@@ -258,6 +271,14 @@ def iterateLeafSegments(value: Any, indices: tuple[int, ...] = ()) -> Iterator[t
     raise ValueError(f"Unexpected {type(value).__name__} inside a Sefaria jagged array.")
 
 
+def findChildSchemaNode(parentNode: dict[str, Any], nodeKey: str) -> dict[str, Any]:
+    """Resolve one named direct child beneath a complex Sefaria schema node."""
+    for node in parentNode.get("nodes") or []:
+        if nodeKey in {str(node.get("key") or ""), str(node.get("title") or "")}:
+            return node
+    raise ValueError(f"Unable to resolve child schema node {nodeKey!r} beneath {parentNode.get('title')!r}.")
+
+
 def formatAddress(index: int, addressType: str) -> str:
     """Format a zero-based jagged-array index using Sefaria's address type."""
     if addressType == "Talmud":
@@ -273,7 +294,23 @@ def canonicalReference(baseTitle: str, indices: tuple[int, ...], addressTypes: l
     return f"{baseTitle} {':'.join(addresses)}"
 
 
-def iterateDocumentSegments(payload: dict[str, Any], schemaDocument: dict[str, Any]) -> Iterator[tuple[str, str]]:
+def iterateSchemaNodeSegments(baseTitle: str, nodeText: Any, schemaNode: dict[str, Any], smallTextLabel: str | None) -> Iterator[tuple[str, str]]:
+    """Yield normalized segments from either a jagged-array node or a nested complex schema node."""
+    if isinstance(nodeText, dict):
+        for childKey, childText in nodeText.items():
+            childNode = findChildSchemaNode(schemaNode, str(childKey))
+            childTitle = str(childNode.get("title") or childKey).strip()
+            childBaseTitle = baseTitle if not childTitle else f"{baseTitle}, {childTitle}"
+            yield from iterateSchemaNodeSegments(childBaseTitle, childText, childNode, smallTextLabel)
+        return
+    addressTypes = [str(value) for value in schemaNode.get("addressTypes") or []]
+    for indices, segment in iterateLeafSegments(nodeText):
+        normalized = normalizeText(segment, smallTextLabel)
+        if normalized:
+            yield canonicalReference(baseTitle, indices, addressTypes), normalized
+
+
+def iterateDocumentSegments(payload: dict[str, Any], schemaDocument: dict[str, Any], smallTextLabel: str | None = None) -> Iterator[tuple[str, str]]:
     """Yield canonical references and normalized text from simple or complex Sefaria documents."""
     title = str(payload.get("title") or "Untitled")
     text = payload.get("text")
@@ -282,19 +319,11 @@ def iterateDocumentSegments(payload: dict[str, Any], schemaDocument: dict[str, A
             node = findSchemaNode(schemaDocument, str(nodeKey))
             nodeTitle = str(node.get("title") or nodeKey).strip()
             baseTitle = title if not nodeTitle else f"{title}, {nodeTitle}"
-            addressTypes = [str(value) for value in node.get("addressTypes") or []]
-            for indices, segment in iterateLeafSegments(nodeText):
-                normalized = normalizeText(segment)
-                if normalized:
-                    yield canonicalReference(baseTitle, indices, addressTypes), normalized
+            yield from iterateSchemaNodeSegments(baseTitle, nodeText, node, smallTextLabel)
         return
     if isinstance(text, list):
         node = findSchemaNode(schemaDocument, None)
-        addressTypes = [str(value) for value in node.get("addressTypes") or []]
-        for indices, segment in iterateLeafSegments(text):
-            normalized = normalizeText(segment)
-            if normalized:
-                yield canonicalReference(title, indices, addressTypes), normalized
+        yield from iterateSchemaNodeSegments(title, text, node, smallTextLabel)
         return
     raise ValueError(f"Unexpected top-level text type {type(text).__name__} for {title}.")
 
@@ -321,7 +350,8 @@ def renderFrontMatter(metadata: dict[str, Any]) -> str:
 
 def renderMarkdown(payload: dict[str, Any], rawRecord: dict[str, Any], schemaDocument: dict[str, Any]) -> tuple[str, int, str | None, str | None]:
     """Render one Sefaria version as a provenance-rich Markdown document."""
-    segments = list(iterateDocumentSegments(payload, schemaDocument))
+    smallTextLabel = "Rema" if rawRecord.get("workKey") == "shulchan_arukh_with_rema" else None
+    segments = list(iterateDocumentSegments(payload, schemaDocument, smallTextLabel))
     title = str(payload.get("title") or rawRecord.get("title") or "Untitled")
     metadata = {
         "document_id": f"sefaria:{rawRecord['sha256']}",
@@ -342,6 +372,10 @@ def renderMarkdown(payload: dict[str, Any], rawRecord: dict[str, Any], schemaDoc
         "normalizer_version": NormalizerVersion,
         "segment_count": len(segments),
     }
+    if rawRecord.get("workKey"):
+        metadata["work_key"] = rawRecord.get("workKey")
+    if rawRecord.get("usageNote"):
+        metadata["usage_note"] = rawRecord.get("usageNote")
     parts = [renderFrontMatter(metadata), "", f"# {title}", ""]
     for reference, text in segments:
         parts.extend((f"## {reference}", "", text, ""))
@@ -368,7 +402,7 @@ def normalizeDocument(dataRoot: Path, rawProviderRoot: Path, normalizedProviderR
     markdown, segmentCount, firstReference, lastReference = renderMarkdown(payload, rawRecord, schemaDocument)
     normalizedContent = markdown.encode("utf-8")
     writeBytesAtomically(normalizedPath, normalizedContent)
-    return {
+    record = {
         "artifactType": "normalized_text",
         "sourceProvider": "Sefaria",
         "collection": rawRecord.get("collection"),
@@ -388,6 +422,11 @@ def normalizeDocument(dataRoot: Path, rawProviderRoot: Path, normalizedProviderR
         "normalizerVersion": NormalizerVersion,
         "normalizedAtUtc": normalizedAtUtc,
     }
+    if rawRecord.get("workKey"):
+        record["workKey"] = rawRecord.get("workKey")
+    if rawRecord.get("usageNote"):
+        record["usageNote"] = rawRecord.get("usageNote")
+    return record
 
 
 def loadRawManifest(path: Path) -> list[dict[str, Any]]:
@@ -419,7 +458,7 @@ def pruneUnlistedDocuments(normalizedProviderRoot: Path, records: list[dict[str,
     """Delete normalized Markdown files absent from the permissive manifest and remove empty directories."""
     expectedPaths = {(dataRoot / str(record["normalizedPath"])).resolve() for record in records}
     removedCount = 0
-    for collection in CoreCollections:
+    for collection in CorpusCollections:
         collectionRoot = normalizedProviderRoot / collection
         if not collectionRoot.is_dir():
             continue
@@ -459,6 +498,8 @@ def summarize(records: list[dict[str, Any]], dataRoot: Path, rawManifestPath: Pa
         "countsByCollection": dict(sorted(Counter(str(record.get("collection")) for record in records).items())),
         "countsByLicenseStatus": dict(sorted(Counter(str(record.get("licenseStatus")) for record in records).items())),
         "countsByActualLanguage": dict(sorted(Counter(str(record.get("actualLanguage") or "unknown") for record in records).items())),
+        "countsByWorkKey": dict(sorted(Counter(str(record["workKey"]) for record in records if record.get("workKey")).items())),
+        "countsByWorkKeyAndActualLanguage": dict(sorted(Counter(f"{record['workKey']}:{record.get('actualLanguage') or 'unknown'}" for record in records if record.get("workKey")).items())),
     }
 
 

@@ -4,7 +4,7 @@
 [![Website](https://img.shields.io/badge/askrabbi.ai-planned-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://askrabbi.ai)
 [![React](https://img.shields.io/badge/React-planned-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-planned-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![.NET](https://img.shields.io/badge/.NET-planned-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-prototype-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 
 > Source-grounded Jewish learning, with context and citations—not judgment.
 
@@ -101,16 +101,18 @@ AskRabbi is an independent project and is not currently affiliated with or endor
 2. **Search the enabled collections** in the user's source settings.
 3. **Retrieve the strongest passages** in their original language and available translations.
 4. **Map the discussion** across primary text, commentary, later rulings, customs, and modern applications.
-5. **Write a neutral explanation** that distinguishes consensus, disagreement, and uncertainty.
-6. **Validate every citation** against the retrieved text before showing the answer.
-7. **Leave the decision with the user** and suggest an appropriate human conversation when personal guidance is needed.
+5. **Lead with the bottom line** in one or two direct sentences, then give a concise explanation that distinguishes material consensus, disagreement, and uncertainty.
+6. **Quote every source in context** and, when describing an interpretive chain, show both the later view and the earlier passage it relies on.
+7. **Validate every citation and quotation** against the retrieved text, then independently audit whether each claim actually follows from the passages it cites.
+8. **Repair once or fail visibly** using the same evidence packet; never fall back to unsupported model knowledge.
+9. **Leave the decision with the user** and end with a visible reminder that the explanation is one interpretation, not infallible truth or binding *psak*.
 
 ## Product commitments
 
 AskRabbi is being built around the following commitments:
 
 - **Sources before certainty.** A limited, well-supported answer is better than a confident invention.
-- **Explanation before conclusion.** Users should be able to follow the reasoning.
+- **Bottom line, then reasoning.** Answer the question directly, then show enough evidence for users to follow and challenge the reasoning.
 - **Context before quotation.** A passage should not be detached from its genre, period, or interpretive history.
 - **Pluralism without false equivalence.** Meaningful disagreements should be represented accurately, including their relative scope and authority.
 - **Autonomy without indifference.** The system can explain consequences and traditions clearly while leaving religious choices to the user.
@@ -123,20 +125,21 @@ AskRabbi is being built around the following commitments:
 | --- | --- | --- |
 | Web application | React, TypeScript, and Vite | Accounts, chat, source viewer, settings, and usage experience |
 | Application API | ASP.NET Core and C# | Users, conversations, authorization, quotas, and orchestration |
-| Retrieval layer | To be selected | Bilingual search, source ranking, and citation evidence |
+| Prototype retrieval | SQLite FTS5 through `AskARabbiLIB` | Exact references, tiered full-concept/pair/fallback BM25 search, deterministic vocabulary expansion, Unicode normalization, provenance filters, and bounded evidence |
+| Production retrieval | Azure AI Search planned | BM25/vector hybrid search and reciprocal-rank fusion behind the same retriever contract |
 | Persistence | To be selected | Accounts, saved chats, preferences, usage, and source metadata |
-| AI provider | To be selected | Generates explanations from an approved source packet |
+| Prototype AI provider | Azure OpenAI Responses API through `IAIEngine` | API-key-authenticated strict structured output from an approved source packet; the library remains Entra-capable |
 | Text provider | Sefaria initially | Jewish texts, translations, relationships, and canonical references |
 
 The design intentionally leaves the database, identity provider, vector search engine, hosting platform, and model provider open until their privacy, licensing, quality, and operational tradeoffs have been evaluated.
 
-For the proposed architecture, privacy contract, API shape, retrieval pipeline, data model, testing strategy, and phased delivery plan, read the [technical design](docs/TECHNICAL.md).
+For the implemented question-to-answer path, read the [chat workflow](docs/CHAT_WORKFLOW.md). For the proposed architecture, privacy contract, API shape, retrieval pipeline, data model, testing strategy, and phased delivery plan, read the [technical design](docs/TECHNICAL.md).
 
 ## Project status
 
-AskRabbi is in **early development**. This repository contains the product definition, technical direction, Sefaria data pipeline, and a local .NET manifest-search prototype. The production web application and API have not been scaffolded, and none of the prototype behavior should be treated as a deployed feature.
+AskRabbi is in **early development**. This repository contains the product definition, technical direction, permissive-only Sefaria data pipeline, and a local .NET search-and-grounding prototype. The production web application and API have not been scaffolded, and none of the prototype behavior should be treated as a deployed feature.
 
-The reusable `AskARabbiLIB` project and its tests live under `Library`, while the separate `AskARabbiPrototype` solution contains only a thin Spectre.Console host for bilingual metadata searches and checksum-verified source inspection. See the [library guide](Library/README.md) and [prototype guide](Prototype/README.md) for build and usage commands.
+The reusable `AskARabbiLIB` project and its tests live under `Library`, while the separate `AskARabbiPrototype` solution is a thin Spectre.Console host. AI Chat is the default experience: it is continuous, profile-aware, locally retrieved, and fail-closed behind exact citation/quotation checks plus an independent claim-support audit. Source Search remains a separate local tool for manifest search and source inspection. Interactive chat accepts strict local JSON profiles or process-only custom context; exact dates of birth remain local and only calculated age reaches the model. All model-facing instructions and response schemas are reviewable under [`Prototype/Prompts`](Prototype/Prompts). The local segment index is reproducible and untracked; AI configuration is unnecessary unless AI Chat or the one-shot `ask` command is used. See the [library guide](Library/README.md), [prototype guide](Prototype/README.md), [profile guide](Prototype/Profiles/README.md), [chat workflow](docs/CHAT_WORKFLOW.md), and [technical design](docs/TECHNICAL.md).
 
 The broad delivery path is:
 
@@ -149,7 +152,7 @@ The broad delivery path is:
 
 ## Continuous integration
 
-The separate `Verify` workflow runs for pushes to every branch and for every pull request. It restores and builds both .NET solutions, runs the `AskARabbiLIB` MSTest suite with coverage collection, and retains the test results for troubleshooting.
+The separate `Verify` workflow runs for pushes to every branch and for every pull request. It restores and builds both .NET solutions, runs the `AskARabbiLIB` MSTest suite, enforces at least 80% library branch coverage from the Cobertura report, and retains the test results for troubleshooting.
 
 The `Deploy` workflow runs only after `Verify` succeeds for a push to `production`. Until a hosting platform is selected, deployment publishes a versioned `AskARabbiPrototype` artifact with the compact searchable corpus metadata; it does not represent a live deployment of askrabbi.ai. Full source-text browsing still requires the locally generated raw and normalized corpus.
 

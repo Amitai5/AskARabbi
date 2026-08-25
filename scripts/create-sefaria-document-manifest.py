@@ -10,11 +10,12 @@ import json
 import os
 import re
 import tempfile
+import urllib.parse
 from pathlib import Path
 from typing import Any, Iterable
 
 
-SchemaVersion = "1.1"
+SchemaVersion = "1.3"
 PermissiveLicenseStatus = "permissive"
 PermissiveLicensePatterns = (
     re.compile(r"public domain"),
@@ -23,6 +24,10 @@ PermissiveLicensePatterns = (
     re.compile(r"cc(?:-| )by(?:[ -]\d+(?:\.\d+)*)?"),
     re.compile(r"cc(?:-| )by(?:-| )sa(?:[ -]\d+(?:\.\d+)*)?"),
 )
+DeniedVersionTitles = frozenset({
+    "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
+})
+DeniedVersionTitleKeys = frozenset(title.casefold() for title in DeniedVersionTitles)
 LanguageNames = {
     "ar": "Arabic",
     "ca": "Catalan",
@@ -48,6 +53,9 @@ CollectionOrder = {
     "Tanakh": 1,
     "Mishnah": 2,
     "Talmud": 3,
+    "Halakhah": 4,
+    "Kabbalah": 5,
+    "Musar": 6,
 }
 
 
@@ -126,12 +134,34 @@ def optionalString(record: dict[str, Any], fieldName: str) -> str | None:
 
 def isPermissiveLicense(versionTitle: str, licenseName: str | None) -> bool:
     """Return whether a version has an explicitly permissive license."""
-    if versionTitle.casefold() == "merged":
+    if versionTitle.casefold() == "merged" or versionTitle.casefold() in DeniedVersionTitleKeys:
         return False
     normalizedLicense = (licenseName or "").strip().casefold()
     if "-nc" in normalizedLicense or "noncommercial" in normalizedLicense or "non-commercial" in normalizedLicense:
         return False
     return any(pattern.fullmatch(normalizedLicense) for pattern in PermissiveLicensePatterns)
+
+
+def licenseCategory(licenseName: str) -> str:
+    """Map an exact permissive license label to the manifest's stable license enum value."""
+    normalizedLicense = licenseName.strip().casefold()
+    if re.fullmatch(r"(?:public domain|pd)", normalizedLicense):
+        return "publicDomain"
+    if re.fullmatch(r"cc0(?:[ -]\d+(?:\.\d+)*)?", normalizedLicense):
+        return "cc0"
+    if re.fullmatch(r"cc(?:-| )by(?:-| )sa(?:[ -]\d+(?:\.\d+)*)?", normalizedLicense):
+        return "ccBySa"
+    if re.fullmatch(r"cc(?:-| )by(?:[ -]\d+(?:\.\d+)*)?", normalizedLicense):
+        return "ccBy"
+    raise ValueError(f"Unsupported permissive license label: {licenseName!r}")
+
+
+def isAbsoluteHttpUrl(value: str | None) -> bool:
+    """Return whether a value is an absolute HTTP or HTTPS URL."""
+    if not value:
+        return False
+    parsed = urllib.parse.urlparse(value)
+    return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
 
 
 def repositoryRelativePath(path: Path, repositoryRoot: Path) -> str:
@@ -229,6 +259,9 @@ def validateJoinedMetadata(normalizedRecord: dict[str, Any], rawRecord: dict[str
     rawManifestChecksum = requireString(rawRecord, "sha256", "raw manifest")
     if normalizedRawChecksum != rawManifestChecksum:
         raise ValueError(f"Raw checksum disagrees between normalized and raw metadata for {rawRelativePath}.")
+    for fieldName in ("workKey", "usageNote"):
+        if normalizedRecord.get(fieldName) != rawRecord.get(fieldName):
+            raise ValueError(f"Field '{fieldName}' disagrees between normalized and raw metadata for {rawRelativePath}.")
 
 
 def createDocumentEntry(normalizedRecord: dict[str, Any], rawRecord: dict[str, Any], dataRoot: Path, repositoryRoot: Path) -> dict[str, Any]:
@@ -261,9 +294,17 @@ def createDocumentEntry(normalizedRecord: dict[str, Any], rawRecord: dict[str, A
     if not isinstance(segmentCount, int) or segmentCount < 0:
         raise ValueError(f"Normalized record for {normalizedRelativePath} has an invalid segmentCount.")
 
-    return {
+    rawChecksum = requireString(normalizedRecord, "rawSha256", "normalized manifest").lower()
+    licenseName = requireString(normalizedRecord, "license", "normalized manifest")
+    category = licenseCategory(licenseName)
+    sourceUrl = requireString(rawRecord, "sourceUrl", "raw manifest")
+    versionSource = optionalString(rawRecord, "versionSource")
+    attributionUrl = versionSource if isAbsoluteHttpUrl(versionSource) else sourceUrl
+    usageNote = optionalString(rawRecord, "usageNote")
+    entry = {
+        "documentId": f"sefaria:{rawChecksum}",
         "filePath": repositoryRelativePath(normalizedPath, repositoryRoot),
-        "fileDescription": createDescription(title, collection, categories, languageName, firstReference, lastReference),
+        "fileDescription": " ".join(part for part in (createDescription(title, collection, categories, languageName, firstReference, lastReference), usageNote) if part),
         "fileLanguage": languageName,
         "fileTitle": title,
         "fileLanguageCode": languageCode,
@@ -271,18 +312,28 @@ def createDocumentEntry(normalizedRecord: dict[str, Any], rawRecord: dict[str, A
         "categories": categories,
         "hebrewTitle": optionalString(rawRecord, "heTitle"),
         "versionTitle": optionalString(normalizedRecord, "versionTitle"),
-        "versionSource": optionalString(rawRecord, "versionSource"),
+        "versionSource": versionSource,
         "firstReference": firstReference,
         "lastReference": lastReference,
         "segmentCount": segmentCount,
-        "license": optionalString(normalizedRecord, "license"),
+        "license": licenseName,
+        "licenseCategory": category,
+        "requiresAttribution": category in {"ccBy", "ccBySa"},
+        "requiresShareAlike": category == "ccBySa",
         "licenseStatus": PermissiveLicenseStatus,
-        "sourceUrl": optionalString(rawRecord, "sourceUrl"),
+        "sourceUrl": sourceUrl,
+        "attributionUrl": attributionUrl,
         "rawFilePath": repositoryRelativePath(rawPath, repositoryRoot),
-        "rawSha256": requireString(normalizedRecord, "rawSha256", "normalized manifest"),
+        "rawSha256": rawChecksum,
         "sha256": actualChecksum,
         "fileSizeBytes": normalizedPath.stat().st_size,
     }
+    workKey = optionalString(rawRecord, "workKey")
+    if workKey:
+        entry["workKey"] = workKey
+    if usageNote:
+        entry["usageNote"] = usageNote
+    return entry
 
 
 def main() -> int:
@@ -322,6 +373,9 @@ def main() -> int:
     filePaths = [str(document["filePath"]) for document in documents]
     if len(filePaths) != len(set(filePaths)):
         raise ValueError("Generated document manifest contains duplicate filePath values.")
+    documentIds = [str(document["documentId"]) for document in documents]
+    if len(documentIds) != len(set(documentIds)):
+        raise ValueError("Generated document manifest contains duplicate documentId values.")
 
     generatedAtUtc = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
     manifest = {

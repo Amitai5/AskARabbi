@@ -11,7 +11,7 @@ internal static class TestManifestFactory
 
     public static DocumentManifest CreateManifest(params ManifestDocument[] documents) => new()
     {
-        SchemaVersion = "1.1",
+        SchemaVersion = ManifestLoader.SupportedSchemaVersion,
         SourceProvider = "Sefaria",
         GeneratedAtUtc = new DateTimeOffset(2026, 8, 21, 12, 0, 0, TimeSpan.Zero),
         FilePathBase = "repository root",
@@ -27,8 +27,9 @@ internal static class TestManifestFactory
         Documents = documents,
     };
 
-    public static ManifestDocument CreateDocument(string title = "Genesis", string hebrewTitle = "בראשית", string language = "English", string languageCode = "en", string collection = "Torah", IReadOnlyList<string>? categories = null, string description = "Genesis is a book of the Torah.", string versionTitle = "Test Version", string? license = "CC-BY", string licenseStatus = "permissive", int segmentCount = 10, string? firstReference = "Genesis 1:1", string? lastReference = "Genesis 1:10", string? filePath = null, string? rawFilePath = null, string rawSha256 = DefaultSha256, string sha256 = DefaultSha256) => new()
+    public static ManifestDocument CreateDocument(string title = "Genesis", string hebrewTitle = "בראשית", string language = "English", string languageCode = "en", string collection = "Torah", IReadOnlyList<string>? categories = null, string description = "Genesis is a book of the Torah.", string versionTitle = "Test Version", string license = "CC-BY", string licenseStatus = "permissive", int segmentCount = 10, string? firstReference = "Genesis 1:1", string? lastReference = "Genesis 1:10", string? filePath = null, string? rawFilePath = null, string rawSha256 = DefaultSha256, string sha256 = DefaultSha256) => new()
     {
+        DocumentId = $"sefaria:{rawSha256.ToLowerInvariant()}",
         FilePath = filePath ?? $"Data/NormalizedData/Sefaria/{collection}/{title}/{language}/{versionTitle}.md",
         FileDescription = description,
         FileLanguage = language,
@@ -43,8 +44,12 @@ internal static class TestManifestFactory
         LastReference = lastReference,
         SegmentCount = segmentCount,
         License = license,
+        LicenseCategory = SourceLicensePolicy.Classify(license),
+        RequiresAttribution = SourceLicensePolicy.RequiresAttribution(SourceLicensePolicy.Classify(license)),
+        RequiresShareAlike = SourceLicensePolicy.RequiresShareAlike(SourceLicensePolicy.Classify(license)),
         LicenseStatus = licenseStatus,
         SourceUrl = "https://example.test/source.json",
+        AttributionUrl = "https://example.test/attribution",
         RawFilePath = rawFilePath ?? $"Data/Raw/Sefaria/{collection}/{title}/{language}/{versionTitle}.json",
         RawSha256 = rawSha256,
         Sha256 = sha256,

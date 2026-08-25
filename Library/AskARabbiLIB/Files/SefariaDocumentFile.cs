@@ -9,6 +9,9 @@ public sealed class SefariaDocumentFile
 {
     internal SefariaDocumentFile(ManifestDocument manifestDocument, string rawJson, JsonElement structuredText, IReadOnlyDictionary<string, JsonElement> metadata)
     {
+        ArgumentNullException.ThrowIfNull(manifestDocument);
+        ArgumentNullException.ThrowIfNull(rawJson);
+        ArgumentNullException.ThrowIfNull(metadata);
         ManifestDocument = manifestDocument;
         RawJson = rawJson;
         StructuredText = structuredText;
@@ -17,30 +20,43 @@ public sealed class SefariaDocumentFile
         SectionNames = GetStringArray("sectionNames");
     }
 
+    /// <summary>Gets the trusted manifest entry associated with this source artifact.</summary>
     public ManifestDocument ManifestDocument { get; }
 
+    /// <summary>Gets the checksum-verified original Sefaria JSON.</summary>
     public string RawJson { get; }
 
+    /// <summary>Gets the cloned JSON value from the source artifact's text property.</summary>
     public JsonElement StructuredText { get; }
 
+    /// <summary>Gets all non-text top-level source properties keyed case-insensitively.</summary>
     public IReadOnlyDictionary<string, JsonElement> Metadata { get; }
 
+    /// <summary>Gets the title supplied by the source artifact.</summary>
     public string? Title => GetString("title");
 
+    /// <summary>Gets the Hebrew title supplied by the source artifact.</summary>
     public string? HebrewTitle => GetString("heTitle");
 
+    /// <summary>Gets the declared source language.</summary>
     public string? Language => GetString("language");
 
+    /// <summary>Gets the actual source language when supplied, or the declared language otherwise.</summary>
     public string? ActualLanguage => GetString("actualLanguage") ?? Language;
 
+    /// <summary>Gets the edition or version title supplied by the source artifact.</summary>
     public string? VersionTitle => GetString("versionTitle");
 
+    /// <summary>Gets the edition's original source URL when supplied.</summary>
     public string? VersionSource => GetString("versionSource");
 
+    /// <summary>Gets the source artifact's license identifier.</summary>
     public string? License => GetString("license");
 
+    /// <summary>Gets the source category hierarchy.</summary>
     public IReadOnlyList<string> Categories { get; }
 
+    /// <summary>Gets the source section-level names.</summary>
     public IReadOnlyList<string> SectionNames { get; }
 
     /// <summary>Enumerates every string leaf under the source JSON text property in source order.</summary>
@@ -79,14 +95,13 @@ public sealed class SefariaDocumentFile
     {
         if (!Metadata.TryGetValue(name, out var value) || value.ValueKind != JsonValueKind.Array)
         {
-            return Array.Empty<string>();
+            return [];
         }
 
         return value.EnumerateArray()
             .Where(element => element.ValueKind == JsonValueKind.String)
             .Select(element => element.GetString())
-            .Where(element => element is not null)
-            .Select(element => element!)
+            .OfType<string>()
             .ToArray();
     }
 

@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string" },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } },
+          "attribution": { "type": ["string", "null"] },
+          "quotations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "evidenceId": { "type": "string" },
+                "text": { "type": "string" },
+                "role": { "type": "string" }
+              },
+              "required": ["evidenceId", "text", "role"]
+            }
+          }
+        },
+        "required": ["text", "evidenceIds", "attribution", "quotations"]
+      }
+    },
+    "disagreements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string" },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } },
+          "attribution": { "type": ["string", "null"] },
+          "quotations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "evidenceId": { "type": "string" },
+                "text": { "type": "string" },
+                "role": { "type": "string" }
+              },
+              "required": ["evidenceId", "text", "role"]
+            }
+          }
+        },
+        "required": ["text", "evidenceIds", "attribution", "quotations"]
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "clarifyingQuestion": { "type": ["string", "null"] },
+    "humanGuidanceRecommended": { "type": "boolean" }
+  },
+  "required": ["claims", "disagreements", "limitations", "clarifyingQuestion", "humanGuidanceRecommended"]
+}

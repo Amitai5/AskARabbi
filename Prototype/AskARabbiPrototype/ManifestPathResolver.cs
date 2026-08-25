@@ -1,27 +1,26 @@
 namespace AskARabbiPrototype;
 
-internal sealed record ManifestLocation(string ManifestPath, string RepositoryRoot);
-
 internal static class ManifestPathResolver
 {
     private static readonly string DefaultManifestPath = Path.Combine("Data", "NormalizedData", "Sefaria", "Metadata", "document-manifest.json");
 
-    public static ManifestLocation Resolve(string? manifestPath, string? repositoryRoot)
+    public static ManifestLocation Resolve(string? manifestPath, string? repositoryRoot, string? indexPath = null)
     {
         if (!string.IsNullOrWhiteSpace(repositoryRoot))
         {
             var resolvedRoot = Path.GetFullPath(repositoryRoot);
-            var resolvedManifest = string.IsNullOrWhiteSpace(manifestPath) ? Path.Combine(resolvedRoot, DefaultManifestPath) : Path.GetFullPath(manifestPath);
+            var resolvedManifest = ResolveFromRoot(resolvedRoot, manifestPath, DefaultManifestPath);
             EnsureManifestExists(resolvedManifest);
-            return new ManifestLocation(resolvedManifest, resolvedRoot);
+            return CreateLocation(resolvedManifest, resolvedRoot, indexPath);
         }
 
         if (!string.IsNullOrWhiteSpace(manifestPath))
         {
             var resolvedManifest = Path.GetFullPath(manifestPath);
             EnsureManifestExists(resolvedManifest);
-            var inferredRoot = FindRepositoryRoot(Path.GetDirectoryName(resolvedManifest)!, resolvedManifest);
-            return new ManifestLocation(resolvedManifest, inferredRoot);
+            var manifestDirectory = Path.GetDirectoryName(resolvedManifest) ?? throw new DirectoryNotFoundException("The manifest path does not have a parent directory.");
+            var inferredRoot = FindRepositoryRoot(manifestDirectory, resolvedManifest);
+            return CreateLocation(resolvedManifest, inferredRoot, indexPath);
         }
 
         foreach (var startingPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory }.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -31,12 +30,25 @@ internal static class ManifestPathResolver
                 var candidate = Path.Combine(ancestor, DefaultManifestPath);
                 if (File.Exists(candidate))
                 {
-                    return new ManifestLocation(Path.GetFullPath(candidate), Path.GetFullPath(ancestor));
+                    return CreateLocation(Path.GetFullPath(candidate), Path.GetFullPath(ancestor), indexPath);
                 }
             }
         }
 
         throw new FileNotFoundException($"Could not locate {DefaultManifestPath}. Use --manifest and optionally --repository-root.");
+    }
+
+    private static ManifestLocation CreateLocation(string manifestPath, string repositoryRoot, string? indexPath)
+    {
+        var resolvedIndex = ResolveFromRoot(repositoryRoot, indexPath, AskARabbiLIB.Retrieval.SourceIndexBuilder.DefaultRelativePath);
+        return new ManifestLocation(Path.GetFullPath(manifestPath), Path.GetFullPath(repositoryRoot), resolvedIndex);
+    }
+
+    private static string ResolveFromRoot(string repositoryRoot, string? configuredPath, string defaultRelativePath)
+    {
+        var path = string.IsNullOrWhiteSpace(configuredPath) ? defaultRelativePath : configuredPath;
+        var platformPath = path.Replace('/', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Path.IsPathRooted(platformPath) ? platformPath : Path.Combine(repositoryRoot, platformPath));
     }
 
     private static string FindRepositoryRoot(string startingPath, string manifestPath)

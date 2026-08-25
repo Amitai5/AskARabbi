@@ -1,13 +1,3386 @@
 {
   "allowedLicenseStatus": "permissive",
+  "deniedVersionTitles": [
+    "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
+  ],
   "description": "Allowlist of Sefaria export text versions whose version-level license is classified as permissive.",
-  "generatedAtUtc": "2026-08-22T21:14:07Z",
+  "generatedAtUtc": "2026-08-23T08:04:56Z",
   "licenseMetadataSource": "https://www.sefaria.org/api/texts/versions",
   "schemaVersion": "1",
   "sourceIndexSha256": "14ff88ef0727312f28c7e839831d1f595fac2383f1b76b269da2cd978791aa53",
   "sourceProvider": "Sefaria",
-  "versionCount": 1244,
+  "versionCount": 1607,
   "versions": [
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Negative Mitzvot/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Negative Mitzvot",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Negative Mitzvot/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Negative Mitzvot",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Negative Mitzvot/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Negative Mitzvot",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Overview of Mishneh Torah Contents/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Overview of Mishneh Torah Contents",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Overview of Mishneh Torah Contents/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Overview of Mishneh Torah Contents",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Overview of Mishneh Torah Contents/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Overview of Mishneh Torah Contents",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Positive Mitzvot/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Positive Mitzvot",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Positive Mitzvot/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Positive Mitzvot",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Positive Mitzvot/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Positive Mitzvot",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Mechon-mamre Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Positive Mitzvot/Hebrew/Mechon-mamre Mishneh Torah.json",
+      "title": "Mishneh Torah, Positive Mitzvot",
+      "versionTitle": "Mechon-mamre Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Positive Mitzvot/Hebrew/Mishneh Torah.json",
+      "title": "Mishneh Torah, Positive Mitzvot",
+      "versionTitle": "Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Positive Mitzvot/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Positive Mitzvot",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Transmission of the Oral Law/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Transmission of the Oral Law",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Transmission of the Oral Law/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Transmission of the Oral Law",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Transmission of the Oral Law/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Transmission of the Oral Law",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Mechon Mamre Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Transmission of the Oral Law/Hebrew/Mechon Mamre Mishneh Torah.json",
+      "title": "Mishneh Torah, Transmission of the Oral Law",
+      "versionTitle": "Mechon Mamre Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Introduction/Mishneh Torah, Transmission of the Oral Law/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Transmission of the Oral Law",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Blessings/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Blessings",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Blessings/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Blessings",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Blessings/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Blessings",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Circumcision/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Circumcision",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Circumcision/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Circumcision",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Fringes/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Fringes",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Fringes/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Fringes",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Fringes/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Fringes",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Fringes/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Fringes",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Mechon Mamre",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/Hebrew/Mechon Mamre.json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "Mechon Mamre"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 370",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/Hebrew/Torat Emet 370.json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "Torat Emet 370"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Prayer and the Priestly Blessing/Hebrew/Wikisource.json",
+      "title": "Mishneh Torah, Prayer and the Priestly Blessing",
+      "versionTitle": "Wikisource"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Reading the Shema/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Reading the Shema",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Reading the Shema/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Reading the Shema",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Reading the Shema/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Reading the Shema",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 370",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Reading the Shema/Hebrew/Torat Emet 370.json",
+      "title": "Mishneh Torah, Reading the Shema",
+      "versionTitle": "Torat Emet 370"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Reading the Shema/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Reading the Shema",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, The Order of Prayer/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, The Order of Prayer",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Ahavah/Mishneh Torah, The Order of Prayer/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, The Order of Prayer",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Admission into the Sanctuary/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Admission into the Sanctuary",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Admission into the Sanctuary/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Admission into the Sanctuary",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Admission into the Sanctuary/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Admission into the Sanctuary",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Daily Offerings and Additional Offerings/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Daily Offerings and Additional Offerings",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Daily Offerings and Additional Offerings/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Daily Offerings and Additional Offerings",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Daily Offerings and Additional Offerings/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Daily Offerings and Additional Offerings",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Sacrifices Rendered Unfit/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Sacrifices Rendered Unfit",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Sacrifices Rendered Unfit/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sacrifices Rendered Unfit",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Sacrifices Rendered Unfit/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sacrifices Rendered Unfit",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Sacrificial Procedure/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sacrificial Procedure",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Sacrificial Procedure/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sacrificial Procedure",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Service on the Day of Atonement/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Service on the Day of Atonement",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Service on the Day of Atonement/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Service on the Day of Atonement",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Service on the Day of Atonement/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Service on the Day of Atonement",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Rabbi Mike Feuer, Jerusalem Anthology",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, The Chosen Temple/English/Rabbi Mike Feuer, Jerusalem Anthology.json",
+      "title": "Mishneh Torah, The Chosen Temple",
+      "versionTitle": "Rabbi Mike Feuer, Jerusalem Anthology"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, The Chosen Temple/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, The Chosen Temple",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, The Chosen Temple/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, The Chosen Temple",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, The Chosen Temple/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, The Chosen Temple",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Things Forbidden on the Altar/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Things Forbidden on the Altar",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Things Forbidden on the Altar/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Things Forbidden on the Altar",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Trespass/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Trespass",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Trespass/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Trespass",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Trespass/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Trespass",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Avodah/Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Appraisals and Devoted Property/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Appraisals and Devoted Property",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Appraisals and Devoted Property/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Appraisals and Devoted Property",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Nazariteship/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Nazariteship",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Nazariteship/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Nazariteship",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Nazariteship/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Nazariteship",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Oaths/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Oaths",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Oaths/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Oaths",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Oaths/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Oaths",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Vows/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Vows",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Haflaah/Mishneh Torah, Vows/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Vows",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Foods/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Forbidden Foods",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Foods/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Forbidden Foods",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad Hachasakah, based on L. Mandelstamm,1851 German translation. Translated by DeepL",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Foods/English/Yad Hachasakah, based on L. Mandelstamm,1851 German translation. Translated by DeepL.json",
+      "title": "Mishneh Torah, Forbidden Foods",
+      "versionTitle": "Yad Hachasakah, based on L. Mandelstamm,1851 German translation. Translated by DeepL"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Foods/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Forbidden Foods",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Foods/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Forbidden Foods",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Intercourse/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Forbidden Intercourse",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Intercourse/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Forbidden Intercourse",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Forbidden Intercourse/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Forbidden Intercourse",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Ritual Slaughter/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Ritual Slaughter",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kedushah/Mishneh Torah, Ritual Slaughter/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Ritual Slaughter",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Agents and Partners/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Agents and Partners",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Agents and Partners/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Agents and Partners",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Neighbors/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Neighbors",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Neighbors/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Neighbors",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Neighbors/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Neighbors",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Ownerless Property and Gifts/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Ownerless Property and Gifts",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Ownerless Property and Gifts/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Ownerless Property and Gifts",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Ownerless Property and Gifts/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Ownerless Property and Gifts",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Sales/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Sales",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Sales/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sales",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Sales/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sales",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Slaves/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Slaves",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Slaves/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Slaves",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Kinyan/Mishneh Torah, Slaves/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Slaves",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Festival Offering/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Festival Offering",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Festival Offering/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Festival Offering",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Festival Offering/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Festival Offering",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Firstlings/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Firstlings",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Firstlings/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Firstlings",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Firstlings/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Firstlings",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Offerings for Those with Incomplete Atonement/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Offerings for Those with Incomplete Atonement",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Offerings for Those with Incomplete Atonement/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Offerings for Those with Incomplete Atonement",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Offerings for Unintentional Transgressions/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Offerings for Unintentional Transgressions",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Offerings for Unintentional Transgressions/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Offerings for Unintentional Transgressions",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Paschal Offering/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Paschal Offering",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Paschal Offering/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Paschal Offering",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Substitution/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Substitution",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Substitution/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Substitution",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Korbanot/Mishneh Torah, Substitution/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Substitution",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/English/Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863.json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foreign Worship and Customs of the Nations/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/English/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/English/Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Foundations of the Torah/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Foundations of the Torah",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/English/Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah - Hebrew",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/Hebrew/Wikisource Mishneh Torah - Hebrew.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Wikisource Mishneh Torah - Hebrew"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Human Dispositions/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Human Dispositions",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/English/Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863.json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Repentance/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Repentance",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/English/Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927.json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "Mishnah Torah, Yod ha-hazakah, trans. by Simon Glazer, 1927"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/English/The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949.json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/English/Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863.json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Madda/Mishneh Torah, Torah Study/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Torah Study",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Borrowing and Deposit/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Borrowing and Deposit",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Borrowing and Deposit/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Borrowing and Deposit",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Creditor and Debtor/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Creditor and Debtor",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Creditor and Debtor/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Creditor and Debtor",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Creditor and Debtor/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Creditor and Debtor",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Hiring/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Hiring",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Hiring/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Hiring",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Hiring/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Hiring",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Inheritances/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Inheritances",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Inheritances/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Inheritances",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Inheritances/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Inheritances",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Plaintiff and Defendant/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Plaintiff and Defendant",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Plaintiff and Defendant/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Plaintiff and Defendant",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Mishpatim/Mishneh Torah, Plaintiff and Defendant/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Plaintiff and Defendant",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Divorce/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Divorce",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Divorce/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Divorce",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Divorce/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Divorce",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Levirate Marriage and Release/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Levirate Marriage and Release",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Levirate Marriage and Release/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Levirate Marriage and Release",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Levirate Marriage and Release/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Levirate Marriage and Release",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Marriage/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Marriage",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Marriage/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Marriage",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Marriage/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Marriage",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Virgin Maiden/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Virgin Maiden",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Mechon Mamre",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Virgin Maiden/Hebrew/Mechon Mamre.json",
+      "title": "Mishneh Torah, Virgin Maiden",
+      "versionTitle": "Mechon Mamre"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Virgin Maiden/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Virgin Maiden",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Virgin Maiden/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Virgin Maiden",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Woman Suspected of Infidelity/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Woman Suspected of Infidelity",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Woman Suspected of Infidelity/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Woman Suspected of Infidelity",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nashim/Mishneh Torah, Woman Suspected of Infidelity/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Woman Suspected of Infidelity",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Damages to Property/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Damages to Property",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Damages to Property/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Damages to Property",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Damages to Property/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Damages to Property",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Murderer and the Preservation of Life/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Murderer and the Preservation of Life",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Murderer and the Preservation of Life/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Murderer and the Preservation of Life",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Murderer and the Preservation of Life/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Murderer and the Preservation of Life",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Murderer and the Preservation of Life/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Murderer and the Preservation of Life",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, One Who Injures a Person or Property/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, One Who Injures a Person or Property",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, One Who Injures a Person or Property/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, One Who Injures a Person or Property",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, One Who Injures a Person or Property/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, One Who Injures a Person or Property",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Robbery and Lost Property/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Robbery and Lost Property",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Robbery and Lost Property/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Robbery and Lost Property",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Robbery and Lost Property/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Robbery and Lost Property",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Theft/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Theft",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Theft/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Theft",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Nezikim/Mishneh Torah, Theft/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Theft",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "de",
+      "exportVersionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Kings and Wars/English/Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de].json",
+      "title": "Mishneh Torah, Kings and Wars",
+      "versionTitle": "Jad Haghasakkah, trans. by L. Mandelstamm. St. Petersburg, 1851. Corrected and edited by Igor Itkin - German [de]"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Laws of Kings and Wars. trans. Reuven Brauner, 2012",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Kings and Wars/English/Laws of Kings and Wars. trans. Reuven Brauner, 2012.json",
+      "title": "Mishneh Torah, Kings and Wars",
+      "versionTitle": "Laws of Kings and Wars. trans. Reuven Brauner, 2012"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Kings and Wars/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Kings and Wars",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Kings and Wars/English/Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863.json",
+      "title": "Mishneh Torah, Kings and Wars",
+      "versionTitle": "Yad-Hachazakah, edited by Elias Soloweyczik; London, 1863"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Kings and Wars/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Kings and Wars",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Kings and Wars/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Kings and Wars",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Mourning/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Mourning",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Mourning/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Mourning",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Mourning/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Mourning",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Rebels/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Rebels",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Rebels/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Rebels",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Rebels/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Rebels",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Maimonides' Mishneh Torah, edited by Philip Birnbaum, New York, 1967 - corrected",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Testimony/English/Maimonides' Mishneh Torah, edited by Philip Birnbaum, New York, 1967 - corrected.json",
+      "title": "Mishneh Torah, Testimony",
+      "versionTitle": "Maimonides' Mishneh Torah, edited by Philip Birnbaum, New York, 1967 - corrected"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Testimony/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Testimony",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Testimony/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Testimony",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, Testimony/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Testimony",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Shoftim/Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement by Leprosy/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Defilement by Leprosy",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement by Leprosy/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Defilement by Leprosy",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement by Leprosy/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Defilement by Leprosy",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement by a Corpse/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Defilement by a Corpse",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement by a Corpse/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Defilement by a Corpse",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement of Foods/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Defilement of Foods",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Defilement of Foods/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Defilement of Foods",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Immersion Pools/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Immersion Pools",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Immersion Pools/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Immersion Pools",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Immersion Pools/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Immersion Pools",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Other Sources of Defilement/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Other Sources of Defilement",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Other Sources of Defilement/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Other Sources of Defilement",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Other Sources of Defilement/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Other Sources of Defilement",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Red Heifer/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Red Heifer",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Red Heifer/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Red Heifer",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Red Heifer/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Red Heifer",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Those Who Defile Bed or Seat/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Those Who Defile Bed or Seat",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Those Who Defile Bed or Seat/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Those Who Defile Bed or Seat",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Vessels/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Vessels",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Vessels/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Vessels",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Taharah/Mishneh Torah, Vessels/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Vessels",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Eruvin/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Eruvin",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Eruvin/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Eruvin",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Eruvin/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Eruvin",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Eruvin/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Eruvin",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Fasts/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Fasts",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Fasts/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Fasts",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Fasts/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Fasts",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Fasts/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Fasts",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Leavened and Unleavened Bread/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Leavened and Unleavened Bread",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Leavened and Unleavened Bread/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Leavened and Unleavened Bread",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Leavened and Unleavened Bread/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Leavened and Unleavened Bread",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Leavened and Unleavened Bread/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Leavened and Unleavened Bread",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on a Holiday/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Rest on a Holiday",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on a Holiday/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Rest on a Holiday",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on a Holiday/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Rest on a Holiday",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on a Holiday/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Rest on a Holiday",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on the Tenth of Tishrei/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Rest on the Tenth of Tishrei",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on the Tenth of Tishrei/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Rest on the Tenth of Tishrei",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on the Tenth of Tishrei/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Rest on the Tenth of Tishrei",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Rest on the Tenth of Tishrei/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Rest on the Tenth of Tishrei",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sabbath/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Sabbath",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sabbath/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Sabbath",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sabbath/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sabbath",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sabbath/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sabbath",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sanctification of the New Month/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Sanctification of the New Month",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sanctification of the New Month/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Sanctification of the New Month",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sanctification of the New Month/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sanctification of the New Month",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sanctification of the New Month/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sanctification of the New Month",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Maimonides' Mishneh Torah, edited by Philip Birnbaum, New York, 1967",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Scroll of Esther and Hanukkah/English/Maimonides' Mishneh Torah, edited by Philip Birnbaum, New York, 1967.json",
+      "title": "Mishneh Torah, Scroll of Esther and Hanukkah",
+      "versionTitle": "Maimonides' Mishneh Torah, edited by Philip Birnbaum, New York, 1967"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Scroll of Esther and Hanukkah/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Scroll of Esther and Hanukkah",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Scroll of Esther and Hanukkah/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Scroll of Esther and Hanukkah",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Scroll of Esther and Hanukkah/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Scroll of Esther and Hanukkah",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Scroll of Esther and Hanukkah/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Scroll of Esther and Hanukkah",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sheqel Dues/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Sheqel Dues",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sheqel Dues/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sheqel Dues",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Sheqel Dues/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sheqel Dues",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Shofar, Sukkah and Lulav/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Shofar, Sukkah and Lulav",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Shofar, Sukkah and Lulav/English/Sefaria Edition. Translated by R. Francis Nataf, 2019.json",
+      "title": "Mishneh Torah, Shofar, Sukkah and Lulav",
+      "versionTitle": "Sefaria Edition. Translated by R. Francis Nataf, 2019"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Shofar, Sukkah and Lulav/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Shofar, Sukkah and Lulav",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zemanim/Mishneh Torah, Shofar, Sukkah and Lulav/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Shofar, Sukkah and Lulav",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Diverse Species/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Diverse Species",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Diverse Species/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Diverse Species",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Diverse Species/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Diverse Species",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Gifts for the Poor, Trans. by Joseph B. Meszler, Williamsburg, Virginia, 2003",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Gifts to the Poor/English/Gifts for the Poor, Trans. by Joseph B. Meszler, Williamsburg, Virginia, 2003.json",
+      "title": "Mishneh Torah, Gifts to the Poor",
+      "versionTitle": "Gifts for the Poor, Trans. by Joseph B. Meszler, Williamsburg, Virginia, 2003"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Gifts to the Poor/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Gifts to the Poor",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Gifts to the Poor/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Gifts to the Poor",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Gifts to the Poor/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Gifts to the Poor",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Heave Offerings/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Heave Offerings",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Heave Offerings/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Heave Offerings",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Heave Offerings/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Heave Offerings",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Sabbatical Year and the Jubilee/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Sabbatical Year and the Jubilee",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Sabbatical Year and the Jubilee/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Sabbatical Year and the Jubilee",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Sabbatical Year and the Jubilee/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Sabbatical Year and the Jubilee",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Second Tithes and Fourth Year's Fruit/English/Sefaria Community Translation.json",
+      "title": "Mishneh Torah, Second Tithes and Fourth Year's Fruit",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Second Tithes and Fourth Year's Fruit/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Second Tithes and Fourth Year's Fruit",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Second Tithes and Fourth Year's Fruit/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Second Tithes and Fourth Year's Fruit",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Tithes/Hebrew/Torat Emet 363.json",
+      "title": "Mishneh Torah, Tithes",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Mishneh Torah",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Mishneh Torah/Sefer Zeraim/Mishneh Torah, Tithes/Hebrew/Wikisource Mishneh Torah.json",
+      "title": "Mishneh Torah, Tithes",
+      "versionTitle": "Wikisource Mishneh Torah"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Code of Hebrew Law by Chaim N. Denburg, Montreal, 1955",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Choshen Mishpat/English/Code of Hebrew Law by Chaim N. Denburg, Montreal, 1955.json",
+      "title": "Shulchan Arukh, Choshen Mishpat",
+      "versionTitle": "Code of Hebrew Law by Chaim N. Denburg, Montreal, 1955"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Choshen Mishpat/English/Sefaria Community Translation.json",
+      "title": "Shulchan Arukh, Choshen Mishpat",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Shulhan Arukh, Hoshen ha-Mishpat, Lemberg, 1898",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Choshen Mishpat/Hebrew/Shulhan Arukh, Hoshen ha-Mishpat, Lemberg, 1898.json",
+      "title": "Shulchan Arukh, Choshen Mishpat",
+      "versionTitle": "Shulhan Arukh, Hoshen ha-Mishpat, Lemberg, 1898"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Choshen Mishpat/Hebrew/Wikisource Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Choshen Mishpat",
+      "versionTitle": "Wikisource Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Hilchot Kidushin, trans. by Steven H. Garten. HUC, 1975",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/English/Hilchot Kidushin, trans. by Steven H. Garten. HUC, 1975.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Hilchot Kidushin, trans. by Steven H. Garten. HUC, 1975"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Hupah veKiddushin, trans. by Norman T. Roman. HUC, 1975",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/English/Hupah veKiddushin, trans. by Norman T. Roman. HUC, 1975.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Hupah veKiddushin, trans. by Norman T. Roman. HUC, 1975"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/English/Sefaria Community Translation.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wikisource English Shulchan Aruch",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/English/Wikisource English Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Wikisource English Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wikisource Shulchan Aruch",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/English/Wikisource Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Wikisource Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Apei Ravrevei Shulchan Aruch Even HaEzer, Lemberg, 1886",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/Hebrew/Apei Ravrevei Shulchan Aruch Even HaEzer, Lemberg, 1886.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Apei Ravrevei: Shulchan Aruch Even HaEzer, Lemberg, 1886"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 357",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/Hebrew/Torat Emet 357.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Torat Emet 357"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet Freeware Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/Hebrew/Torat Emet Freeware Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Torat Emet Freeware Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Even HaEzer/Hebrew/Wikisource Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Even HaEzer",
+      "versionTitle": "Wikisource Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Hilkhot Yom ha-Kippurim, trans. by Jan M. Brahms. HUC, 1976",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/English/Hilkhot Yom ha-Kippurim, trans. by Jan M. Brahms. HUC, 1976.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Hilkhot Yom ha-Kippurim, trans. by Jan M. Brahms. HUC, 1976"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/English/Sefaria Community Translation.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wiki Translation",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/English/Wiki Translation.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Wiki Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wikisource Shulchan Aruch",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/English/Wikisource Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Wikisource Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Maginei Eretz Shulchan Aruch Orach Chaim, Lemberg, 1893",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/Hebrew/Maginei Eretz Shulchan Aruch Orach Chaim, Lemberg, 1893.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Maginei Eretz: Shulchan Aruch Orach Chaim, Lemberg, 1893"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 363",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/Hebrew/Torat Emet 363.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Torat Emet 363"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet Freeware Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/Hebrew/Torat Emet Freeware Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Torat Emet Freeware Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Orach Chayim/Hebrew/Wikisource Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Orach Chayim",
+      "versionTitle": "Wikisource Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Code of Hebrew Law by Chaim N. Denburg, Montreal, 1955",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/English/Code of Hebrew Law by Chaim N. Denburg, Montreal, 1955.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Code of Hebrew Law by Chaim N. Denburg, Montreal, 1955"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Section on Charity, trans. Louis Feinberg. N.Y. School of Philanthropy, 1915",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/English/Section on Charity, trans. Louis Feinberg. N.Y. School of Philanthropy, 1915.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Section on Charity, trans. Louis Feinberg. N.Y. School of Philanthropy, 1915"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/English/Sefaria Community Translation.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Version Title 1",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/English/Version Title 1.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Version Title 1"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wikisource Shulchan Aruch - English",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/English/Wikisource Shulchan Aruch - English.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Wikisource Shulchan Aruch - English"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Wikisource",
+      "languageBucket": "English",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/English/Wikisource.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Wikisource"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Ashlei Ravrevei Shulchan Aruch Yoreh Deah, Lemberg, 1888",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/Hebrew/Ashlei Ravrevei Shulchan Aruch Yoreh Deah, Lemberg, 1888.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Ashlei Ravrevei: Shulchan Aruch Yoreh Deah, Lemberg, 1888"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet 357",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/Hebrew/Torat Emet 357.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Torat Emet 357"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Torat Emet Freeware Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/Hebrew/Torat Emet Freeware Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Torat Emet Freeware Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Wikisource Shulchan Aruch",
+      "languageBucket": "Hebrew",
+      "license": "CC-BY-SA",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Halakhah/Shulchan Arukh/Shulchan Arukh, Yoreh De'ah/Hebrew/Wikisource Shulchan Aruch.json",
+      "title": "Shulchan Arukh, Yoreh De'ah",
+      "versionTitle": "Wikisource Shulchan Aruch"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Kabbalah/Zohar/Zohar Chadash/English/Sefaria Community Translation.json",
+      "title": "Zohar Chadash",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Zohar Chadash",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Kabbalah/Zohar/Zohar Chadash/Hebrew/Zohar Chadash.json",
+      "title": "Zohar Chadash",
+      "versionTitle": "Zohar Chadash"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Kabbalah/Zohar/Zohar/English/Sefaria Community Translation.json",
+      "title": "Zohar",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "The Zohar; London, Soncino Press, 1933",
+      "languageBucket": "English",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Kabbalah/Zohar/Zohar/English/The Zohar; London, Soncino Press, 1933.json",
+      "title": "Zohar",
+      "versionTitle": "The Zohar; London, Soncino Press, 1933"
+    },
     {
       "actualLanguage": "en",
       "exportVersionTitle": "Mishnah Yomit by Dr. Joshua Kulp",
@@ -5180,6 +8553,46 @@
     },
     {
       "actualLanguage": "en",
+      "exportVersionTitle": "Path of the Just. Trans. Rabbi Yosef Sebag",
+      "languageBucket": "English",
+      "license": "CC-BY",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Musar/Acharonim/Mesillat Yesharim/English/Path of the Just. Trans. Rabbi Yosef Sebag.json",
+      "title": "Mesillat Yesharim",
+      "versionTitle": "Path of the Just. Trans. Rabbi Yosef Sebag"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Musar/Acharonim/Mesillat Yesharim/English/Sefaria Community Translation.json",
+      "title": "Mesillat Yesharim",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Sefaria Vocalized Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Musar/Acharonim/Mesillat Yesharim/Hebrew/Sefaria Vocalized Edition.json",
+      "title": "Mesillat Yesharim",
+      "versionTitle": "Sefaria Vocalized Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Shechem Messilat Yesharim",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Musar/Acharonim/Mesillat Yesharim/Hebrew/Shechem Messilat Yesharim.json",
+      "title": "Mesillat Yesharim",
+      "versionTitle": "Shechem Messilat Yesharim"
+    },
+    {
+      "actualLanguage": "en",
       "exportVersionTitle": "Sefaria Community Translation",
       "languageBucket": "English",
       "license": "CC0",
@@ -5597,6 +9010,326 @@
       "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Minor Tractates/Tractate Tzitzit/Hebrew/Talmud Bavli, Vilna 1883 ed..json",
       "title": "Tractate Tzitzit",
       "versionTitle": "Talmud Bavli, Vilna 1883 ed."
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Kodashim/Rif Chullin/Hebrew/Vilna Edition.json",
+      "title": "Rif Chullin",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Kodashim/Rif Halakhot Ketanot (Menachot)/Hebrew/Vilna Edition.json",
+      "title": "Rif Halakhot Ketanot (Menachot)",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Beitzah/Hebrew/Vilna Edition.json",
+      "title": "Rif Beitzah",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Eruvin/Hebrew/Vilna Edition.json",
+      "title": "Rif Eruvin",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Megillah/English/Sefaria Community Translation.json",
+      "title": "Rif Megillah",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Megillah/Hebrew/Vilna Edition.json",
+      "title": "Rif Megillah",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Moed Katan/Hebrew/Vilna Edition.json",
+      "title": "Rif Moed Katan",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Pesachim/English/Sefaria Community Translation.json",
+      "title": "Rif Pesachim",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Pesachim/Hebrew/Vilna Edition.json",
+      "title": "Rif Pesachim",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Rosh Hashanah/English/Sefaria Community Translation.json",
+      "title": "Rif Rosh Hashanah",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Rosh Hashanah/Hebrew/Vilna Edition.json",
+      "title": "Rif Rosh Hashanah",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Shabbat/Hebrew/Vilna Edition.json",
+      "title": "Rif Shabbat",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Sukkah/Hebrew/Vilna Edition.json",
+      "title": "Rif Sukkah",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Ta'anit/Hebrew/Vilna Edition.json",
+      "title": "Rif Ta'anit",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Moed/Rif Yoma/Hebrew/Vilna Edition.json",
+      "title": "Rif Yoma",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nashim/Rif Gittin/Hebrew/Vilna Edition.json",
+      "title": "Rif Gittin",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nashim/Rif Ketubot/Hebrew/Vilna Edition.json",
+      "title": "Rif Ketubot",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nashim/Rif Kiddushin/English/Sefaria Community Translation.json",
+      "title": "Rif Kiddushin",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nashim/Rif Kiddushin/Hebrew/Vilna Edition.json",
+      "title": "Rif Kiddushin",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nashim/Rif Nedarim/Hebrew/Vilna Edition.json",
+      "title": "Rif Nedarim",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nashim/Rif Yevamot/Hebrew/Vilna Edition.json",
+      "title": "Rif Yevamot",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Avodah Zarah/English/Sefaria Community Translation.json",
+      "title": "Rif Avodah Zarah",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Avodah Zarah/Hebrew/Vilna Edition.json",
+      "title": "Rif Avodah Zarah",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Bava Batra/English/Sefaria Community Translation.json",
+      "title": "Rif Bava Batra",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Bava Batra/Hebrew/Vilna Edition.json",
+      "title": "Rif Bava Batra",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Bava Kamma/Hebrew/Vilna Edition.json",
+      "title": "Rif Bava Kamma",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Bava Metzia/Hebrew/Vilna Edition.json",
+      "title": "Rif Bava Metzia",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Makkot/Hebrew/Vilna Edition.json",
+      "title": "Rif Makkot",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Sanhedrin/Hebrew/Vilna Edition.json",
+      "title": "Rif Sanhedrin",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Nezikin/Rif Shevuot/Hebrew/Vilna Edition.json",
+      "title": "Rif Shevuot",
+      "versionTitle": "Vilna Edition"
+    },
+    {
+      "actualLanguage": "en",
+      "exportVersionTitle": "Sefaria Community Translation",
+      "languageBucket": "English",
+      "license": "CC0",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Zeraim/Rif Berakhot/English/Sefaria Community Translation.json",
+      "title": "Rif Berakhot",
+      "versionTitle": "Sefaria Community Translation"
+    },
+    {
+      "actualLanguage": "he",
+      "exportVersionTitle": "Vilna Edition",
+      "languageBucket": "Hebrew",
+      "license": "Public Domain",
+      "licenseStatus": "permissive",
+      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Rishonim on Talmud/Rif/Seder Zeraim/Rif Berakhot/Hebrew/Vilna Edition.json",
+      "title": "Rif Berakhot",
+      "versionTitle": "Vilna Edition"
     },
     {
       "actualLanguage": "en",
@@ -10040,16 +13773,6 @@
     },
     {
       "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Deuteronomy/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Deuteronomy",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
-    },
-    {
-      "actualLanguage": "he",
       "exportVersionTitle": "Miqra according to the Masorah",
       "languageBucket": "Hebrew",
       "license": "CC-BY-SA",
@@ -10207,16 +13930,6 @@
       "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Exodus/English/The Rashi chumash by Rabbi Shraga Silverstein.json",
       "title": "Exodus",
       "versionTitle": "The Rashi chumash by Rabbi Shraga Silverstein"
-    },
-    {
-      "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Exodus/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Exodus",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
     },
     {
       "actualLanguage": "he",
@@ -10420,16 +14133,6 @@
     },
     {
       "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Genesis/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Genesis",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
-    },
-    {
-      "actualLanguage": "he",
       "exportVersionTitle": "Miqra according to the Masorah",
       "languageBucket": "Hebrew",
       "license": "CC-BY-SA",
@@ -10570,16 +14273,6 @@
     },
     {
       "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Leviticus/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Leviticus",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
-    },
-    {
-      "actualLanguage": "he",
       "exportVersionTitle": "Miqra according to the Masorah",
       "languageBucket": "Hebrew",
       "license": "CC-BY-SA",
@@ -10707,16 +14400,6 @@
       "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Numbers/English/The Rashi chumash by Rabbi Shraga Silverstein.json",
       "title": "Numbers",
       "versionTitle": "The Rashi chumash by Rabbi Shraga Silverstein"
-    },
-    {
-      "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Numbers/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Numbers",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
     },
     {
       "actualLanguage": "he",
@@ -11020,16 +14703,6 @@
     },
     {
       "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Ecclesiastes/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Ecclesiastes",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
-    },
-    {
-      "actualLanguage": "he",
       "exportVersionTitle": "Miqra according to the Masorah",
       "languageBucket": "Hebrew",
       "license": "CC-BY-SA",
@@ -11177,16 +14850,6 @@
       "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Esther/Hebrew/Emoji Megillah.json",
       "title": "Esther",
       "versionTitle": "Emoji Megillah"
-    },
-    {
-      "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Esther/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Esther",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
     },
     {
       "actualLanguage": "he",
@@ -11750,16 +15413,6 @@
     },
     {
       "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Lamentations/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Lamentations",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
-    },
-    {
-      "actualLanguage": "he",
       "exportVersionTitle": "Miqra according to the Masorah",
       "languageBucket": "Hebrew",
       "license": "CC-BY-SA",
@@ -12230,16 +15883,6 @@
     },
     {
       "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Ruth/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Ruth",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
-    },
-    {
-      "actualLanguage": "he",
       "exportVersionTitle": "Miqra according to the Masorah",
       "languageBucket": "Hebrew",
       "license": "CC-BY-SA",
@@ -12377,16 +16020,6 @@
       "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Song of Songs/English/The Rashi Ketuvim by Rabbi Shraga Silverstein.json",
       "title": "Song of Songs",
       "versionTitle": "The Rashi Ketuvim by Rabbi Shraga Silverstein"
-    },
-    {
-      "actualLanguage": "he",
-      "exportVersionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
-      "languageBucket": "Hebrew",
-      "license": "PD",
-      "licenseStatus": "permissive",
-      "sourceUrl": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Song of Songs/Hebrew/Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020.json",
-      "title": "Song of Songs",
-      "versionTitle": "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
     },
     {
       "actualLanguage": "he",

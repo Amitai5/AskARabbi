@@ -7,6 +7,11 @@ This snapshot comes from the public [Sefaria-Export](https://github.com/Sefaria/
 - `Tanakh > Writings`
 - `Mishnah > Seder ...`
 - `Talmud > Bavli|Yerushalmi > Seder ...|Minor Tractates`
+- Rif primary texts under `Talmud > Bavli > Rishonim on Talmud > Rif`
+- Mishneh Torah primary texts under `Halakhah > Mishneh Torah`
+- The four divisions of `Halakhah > Shulchan Arukh`, including embedded Rema glosses
+- `Kabbalah > Zohar` for the selected Zohar and Zohar Chadash editions
+- `Musar > Acharonim > Mesillat Yesharim`
 
 The exact paths prevent primary texts from being silently mixed with Sefaria commentary categories. Torah is stored separately from Prophets and Writings without duplicating files.
 
@@ -21,4 +26,6 @@ Each text path ends with `{work}/{Sefaria language bucket}/{version title}--{URL
 - CC-BY
 - CC-BY-SA
 
-Licenses containing a noncommercial restriction are excluded. Versions with missing or unknown licenses, merged versions, ambiguous metadata, and anything else requiring review are also excluded. The downloader checks the allowlist before fetching text, revalidates the downloaded payload, and removes stale raw files that are not in the current permissive manifest.
+Licenses containing a noncommercial restriction are excluded. Versions with missing or unknown licenses, merged versions, ambiguous metadata, and anything else requiring review are also excluded. An explicit source-review denylist additionally excludes `Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020` because its original source terms conflict with Sefaria's `PD` label. The downloader applies this rule during discovery, cached-catalog validation, payload inspection, and pruning so a full redownload cannot restore it.
+
+Supplemental records also carry a stable `workKey` and a `usageNote`. Edition selection is deliberately narrow: one preferred permissible edition per component and language, with a fallback only when the preferred edition is unavailable under an accepted license. English coverage is partial where Sefaria has no qualifying edition; restricted or unverified translations are not used to fill gaps.

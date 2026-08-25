@@ -2,34 +2,58 @@
   "allowedLicenseStatuses": [
     "permissive"
   ],
-  "byteCount": 132731405,
+  "byteCount": 170498358,
   "countsByActualLanguage": {
     "de": 120,
-    "en": 471,
+    "en": 559,
     "eo": 39,
     "es": 1,
     "fr": 78,
-    "he": 458,
+    "he": 567,
     "it": 4,
     "pl": 34,
     "yi": 39
   },
   "countsByCollection": {
+    "Halakhah": 202,
+    "Kabbalah": 3,
     "Mishnah": 517,
+    "Musar": 2,
     "Talmud": 243,
-    "Tanakh": 402,
-    "Torah": 82
+    "Tanakh": 397,
+    "Torah": 77
   },
   "countsByLicenseStatus": {
-    "permissive": 1244
+    "permissive": 1441
   },
-  "documentCount": 1244,
+  "countsByWorkKey": {
+    "mesillat_yesharim": 2,
+    "mishneh_torah": 162,
+    "rif": 32,
+    "shulchan_arukh_with_rema": 8,
+    "zohar": 1,
+    "zohar_chadash": 2
+  },
+  "countsByWorkKeyAndActualLanguage": {
+    "mesillat_yesharim:en": 1,
+    "mesillat_yesharim:he": 1,
+    "mishneh_torah:en": 74,
+    "mishneh_torah:he": 88,
+    "rif:en": 7,
+    "rif:he": 25,
+    "shulchan_arukh_with_rema:en": 4,
+    "shulchan_arukh_with_rema:he": 4,
+    "zohar:en": 1,
+    "zohar_chadash:en": 1,
+    "zohar_chadash:he": 1
+  },
+  "documentCount": 1441,
   "normalizationErrorCount": 0,
-  "normalizedAtUtc": "2026-08-22T21:14:50Z",
-  "normalizerVersion": "1",
+  "normalizedAtUtc": "2026-08-23T08:15:01Z",
+  "normalizerVersion": "2",
   "prunedDocumentFileCount": 0,
   "rawManifestPath": "Raw/Sefaria/Metadata/manifest.jsonl",
-  "rawManifestSha256": "2c3514d173438a3d41c4f199abad22254e1bee1a9c5a74d9e7bf8bbd8972fc42",
-  "segmentCount": 416186,
+  "rawManifestSha256": "9564d4ca139d5030cdfc7abb06d92c6bf51b6afa0d5f9ed44824e056fd31e937",
+  "segmentCount": 476116,
   "sourceProvider": "Sefaria"
 }

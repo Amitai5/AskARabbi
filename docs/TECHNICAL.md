@@ -7,13 +7,14 @@
 [![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-planned-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet)
 [![Sefaria](https://img.shields.io/badge/texts-Sefaria-7C3AED?style=for-the-badge)](https://developers.sefaria.org/)
 
-This document describes the proposed technical direction for AskRabbi: an account-based, source-grounded AI chat application for exploring Jewish texts. It is a design target, not documentation of an implemented system.
+This document describes both the implemented local grounding prototype and the proposed production direction for an account-based, source-grounded AI chat application. The prototype is real code; the web application, accounts, durable chats, and production infrastructure remain design targets.
 
-For the product mission, intended experience, and guiding principles, read the [project README](../README.md).
+For the product mission, intended experience, and guiding principles, read the [project README](../README.md). For the step-by-step implemented question, retrieval, grounding, validation, and follow-up path, read the [chat workflow](CHAT_WORKFLOW.md).
 
 ## Contents
 
 - [Status and scope](#status-and-scope)
+- [Implemented local prototype](#implemented-local-prototype)
 - [Design goals](#design-goals)
 - [Proposed system architecture](#proposed-system-architecture)
 - [Component responsibilities](#component-responsibilities)
@@ -34,12 +35,32 @@ For the product mission, intended experience, and guiding principles, read the [
 
 ## Status and scope
 
-The repository does not contain application code yet. The decisions below are divided into two groups:
+The repository now contains a reusable .NET library and a thin console application, but it does not yet contain the production web/API application. The decisions below are divided into two groups:
 
 - **Committed direction:** Vite, React, and TypeScript on the frontend; an ASP.NET Core API; user accounts; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
 - **Open implementation choices:** identity provider, database, vector or hybrid search technology, model provider, hosting platform, background-job system, and deployment topology.
 
 Dependencies and infrastructure should be selected only when an implementation milestone needs them. This keeps the first version small and prevents an early prototype from silently becoming the permanent privacy or security architecture.
+
+## Implemented local prototype
+
+`AskARabbiLIB` and `AskARabbiPrototype` implement the textual-grounding proof of concept without production persistence or search infrastructure:
+
+- Manifest schema 1.3 assigns each retained Sefaria artifact a stable checksum-derived `documentId` and validated typed license terms.
+- `SourceIndexBuilder` verifies normalized Markdown checksums, parses canonical `##` references, validates segment counts/ranges, and atomically builds an untracked SQLite FTS5 index.
+- The v3 index stores exact segments on disk with schema metadata and a corpus-and-license fingerprint. The document manifest remains in memory; segment text does not. A corpus change makes an older local index fail verification until it is deliberately rebuilt.
+- `SqliteSourceRetriever` supports exact-reference lookup, tiered BM25 keyword retrieval, normalized Hebrew/Unicode search, provenance filters, neighboring context, and bounded results. A deterministic query planner prioritizes reviewed concepts and keeps every fallback attached to a recognized topic anchor, such as `Shabbat`, while retaining full, paired, and broad tiers for questions without a reviewed anchor.
+- `GroundedAnswerService` retrieves at most 50 candidates, rejects empty or tangential evidence before generation, and builds a default evidence packet of at most 24 segments and 48,000 text characters. It favors source diversity, can pair Hebrew and translation versions by canonical reference, and includes a six-segment context radius while capping one document at nine included segments.
+- `UserProfile` and `UserProfileJsonSerializer` provide strict, reusable profile validation, deterministic age calculation, normalized JSON, and rejection of unknown fields. Interactive chat requires a selected or custom profile; one-shot `ask` accepts an optional profile file name from `Prototype/Profiles`.
+- `AzureOpenAIEngine` supports both `ApiKeyCredential` and Entra `TokenCredential`, explicitly supplies the configured deployment on every Responses API call, sets `store=false`, requests strict JSON Schema output, propagates cancellation, and returns typed failures plus response/token/latency diagnostics. The local console reads `AI:APIKey` from ignored configuration and chooses the API-key path; the reusable library retains its Entra-capable constructor for future hosting.
+- Every model-facing instruction, the strict response schemas, and the application-controlled interpretive notice live in `Prototype/Prompts`. The host loads and validates them into `GroundedPromptSet` only when AI Chat or `ask` is used, so Source Search remains independent of prompt and Azure configuration. The behavior contract uses conversational BLUF and targets two or three connected claims and 180–325 words of explanatory prose for ordinary questions.
+- Optional `AzureKeyVaultSecretStore` is lazy, cancellation-aware, and caches requested values for 15 minutes. The prototype does not use it to load the Azure OpenAI API key.
+- Retrieved material is delimited as untrusted data. Every substantive claim and disagreement must quote every evidence ID it cites, every quotation must exactly match its source segment, and a claimed later-to-earlier reasoning chain requires exact passages for both links. A second structured model request independently checks each statement's relevance and support from its cited passages. One same-evidence repair is allowed after either validation layer before the answer fails visibly.
+- Profile fields are separately labeled as untrusted personalization context. Exact dates of birth stay local; only calculated age is sent to the model. Profile fields never enter lexical retrieval, never count as source evidence, and may not be used to stereotype or assume observance.
+- The Spectre.Console host starts with AI Chat as the first option and exposes Source Search separately. All approved logical sources begin enabled; `/sources` displays the on/off inventory with edition, passage, and language counts and changes the source set used by each subsequent retrieval. Before chat it requires a saved local JSON profile or process-memory custom context. Questions and follow-ups use a spaced `You` / `AskARabbi AI` transcript with a bold direct answer and natural follow-on paragraphs. Compact citation numbers remain beside their claims; exact quotations already written in a paragraph are highlighted yellow in place and are not repeated, while supporting quotations absent from the prose retain one yellow quotation with a cyan source line. Full retrieved context remains available through `/evidence` instead of being dumped into every answer. It omits a redundant closing bibliography because validated sources already appear inline. The editable application-controlled interpretive notice ends every validated answer in italic grey. Clearing or leaving AI Chat removes conversation turns, answers, evidence references, and traces from process memory; the only prototype persistence is a user-explicit local profile JSON that never contains chat content.
+- Prototype composition is split by responsibility: `ConsoleApplication` owns only process-level orchestration; `ApplicationStateLoader` loads the manifest and local configuration; `AIChatConsole` owns the in-memory conversation; `SourceSearchConsole` owns source inspection; `SegmentIndexConsole` owns local index lifecycle; `OneShotCommandExecutor` owns automation commands; and `ConsolePresentation` owns Spectre rendering. Safety-critical behavior remains in `AskARabbiLIB` and is covered by the library test solution.
+
+The implementation adapts the useful interface/configuration, prompt-building, retry, diagnostic, credential-specific client, and Key Vault ideas from ClearVowAI. It deliberately excludes Foundry Agents, hosted vector stores, reflection-discovered tools, web/file search, image handling, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, and unrelated setup helpers.
 
 ## Design goals
 
@@ -64,7 +85,7 @@ flowchart LR
     Api --> Orchestrator[Chat orchestrator]
 
     Orchestrator --> Retriever[Bilingual retriever]
-    Retriever --> SourceIndex[(Jewish text index)]
+    Retriever --> SourceIndex[(Local SQLite now / Azure AI Search later)]
     Sefaria[Sefaria API or approved data export] --> Ingestion[Ingestion and normalization]
     Ingestion --> SourceIndex
 
@@ -78,7 +99,7 @@ flowchart LR
     Api -->|stream response| Web
 ```
 
-The model is intentionally downstream of retrieval. It receives a limited, structured source packet and instructions about what it may claim. Citation validation occurs after generation and before the response is treated as complete.
+The answer model is intentionally downstream of retrieval and a deterministic evidence-adequacy gate. It receives a limited, structured source packet and instructions about what it may claim. Exact citation validation and an independent claim-support audit occur after generation and before the response is treated as complete.
 
 ## Component responsibilities
 
@@ -129,9 +150,9 @@ The orchestrator should coordinate a request without containing vendor-specific 
 2. Input validation and privacy-mode resolution.
 3. Question analysis and optional clarification.
 4. Retrieval from only the user's enabled source collections.
-5. Construction of a bounded evidence packet.
+5. Deterministic evidence-adequacy validation and construction of a bounded packet.
 6. Model generation using the product's nonjudgmental behavior contract.
-7. Claim, quotation, and citation validation.
+7. Deterministic quotation/citation validation and an independent claim-support audit.
 8. Streaming or returning the response.
 9. Durable storage only when the request uses saved mode.
 10. Usage accounting without retaining private message content.
@@ -164,16 +185,16 @@ No ingestion job should assume that all publicly viewable text has the same reus
 
 #### Retrieval strategy
 
-The first proof of concept should compare simple, measurable options before adding complex infrastructure:
+The local proof of concept implements:
 
 - Lexical retrieval for exact terms, names, and canonical references.
-- Semantic retrieval for paraphrased questions and conceptual similarity.
-- Bilingual query expansion across English and Hebrew terms.
-- Metadata filtering by collection, work, language, period, and user settings.
-- Relationship expansion from a primary passage to linked commentary or later discussion.
+- Normalized Hebrew/Unicode matching while retaining exact display text.
+- Metadata filtering by collection, language, category, and user settings.
+- Canonical-reference pairing of Hebrew and available translations.
+- Limited adjacent-segment context.
 - Diversity-aware ranking so one repeated source does not crowd out meaningful disagreement.
 
-A hybrid retriever is the likely default, but it must earn that complexity through citation-recall and answer-faithfulness evaluations. The storage engine remains undecided.
+The production adapter is planned as `AzureAiSearchSourceRetriever` using the same segment IDs and result contracts. Its index will add vector fields, semantic retrieval for paraphrases, bilingual query expansion, relationship expansion, and filterable provenance to the current lexical fields, allowing hybrid retrieval and reciprocal-rank fusion. Provisioning is intentionally deferred, and regional capacity, current pricing, data residency, and service terms must be checked when that milestone begins. A hybrid retriever still has to earn its added cost through citation-recall and answer-faithfulness evaluations.
 
 #### Bilingual handling
 
@@ -198,8 +219,11 @@ SourceCitation
   VersionTitle
   Language
   QuotedText
-  SourceUrl
+  AttributionUrl
   License
+  LicenseCategory
+  RequiresAttribution
+  RequiresShareAlike
   SupportedClaimIds
 ```
 
@@ -396,7 +420,7 @@ Prototype/
 └── AskARabbiPrototype/
 ```
 
-`AskARabbiLIB.slnx` owns the reusable manifest/search library and all of its MSTest coverage. `AskARabbiPrototype.slnx` contains only the Spectre.Console host and references the library project; it has no test project and owns no search algorithms or corpus models.
+`AskARabbiLIB.slnx` owns manifest search, segment indexing/retrieval, AI/secret adapters, grounding/validation, session models, and all MSTest coverage. `AskARabbiPrototype.slnx` contains only the Spectre.Console host and references the library project; it has no test project and owns no reusable algorithms or corpus models.
 
 ```text
 AskARabbi/
@@ -485,13 +509,20 @@ The following choices should be made through small proof-of-concept measurements
 
 ## Local development
 
-The production application does not exist yet. The .NET 10 manifest-search prototype can be built and exercised locally without credentials:
+The production application does not exist yet. Source Search and index management need no Azure configuration. AI Chat additionally requires an Azure OpenAI resource endpoint, a deployed model name, and the matching resource API key in the ignored root `appsettings.json` or environment:
 
 ```powershell
 dotnet build Library/AskARabbiLIB.slnx -c Release
 dotnet test Library/AskARabbiLIB.slnx -c Release --no-build
 dotnet build Prototype/AskARabbiPrototype.slnx -c Release
+dotnet run --project Prototype/AskARabbiPrototype -- index build
+dotnet run --project Prototype/AskARabbiPrototype -- index verify --format json
+dotnet run --project Prototype/AskARabbiPrototype -- search "Shabbat" --collection Talmud
+$env:AI__ProjectEndpoint = "https://your-resource.openai.azure.com"
+$env:AI__ModelName = "your-deployment"
+$env:AI__APIKey = "your-resource-api-key"
+dotnet run --project Prototype/AskARabbiPrototype -- ask "What do the retrieved sources say about this question?"
 dotnet run --project Prototype/AskARabbiPrototype --
 ```
 
-See `Library/README.md` for the reusable API and isolated test solution. See `Prototype/README.md` for guided search, one-shot arguments, source-file inspection, and license caveats. Production setup documentation will still need exact configuration, database, identity, migration, and one-command startup instructions after those projects exist.
+The prototype does not initialize Key Vault; the empty example section only documents that decision while the reusable library retains an optional lazy secret-store adapter for future hosts. The root `appsettings.json` is ignored and is not copied into build or publish output. Questions, answers, prompts, and evidence are not logged or persisted by this prototype. See `Library/README.md` for reusable APIs and tests and `Prototype/README.md` for complete commands. Production setup documentation will still need exact identity, secret management, persistence, retention, hybrid retrieval, deployment, and migration instructions after those projects exist.

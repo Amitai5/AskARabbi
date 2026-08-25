@@ -56,6 +56,26 @@ class LicensePolicyTests(unittest.TestCase):
         self.assertFalse(Normalizer.isPermissiveRecord(record))
         self.assertFalse(ManifestGenerator.isPermissiveLicense("Merged", "CC0"))
 
+    def testDeniedMiqraMevoarVersionIsRejectedAtEveryBoundary(self) -> None:
+        versionTitle = "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020"
+        record = {"licenseStatus": "permissive", "license": "PD", "versionTitle": versionTitle}
+
+        self.assertEqual("excluded", Downloader.licenseStatus(versionTitle, "PD"))
+        self.assertFalse(Normalizer.isPermissiveRecord(record))
+        self.assertFalse(ManifestGenerator.isPermissiveLicense(versionTitle, "PD"))
+
+    def testLicenseLabelsMapToStableCategories(self) -> None:
+        expectedCategories = {
+            "PD": "publicDomain",
+            "Public Domain": "publicDomain",
+            "CC0": "cc0",
+            "CC-BY": "ccBy",
+            "CC BY-SA 4.0": "ccBySa",
+        }
+        for licenseName, expectedCategory in expectedCategories.items():
+            with self.subTest(licenseName=licenseName):
+                self.assertEqual(expectedCategory, ManifestGenerator.licenseCategory(licenseName))
+
     def testEquivalentApiPunctuationVariantsCanBeMatched(self) -> None:
         book = {"title": "Daniel", "language": "Hebrew", "versionTitle": "דניאל בתרגום עברי גורדון"}
         first = {
@@ -84,6 +104,74 @@ class LicensePolicyTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             Downloader.selectPermissiveVersionMetadata(book, {"Daniel": [first, second]})
+
+    def testSupplementalClassificationIsLimitedToRequestedPrimaryWorks(self) -> None:
+        requested = {
+            "title": "Mishneh Torah, Foundations of the Torah",
+            "language": "English",
+            "categories": ["Halakhah", "Mishneh Torah", "Sefer Madda"],
+        }
+        unrelated = {
+            "title": "Commentary on Mishneh Torah",
+            "language": "Hebrew",
+            "categories": ["Halakhah", "Commentary"],
+        }
+
+        self.assertEqual(("Halakhah", ["Mishneh Torah", "Mishneh Torah, Foundations of the Torah", "English"]), Downloader.classifyBook(requested))
+        self.assertIsNone(Downloader.classifyBook(unrelated))
+
+    def testPreferredSupplementalEditionFallsBackOnlyWithinPermissiveAllowlist(self) -> None:
+        candidates = [
+            {
+                "title": "Mishneh Torah, Foundations of the Torah",
+                "language": "Hebrew",
+                "categories": ["Halakhah", "Mishneh Torah", "Sefer Madda"],
+                "versionTitle": "Torat Emet 363",
+                "json_url": "https://example.test/torat-emet.json",
+            },
+            {
+                "title": "Mishneh Torah, Foundations of the Torah",
+                "language": "Hebrew",
+                "categories": ["Halakhah", "Mishneh Torah", "Sefer Madda"],
+                "versionTitle": "Wikisource Mishneh Torah",
+                "json_url": "https://example.test/wikisource.json",
+            },
+        ]
+
+        selected = Downloader.selectPreferredBooks(candidates, {"https://example.test/wikisource.json"})
+
+        self.assertEqual([candidates[1]], selected)
+
+    def testRemaSmallTextIsLabeledDuringNormalization(self) -> None:
+        normalized = Normalizer.normalizeText("Base <i data-commentator=\"Example\"></i> text <small>הגה Rema gloss</small> conclusion", "Rema")
+
+        self.assertIn("**Rema:** הגה Rema gloss", normalized)
+        self.assertNotIn("****", normalized)
+
+    def testNestedComplexSchemaNodesAreNormalizedWithCanonicalReferences(self) -> None:
+        payload = {"title": "Zohar", "text": {"Addenda": {"Volume I": [["First addendum"]]}}}
+        schema = {
+            "schema": {
+                "nodes": [
+                    {
+                        "key": "Addenda",
+                        "title": "Addenda",
+                        "nodes": [
+                            {
+                                "key": "Volume I",
+                                "title": "Volume I",
+                                "nodeType": "JaggedArrayNode",
+                                "addressTypes": ["Integer", "Integer"],
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+
+        segments = list(Normalizer.iterateDocumentSegments(payload, schema))
+
+        self.assertEqual([("Zohar, Addenda, Volume I 1:1", "First addendum")], segments)
 
 
 if __name__ == "__main__":

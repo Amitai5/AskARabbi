@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download and inventory the canonical Torah, Tanakh, Mishnah, and Talmud exports from Sefaria."""
+"""Download and inventory the selected permissively licensed Sefaria corpus."""
 
 from __future__ import annotations
 
@@ -35,12 +35,38 @@ PermissiveLicensePatterns = (
     re.compile(r"cc(?:-| )by(?:[ -]\d+(?:\.\d+)*)?"),
     re.compile(r"cc(?:-| )by(?:-| )sa(?:[ -]\d+(?:\.\d+)*)?"),
 )
+DeniedVersionTitles = frozenset({
+    "Miqra Mevoar, trans. and edited by David Kokhav, Jerusalem 2020",
+})
+DeniedVersionTitleKeys = frozenset(unicodedata.normalize("NFKC", title).casefold() for title in DeniedVersionTitles)
 CoreCollections = ("Torah", "Tanakh", "Mishnah", "Talmud")
+SupplementalCollections = ("Halakhah", "Kabbalah", "Musar")
+CorpusCollections = (*CoreCollections, *SupplementalCollections)
 LanguageBucketCodes = {"english": "en", "hebrew": "he"}
+ShulchanArukhTitles = frozenset({
+    "Shulchan Arukh, Choshen Mishpat",
+    "Shulchan Arukh, Even HaEzer",
+    "Shulchan Arukh, Orach Chayim",
+    "Shulchan Arukh, Yoreh De'ah",
+})
+ShulchanArukhHebrewEditions = {
+    "Shulchan Arukh, Choshen Mishpat": "Shulhan Arukh, Hoshen ha-Mishpat, Lemberg, 1898",
+    "Shulchan Arukh, Even HaEzer": "Apei Ravrevei Shulchan Aruch Even HaEzer, Lemberg, 1886",
+    "Shulchan Arukh, Orach Chayim": "Maginei Eretz Shulchan Aruch Orach Chaim, Lemberg, 1893",
+    "Shulchan Arukh, Yoreh De'ah": "Ashlei Ravrevei Shulchan Aruch Yoreh Deah, Lemberg, 1888",
+}
+SupplementalUsageNotes = {
+    "rif": "The Rif is an early halakhic digest keyed to the Babylonian Talmud. Its English coverage is partial because Sefaria currently exposes permissively licensed English exports for only some tractates.",
+    "mishneh_torah": "Mishneh Torah is Maimonides' systematic halakhic code. Later authorities may rule differently, so it should inform research rather than be treated as the sole source for a practical ruling.",
+    "shulchan_arukh_with_rema": "The base Shulchan Arukh records Rabbi Yosef Karo's rulings; embedded Rema glosses chiefly record Ashkenazi practice. Neither layer is universally dispositive across Sephardi, Mizrahi, Ashkenazi, and other communities.",
+    "zohar": "The Zohar is a foundational work of Jewish mysticism. Its symbolic teachings should not be presented as standalone practical halakhic rulings.",
+    "zohar_chadash": "Zohar Chadash is a collection of additional Zoharic material. Its symbolic teachings should not be presented as standalone practical halakhic rulings.",
+    "mesillat_yesharim": "Mesillat Yesharim is a Musar work on ethical and spiritual development, not a comprehensive code of practical halakhah.",
+}
 
 
 def parseArguments() -> argparse.Namespace:
-    """Parse command-line arguments for a resumable Sefaria core-text download."""
+    """Parse command-line arguments for a resumable selected-corpus download."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", type=Path, default=Path("Data"), help="Project data directory (default: Data).")
     parser.add_argument("--workers", type=int, default=8, help="Concurrent downloads (default: 8).")
@@ -118,9 +144,10 @@ def ensureJsonArtifact(path: Path, url: str, refresh: bool = False) -> Any:
 
 
 def classifyBook(book: dict[str, Any]) -> tuple[str, list[str]] | None:
-    """Map one exact Sefaria primary-text category path into the local collection layout."""
+    """Map one selected Sefaria primary-text category path into the local collection layout."""
     categories = book.get("categories") or []
-    title = safePathPart(str(book.get("title") or "untitled"))
+    sourceTitle = str(book.get("title") or "untitled")
+    title = safePathPart(sourceTitle)
     languageBucket = safePathPart(str(book.get("language") or "Unknown"))
 
     if categories == ["Tanakh", "Torah"]:
@@ -131,7 +158,107 @@ def classifyBook(book: dict[str, Any]) -> tuple[str, list[str]] | None:
         return "Mishnah", [safePathPart(categories[1]), title, languageBucket]
     if len(categories) == 3 and categories[0] == "Talmud" and categories[1] in {"Bavli", "Yerushalmi"} and (str(categories[2]).startswith("Seder ") or categories[2] == "Minor Tractates"):
         return "Talmud", [safePathPart(categories[1]), safePathPart(categories[2]), title, languageBucket]
+    if len(categories) >= 4 and categories[:4] == ["Talmud", "Bavli", "Rishonim on Talmud", "Rif"] and sourceTitle.startswith("Rif "):
+        return "Halakhah", ["Rif", title, languageBucket]
+    if len(categories) >= 2 and categories[:2] == ["Halakhah", "Mishneh Torah"] and sourceTitle.startswith("Mishneh Torah, "):
+        return "Halakhah", ["Mishneh Torah", title, languageBucket]
+    if categories == ["Halakhah", "Shulchan Arukh"] and sourceTitle in ShulchanArukhTitles:
+        return "Halakhah", ["Shulchan Arukh with Rema", title, languageBucket]
+    if categories == ["Kabbalah", "Zohar"] and sourceTitle == "Zohar":
+        return "Kabbalah", [title, languageBucket]
+    if categories == ["Kabbalah", "Zohar"] and sourceTitle == "Zohar Chadash":
+        return "Kabbalah", [title, languageBucket]
+    if categories == ["Musar", "Acharonim"] and sourceTitle == "Mesillat Yesharim":
+        return "Musar", [title, languageBucket]
     return None
+
+
+def supplementalWorkKey(book: dict[str, Any]) -> str | None:
+    """Return the curated supplemental work key for one export record."""
+    title = str(book.get("title") or "")
+    categories = book.get("categories") or []
+    if len(categories) >= 4 and categories[:4] == ["Talmud", "Bavli", "Rishonim on Talmud", "Rif"] and title.startswith("Rif "):
+        return "rif"
+    if len(categories) >= 2 and categories[:2] == ["Halakhah", "Mishneh Torah"] and title.startswith("Mishneh Torah, "):
+        return "mishneh_torah"
+    if categories == ["Halakhah", "Shulchan Arukh"] and title in ShulchanArukhTitles:
+        return "shulchan_arukh_with_rema"
+    if categories == ["Kabbalah", "Zohar"] and title == "Zohar":
+        return "zohar"
+    if categories == ["Kabbalah", "Zohar"] and title == "Zohar Chadash":
+        return "zohar_chadash"
+    if categories == ["Musar", "Acharonim"] and title == "Mesillat Yesharim":
+        return "mesillat_yesharim"
+    return None
+
+
+def editionPreferences(book: dict[str, Any]) -> tuple[str, ...]:
+    """Return ordered edition-title preferences for one supplemental title and language bucket."""
+    workKey = supplementalWorkKey(book)
+    title = str(book.get("title") or "")
+    languageBucket = str(book.get("language") or "").casefold()
+    if workKey == "rif" and languageBucket == "hebrew":
+        return ("Vilna Edition",)
+    if workKey == "rif" and languageBucket == "english":
+        return ("Sefaria Community Translation",)
+    if workKey == "mishneh_torah" and languageBucket == "hebrew":
+        return ("Torat Emet *", "Wikisource Mishneh Torah")
+    if workKey == "mishneh_torah" and languageBucket == "english":
+        return (
+            "The Mishneh Torah by Maimonides. trans. by Moses Hyamson, 1937-1949",
+            "Sefaria Community Translation",
+            "Sefaria Edition. Translated by R. Francis Nataf, 2019",
+        )
+    if workKey == "shulchan_arukh_with_rema" and languageBucket == "hebrew":
+        selectedTitle = ShulchanArukhHebrewEditions.get(title)
+        return (selectedTitle,) if selectedTitle else ()
+    if workKey == "shulchan_arukh_with_rema" and languageBucket == "english":
+        return ("Sefaria Community Translation",)
+    if workKey == "zohar" and languageBucket == "english":
+        return ("The Zohar; London, Soncino Press, 1933",)
+    if workKey == "zohar_chadash" and languageBucket == "hebrew":
+        return ("Zohar Chadash",)
+    if workKey == "zohar_chadash" and languageBucket == "english":
+        return ("Sefaria Community Translation",)
+    if workKey == "mesillat_yesharim" and languageBucket == "hebrew":
+        return ("Sefaria Vocalized Edition",)
+    if workKey == "mesillat_yesharim" and languageBucket == "english":
+        return ("Path of the Just. Trans. Rabbi Yosef Sebag",)
+    return ()
+
+
+def editionPreferenceIndex(versionTitle: str, preferences: tuple[str, ...]) -> int | None:
+    """Return an edition's zero-based preference index, supporting a trailing wildcard."""
+    normalizedVersionTitle = normalizeVersionIdentifier(versionTitle)
+    for index, preference in enumerate(preferences):
+        isPrefix = preference.endswith("*")
+        normalizedPreference = normalizeVersionIdentifier(preference.removesuffix("*").strip())
+        if normalizedVersionTitle == normalizedPreference or (isPrefix and normalizedVersionTitle.startswith(normalizedPreference)):
+            return index
+    return None
+
+
+def selectPreferredBooks(candidateBooks: list[dict[str, Any]], allowedSourceUrls: set[str]) -> list[dict[str, Any]]:
+    """Select all permissive core editions and one preferred permissible supplemental edition per title and language."""
+    selectedBooks = [
+        book
+        for book in candidateBooks
+        if str(book.get("json_url") or "") in allowedSourceUrls and supplementalWorkKey(book) is None
+    ]
+    supplementalCandidates: dict[tuple[str, str, str], list[tuple[int, str, dict[str, Any]]]] = {}
+    for book in candidateBooks:
+        sourceUrl = str(book.get("json_url") or "")
+        workKey = supplementalWorkKey(book)
+        if sourceUrl not in allowedSourceUrls or workKey is None:
+            continue
+        preferenceIndex = editionPreferenceIndex(str(book.get("versionTitle") or ""), editionPreferences(book))
+        if preferenceIndex is None:
+            continue
+        key = (workKey, str(book.get("title") or ""), str(book.get("language") or ""))
+        supplementalCandidates.setdefault(key, []).append((preferenceIndex, sourceUrl, book))
+    for candidates in supplementalCandidates.values():
+        selectedBooks.append(min(candidates, key=lambda candidate: (candidate[0], candidate[1]))[2])
+    return sorted(selectedBooks, key=lambda book: str(book.get("json_url") or ""))
 
 
 def localTextPath(dataRoot: Path, book: dict[str, Any], relativeParts: list[str]) -> Path:
@@ -144,6 +271,8 @@ def localTextPath(dataRoot: Path, book: dict[str, Any], relativeParts: list[str]
 
 def licenseStatus(versionTitle: str, licenseName: str | None) -> str:
     """Classify a source license conservatively for downstream filtering."""
+    if isDeniedVersionTitle(versionTitle):
+        return "excluded"
     if versionTitle.casefold() == "merged":
         return "review_required"
     normalized = (licenseName or "").strip().casefold()
@@ -154,6 +283,12 @@ def licenseStatus(versionTitle: str, licenseName: str | None) -> str:
     if any(pattern.fullmatch(normalized) for pattern in PermissiveLicensePatterns):
         return PermissiveLicenseStatus
     return "review_required"
+
+
+def isDeniedVersionTitle(versionTitle: str) -> bool:
+    """Return whether a source edition is explicitly denied after a source-level license review."""
+    normalizedTitle = unicodedata.normalize("NFKC", versionTitle).strip().casefold()
+    return normalizedTitle in DeniedVersionTitleKeys
 
 
 def normalizeVersionIdentifier(value: str) -> str:
@@ -288,6 +423,7 @@ def createPermissiveCatalog(versions: list[dict[str, Any]], sourceIndexSha256: s
         "sourceIndexSha256": sourceIndexSha256,
         "licenseMetadataSource": metadataSource,
         "allowedLicenseStatus": PermissiveLicenseStatus,
+        "deniedVersionTitles": sorted(DeniedVersionTitles),
         "description": "Allowlist of Sefaria export text versions whose version-level license is classified as permissive.",
         "versionCount": len(orderedVersions),
         "versions": orderedVersions,
@@ -304,14 +440,27 @@ def loadPermissiveCatalog(path: Path, expectedSourceIndexSha256: str) -> dict[st
     versions = value.get("versions")
     if not isinstance(versions, list) or value.get("versionCount") != len(versions):
         raise ValueError(f"Invalid version list in permissive source catalog: {path}")
+    sanitizedVersions: list[dict[str, Any]] = []
     for version in versions:
         if not isinstance(version, dict):
             raise ValueError(f"Invalid version entry in permissive source catalog: {path}")
         versionTitle = str(version.get("versionTitle") or "")
+        exportVersionTitle = str(version.get("exportVersionTitle") or "")
+        if isDeniedVersionTitle(versionTitle) or isDeniedVersionTitle(exportVersionTitle):
+            continue
         licenseName = str(version.get("license") or "")
         if version.get("licenseStatus") != PermissiveLicenseStatus or licenseStatus(versionTitle, licenseName) != PermissiveLicenseStatus or not version.get("sourceUrl"):
             raise ValueError(f"Non-permissive or incomplete entry in permissive source catalog: {path}")
-    return value
+        sanitizedVersions.append(version)
+    expectedDeniedVersionTitles = sorted(DeniedVersionTitles)
+    if len(sanitizedVersions) == len(versions) and value.get("deniedVersionTitles") == expectedDeniedVersionTitles:
+        return value
+    sanitizedCatalog = dict(value)
+    sanitizedCatalog["deniedVersionTitles"] = expectedDeniedVersionTitles
+    sanitizedCatalog["versionCount"] = len(sanitizedVersions)
+    sanitizedCatalog["versions"] = sanitizedVersions
+    writeJson(path, sanitizedCatalog)
+    return sanitizedCatalog
 
 
 def resolvePermissiveCatalog(catalogPath: Path, rawManifestPath: Path, candidateBooks: list[dict[str, Any]], sourceIndexSha256: str, generatedAtUtc: str, refresh: bool, workers: int) -> dict[str, Any]:
@@ -359,6 +508,10 @@ def inspectText(path: Path, book: dict[str, Any], dataRoot: Path, downloadedAtUt
         "sha256": hashlib.sha256(content).hexdigest(),
         "downloadedAtUtc": downloadedAtUtc,
     }
+    workKey = supplementalWorkKey(book)
+    if workKey is not None:
+        record["workKey"] = workKey
+        record["usageNote"] = SupplementalUsageNotes[workKey]
     if versionTitle.casefold() == "merged":
         record["mergedVersions"] = value.get("versions") or []
     return record
@@ -368,7 +521,7 @@ def downloadText(dataRoot: Path, book: dict[str, Any], downloadedAtUtc: str) -> 
     """Download or reuse one allowlisted Sefaria JSON text and reject license drift."""
     classification = classifyBook(book)
     if classification is None:
-        raise ValueError(f"Book is outside the core selection: {book.get('title')}")
+        raise ValueError(f"Book is outside the selected corpus: {book.get('title')}")
     collection, relativeParts = classification
     selectedBook = dict(book)
     selectedBook["localCollection"] = collection
@@ -454,7 +607,7 @@ def pruneRawCorpus(dataRoot: Path, records: list[dict[str, Any]]) -> tuple[int, 
     providerRoot = dataRoot / "Raw" / "Sefaria"
     expectedTextPaths = {(dataRoot / str(record["localPath"])).resolve() for record in records if record.get("artifactType") == "text"}
     expectedSchemaPaths = {(dataRoot / str(record["localPath"])).resolve() for record in records if record.get("artifactType") == "schema"}
-    removedTextCount = sum(pruneUnlistedFiles(providerRoot / collection, expectedTextPaths, "*.json") for collection in CoreCollections)
+    removedTextCount = sum(pruneUnlistedFiles(providerRoot / collection, expectedTextPaths, "*.json") for collection in CorpusCollections)
     removedSchemaCount = pruneUnlistedFiles(providerRoot / "Metadata" / "Schemas", expectedSchemaPaths, "*.json")
     return removedTextCount, removedSchemaCount
 
@@ -470,11 +623,12 @@ def summarize(records: list[dict[str, Any]], booksIndex: dict[str, Any], indexPa
         "sourceIndexSha256": hashlib.sha256(indexPath.read_bytes()).hexdigest(),
         "downloadedAtUtc": downloadedAtUtc,
         "selection": {
-            "collections": ["Torah", "Tanakh (Prophets and Writings)", "Mishnah", "Talmud (Bavli and Yerushalmi)"],
+            "collections": ["Torah", "Tanakh (Prophets and Writings)", "Mishnah", "Talmud (Bavli and Yerushalmi)", "Rif", "Mishneh Torah", "Shulchan Arukh with Rema", "Zohar", "Zohar Chadash", "Mesillat Yesharim"],
             "formats": ["json"],
             "includeMerged": False,
             "commentariesIncluded": False,
             "licenseStatuses": [PermissiveLicenseStatus],
+            "deniedVersionTitles": sorted(DeniedVersionTitles),
         },
         "textFileCount": len(textRecords),
         "schemaFileCount": len(schemaRecords),
@@ -485,11 +639,13 @@ def summarize(records: list[dict[str, Any]], booksIndex: dict[str, Any], indexPa
         "countsByCollection": dict(sorted(Counter(str(record["collection"]) for record in textRecords).items())),
         "countsByLicenseStatus": dict(sorted(Counter(str(record["licenseStatus"]) for record in textRecords).items())),
         "countsByActualLanguage": dict(sorted(Counter(str(record.get("actualLanguage") or "unknown") for record in textRecords).items())),
+        "countsByWorkKey": dict(sorted(Counter(str(record["workKey"]) for record in textRecords if record.get("workKey")).items())),
+        "countsByWorkKeyAndActualLanguage": dict(sorted(Counter(f"{record['workKey']}:{record.get('actualLanguage') or 'unknown'}" for record in textRecords if record.get("workKey")).items())),
     }
 
 
 def main() -> int:
-    """Download the selected core corpus, schemas, and provenance manifests."""
+    """Download the selected corpus, schemas, and provenance manifests."""
     arguments = parseArguments()
     if arguments.workers < 1 or arguments.workers > 32:
         raise ValueError("--workers must be between 1 and 32.")
@@ -509,7 +665,8 @@ def main() -> int:
     for book in booksIndex.get("books", []):
         if not isinstance(book, dict) or not book.get("json_url") or classifyBook(book) is None:
             continue
-        if str(book.get("versionTitle", "")).casefold() == "merged":
+        versionTitle = str(book.get("versionTitle", ""))
+        if versionTitle.casefold() == "merged" or isDeniedVersionTitle(versionTitle):
             continue
         candidateBooks.append(book)
 
@@ -524,9 +681,10 @@ def main() -> int:
         arguments.workers,
     )
     allowedSourceUrls = {str(version["sourceUrl"]) for version in permissiveCatalog["versions"]}
-    selectedBooks = [book for book in candidateBooks if str(book["json_url"]) in allowedSourceUrls]
+    selectedBooks = selectPreferredBooks(candidateBooks, allowedSourceUrls)
 
-    print(f"Selected {len(selectedBooks)} permissively licensed core text versions from {len(candidateBooks)} non-merged candidates.", flush=True)
+    supplementalCount = sum(1 for book in selectedBooks if supplementalWorkKey(book) is not None)
+    print(f"Selected {len(selectedBooks)} permissively licensed text versions, including {supplementalCount} curated supplemental versions, from {len(candidateBooks)} non-merged candidates.", flush=True)
     records: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 

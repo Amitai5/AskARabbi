@@ -5,6 +5,9 @@ namespace AskARabbiLIB.Search;
 
 internal static class SearchTextNormalizer
 {
+    /// <summary>Normalizes Unicode text for deterministic case-insensitive search.</summary>
+    /// <param name="value">Text to normalize.</param>
+    /// <returns>Normalized search text, or an empty string for empty input.</returns>
     public static string Normalize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -37,6 +40,9 @@ internal static class SearchTextNormalizer
         return builder.ToString().Trim().Normalize(NormalizationForm.FormC);
     }
 
+    /// <summary>Returns distinct normalized letter-and-digit search tokens.</summary>
+    /// <param name="value">Text to tokenize.</param>
+    /// <returns>Distinct tokens in first-seen order.</returns>
     public static string[] Tokenize(string? value)
     {
         var normalized = Normalize(value);
