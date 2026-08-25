@@ -4,10 +4,11 @@ import type { AuthenticatedUser } from '../auth/authTypes.ts'
 
 interface ProfileMenuProps {
   user: AuthenticatedUser
+  onOpenPersonalization(): void
   onLogout(): Promise<void>
 }
 
-export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
+export function ProfileMenu({ user, onOpenPersonalization, onLogout }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -42,10 +43,17 @@ export function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
             Settings
             <span className="sr-only">Unavailable</span>
           </button>
-          <button type="button" disabled className="flex h-11 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 text-sm text-muted/55" role="menuitem">
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false)
+              onOpenPersonalization()
+            }}
+            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink transition hover:bg-stone"
+            role="menuitem"
+          >
             <SlidersHorizontal aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
             Personalization
-            <span className="sr-only">Unavailable</span>
           </button>
           <div className="my-1 h-px bg-line" />
           <button type="button" onClick={() => void onLogout()} className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink transition hover:bg-stone" role="menuitem">

@@ -1,0 +1,33 @@
+export const ReligiousMovementOptions = [
+  'Reform',
+  'Conservative / Masorti',
+  'Conservadox',
+  'Modern Orthodox',
+  'Orthodox',
+  'Haredi',
+  'Traditional / Masorti',
+  'Reconstructionist',
+  'Jewish Renewal',
+  'Secular / cultural',
+  'Exploring / no label',
+  'Prefer not to say',
+  'Other / self-described',
+] as const
+
+export const JewishHeritageOptions = [
+  'Ashkenazi',
+  'Sephardi',
+  'Mizrahi',
+  'Yemenite',
+  'Ethiopian / Beta Israel',
+  'Bukharian',
+  'Mountain Jewish',
+  'Indian Jewish',
+  'Romaniote',
+  'Italki',
+  'Mixed / multiple communities',
+  'Convert / joined the Jewish people',
+  'Not sure',
+  'Prefer not to say',
+  'Other / self-described',
+] as const

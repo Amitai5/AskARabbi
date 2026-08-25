@@ -37,7 +37,7 @@ For the product mission, intended experience, and guiding principles, read the [
 
 The repository now contains a reusable .NET library, a thin console application, and the first production frontend shell. The production API is reserved but has not been scaffolded. The decisions below are divided into two groups:
 
-- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable authentication-client boundary; process-memory demo conversations; and frontend lint, component-test, and build verification.
+- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable authentication-client boundary; process-memory demo conversations and personalization; and frontend lint, component-test, and build verification.
 - **Committed direction:** An ASP.NET Core API with backend-owned WorkOS AuthKit integration; user-facing Google, email Magic Auth, Apple, and Microsoft methods; user accounts; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
 - **Open implementation choices:** database, vector or hybrid search technology, model provider, hosting platform, background-job system, and deployment topology.
 
@@ -118,6 +118,10 @@ The Vite, React, and TypeScript frontend is expected to provide:
 - Accessible keyboard, screen-reader, responsive, and reduced-motion behavior.
 
 The frontend must treat all authorization and quota data as display information. The API remains responsible for enforcing access and limits.
+
+The current shell also implements a responsive session-only Personalization screen. It captures full name; birth date, time, place, and IANA time zone; religious movement or practice; Jewish heritage or community; and optional context limited to 2,000 characters. Saving immediately updates the local profile display but does not use `localStorage`, an API, or another persistence mechanism. Refresh, logout, or tab closure clears the data.
+
+The browser does not calculate a Hebrew birthday. Because the Hebrew date changes at sunset, production calculation needs the local birth time, place, time zone, historical offset data, and a reviewed sunset/calendar implementation. The future API should preserve the user-entered civil details, return both the calculated Hebrew date and calculation assumptions, and allow correction. Personalization remains untrusted user context: it may guide wording and relevant source distinctions, but it cannot count as evidence or justify assumptions about observance or identity.
 
 ### ASP.NET Core API
 

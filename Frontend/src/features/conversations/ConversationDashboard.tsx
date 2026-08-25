@@ -3,6 +3,8 @@ import { Menu } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import { useAuth } from '../auth/useAuth.ts'
+import { PersonalizationPage } from '../personalization/PersonalizationPage.tsx'
+import { createDefaultPersonalizationProfile, type PersonalizationProfile } from '../personalization/personalizationTypes.ts'
 import { ConversationSidebar } from './ConversationSidebar.tsx'
 import { InitialConversations, type ConversationSummary } from './conversationData.ts'
 import { MessageComposer } from './MessageComposer.tsx'
@@ -19,6 +21,14 @@ export function ConversationDashboard({ user }: ConversationDashboardProps) {
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true)
+  const [activeView, setActiveView] = useState<'conversation' | 'personalization'>('conversation')
+  const [personalizationProfile, setPersonalizationProfile] = useState(() => createDefaultPersonalizationProfile(user))
+
+  const personalizedUser = {
+    ...user,
+    name: personalizationProfile.fullName,
+    initials: getInitials(personalizationProfile.fullName),
+  }
 
   function handleNewConversation() {
     const id = crypto.randomUUID()
@@ -27,6 +37,7 @@ export function ConversationDashboard({ user }: ConversationDashboardProps) {
     setSubmittedQuestion(null)
     setDraft('')
     setIsMobileSidebarOpen(false)
+    setActiveView('conversation')
   }
 
   function handleSelectConversation(id: string) {
@@ -34,6 +45,16 @@ export function ConversationDashboard({ user }: ConversationDashboardProps) {
     setSubmittedQuestion(null)
     setDraft('')
     setIsMobileSidebarOpen(false)
+    setActiveView('conversation')
+  }
+
+  function handleOpenPersonalization() {
+    setIsMobileSidebarOpen(false)
+    setActiveView('personalization')
+  }
+
+  function handleSavePersonalization(profile: PersonalizationProfile) {
+    setPersonalizationProfile(profile)
   }
 
   function handleSubmit() {
@@ -56,10 +77,11 @@ export function ConversationDashboard({ user }: ConversationDashboardProps) {
         selectedId={selectedId}
         isMobileOpen={isMobileSidebarOpen}
         isDesktopOpen={isDesktopSidebarOpen}
-        user={user}
+        user={personalizedUser}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onNewConversation={handleNewConversation}
         onSelectConversation={handleSelectConversation}
+        onOpenPersonalization={handleOpenPersonalization}
         onLogout={signOut}
       />
 
@@ -84,6 +106,9 @@ export function ConversationDashboard({ user }: ConversationDashboardProps) {
         <span className="pointer-events-none absolute right-4 top-20 hidden size-8 border-r border-t border-brass/60 sm:block" aria-hidden="true" />
         <span className="pointer-events-none absolute bottom-4 left-4 hidden size-8 border-b border-l border-brass/60 sm:block" aria-hidden="true" />
 
+        {activeView === 'personalization' ? (
+          <PersonalizationPage profile={personalizationProfile} onBack={() => setActiveView('conversation')} onSave={handleSavePersonalization} />
+        ) : (
         <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 sm:px-8" aria-label="Current conversation">
           <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
             {submittedQuestion === null ? (
@@ -117,7 +142,18 @@ export function ConversationDashboard({ user }: ConversationDashboardProps) {
             </div>
           </div>
         </section>
+        )}
       </main>
     </div>
   )
+}
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
 }

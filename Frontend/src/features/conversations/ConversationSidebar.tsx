@@ -13,10 +13,11 @@ interface ConversationSidebarProps {
   onCloseMobile(): void
   onNewConversation(): void
   onSelectConversation(id: string): void
+  onOpenPersonalization(): void
   onLogout(): Promise<void>
 }
 
-export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isDesktopOpen, user, onCloseMobile, onNewConversation, onSelectConversation, onLogout }: ConversationSidebarProps) {
+export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isDesktopOpen, user, onCloseMobile, onNewConversation, onSelectConversation, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
   const desktopVisibility = isDesktopOpen ? 'lg:visible lg:w-72 lg:translate-x-0' : 'lg:invisible lg:w-0 lg:-translate-x-full lg:border-r-0'
   const mobileVisibility = isMobileOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'
 
@@ -59,7 +60,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
         </ul>
       </nav>
 
-      <ProfileMenu user={user} onLogout={onLogout} />
+      <ProfileMenu user={user} onOpenPersonalization={onOpenPersonalization} onLogout={onLogout} />
     </aside>
   )
 }

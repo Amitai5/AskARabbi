@@ -6,10 +6,17 @@ The production frontend shell is a React 19, TypeScript, Tailwind CSS 4, and Vit
 - A provider-neutral authentication client boundary that can later call a WorkOS-backed AskRabbi API.
 - A responsive conversation dashboard with local sample conversations.
 - A working new-conversation interaction and local-only composer demonstration.
-- A profile menu with disabled Settings and Personalization placeholders plus working logout.
+- A working Personalization screen for full name, birth date/time/place/time zone, religious background, Jewish heritage or community, and up to 2,000 characters of optional context.
+- A profile menu with active Personalization and logout actions; Settings remains a disabled placeholder.
 - Desktop sidebar collapse and a mobile navigation drawer.
 
-No account, profile, question, or conversation data is sent to an API in this milestone.
+No account, profile, question, or conversation data is sent to an API in this milestone. Saved personalization lives only in React process memory and is removed by logout, refresh, or closing the tab; it is not written to browser storage.
+
+## Personalization boundary
+
+The demo collects birthplace and an IANA birth time zone in addition to birth date and time. Those details are necessary because a Hebrew calendar date changes at sunset. The frontend intentionally does not calculate or claim a Hebrew birthday: the future backend must use a reviewed Hebrew-calendar and sunset calculation, preserve the original input, and return a verifiable result.
+
+Profile labels guide wording and potentially relevant community distinctions. They do not count as source evidence, establish observance, or authorize the model to stereotype a user. The production API will own validation, authorization, storage, deletion, and the minimum profile projection sent to the answer system.
 
 ## Requirements
 
