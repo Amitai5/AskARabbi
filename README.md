@@ -1,7 +1,7 @@
 # AskRabbi
 
 [![Project status](https://img.shields.io/badge/status-early%20development-D97706?style=for-the-badge)](#project-status)
-[![Website](https://img.shields.io/badge/askrabbi.ai-planned-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://askrabbi.ai)
+[![Website](https://img.shields.io/badge/askarabbi.ai-planned-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://askarabbi.ai)
 [![React](https://img.shields.io/badge/React-implemented-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-implemented-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![.NET](https://img.shields.io/badge/.NET-prototype-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
@@ -12,7 +12,7 @@ AskRabbi is a planned AI-assisted learning experience for people who want to exp
 
 The goal is not to produce a one-word ruling. The goal is to show the conversation: which texts are relevant, how later authorities interpreted them, where views differ, and how a conclusion developed over time. Every response should give the user enough context to continue learning and enough agency to decide what the material means for their own Jewish life.
 
-AskRabbi is intended for [askrabbi.ai](https://askrabbi.ai).
+AskRabbi is intended for [askarabbi.ai](https://askarabbi.ai).
 
 ## Why AskRabbi?
 
@@ -125,22 +125,22 @@ AskRabbi is being built around the following commitments:
 | --- | --- | --- |
 | Web application | React, TypeScript, and Vite | Accounts, chat, source viewer, settings, and usage experience |
 | Application API | ASP.NET Core and C# | Users, conversations, authorization, quotas, and orchestration |
-| Identity | WorkOS AuthKit planned | Google and other enabled methods, normalized users, verification, and identity linking behind the API |
+| Identity | WorkOS AuthKit integration implemented | Purpose-specific hosted login/sign-up, password recovery, rotating provider sessions, verified identity projection, and backend-owned application cookies |
 | Prototype retrieval | SQLite FTS5 through `AskARabbiLIB` | Exact references, tiered full-concept/pair/fallback BM25 search, deterministic vocabulary expansion, Unicode normalization, provenance filters, and bounded evidence |
 | Production retrieval | Azure AI Search planned | BM25/vector hybrid search and reciprocal-rank fusion behind the same retriever contract |
-| Persistence | To be selected | Accounts, saved chats, preferences, usage, and source metadata |
+| Application persistence | Azure Cosmos DB for MongoDB integrated | Owner-scoped accounts, saved conversation metadata/messages, personalization/preferences, and monthly usage counters |
 | Prototype AI provider | Azure OpenAI Responses API through `IAIEngine` | API-key-authenticated strict structured output from an approved source packet; the library remains Entra-capable |
 | Text provider | Sefaria initially | Jewish texts, translations, relationships, and canonical references |
 
-The design selects WorkOS AuthKit for identity while leaving the database, vector search engine, hosting platform, and production model provider open until their privacy, licensing, quality, and operational tradeoffs have been evaluated.
+The public topology is fixed: the frontend runs at `https://askarabbi.ai` and the API runs in Azure Container Apps behind `https://api.askarabbi.ai`, with WorkOS AuthKit for identity and Azure Cosmos DB for MongoDB for application persistence. The backend is packaged in ACR and its production-only GitHub workflow deploys verified commits by immutable digest. WorkOS activation, the custom API domain, the production retriever, and the final model deployment remain. See the [production deployment plan](docs/PRODUCTION_DEPLOYMENT.md) and [production readiness checklist](docs/PRODUCTION_READINESS.md).
 
 For the implemented question-to-answer path, read the [chat workflow](docs/CHAT_WORKFLOW.md). For the proposed architecture, privacy contract, API shape, retrieval pipeline, data model, testing strategy, and phased delivery plan, read the [technical design](docs/TECHNICAL.md).
 
 ## Project status
 
-AskRabbi is in **early development**. This repository contains the product definition, technical direction, permissive-only Sefaria data pipeline, local .NET search-and-grounding prototype, and the first production frontend shell. None of this behavior should be treated as a deployed feature.
+AskRabbi is in **early development**. The Azure API, registry, and Cosmos DB foundation is deployed, but the public product is not launch-ready: WorkOS production activation, the API custom domain, grounded-answer API integration, and production retrieval remain unfinished.
 
-The [`Frontend`](Frontend) application is a responsive React, TypeScript, Tailwind CSS, and Vite experience with demo-only email and Google authentication, a conversation dashboard, local new-conversation interactions, session-only personalization, and a working logout flow. Personalization captures the civil birth details needed for a future reviewed Hebrew-birthday calculation, but the browser does not calculate one or persist sensitive profile data. Its provider-neutral authentication client boundary is ready to call a future WorkOS AuthKit-backed API, but no identity provider, backend, AI service, or persistence is connected. [`Backend`](Backend) reserves the production API boundary and intentionally contains documentation only in this milestone. The [authentication plan](docs/AUTHENTICATION.md) defines the backend flow and initial Google, email Magic Auth, Apple, and Microsoft rollout.
+The [`Frontend`](Frontend) application is a responsive React, TypeScript, Tailwind CSS, and Vite experience connected to the .NET API for backend-owned WorkOS email/Google/sign-up flows, rotating session hydration, saved conversations, source filters, Cosmos-backed personalization/preferences, exact-period usage, password recovery, and logout. [`Backend`](Backend) provides the tested .NET 10 ASP.NET Core boundary with S256 PKCE, restrictive credentialed CORS, owner-scoped Azure Cosmos DB for MongoDB stores, and `GET /health`. An explicit Development-only local profile exercises the same HTTP controllers and cookie flow without credentials. The message endpoint currently persists and returns canonical user context only; grounded answer generation, assistant persistence, and usage enforcement are the next integration milestone. The [authentication design](docs/AUTHENTICATION.md) records the flow and remaining launch hardening.
 
 The reusable `AskARabbiLIB` project and its tests live under `Library`, while the separate `AskARabbiPrototype` solution is a thin Spectre.Console host. AI Chat is the default experience: it is continuous, profile-aware, locally retrieved, and fail-closed behind exact citation/quotation checks plus an independent claim-support audit. Source Search remains a separate local tool for manifest search and source inspection. Interactive chat accepts strict local JSON profiles or process-only custom context; exact dates of birth remain local and only calculated age reaches the model. All model-facing instructions and response schemas are reviewable under [`Prototype/Prompts`](Prototype/Prompts). The local segment index is reproducible and untracked; AI configuration is unnecessary unless AI Chat or the one-shot `ask` command is used. See the [library guide](Library/README.md), [prototype guide](Prototype/README.md), [profile guide](Prototype/Profiles/README.md), [chat workflow](docs/CHAT_WORKFLOW.md), and [technical design](docs/TECHNICAL.md).
 
@@ -151,13 +151,13 @@ The broad delivery path is:
 3. Generate citation-backed answers and measure source faithfulness.
 4. Add saved/private chat modes, source settings, and usage controls.
 5. Conduct scholarly review, privacy review, accessibility testing, and adversarial evaluation.
-6. Prepare the initial release for [askrabbi.ai](https://askrabbi.ai).
+6. Prepare the initial release for [askarabbi.ai](https://askarabbi.ai).
 
 ## Continuous integration
 
-The separate `Verify` workflow runs for pushes to every branch and for every pull request. It installs the locked frontend dependencies, lints, tests, and builds the Vite application; it also restores and builds both .NET solutions, runs the `AskARabbiLIB` MSTest suite, enforces at least 80% library branch coverage from the Cobertura report, and retains the .NET test results for troubleshooting.
+The separate `Verify` workflow runs for pushes to every branch and for every pull request. It installs the locked frontend dependencies, lints, tests, and builds the Vite application; it also restores and builds all three .NET solutions, runs the library and backend MSTest suites, enforces at least 80% library branch coverage from the Cobertura report, and retains the .NET test results for troubleshooting.
 
-The `Deploy` workflow runs only after `Verify` succeeds for a push to `production`. Until a hosting platform is selected, deployment publishes a versioned `AskARabbiPrototype` artifact with the compact searchable corpus metadata; it does not represent a live deployment of askrabbi.ai. Full source-text browsing still requires the locally generated raw and normalized corpus.
+The `Deploy Backend` workflow runs only after `Verify` succeeds for a push to `production`. It authenticates to Azure through GitHub OIDC, builds the API container, pushes a commit-SHA image to ACR, deploys that image to Azure Container Apps by immutable digest, and verifies the revision and public health endpoint. It never deploys pull requests, failed builds, staging branches, or any branch other than `production`. The frontend retains its separate production deployment.
 
 ## Contributing
 

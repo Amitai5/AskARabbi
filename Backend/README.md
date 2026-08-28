@@ -1,9 +1,116 @@
 # AskRabbi backend
 
-`Backend` is the reserved production boundary for the future AskRabbi API. No server project or runtime dependency is intentionally included in this milestone.
+`Backend` contains the .NET 10 ASP.NET Core foundation for the production AskRabbi API. It now provides WorkOS AuthKit authentication, owner-scoped Azure Cosmos DB for MongoDB persistence, saved-conversation APIs, personalization, monthly usage reporting, and process health.
 
-The planned API will be responsible for authentication exchange, authorization, conversation persistence, usage policies, retrieval orchestration, and access to the existing `AskARabbiLIB` grounding services. The frontend currently uses an in-memory demo authentication adapter and makes no backend or AI requests.
+The answer-generation pipeline is not connected to this host yet. `POST /api/conversations/{conversationId}/messages` safely stores one idempotent user turn and returns the canonical server-owned context; it does not call Azure OpenAI, create an assistant message, or consume usage. That wiring will reuse the grounded retrieval and validation services already in `AskARabbiLIB`.
 
-WorkOS AuthKit is the planned authentication and user-management infrastructure. Users will see provider choices such as Google, not a “WorkOS” login. The backend will own authorization redirects, callback validation, code exchange, local-user mapping, and secure application sessions. See the [production authentication plan](../docs/AUTHENTICATION.md) for the provider rollout, endpoint boundary, data ownership, and security requirements.
+## Projects
 
-When implementation begins, create the ASP.NET Core project here and keep transport, identity, persistence, and external-provider code outside the reusable religious-text and grounding domain library.
+- `AskARabbi.Api` is the production HTTP host and composition root.
+- `AskARabbi.Api.Tests` contains hermetic MSTest integration tests with fake identity, persistence, and time boundaries.
+- `AskARabbiBackend.slnx` owns both projects.
+- `AskARabbi.Api` references `AskARabbiLIB` for account, conversation, personalization, usage, and MongoDB contracts and implementations.
+
+Two production dependencies are pinned for this milestone: `WorkOS.net` 6.2.0 in the API and `MongoDB.Driver` 3.11.0 in the reusable library. The official SDKs avoid maintaining custom authentication and Mongo wire-protocol clients; the tradeoff is additional binary/dependency surface that must remain covered by routine dependency updates and security scanning. WorkOS stays behind `IUserAuthenticationService`, and MongoDB stays behind store interfaces, so either provider can be replaced without changing controllers or domain services.
+
+## Configuration and secrets
+
+Every backend `appsettings*.json` file is secret-free. The ignored local `appsettings.json` and tracked `appsettings.example.json` contain only non-sensitive URLs, collection names, CORS, logging, and usage defaults. Store local WorkOS credentials and the complete Cosmos Mongo connection string in .NET User Secrets; the connection string contains both the Azure endpoint and credential and must never enter JSON, frontend configuration, source control, build artifacts, or logs.
+
+Production uses the tracked, non-secret `AskARabbi.Api/appsettings.Production.json`: the API is `https://api.askarabbi.ai`, the frontend and sole credentialed CORS origin are `https://askarabbi.ai`, and the WorkOS callback is `https://api.askarabbi.ai/api/user/callback`. Supply only the production WorkOS API key/client ID and Cosmos connection string through backend environment variables. After verification passes on a push to `production`, the backend deployment workflow builds the Dockerfile, pushes the commit-tagged image to ACR, and updates Azure Container Apps by immutable digest. Follow the [production deployment plan](../docs/PRODUCTION_DEPLOYMENT.md) and [production readiness checklist](../docs/PRODUCTION_READINESS.md).
+
+.NET User Secrets are the required local credential store. The project already has a `UserSecretsId`, so run these commands from the repository root:
+
+```powershell
+dotnet user-secrets --project Backend/AskARabbi.Api set "WorkOS:ApiKey" "sk_test_..."
+dotnet user-secrets --project Backend/AskARabbi.Api set "WorkOS:ClientId" "client_..."
+dotnet user-secrets --project Backend/AskARabbi.Api set "MongoDB:ConnectionString" "<Azure Cosmos DB for MongoDB connection string>"
+```
+
+The local callback, frontend, database, collection, and usage settings remain in secret-free JSON. Environment variables are also supported and override both JSON and User Secrets.
+
+Equivalent deployment variables use double underscores:
+
+```text
+WorkOS__ApiKey
+WorkOS__ClientId
+WorkOS__RedirectUri
+WorkOS__FrontendUri
+MongoDB__ConnectionString
+MongoDB__DatabaseName
+Usage__MonthlyAnswerLimit
+Cors__AllowedOrigins__0
+```
+
+Optional MongoDB collection-name keys are `MongoDB:UsersCollectionName`, `MongoDB:ConversationsCollectionName`, `MongoDB:ConversationMessagesCollectionName`, `MongoDB:ConversationSettingsCollectionName`, and `MongoDB:UsageCollectionName`. Their defaults are suitable for a new database.
+
+In the WorkOS dashboard, configure `http://localhost:5090/api/user/callback` as an exact redirect URI, `http://localhost:5173/` as an allowed sign-out/application URI, and `http://localhost:5173/reset-password` as the password-reset URL. Enable email/password and Google in the same WorkOS environment whose API key and client ID are stored in User Secrets.
+
+`Cors:AllowedOrigins` is an exact origin allow-list; wildcards, paths, queries, and fragments are rejected. Development defaults to `http://localhost:5173` when no origin is configured. Production has no default origin and must set its deployed frontend origin explicitly.
+
+The API deliberately remains runnable without WorkOS or MongoDB configuration so `GET /health` can support local and deployment smoke tests. In the normal `http` profile, authentication or persistence endpoints fail explicitly with `503` rather than falling back to an identity or datastore.
+
+An explicit `local-demo` launch profile is available for frontend integration testing without credentials. It is guarded by `LocalDevelopment:UseDemoServices`, is rejected outside the `Development` environment, uses a deterministic local identity, and keeps account/conversation data only in process memory. It never replaces the production WorkOS/MongoDB registrations.
+
+## HTTP surface
+
+All conversation and conversation-settings routes require the encrypted AskRabbi application cookie. Every datastore operation is scoped by the immutable local user ID; a conversation ID alone never grants access.
+
+| Method and route | Current behavior |
+| --- | --- |
+| `GET /health` | Reports process health; it does not yet probe WorkOS or Cosmos DB. |
+| `GET /api/user/login` | Starts WorkOS AuthKit with short-lived state and S256 PKCE cookies; optional `email`, `provider`, and `screen` query hints select email, Google/Apple/Microsoft, or sign-up. |
+| `GET /api/user/callback` | Validates state and PKCE, exchanges the code, upserts the local account, and creates the application cookie. |
+| `GET /api/user/session` | Returns the minimum safe account projection. |
+| `POST /api/user/forgot-password` | Requests a WorkOS reset email and always returns a non-enumerating `202` for a valid request shape. |
+| `POST /api/user/reset-password` | Confirms the WorkOS reset, clears the current AskRabbi cookie, and returns `204`. |
+| `POST /api/user/logout` | Clears the local cookie and returns the WorkOS logout destination. |
+| `GET /api/conversations` | Returns recent titles and source selections for navigation without loading message bodies. |
+| `POST /api/conversations` | Creates an empty saved conversation. |
+| `GET /api/conversations/{id}` | Loads metadata and ordered messages for one owned conversation. |
+| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context. |
+| `PUT /api/conversations/{id}/title` | Renames one owned conversation. |
+| `PUT /api/conversations/{id}/sources` | Replaces its approved source selectors. |
+| `DELETE /api/conversations/{id}` | Removes its metadata and message records. |
+| `GET /api/conversation-settings/usage` | Returns usage and exact inclusive-start/exclusive-end UTC dates for the current calendar month. |
+| `GET /api/conversation-settings/personalization` | Returns configured personalization or an explicit unconfigured envelope. |
+| `PUT /api/conversation-settings/personalization` | Validates, normalizes, and replaces personalization. |
+| `GET /api/conversation-settings/preferences` | Returns account-backed source-context and product-email defaults. |
+| `PUT /api/conversation-settings/preferences` | Replaces those defaults in the user-owned Cosmos settings document. |
+
+## Persistence shape
+
+Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver. Account records, conversation metadata, messages, personalization/preferences, and monthly counters use separate collections. Separating messages from conversation metadata prevents every message append from rewriting an ever-growing conversation document and keeps sidebar queries lightweight. Personalization and general preferences share one document but are updated with field-level Mongo operations so saving either one cannot erase the other. Required indexes are created when configured persistence starts.
+
+The implementation adapts only the relevant invariant `DateOnly` and `TimeOnly` BSON-serialization idea discovered in ClearVowAI. AskRabbi already had focused Azure OpenAI, Key Vault, retrieval, and grounding services, so the older Foundry Agent, SQL, Redis, reflection-tool, and unrelated service code was not duplicated.
+
+## Run and verify
+
+```powershell
+dotnet restore Backend/AskARabbiBackend.slnx
+dotnet build Backend/AskARabbiBackend.slnx --configuration Release --no-restore
+dotnet test Backend/AskARabbiBackend.slnx --configuration Release --no-build --no-restore
+dotnet run --project Backend/AskARabbi.Api
+```
+
+The development profile listens on `http://localhost:5090`:
+
+```powershell
+Invoke-WebRequest http://localhost:5090/health
+```
+
+Run the complete browser/API workflow without WorkOS or MongoDB credentials:
+
+```powershell
+dotnet run --project Backend/AskARabbi.Api --launch-profile local-demo
+```
+
+## Remaining production work
+
+- Connect the existing grounded-answer orchestration and record assistant turns only after deterministic validation succeeds.
+- Enforce usage reservations and idempotent completion around model calls; the current endpoint only reports stored counters.
+- Replace the self-contained application ticket with a reviewed shared server-side session/revocation design before public launch. A rotating WorkOS refresh token is protected inside the encrypted `HttpOnly` ticket and is never exposed to JavaScript; near access-token expiry, the API refreshes WorkOS and rotates the ticket. A different device's already-issued ticket can nevertheless remain usable until its next refresh attempt.
+- Keep Azure Container Apps managed Data Protection enabled and include session continuity in deployment smoke testing.
+- Add the final CSRF policy, rate limits, dependency readiness checks, WorkOS webhooks, account deletion, retention jobs, and live-provider smoke tests. Restrictive credentialed CORS is already enforced from an exact origin allow-list.
+
+See the [authentication design](../docs/AUTHENTICATION.md) and [technical design](../docs/TECHNICAL.md) for the surrounding boundaries.

@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy Backend
 
 on:
   workflow_run:
@@ -11,22 +11,26 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
-  group: production-deployment
+  group: backend-production-deployment
   cancel-in-progress: false
 
 env:
-  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
-  DOTNET_NOLOGO: "true"
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  AZURE_CORE_OUTPUT: none
+  AZURE_RESOURCE_GROUP: AARProduction
+  ACR_NAME: askarabbiacrprod
+  ACR_LOGIN_SERVER: askarabbiacrprod.azurecr.io
+  IMAGE_REPOSITORY: askarabbi-api
+  CONTAINER_APP_NAME: askarabbi-api
 
 jobs:
   deploy:
-    name: Publish production artifact
+    name: Build, push, and deploy API
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'production'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     environment: production
 
     steps:
@@ -36,32 +40,114 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
-      - name: Set up .NET 10
-        uses: actions/setup-dotnet@v5
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v3
         with:
-          dotnet-version: "10.0.x"
-          dotnet-quality: ga
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Restore prototype
-        run: dotnet restore Prototype/AskARabbiPrototype/AskARabbiPrototype.csproj
+      - name: Sign Docker in to Azure Container Registry
+        run: az acr login --name "$ACR_NAME"
 
-      - name: Publish prototype
-        run: dotnet publish Prototype/AskARabbiPrototype/AskARabbiPrototype.csproj --configuration Release --no-restore --output artifacts/AskARabbiPrototype
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-      - name: Include searchable corpus metadata
-        shell: bash
+      - name: Build and push API image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Backend/AskARabbi.Api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          pull: true
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=askarabbi-api-production
+          cache-to: type=gha,mode=max,scope=askarabbi-api-production
+
+      - name: Deploy immutable image to Container Apps
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          mkdir -p artifacts/AskARabbiPrototype/Data/NormalizedData/Sefaria/Metadata
-          mkdir -p artifacts/AskARabbiPrototype/Data/Raw/Sefaria/Metadata
-          cp Data/NormalizedData/Sefaria/Metadata/document-manifest.json artifacts/AskARabbiPrototype/Data/NormalizedData/Sefaria/Metadata/
-          cp Data/NormalizedData/Sefaria/Metadata/summary.json artifacts/AskARabbiPrototype/Data/NormalizedData/Sefaria/Metadata/
-          cp Data/Raw/Sefaria/Metadata/permissive-versions.json artifacts/AskARabbiPrototype/Data/Raw/Sefaria/Metadata/
-          cp Data/Raw/Sefaria/Metadata/summary.json artifacts/AskARabbiPrototype/Data/Raw/Sefaria/Metadata/
+          set -euo pipefail
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az containerapp update \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@$IMAGE_DIGEST" \
+            --output none
 
-      - name: Upload production artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: AskARabbiPrototype-${{ github.event.workflow_run.head_sha }}
-          path: artifacts/AskARabbiPrototype/**
-          if-no-files-found: error
-          retention-days: 30
+      - name: Verify revision and public health endpoint
+        id: verify-deployment
+        run: |
+          set -euo pipefail
+
+          revision_name="$(az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.latestRevisionName \
+            --output tsv)"
+
+          health_state=""
+          for attempt in {1..30}; do
+            health_state="$(az containerapp revision show \
+              --name "$CONTAINER_APP_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --revision "$revision_name" \
+              --query properties.healthState \
+              --output tsv)"
+
+            if [ "$health_state" = "Healthy" ]; then
+              break
+            fi
+
+            if [ "$health_state" = "Unhealthy" ] || [ "$health_state" = "Failed" ]; then
+              echo "Revision $revision_name entered terminal health state: $health_state" >&2
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          if [ "$health_state" != "Healthy" ]; then
+            echo "Revision $revision_name did not become healthy within five minutes." >&2
+            exit 1
+          fi
+
+          api_fqdn="$(az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)"
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 8 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --max-time 30 \
+            "https://$api_fqdn/health"
+
+          echo "revision-name=$revision_name" >> "$GITHUB_OUTPUT"
+          echo "api-fqdn=$api_fqdn" >> "$GITHUB_OUTPUT"
+
+      - name: Write deployment summary
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          REVISION_NAME: ${{ steps.verify-deployment.outputs.revision-name }}
+          API_FQDN: ${{ steps.verify-deployment.outputs.api-fqdn }}
+        run: |
+          {
+            echo "### AskARabbi backend deployment"
+            echo
+            echo "- Commit: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "- Image: \`$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@$IMAGE_DIGEST\`"
+            echo "- Revision: \`$REVISION_NAME\`"
+            echo "- Health: https://$API_FQDN/health"
+          } >> "$GITHUB_STEP_SUMMARY"

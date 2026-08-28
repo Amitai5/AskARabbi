@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AskARabbi.Api/AskARabbi.Api.csproj" />
+  <Project Path="AskARabbi.Api.Tests/AskARabbi.Api.Tests.csproj" />
+</Solution>

@@ -32,7 +32,7 @@ internal static class AIEngineFactory
 
         if (problems.Count > 0)
         {
-            throw new InvalidOperationException($"AI chat configuration is invalid: {string.Join("; ", problems)}. Set values in the ignored root appsettings.json or use AI__ProjectEndpoint, AI__ModelName, and AI__APIKey environment variables.");
+            throw new InvalidOperationException($"AI chat configuration is invalid: {string.Join("; ", problems)}. Store AI:APIKey in .NET User Secrets, and configure the non-secret endpoint and model in the root appsettings.json or environment variables.");
         }
 
         if (endpoint is null || modelName is null || apiKey is null)

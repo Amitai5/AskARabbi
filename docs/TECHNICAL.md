@@ -4,10 +4,10 @@
 [![Vite](https://img.shields.io/badge/Vite-implemented-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 [![React](https://img.shields.io/badge/React-implemented-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-implemented-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-planned-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet)
+[![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-.NET%2010-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet)
 [![Sefaria](https://img.shields.io/badge/texts-Sefaria-7C3AED?style=for-the-badge)](https://developers.sefaria.org/)
 
-This document describes the implemented local grounding prototype, the initial production frontend shell, and the proposed production direction for an account-based, source-grounded AI chat application. The web shell is real code; connected accounts, the API, durable chats, and production infrastructure remain design targets.
+This document describes the implemented local grounding prototype and the connected production frontend/API foundation for an account-based, source-grounded AI chat application. WorkOS identity and Azure Cosmos DB for MongoDB application persistence are wired end to end; grounded generation inside the API, deployment infrastructure, and public-launch hardening remain future milestones.
 
 For the product mission, intended experience, and guiding principles, read the [project README](../README.md). For the step-by-step implemented question, retrieval, grounding, validation, and follow-up path, read the [chat workflow](CHAT_WORKFLOW.md).
 
@@ -21,7 +21,7 @@ For the product mission, intended experience, and guiding principles, read the [
 - [Citation contract](#citation-contract)
 - [Answer behavior contract](#answer-behavior-contract)
 - [Conversation privacy modes](#conversation-privacy-modes)
-- [Proposed API surface](#proposed-api-surface)
+- [API surface](#api-surface)
 - [Proposed domain model](#proposed-domain-model)
 - [Usage limits](#usage-limits)
 - [Security and correctness baseline](#security-and-correctness-baseline)
@@ -35,11 +35,11 @@ For the product mission, intended experience, and guiding principles, read the [
 
 ## Status and scope
 
-The repository now contains a reusable .NET library, a thin console application, and the first production frontend shell. The production API is reserved but has not been scaffolded. The decisions below are divided into two groups:
+The repository now contains a reusable .NET library, a thin console application, the production frontend shell, and a tested .NET 10 API foundation. The decisions below are divided into two groups:
 
-- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable authentication-client boundary; process-memory demo conversations and personalization; and frontend lint, component-test, and build verification.
-- **Committed direction:** An ASP.NET Core API with backend-owned WorkOS AuthKit integration; user-facing Google, email Magic Auth, Apple, and Microsoft methods; user accounts; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
-- **Open implementation choices:** database, vector or hybrid search technology, model provider, hosting platform, background-job system, and deployment topology.
+- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable frontend authentication boundary; a .NET 10 ASP.NET Core API; WorkOS AuthKit code exchange and password recovery behind a narrow adapter; encrypted application cookies; owner-scoped MongoDB stores for accounts, conversation metadata/messages, personalization, and usage; and deterministic frontend, library, and API tests.
+- **Committed direction:** User-facing Google and other reviewed WorkOS methods; Azure Cosmos DB for MongoDB application persistence; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
+- **Open implementation choices:** vector or hybrid search provisioning, model deployment, hosting providers, background-job system, and server-side session persistence. The public topology is fixed at `https://askarabbi.ai` for the frontend and `https://api.askarabbi.ai` for the API.
 
 Dependencies and infrastructure should be selected only when an implementation milestone needs them. This keeps the first version small and prevents an early prototype from silently becoming the permanent privacy or security architecture.
 
@@ -53,7 +53,7 @@ Dependencies and infrastructure should be selected only when an implementation m
 - `SqliteSourceRetriever` supports exact-reference lookup, tiered BM25 keyword retrieval, normalized Hebrew/Unicode search, provenance filters, neighboring context, and bounded results. A deterministic query planner prioritizes reviewed concepts and keeps every fallback attached to a recognized topic anchor, such as `Shabbat`, while retaining full, paired, and broad tiers for questions without a reviewed anchor.
 - `GroundedAnswerService` retrieves at most 50 candidates, rejects empty or tangential evidence before generation, and builds a default evidence packet of at most 24 segments and 48,000 text characters. It favors source diversity, can pair Hebrew and translation versions by canonical reference, and includes a six-segment context radius while capping one document at nine included segments.
 - `UserProfile` and `UserProfileJsonSerializer` provide strict, reusable profile validation, deterministic age calculation, normalized JSON, and rejection of unknown fields. Interactive chat requires a selected or custom profile; one-shot `ask` accepts an optional profile file name from `Prototype/Profiles`.
-- `AzureOpenAIEngine` supports both `ApiKeyCredential` and Entra `TokenCredential`, explicitly supplies the configured deployment on every Responses API call, sets `store=false`, requests strict JSON Schema output, propagates cancellation, and returns typed failures plus response/token/latency diagnostics. The local console reads `AI:APIKey` from ignored configuration and chooses the API-key path; the reusable library retains its Entra-capable constructor for future hosting.
+- `AzureOpenAIEngine` supports both `ApiKeyCredential` and Entra `TokenCredential`, explicitly supplies the configured deployment on every Responses API call, sets `store=false`, requests strict JSON Schema output, propagates cancellation, and returns typed failures plus response/token/latency diagnostics. The local console reads `AI:APIKey` from .NET User Secrets or an environment variable and chooses the API-key path; the reusable library retains its Entra-capable constructor for future hosting.
 - Every model-facing instruction, the strict response schemas, and the application-controlled interpretive notice live in `Prototype/Prompts`. The host loads and validates them into `GroundedPromptSet` only when AI Chat or `ask` is used, so Source Search remains independent of prompt and Azure configuration. The behavior contract uses conversational BLUF and targets two or three connected claims and 180–325 words of explanatory prose for ordinary questions.
 - Optional `AzureKeyVaultSecretStore` is lazy, cancellation-aware, and caches requested values for 15 minutes. The prototype does not use it to load the Azure OpenAI API key.
 - Retrieved material is delimited as untrusted data. Every substantive claim and disagreement must quote every evidence ID it cites, every quotation must exactly match its source segment, and a claimed later-to-earlier reasoning chain requires exact passages for both links. A second structured model request independently checks each statement's relevance and support from its cited passages. One same-evidence repair is allowed after either validation layer before the answer fails visibly.
@@ -61,7 +61,7 @@ Dependencies and infrastructure should be selected only when an implementation m
 - The Spectre.Console host starts with AI Chat as the first option and exposes Source Search separately. All approved logical sources begin enabled; `/sources` displays the on/off inventory with edition, passage, and language counts and changes the source set used by each subsequent retrieval. Before chat it requires a saved local JSON profile or process-memory custom context. Questions and follow-ups use a spaced `You` / `AskARabbi AI` transcript with a bold direct answer and natural follow-on paragraphs. Compact citation numbers remain beside their claims; exact quotations already written in a paragraph are highlighted yellow in place and are not repeated, while supporting quotations absent from the prose retain one yellow quotation with a cyan source line. Full retrieved context remains available through `/evidence` instead of being dumped into every answer. It omits a redundant closing bibliography because validated sources already appear inline. The editable application-controlled interpretive notice ends every validated answer in italic grey. Clearing or leaving AI Chat removes conversation turns, answers, evidence references, and traces from process memory; the only prototype persistence is a user-explicit local profile JSON that never contains chat content.
 - Prototype composition is split by responsibility: `ConsoleApplication` owns only process-level orchestration; `ApplicationStateLoader` loads the manifest and local configuration; `AIChatConsole` owns the in-memory conversation; `SourceSearchConsole` owns source inspection; `SegmentIndexConsole` owns local index lifecycle; `OneShotCommandExecutor` owns automation commands; and `ConsolePresentation` owns Spectre rendering. Safety-critical behavior remains in `AskARabbiLIB` and is covered by the library test solution.
 
-The implementation adapts the useful interface/configuration, prompt-building, retry, diagnostic, credential-specific client, and Key Vault ideas from ClearVowAI. It deliberately excludes Foundry Agents, hosted vector stores, reflection-discovered tools, web/file search, image handling, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, and unrelated setup helpers.
+The implementation adapts the useful interface/configuration, prompt-building, retry, diagnostic, credential-specific client, Key Vault, and invariant BSON temporal-serialization ideas from ClearVowAI. AskRabbi supplies its own focused MongoDB stores because the audited ClearVowAI services contained serializers and BSON use but no reusable owner-scoped Mongo repository. It deliberately excludes Foundry Agents, hosted vector stores, reflection-discovered tools, web/file search, image handling, SQL/Redis services, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, and unrelated setup helpers.
 
 ## Design goals
 
@@ -95,7 +95,7 @@ flowchart LR
     Model --> Validator[Citation and response validator]
     Validator --> Api
 
-    Api -->|account, preferences, and usage| AppData[(Application data)]
+    Api -->|account, preferences, and usage| AppData[(Azure Cosmos DB for MongoDB)]
     Api -->|saved chat content only| AppData
     Api -->|stream response| Web
 ```
@@ -119,11 +119,19 @@ The Vite, React, and TypeScript frontend is expected to provide:
 
 The frontend must treat all authorization and quota data as display information. The API remains responsible for enforcing access and limits.
 
-The current shell also implements a responsive session-only Personalization screen. It captures full name; birth date, time, place, and IANA time zone; religious movement or practice; Jewish heritage or community; and optional context limited to 2,000 characters. Saving immediately updates the local profile display but does not use `localStorage`, an API, or another persistence mechanism. Refresh, logout, or tab closure clears the data.
+The current shell implements compact responsive Personalization and Settings screens. Personalization captures full name; birth date and time; one reviewed U.S. IANA time zone; independent conversation and source-quotation languages; religious movement or practice; Jewish heritage or community; and optional context limited to 2,000 characters. Supported languages are English by default plus French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The backend validates and persists that profile. Settings loads the authenticated account email, exact monthly usage window, and conversation defaults from the API, and it sends password-reset requests to the backend. Only a versioned session-storage integer for non-sensitive welcome copy remains session-local.
 
-The browser does not calculate a Hebrew birthday. Because the Hebrew date changes at sunset, production calculation needs the local birth time, place, time zone, historical offset data, and a reviewed sunset/calendar implementation. The future API should preserve the user-entered civil details, return both the calculated Hebrew date and calculation assumptions, and allow correction. Personalization remains untrusted user context: it may guide wording and relevant source distinctions, but it cannot count as evidence or justify assumptions about observance or identity.
+Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New conversations enable the complete set. Non-empty selections are validated and persisted by the API; clearing every source disables submission instead of allowing an ungrounded fallback. The exact selection is stored with the canonical conversation context. Quotation-language preference must constrain later retrieval to approved editions; an unavailable translation must be disclosed rather than generated and presented as source text.
+
+The browser does not calculate a Hebrew birthday. Because the Hebrew date changes at sunset, a time zone alone cannot establish precise local sunset. The future API should request birthplace when the birth time is near sunset, use historical offset data and a reviewed sunset/calendar implementation, preserve the user-entered civil details, return the calculated Hebrew date and assumptions, and allow correction. Personalization remains untrusted user context: it may guide wording and relevant source distinctions, but it cannot count as evidence or justify assumptions about observance or identity.
 
 ### ASP.NET Core API
+
+The implemented backend foundation is a .NET 10 controller API. `GET /health` reports process health; dependency-specific readiness checks are still pending. `UserController` owns allow-listed WorkOS AuthKit login hints, constant-time state validation, S256 PKCE, code exchange, rotating session refresh, local-account resolution, safe session projection, password recovery, and logout. `ConversationsController` owns saved conversation creation, navigation summaries, owner-authorized context loading, idempotent user-message storage, title/source updates, and deletion. `ConversationSettingsController` owns personalization, account-backed conversation defaults, and exact UTC calendar-month usage reporting.
+
+The browser receives an encrypted `HttpOnly` application cookie and never receives the WorkOS API key or access token. Its rotating WorkOS refresh token is contained only inside the ASP.NET Core protected ticket and is unavailable to JavaScript; the API renews it near provider-token expiration and rejects provider-revoked sessions. The ticket lasts at most eight sliding hours. A reviewed shared server-side session/revocation store and shared data-protection key ring remain required before horizontally scaled public deployment. WorkOS and MongoDB may be omitted for process-only health checks, and their endpoints normally fail explicitly with `503`. A separate `local-demo` launch profile is accepted only in the `Development` environment and supplies process-memory substitutes for an end-to-end local walkthrough; production cannot enable it. Credentialed CORS permits only exact configured origins, with the Vite origin defaulted solely in Development.
+
+Azure Cosmos DB for MongoDB is accessed behind `IUserAccountStore`, `IConversationStore`, `IConversationSettingsStore`, and `IUsageStore`. Conversation metadata and messages occupy separate collections so sidebar reads avoid message bodies and appends do not rewrite an ever-growing document. Personalization and conversation preferences share an owner-keyed settings document but use independent field updates. Store filters always include the local user ID for user-owned resources, and required uniqueness/navigation indexes are initialized at configured startup.
 
 The API is expected to own:
 
@@ -138,14 +146,15 @@ The API is expected to own:
 
 Controllers should remain thin. Business rules belong in application services, and provider-specific code should sit behind narrow interfaces.
 
-The initial controller boundary is likely to be:
+The implemented controller boundary is:
 
 | Controller | Responsibility |
 | --- | --- |
-| `UsersController` | Current user, profile, source preferences, and usage summary |
-| `ChatsController` | Saved chat lifecycle, messages, private requests, and streaming responses |
+| `UserController` | WorkOS-hosted login, callback, session, password recovery, and logout |
+| `ConversationsController` | Saved conversation lifecycle, source settings, message ingestion, and canonical context |
+| `ConversationSettingsController` | Current personalization and exact monthly usage window |
 
-Authentication endpoints may be owned by an external identity system or a dedicated API surface; that decision is still open.
+The current message endpoint stores and returns a user turn but does not call the grounded-answer pipeline or increment usage. Assistant-message persistence, reservations, streaming, private mode, and validated citation snapshots remain part of chat orchestration work.
 
 ### Chat orchestration
 
@@ -284,23 +293,31 @@ Private-mode requirements:
 
 Until those properties are tested in the deployed environment, the product should not advertise private mode as “zero retention” or “never leaves your device.”
 
-## Proposed API surface
+## API surface
 
-The exact routes may change during implementation. This initial shape keeps the public API resource-oriented while limiting the first release:
+The implemented foundation exposes:
 
 | Method and route | Purpose |
 | --- | --- |
-| `GET /api/users/me` | Return the current account profile |
-| `PATCH /api/users/me` | Update allowed profile fields |
-| `GET /api/users/me/preferences` | Return source and response preferences |
-| `PUT /api/users/me/preferences` | Replace validated preferences |
-| `GET /api/users/me/usage` | Return the current limit and usage window |
-| `GET /api/chats` | List the current user's saved chats |
-| `POST /api/chats` | Create a saved chat |
-| `GET /api/chats/{chatId}` | Return one authorized saved chat |
-| `DELETE /api/chats/{chatId}` | Delete one authorized saved chat |
-| `POST /api/chats/{chatId}/messages` | Add a message and stream a cited response |
-| `POST /api/chats/private/messages` | Stream a response without persisting content |
+| `GET /health` | Return process health without requiring configured external services |
+| `GET /api/user/login` | Start WorkOS AuthKit with state, S256 PKCE, and optional validated email/provider/sign-up hints |
+| `GET /api/user/callback` | Exchange the code and establish the local application session |
+| `GET /api/user/session` | Return the current safe account projection |
+| `POST /api/user/forgot-password` | Request password recovery without account enumeration |
+| `POST /api/user/reset-password` | Confirm a reset and clear the current application cookie |
+| `POST /api/user/logout` | Clear the cookie and return the provider logout destination |
+| `GET /api/conversations` | List recent owned conversation summaries |
+| `POST /api/conversations` | Create a saved conversation |
+| `GET /api/conversations/{conversationId}` | Return one owner-authorized conversation and its messages |
+| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn and return canonical context; AI response generation is not connected yet |
+| `PUT /api/conversations/{conversationId}/title` | Rename an owned conversation |
+| `PUT /api/conversations/{conversationId}/sources` | Replace approved source selectors |
+| `DELETE /api/conversations/{conversationId}` | Delete an owned conversation and its messages |
+| `GET /api/conversation-settings/usage` | Return exact current UTC billing-period dates and usage |
+| `GET /api/conversation-settings/personalization` | Return configured or unconfigured personalization |
+| `PUT /api/conversation-settings/personalization` | Validate and replace personalization |
+| `GET /api/conversation-settings/preferences` | Return account-backed conversation defaults |
+| `PUT /api/conversation-settings/preferences` | Replace account-backed conversation defaults |
 
 All identifiers must be authorization-checked against the authenticated account. A valid identifier is not proof of access.
 
@@ -317,7 +334,7 @@ The persistence model should remain small for the first release:
 | `Conversation` | Saved chat ownership, title, and timestamps |
 | `Message` | Saved user or assistant content and ordering |
 | `Citation` | Structured source evidence attached to a saved assistant message |
-| `UsageLedgerEntry` | Idempotent accounting for a completed or chargeable operation |
+| `MonthlyUsage` | Current atomic answer count and exact UTC calendar-month boundary; reservation/finalization is still planned |
 | `TextSegment` | Indexed source passage and provenance metadata |
 | `TextRelationship` | Links between passages, commentary, parallels, and topics |
 
@@ -381,11 +398,11 @@ Use MSTest for .NET tests, with deterministic fakes or strict mocks around ident
 - Provider timeouts and partial streaming failures.
 - Deletion and retention rules.
 
-Integration tests should use disposable local dependencies or in-memory substitutes, never production services or live user data.
+Integration tests use in-memory identity and persistence substitutes plus injected fixed time, never production services, user-profile key stores, live credentials, or live user data. The current backend suite exercises authentication state/PKCE, cookie establishment/removal, non-enumerating recovery, authorization, saved-conversation workflows, idempotent message ingestion, personalization validation, and exact usage periods. The library suite separately enforces at least 80% branch coverage in CI.
 
 ### Frontend tests
 
-The current Vitest and Testing Library suite covers invalid login input, the complete demo Google login/logout flow, disabled profile placeholders, and creation of a local conversation without a backend. Later milestones should add coverage for:
+The current Vitest and Testing Library suite covers invalid login input, injected login/logout behavior, rotating welcome copy, conversation creation, rename and confirmed deletion, source persistence, message storage, profile validation, U.S. time-zone selection, API-reported usage, password-reset disclosure, settings preferences, and save toasts. Adapter tests verify credentialed requests, structured API failures, authorization-state mapping, idempotency IDs, and offset-free birth-time serialization. Later milestones should add coverage for:
 
 - Mode selection and unmistakable privacy language.
 - Streaming, cancellation, retry, and error states.
@@ -430,7 +447,7 @@ Prototype/
 ```text
 AskARabbi/
 ├── Frontend/                     # Implemented Vite, React, TypeScript, and Tailwind shell
-├── Backend/                      # Reserved ASP.NET Core production boundary
+├── Backend/                      # .NET 10 ASP.NET Core host and integration tests
 ├── Library/                      # Reusable corpus, retrieval, AI, and grounding code
 ├── Prototype/                    # Local Spectre.Console search and AI host
 ├── Data/                         # Raw and normalized licensed corpus metadata
@@ -447,15 +464,15 @@ The number of .NET projects should be revisited during scaffolding. If the first
 
 - Record the behavior contract and non-goals.
 - Evaluate text licenses and required attribution.
-- Configure WorkOS environments and select storage, retrieval, model, and hosting providers.
+- Configure WorkOS environments and the selected Azure Cosmos DB for MongoDB account; select retrieval, model, and hosting providers.
 - Define the private-chat threat model and retention contract.
 - Assemble the first expert-reviewed evaluation set.
 
 ### Phase 1: application foundation
 
-- Extend the implemented Vite/React frontend and scaffold the ASP.NET Core API when the first server contract is approved.
-- Implement authentication, user preferences, and account authorization.
-- Add CI, configuration validation, health checks, and test foundations.
+- Connect the implemented Vite/React frontend to the ASP.NET Core API contract.
+- Complete server-side WorkOS session revocation, shared data-protection keys, rate limiting, CORS/CSRF, and account lifecycle handling.
+- Add dependency readiness checks and deployed-environment smoke tests.
 - Establish content-free observability.
 
 ### Phase 2: textual grounding proof of concept
@@ -478,14 +495,14 @@ The number of .NET projects should be revisited during scaffolding. If the first
 - Conduct scholarly, accessibility, privacy, and security reviews.
 - Red-team hallucination, prompt injection, judgmental language, and cross-user access.
 - Publish accurate terms, privacy disclosures, source attribution, and limitations.
-- Deploy the initial release to [askrabbi.ai](https://askrabbi.ai).
+- Deploy the initial release to [askarabbi.ai](https://askarabbi.ai).
 
 ## Open decisions
 
 The following choices should be made through small proof-of-concept measurements and documented before production:
 
 - Server-session persistence, revocation, and retention strategy for the WorkOS-backed login flow.
-- Relational database and migration strategy.
+- Azure Cosmos DB for MongoDB provisioning mode, partition/shard-key policy, backup, retention, and data migration strategy.
 - Search engine and vector-storage approach.
 - Sefaria live API, periodic export, or hybrid ingestion.
 - Model provider, regional processing, retention, and training terms.
@@ -507,18 +524,31 @@ The following choices should be made through small proof-of-concept measurements
 
 ## Local development
 
-The production frontend shell runs independently and does not require Azure, WorkOS, or a backend:
+The production frontend shell expects the API at `http://localhost:5090` by default. Run the API's explicit Development-only local profile when WorkOS and MongoDB credentials are unavailable:
 
 ```powershell
+dotnet run --project Backend/AskARabbi.Api --launch-profile local-demo
+
 cd Frontend
 pnpm install
 pnpm dev
 pnpm verify
 ```
 
-Node.js 22.12 or newer and pnpm 11 are required. The demo authentication adapter and questions entered into the shell remain in process memory and are cleared by logout or reload. See `Frontend/README.md` for the current behavior and replacement boundary. `Backend/README.md` records the deliberately empty API boundary.
+Node.js 22.12 or newer and pnpm 11 are required. In `local-demo`, the browser still calls the real HTTP controllers and uses the real application cookie, but the API process owns an in-memory identity and datastore; restarting the API clears that data. See `Frontend/README.md` for the client boundary.
 
-Source Search and index management need no Azure configuration. Prototype AI Chat additionally requires an Azure OpenAI resource endpoint, a deployed model name, and the matching resource API key in the ignored root `appsettings.json` or environment:
+The production API foundation runs on .NET 10. `GET /health` works without external configuration; application endpoints require the WorkOS and MongoDB settings documented in `Backend/README.md`. All backend JSON configuration is secret-free. Local credentials live in .NET User Secrets; deployed credentials come from the hosting platform's secret configuration:
+
+```powershell
+dotnet restore Backend/AskARabbiBackend.slnx
+dotnet build Backend/AskARabbiBackend.slnx -c Release --no-restore
+dotnet test Backend/AskARabbiBackend.slnx -c Release --no-build --no-restore
+dotnet run --project Backend/AskARabbi.Api --launch-profile http
+```
+
+Both development launch profiles listen on `http://localhost:5090`. The normal `http` profile uses configured WorkOS and MongoDB services and fails their endpoints closed when configuration is absent; `local-demo` is the credential-free walkthrough. See `Backend/README.md` for the exact response and smoke-test command.
+
+Source Search and index management need no Azure configuration. Prototype AI Chat additionally requires an Azure OpenAI resource endpoint, a deployed model name, and the matching resource API key in .NET User Secrets or an environment variable:
 
 ```powershell
 dotnet build Library/AskARabbiLIB.slnx -c Release
@@ -529,9 +559,9 @@ dotnet run --project Prototype/AskARabbiPrototype -- index verify --format json
 dotnet run --project Prototype/AskARabbiPrototype -- search "Shabbat" --collection Talmud
 $env:AI__ProjectEndpoint = "https://your-resource.openai.azure.com"
 $env:AI__ModelName = "your-deployment"
-$env:AI__APIKey = "your-resource-api-key"
+dotnet user-secrets --project Prototype/AskARabbiPrototype set "AI:APIKey" "your-resource-api-key"
 dotnet run --project Prototype/AskARabbiPrototype -- ask "What do the retrieved sources say about this question?"
 dotnet run --project Prototype/AskARabbiPrototype --
 ```
 
-The prototype does not initialize Key Vault; the empty example section only documents that decision while the reusable library retains an optional lazy secret-store adapter for future hosts. The root `appsettings.json` is ignored and is not copied into build or publish output. Questions, answers, prompts, and evidence are not logged or persisted by this prototype. See `Library/README.md` for reusable APIs and tests and `Prototype/README.md` for complete commands. Production setup documentation will still need exact identity, secret management, persistence, retention, hybrid retrieval, deployment, and migration instructions after those services exist.
+The prototype does not initialize Key Vault; the empty example section only documents that decision while the reusable library retains an optional lazy secret-store adapter for future hosts. The root `appsettings.json` contains only non-sensitive configuration, remains ignored, and is not copied into build or publish output. User Secrets are stored outside the repository. Questions, answers, prompts, and evidence are not logged or persisted by this prototype. See `Library/README.md` for reusable APIs and tests and `Prototype/README.md` for complete commands.

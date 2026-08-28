@@ -77,11 +77,14 @@ Inside the chat, `/profile` displays the active context. `/clear` removes conver
 
 ## Configuration
 
-Configuration loads from an ignored root `appsettings.json` followed by environment variables. Copy the tracked [`appsettings.example.json`](../appsettings.example.json) to `appsettings.json`, replace `ProjectEndpoint` with the Azure OpenAI resource endpoint, replace `ModelName` with the Azure deployment name, and put the matching resource key in `AI:APIKey`. Leave `KeyVault:Endpoint` empty: the current prototype does not consume Key Vault. The local file and environment-specific variants are ignored, are not copied into build or publish output, and must never be committed.
+Configuration loads in this order: the ignored root `appsettings.json`, .NET User Secrets, then environment variables. JSON contains only the non-sensitive Azure OpenAI endpoint, deployment name, and unused Key Vault endpoint. Store the Azure OpenAI resource key in User Secrets; no `appsettings*.json` file contains or documents a secret field. Leave `KeyVault:Endpoint` empty because the current prototype does not consume Key Vault.
 
 ```powershell
 Copy-Item appsettings.example.json appsettings.json
+dotnet user-secrets --project Prototype/AskARabbiPrototype set "AI:APIKey" "your-resource-api-key"
 ```
+
+The endpoint and deployment name may remain in the ignored JSON. Environment variables are an alternative and have the highest precedence:
 
 ```powershell
 $env:AI__ProjectEndpoint = "https://your-resource.openai.azure.com"
@@ -89,7 +92,7 @@ $env:AI__ModelName = "your-deployment-name"
 $env:AI__APIKey = "your-resource-api-key"
 ```
 
-`AI:ProjectEndpoint`, `AI:ModelName`, and `AI:APIKey` are validated only when AI Chat or the `ask` command is used. `ProjectEndpoint` must be an absolute HTTPS URL. The unused `KeyVault` section remains in the example only to make its current status explicit; reusable Key Vault support lives in the library and is not initialized by this host.
+`AI:ProjectEndpoint`, `AI:ModelName`, and `AI:APIKey` are validated only when AI Chat or the `ask` command is used. `ProjectEndpoint` must be an absolute HTTPS URL. User Secrets are stored in the current Windows user profile outside the repository and are never copied to build or publish output. The unused `KeyVault` section remains in the example only to make its current status explicit; reusable Key Vault support lives in the library and is not initialized by this host.
 
 The prototype uses the library's 2,000-output-token ceiling, a 120-second timeout, medium reasoning effort, strict JSON Schema output, and `store=false`. The prompts target roughly 180–325 words of explanatory prose for ordinary questions, leaving room for required exact quotations without encouraging report-length responses.
 

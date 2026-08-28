@@ -58,14 +58,23 @@ jobs:
       - name: Restore prototype solution
         run: dotnet restore Prototype/AskARabbiPrototype.slnx
 
+      - name: Restore backend solution
+        run: dotnet restore Backend/AskARabbiBackend.slnx
+
       - name: Build library and tests
         run: dotnet build Library/AskARabbiLIB.slnx --configuration Release --no-restore
 
       - name: Build prototype
         run: dotnet build Prototype/AskARabbiPrototype.slnx --configuration Release --no-restore
 
+      - name: Build backend and tests
+        run: dotnet build Backend/AskARabbiBackend.slnx --configuration Release --no-restore
+
       - name: Run library tests
         run: dotnet test Library/AskARabbiLIB.slnx --configuration Release --no-build --no-restore --collect:"XPlat Code Coverage" --logger "trx;LogFileName=verification.trx" --results-directory Library/TestResults/Verification
+
+      - name: Run backend tests
+        run: dotnet test Backend/AskARabbiBackend.slnx --configuration Release --no-build --no-restore --logger "trx;LogFileName=backend-verification.trx" --results-directory Backend/TestResults/Verification
 
       - name: Enforce library branch coverage
         run: python3 scripts/check-cobertura-coverage.py Library/TestResults/Verification --minimum-branch-rate 80
@@ -75,6 +84,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: verification-results-${{ github.run_id }}-${{ github.run_attempt }}
-          path: Library/TestResults/Verification/**
+          path: |
+            Library/TestResults/Verification/**
+            Backend/TestResults/Verification/**
           if-no-files-found: warn
           retention-days: 14

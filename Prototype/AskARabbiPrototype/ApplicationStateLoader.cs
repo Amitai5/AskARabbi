@@ -45,6 +45,7 @@ internal sealed class ApplicationStateLoader
 
         var configuration = new ConfigurationBuilder()
             .AddJsonFile(Path.Combine(location.RepositoryRoot, "appsettings.json"), optional: true, reloadOnChange: false)
+            .AddUserSecrets(typeof(ApplicationStateLoader).Assembly, optional: true, reloadOnChange: false)
             .AddEnvironmentVariables()
             .Build();
 

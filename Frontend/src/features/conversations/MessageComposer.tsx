@@ -1,18 +1,24 @@
 import { useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { ArrowUp } from 'lucide-react'
+import { SourceFilterMenu } from './SourceFilterMenu.tsx'
 
 interface MessageComposerProps {
   draft: string
+  selectedSourceKeys: readonly string[]
+  conversationLanguage: string
+  quotationLanguage: string
+  isSending: boolean
   onDraftChange(value: string): void
+  onSelectedSourceKeysChange(sourceKeys: string[]): void
   onSubmit(): void
 }
 
-export function MessageComposer({ draft, onDraftChange, onSubmit }: MessageComposerProps) {
+export function MessageComposer({ draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, onDraftChange, onSelectedSourceKeysChange, onSubmit }: MessageComposerProps) {
   const formRef = useRef<HTMLFormElement>(null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (draft.trim().length > 0) {
+    if (draft.trim().length > 0 && selectedSourceKeys.length > 0) {
       onSubmit()
     }
   }
@@ -38,12 +44,16 @@ export function MessageComposer({ draft, onDraftChange, onSubmit }: MessageCompo
           placeholder="Ask about Jewish texts, traditions, or practice…"
           className="max-h-52 min-h-20 w-full resize-none bg-transparent px-2 pt-1 text-[0.98rem] leading-6 text-ink outline-none placeholder:text-muted/80"
         />
-        <div className="flex items-center justify-between pt-2">
-          <span className="px-2 text-xs font-medium text-muted">Local demo</span>
-          <button type="submit" disabled={draft.trim().length === 0} className="flex size-10 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <SourceFilterMenu selectedSourceKeys={selectedSourceKeys} onChange={onSelectedSourceKeysChange} />
+            <span className="hidden truncate text-xs text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
+          </div>
+          <button type="submit" disabled={isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-10 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">
             <ArrowUp aria-hidden="true" className="size-5" strokeWidth={1.9} />
           </button>
         </div>
+        {selectedSourceKeys.length === 0 ? <p className="px-2 pt-2 text-xs font-medium text-pomegranate" role="alert">Select at least one source before sending.</p> : null}
       </form>
       <p className="mt-3 text-center text-xs leading-5 text-muted">
         AskRabbi can make mistakes. Check the cited sources.

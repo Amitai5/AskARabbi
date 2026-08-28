@@ -4,15 +4,20 @@ import type { AuthenticatedUser } from '../auth/authTypes.ts'
 
 interface ProfileMenuProps {
   user: AuthenticatedUser
+  onOpenSettings(): void
   onOpenPersonalization(): void
   onLogout(): Promise<void>
 }
 
-export function ProfileMenu({ user, onOpenPersonalization, onLogout }: ProfileMenuProps) {
+export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLogout }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
     function handlePointerDown(event: PointerEvent) {
       if (containerRef.current?.contains(event.target as Node) === false) {
         setIsOpen(false)
@@ -32,16 +37,23 @@ export function ProfileMenu({ user, onOpenPersonalization, onLogout }: ProfileMe
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [isOpen])
 
   return (
     <div ref={containerRef} className="relative border-t border-line px-4 py-4">
       {isOpen ? (
         <div className="absolute bottom-[calc(100%+0.5rem)] left-4 right-4 z-20 rounded-xl border border-line bg-paper p-2 shadow-menu" role="menu" aria-label="Profile options">
-          <button type="button" disabled className="flex h-11 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 text-sm text-muted/55" role="menuitem">
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false)
+              onOpenSettings()
+            }}
+            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink transition hover:bg-stone"
+            role="menuitem"
+          >
             <Wrench aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
             Settings
-            <span className="sr-only">Unavailable</span>
           </button>
           <button
             type="button"

@@ -391,10 +391,22 @@ MigrationBackup/
 /Data/NormalizedData/**/*.sqlite-wal
 /Data/NormalizedData/**/*.sqlite.*.tmp
 
-# Local prototype configuration may contain endpoints or future secrets.
+# Local prototype JSON contains only machine-specific non-secret configuration; credentials use .NET User Secrets.
 /appsettings.json
 /appsettings.*.json
 !/appsettings.example.json
+
+# Environment files may contain deployment credentials; only reviewed templates belong in source control.
+.env
+.env.*
+!.env.example
+
+# Backend JSON remains secret-free; credentials belong in .NET User Secrets or deployment environment variables.
+**/appsettings.Local.json
+**/appsettings.*.local.json
+/Backend/AskARabbi.Api/appsettings.json
+/Backend/AskARabbi.Api/appsettings.Development.json
+!/Backend/AskARabbi.Api/appsettings.example.json
 
 # Local user profiles contain personal, religious, and cultural information.
 /Prototype/Profiles/*.json

@@ -1,6 +1,6 @@
 # AskARabbiLIB
 
-`AskARabbiLIB` is the reusable .NET 10 library for manifest search, checksum-verified source access, segment indexing/retrieval, Azure AI access, optional Key Vault access, and fail-closed grounded-answer validation. Its namespace, project, assembly, and solution are all named `AskARabbiLIB`.
+`AskARabbiLIB` is the reusable .NET 10 library for manifest search, checksum-verified source access, segment indexing/retrieval, Azure AI access, optional Key Vault access, fail-closed grounded-answer validation, production account/conversation rules, and Azure Cosmos DB for MongoDB persistence. Its namespace, project, assembly, and solution are all named `AskARabbiLIB`.
 
 The library has no Spectre.Console dependency. `AskARabbiPrototype` is only a host; future APIs, agents, workers, and evaluation tools can reuse these contracts directly.
 
@@ -11,13 +11,18 @@ Library/
 ├── AskARabbiLIB.slnx
 ├── AskARabbiLIB/
 │   ├── AI/
+│   ├── Accounts/
+│   ├── Conversations/
+│   ├── ConversationSettings/
 │   ├── Files/
 │   ├── Grounding/
 │   ├── Models/
 │   ├── Profiles/
+│   ├── Persistence/Mongo/
 │   ├── Retrieval/
 │   ├── Search/
-│   └── Secrets/
+│   ├── Secrets/
+│   └── Usage/
 └── AskARabbiLIB.Tests/
     └── AskARabbiLIB.Tests.csproj
 ```
@@ -60,6 +65,10 @@ The host supplies a validated `GroundedPromptSet` to `GroundedAnswerService`. In
 - Grounding: `GroundedQuestion`, `EvidencePacket`, `GroundedAnswer`, `GroundedClaim`, `GroundedQuotation`, `SourceCitation`, `GroundedAnswerResult`, `GroundedPromptSet`, `IGroundedAnswerService`, `InMemoryGroundedSession`.
 - Profiles: `UserProfile`, `UserProfileJsonSerializer`.
 - Secrets: `ISecretStore`, `AzureKeyVaultSecretStore`.
+- Accounts: `ExternalUserIdentity`, `UserAccount`, `IUserAccountStore`.
+- Conversations: `Conversation`, `ConversationMessage`, `ConversationSummary`, `ConversationService`, `ConversationSourceCatalog`, `IConversationStore`.
+- Personalization and usage: `PersonalizationSettings`, `ConversationSettingsService`, `MonthlyUsageService`, `BillingPeriodUsage`, and their store contracts.
+- Persistence: `MongoDatabaseOptions`, owner-scoped MongoDB store implementations, required-index initialization, invariant temporal serializers, and an explicit unconfigured-store failure.
 
 `AzureOpenAIEngine` accepts either an `ApiKeyCredential` or an Entra `TokenCredential` (defaulting to `DefaultAzureCredential`). It uses a 120-second default timeout, 2,000 output tokens, medium reasoning, explicit per-request model selection, `store=false`, strict JSON Schema Structured Outputs, cancellation propagation, bounded retries, and typed provider failures. It exposes response ID, returned model, token usage, latency, and attempts without retaining prompt or response bodies. The local prototype chooses the API-key constructor.
 
@@ -71,6 +80,8 @@ The library deliberately owns every reusable or safety-critical operation. The p
 
 Production code is organized with one primary type per file and provider-specific dependencies behind narrow internal or public contracts. Public models retain their current namespaces and serialization names; this cleanup did not change the manifest schema or console configuration keys.
 
+The production MongoDB boundary keeps account data, conversation metadata, messages, personalization, and monthly counters in separate collections. Conversation summaries project only navigation fields; loading one conversation joins its owner-scoped metadata with ordered message records. Client-generated message IDs make retries idempotent, and every mutation requires both the immutable local user ID and resource ID. `TimeProvider` drives persisted application timestamps and calendar-month usage boundaries so business tests do not depend on system time.
+
 ## Dependencies
 
 The library pins:
@@ -80,14 +91,17 @@ The library pins:
 - `Azure.Identity` 1.21.0 for the Entra-capable engine overload and optional Key Vault adapter.
 - `Azure.Security.KeyVault.Secrets` 4.11.0 for the optional secret adapter.
 - `SQLitePCLRaw.bundle_e_sqlite3` 2.1.13 as a direct security override because the bundle transitively selected by `Microsoft.Data.Sqlite` 10.0.10 is affected by a high-severity native SQLite advisory.
+- `MongoDB.Driver` 3.11.0 for the supported Mongo wire protocol, atomic updates, projections, and indexes used by Azure Cosmos DB for MongoDB. A custom HTTP/data-access layer was rejected because it would duplicate protocol, TLS, serialization, retry, and compatibility responsibilities while increasing correctness and security risk.
 
 Alternatives considered were whole-corpus in-memory search, hosted vector stores, Foundry Agents, reflection-discovered tools, web/file search, and schema/tokenization helper packages. They were excluded because they add memory pressure, preview coupling, retrieval outside the approved corpus, or unnecessary binary/security surface. The local lexical index costs no dedicated infrastructure; production hybrid retrieval is planned behind a future `AzureAiSearchSourceRetriever` using the same stable segment IDs and result contracts.
 
-The implementation adapts selected ClearVowAI patterns—provider interfaces, configuration validation, text prompt construction, structured results, credential-specific client creation, retries, diagnostics, and Key Vault access—without depending on that external directory. It does not port the Foundry Agent engine, hosted vector-store manager, tool discovery, web/file/image tools, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, or unrelated setup helpers.
+The implementation adapts selected ClearVowAI patterns—provider interfaces, configuration validation, text prompt construction, structured results, credential-specific client creation, retries, diagnostics, Key Vault access, and invariant BSON temporal serialization—without depending on that external directory. The audited ClearVowAI services did not contain a reusable Mongo repository, so AskRabbi implements narrow owner-scoped stores around its own domain contracts. It does not port the Foundry Agent engine, hosted vector-store manager, SQL/Redis services, tool discovery, web/file/image tools, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, or unrelated setup helpers.
 
 ## API migration
 
 Manifest schema 1.3 adds required `ManifestDocument.LicenseCategory`, `RequiresAttribution`, `RequiresShareAlike`, and `AttributionUrl`. `ManifestDocument.WorkKey` and `UsageNote` are additive and optional for core texts; curated supplemental records provide both. Existing consumers must regenerate `document-manifest.json`, populate the required license properties in object initializers, rebuild the v3 segment index, and pass `SourceSegment.LicenseCategory` when constructing segments directly. `SourceSegment.WorkKey`, `SourceSegment.UsageNote`, `SourceRetrievalQuery.WorkKeys`, and `GroundedQuestion.WorkKeys` are additive and optional. `DocumentSourceCatalog`, `SourceRetrievalQuery.SourceKeys`, and `GroundedQuestion.SourceKeys` are additive APIs; existing callers that omit source keys continue to search all approved sources. `SourceSegment.SourceUrl` and `SourceCitation.SourceUrl` identify the original attribution source; the Sefaria export artifact remains in `ManifestDocument.SourceUrl`. `GroundedAnswerService` requires a validated `GroundedPromptSet`; hosts must load or construct the prompt set and pass it as the third constructor argument. `GroundedPromptSet.InterpretiveNotice` and `GroundedAnswer.InterpretiveNotice` are required; custom hosts must supply application-controlled closing text. Custom prompt-set initializers must now also provide `SupportValidationPrompt` and `SupportValidationJsonSchema`; the prototype loads them from the two `grounded-support-validation` prompt files. `GroundedQuestion.UserProfile` remains additive and optional. `GroundedAnswerOptions` defaults to 24 segments, 48,000 characters, nine segments per document, and a six-segment context radius.
+
+The account, saved-conversation, personalization, usage, and MongoDB APIs are additive. New hosts bind `MongoDatabaseOptions`, construct the four store implementations against an `IMongoDatabase`, and compose the domain services through dependency injection. No existing manifest, retrieval, grounding, prototype configuration, or serialization contract changed for this addition.
 
 ## Build and test
 
@@ -98,7 +112,7 @@ dotnet build Library/AskARabbiLIB.slnx -c Release
 dotnet test Library/AskARabbiLIB.slnx -c Release --no-build
 ```
 
-Tests are MSTest and use in-memory SQLite, fake AI transports, fake Key Vault clients, controlled time providers, and fake document readers. Normal verification performs no live Azure or filesystem corpus access. A live Azure call is a manual smoke test only.
+Tests are MSTest and use in-memory SQLite, fake AI transports, fake Key Vault clients, controlled time providers, fake application stores, and fake document readers. BSON serializer compatibility is tested against the pinned driver. Normal verification performs no live Azure, MongoDB, WorkOS, system-time, or filesystem corpus access. Live provider calls are manual smoke tests only.
 
 Collect coverage with:
 

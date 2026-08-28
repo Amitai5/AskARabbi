@@ -1,132 +1,106 @@
-# Production authentication plan
+# Production authentication design
 
-## Decision
+## Decision and current state
 
-AskRabbi will use WorkOS AuthKit as its authentication and user-management infrastructure. WorkOS is not a user-facing sign-in method. Users will choose a recognizable method such as Google, Apple, Microsoft, or email, and WorkOS will broker that flow behind the AskRabbi backend.
+AskRabbi uses WorkOS AuthKit as its identity and user-management boundary. WorkOS is not presented as a separate sign-in brand: users see the Google, email/password, Apple, Microsoft, or other reviewed methods enabled in the hosted AuthKit configuration. The browser never receives the WorkOS API key or provider tokens.
 
-The current frontend remains a local demo. Its `AuthClient` contract names user-facing methods and deliberately contains no WorkOS-specific method. The production implementation will call the AskRabbi API; the browser will never receive the WorkOS API key.
+The .NET 10 backend implements the server flow with the pinned `WorkOS.net` 6.2.0 SDK. The React `backendAuthClient` begins purpose-specific email, Google, or sign-up flows, hydrates the user only from the session endpoint, sends credentialed API requests, completes password recovery, and performs backend-owned logout.
 
-This plan was checked against the WorkOS documentation on August 24, 2026:
+The implementation was checked against:
 
 - [AuthKit overview](https://workos.com/docs/authkit/overview)
 - [Social Login](https://workos.com/docs/authkit/social-login)
-- [Modeling an AuthKit application](https://workos.com/docs/authkit/modeling-your-app)
-- [Users and Organizations](https://workos.com/docs/authkit/users-organizations)
-- [Authorization URL API](https://workos.com/docs/reference/authkit/authentication/get-authorization-url)
+- [Sessions](https://workos.com/docs/authkit/sessions)
+- [Password reset](https://workos.com/docs/reference/authkit/password-reset)
 - [Official WorkOS .NET SDK](https://github.com/workos/workos-dotnet)
 
-## User-facing methods
-
-The recommended rollout is intentionally smaller than the complete WorkOS integration catalog:
-
-| Method | Launch position | Reason |
-| --- | --- | --- |
-| Google | Primary social option | Broad consumer adoption and the method explicitly requested for AskRabbi. |
-| Email Magic Auth | Primary fallback | A one-time email code avoids storing an AskRabbi password and supports users without a selected social provider. |
-| Apple | Planned secondary option | Useful for privacy-conscious and Apple-device users. |
-| Microsoft | Planned secondary option | Useful for users whose main identity is a Microsoft personal, school, or work account. |
-| Enterprise SSO | Later, organization-driven | WorkOS supports it, but AskRabbi does not yet have an organization or institutional product requirement. |
-
-WorkOS currently documents built-in social or OAuth integrations including Google, Microsoft, GitHub, Apple, GitLab, LinkedIn, Slack, ADP, Bitbucket, Intuit, Rippling, Xero, and others. AskRabbi should not expose every technically supported provider. GitHub, LinkedIn, Slack, and other business-oriented options can be enabled later only when user demand justifies the extra login choices.
-
-Facebook is not currently listed in the WorkOS Social Login documentation or the authorization provider values. It is therefore not part of the AskRabbi plan. Reconsider it only if WorkOS adds documented first-class support and AskRabbi users demonstrate a need for it.
-
-Email/password is supported by AuthKit, but Magic Auth is the preferred email method for the first release. WorkOS has deprecated Magic Links in favor of a one-time six-digit Magic Auth code.
-
-## Production flow
+## Implemented flow
 
 ```mermaid
 sequenceDiagram
     participant Browser as AskRabbi frontend
     participant Api as AskRabbi backend
     participant WorkOS as WorkOS AuthKit
-    participant Provider as Google or another provider
-    participant AppDb as AskRabbi application data
+    participant Provider as Enabled login method
+    participant Mongo as Cosmos DB for MongoDB
 
-    Browser->>Api: Begin sign-in for selected method
-    Api->>Api: Create state, PKCE values, and safe return target
-    Api-->>Browser: Redirect to WorkOS authorization URL
-    Browser->>WorkOS: Follow authorization redirect
-    WorkOS->>Provider: Authenticate with selected provider
-    Provider-->>WorkOS: Verified provider identity
-    WorkOS-->>Api: Authorization code at exact callback URI
-    Api->>WorkOS: Exchange code using backend credential
-    WorkOS-->>Api: Authenticated WorkOS user and tokens
-    Api->>AppDb: Resolve local user by WorkOS user ID
-    Api-->>Browser: Rotate secure application session and redirect
-    Browser->>Api: Read current AskRabbi session
-    Api-->>Browser: Safe user profile projection
+    Browser->>Api: GET /api/user/login + optional email/provider/screen hint
+    Api->>Api: Generate state, PKCE verifier, and S256 challenge
+    Api-->>Browser: Short-lived HttpOnly state/verifier cookies + redirect
+    Browser->>WorkOS: Follow hosted AuthKit redirect
+    WorkOS->>Provider: Complete configured login method
+    Provider-->>WorkOS: Verified identity
+    WorkOS-->>Api: Authorization code + state
+    Api->>Api: Constant-time state check; recover PKCE verifier
+    Api->>WorkOS: Exchange code + verifier using server API key
+    WorkOS-->>Api: Verified WorkOS user and session response
+    Api->>Mongo: Upsert by immutable WorkOS user ID
+    Api-->>Browser: Encrypted HttpOnly AskRabbi cookie + frontend redirect
+    Browser->>Api: GET /api/user/session
+    Api->>WorkOS: Rotate refresh token near access-token expiry
+    Api-->>Browser: Renew protected AskRabbi ticket
+    Api-->>Browser: Minimum safe local account projection
 ```
 
-The backend will use the official `WorkOS.net` SDK if its AuthKit surface satisfies the implementation requirements at that milestone. Otherwise, a narrow typed HTTP adapter will call the documented WorkOS API. No WorkOS package is added until the backend project exists and the exact SDK version has been reviewed and pinned.
+State and PKCE cookies expire after ten minutes and are deleted at the callback. The authorization code is exchanged only by the backend. The WorkOS access token is never stored or returned to React. Its `sid` and `exp` claims are read only from the provider response; the rotating refresh token, session ID, and expiration are retained inside the ASP.NET Core protected application ticket. Near expiration, the API exchanges the refresh token, updates the local WorkOS user projection in Cosmos, and renews the encrypted ticket. A transient provider failure retains only a still-unexpired session; an expired or provider-rejected session fails closed.
 
-## Planned API boundary
+## Implemented routes
 
-| Endpoint | Responsibility |
+| Method and route | Responsibility |
 | --- | --- |
-| `GET /auth/providers` | Return only the methods enabled for the current environment so the frontend never hard-codes backend availability. |
-| `GET /auth/login/{provider}` | Validate the provider and return target, establish state and PKCE, then redirect to WorkOS. |
-| `GET /auth/signup` | Start the AuthKit sign-up flow. |
-| `GET /auth/callback` | Validate state, exchange the authorization code, resolve the local user, and create the AskRabbi session. |
-| `GET /auth/session` | Return the authenticated user's safe frontend projection or an unauthenticated result. |
-| `POST /auth/logout` | Revoke or invalidate the server session, clear the cookie, and complete WorkOS logout when required. |
-| `POST /auth/magic/start` | Start an email Magic Auth challenge if AskRabbi keeps its custom email UI. |
-| `POST /auth/magic/verify` | Verify the one-time code and establish the same application session used by social login. |
+| `GET /api/user/login` | Create state and S256 PKCE values, validate optional email/provider/screen hints, set short-lived cookies, and redirect to hosted AuthKit. |
+| `GET /api/user/callback` | Validate state/verifier, exchange the code, resolve the local account, and issue the application cookie. |
+| `GET /api/user/session` | Return the authenticated local user ID, display name, email verification state, and optional image URL. |
+| `POST /api/user/forgot-password` | Ask WorkOS to send recovery while returning the same `202` shape for valid input regardless of account existence. |
+| `POST /api/user/reset-password` | Confirm a WorkOS reset and clear the current AskRabbi cookie. |
+| `POST /api/user/logout` | Clear the AskRabbi cookie and return the WorkOS logout URL when a provider session ID is available. |
 
-The provider route will use an allow-listed enum rather than accepting an arbitrary provider string. The initial allow-list is `google`, with `apple` and `microsoft` added only after their WorkOS dashboard configurations are complete.
+There is no separate Google controller endpoint: the frontend requests `provider=google`, and the backend maps that allow-listed value into the WorkOS authorization URL. Email uses a hosted login hint, and account creation uses WorkOS's sign-up screen hint. Apple and Microsoft are accepted backend provider values for future reviewed buttons; the dashboard still controls whether each method is actually enabled.
 
 ## Identity and data ownership
 
-WorkOS owns authentication methods, provider identities, email verification state, MFA, and normalized identity profiles. AskRabbi owns religious personalization, source preferences, saved conversations, usage state, and product authorization.
+WorkOS owns credentials, authentication methods, provider identities, verification, MFA, and identity linking. AskRabbi owns its immutable local user ID, religious personalization, source selections, saved conversations, usage, product authorization, and retention behavior.
 
-The application database will store its own immutable user ID and a unique WorkOS user ID. Email is mutable profile data and must not be AskRabbi's database identity or authorization key. WorkOS can automatically link enabled authentication methods that resolve to the same verified email, but AskRabbi will continue to authorize application records by its immutable local user ID.
+Azure Cosmos DB for MongoDB stores a unique WorkOS user ID beside the immutable AskRabbi user ID. Email is mutable profile data and is never used as the datastore authorization key. Every user-owned persistence query uses the local user ID from the encrypted application principal.
 
-Only the minimum display projection should reach the frontend:
+Only this account projection reaches the browser:
 
 - AskRabbi user ID
 - Display name
-- Email address and verification state when the UI needs them
-- Profile-image URL when enabled
-- Product roles or permissions
+- Email address and verification state
+- Optional profile-image URL
 
-Provider access tokens and refresh tokens will not be returned to the frontend or stored unless a future feature has a specific, reviewed need for provider API access.
+## Cookie and secret boundary
 
-## Session and security requirements
+- `WorkOS:ApiKey` and the MongoDB connection string are backend-only secrets supplied through .NET user secrets locally or deployment secret configuration.
+- The application cookie is `HttpOnly`, `SameSite=Strict`, essential, and secure on HTTPS. Production must use HTTPS exclusively.
+- The cookie contains an ASP.NET Core protected authentication ticket plus the rotating WorkOS refresh token needed for session continuity. It is encrypted/authenticated by ASP.NET Core Data Protection, `HttpOnly`, and unavailable to frontend JavaScript; the WorkOS access token is not stored.
+- The callback target and post-login frontend URI come from server configuration and must be exact allow-listed HTTPS URLs outside local development.
+- Authorization codes, cookies, provider tokens, API keys, connection strings, reset tokens, passwords, and full identity payloads must never be logged.
+- Forgot-password responses intentionally do not disclose whether an email address exists.
 
-- Keep the WorkOS API key and provider client secrets in backend secret storage only.
-- Use exact allow-listed HTTPS redirect URIs outside local development.
-- Require OAuth `state` and PKCE, reject replay, and expire incomplete flows quickly.
-- Use an opaque application session ID in a `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` cookie. Prefer the `__Host-` cookie prefix in production.
-- Rotate the application session after login, privilege changes, and sensitive account operations.
-- Store WorkOS refresh material only in encrypted server-side session storage if it is required.
-- Request only identity scopes needed for login; do not request Google Calendar, mail, contacts, or other provider data.
-- Protect state-changing API calls from CSRF and keep CORS limited to the deployed AskRabbi origin.
-- Validate WorkOS webhook signatures before applying user changes or deletion events.
-- Do not log authorization codes, cookies, access tokens, refresh tokens, secrets, or complete authentication payloads.
-- Rate-limit login starts and Magic Auth verification attempts without revealing whether an account exists.
+## Required hardening before public launch
 
-## Frontend migration
+The implemented ticket has an eight-hour sliding lifetime and refreshes its WorkOS session near access-token expiration. Password reset revokes WorkOS sessions, and this API clears the requesting browser's local ticket after a successful reset. This is substantially better than a disconnected local cookie, but it is not the final horizontally scaled cross-device revocation design: another already-issued AskRabbi ticket is rejected only when it next attempts a WorkOS refresh.
 
-The current `demoAuthClient` remains process-memory-only. The production adapter will replace it with an API-backed client that starts backend redirects and reads `/auth/session`. Components will continue to request `google`, `apple`, or `microsoft`; they will not import WorkOS SDK types or know WorkOS provider identifiers such as `GoogleOAuth`.
+Before public deployment:
 
-When backend integration begins:
+1. Add an opaque shared server-side session record with atomic rotation, expiry, revocation, and account-wide invalidation before running multiple API instances.
+2. Persist ASP.NET Core data-protection keys in approved shared Azure storage and protect them with managed identity/Key Vault before running multiple API instances.
+3. Add rate limits to login, callback, forgot-password, and reset-password routes.
+4. Complete the CSRF strategy for the final frontend/API topology. Credentialed CORS already uses an exact configured origin allow-list, with only `http://localhost:5173` defaulted in Development.
+5. Validate WorkOS webhook signatures and use lifecycle events for account suspension/deletion and session invalidation.
+6. Add provider-enabled-method discovery before rendering more provider-specific buttons beyond Google.
+7. Run a live WorkOS smoke suite separately from normal CI and complete replay, cancellation, expiry, account-linking, and cross-user security tests.
 
-1. Fetch enabled methods from `/auth/providers`.
-2. Render only those methods in the existing AskRabbi visual system.
-3. Replace demo sign-in and sign-up results with full-page redirects to the backend routes.
-4. Hydrate the authenticated user from `/auth/session` on startup.
-5. Make logout await the backend response before clearing client user state.
-6. Add callback, expired-session, cancelled-login, account-linking, provider-failure, and rate-limit states.
+## Frontend integration
 
-The frontend must never claim a session exists merely because a provider redirect returned. The backend session endpoint is the authority.
+The implemented frontend keeps WorkOS SDK types and secrets out of React:
 
-## Acceptance criteria for the integration milestone
+1. Email, Google, and account-creation controls send the browser to `GET /api/user/login` with only an email hint, an allow-listed provider, or a sign-up hint; no provider secret enters React.
+2. `AuthProvider` hydrates the authenticated user only from `GET /api/user/session` after the backend redirects home.
+3. The shared API client sends `credentials: "include"` to the exact configured backend origin.
+4. Login and Settings use the backend forgot-password route and display its non-enumerating response; `/reset-password?token=...` submits the new password only to the API.
+5. Logout awaits `POST /api/user/logout`, clears React state, and navigates to the returned destination.
 
-- Google login creates or resolves exactly one AskRabbi user and establishes a secure application session.
-- Repeated Google or email login for the same linked WorkOS identity resolves the same local user.
-- Disabled providers cannot be selected by editing a URL.
-- Callback state, PKCE, replay, unsafe return URLs, expired codes, and provider cancellation fail safely.
-- Logout invalidates the server session and clears the browser cookie.
-- No WorkOS or social-provider secret appears in frontend assets, browser storage, logs, or API responses.
-- Authentication tests use a fake WorkOS boundary; live WorkOS calls remain a separate manual smoke test.
-- Facebook is absent unless WorkOS later documents first-class support and the product decision is revisited.
+The frontend never claims a session exists merely because a provider redirect returned. The backend session endpoint remains authoritative. Hermetic frontend tests use injected in-memory clients; the Development-only `local-demo` API profile exercises the real redirect, cookie, controller, and persistence boundaries without contacting WorkOS or MongoDB.

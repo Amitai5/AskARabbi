@@ -18,9 +18,11 @@ function GoogleMark() {
 }
 
 export function LoginPage() {
-  const { isAuthenticating, signInWithEmail, signInWithSocialProvider, signUp } = useAuth()
+  const { authenticationError, clearAuthenticationError, isAuthenticating, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signUp } = useAuth()
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isRecoveringPassword, setIsRecoveringPassword] = useState(false)
+  const [resetRequested, setResetRequested] = useState(false)
 
   async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,17 +34,40 @@ export function LoginPage() {
     }
 
     setError(null)
-    await signInWithEmail(normalizedEmail)
+    clearAuthenticationError()
+    try {
+      if (isRecoveringPassword) {
+        await requestPasswordReset(normalizedEmail)
+        setResetRequested(true)
+      } else {
+        await signInWithEmail(normalizedEmail)
+      }
+    } catch {
+      if (isRecoveringPassword) {
+        setError('The password reset request could not be sent. Please try again.')
+      }
+      return
+    }
   }
 
   async function handleGoogleLogin() {
     setError(null)
-    await signInWithSocialProvider('google')
+    clearAuthenticationError()
+    try {
+      await signInWithSocialProvider('google')
+    } catch {
+      return
+    }
   }
 
   async function handleSignUp() {
     setError(null)
-    await signUp()
+    clearAuthenticationError()
+    try {
+      await signUp()
+    } catch {
+      return
+    }
   }
 
   return (
@@ -53,10 +78,10 @@ export function LoginPage() {
         <div className="flex flex-1 items-center py-12 lg:py-8">
           <div className="enter-softly w-full max-w-[39rem]">
             <h1 className="font-display text-[clamp(3rem,5vw,4.9rem)] leading-[0.98] tracking-[-0.045em] text-ink">
-              Welcome back
+              {isRecoveringPassword ? 'Reset your password' : 'Welcome back'}
             </h1>
             <p className="mt-6 max-w-[36rem] text-[1.05rem] leading-7 text-ink-soft sm:text-lg">
-              Continue your conversation with Jewish texts and traditions.
+              {isRecoveringPassword ? 'Enter your account email and WorkOS will send a secure reset link.' : 'Continue your conversation with Jewish texts and traditions.'}
             </p>
 
             <form className="mt-10 sm:mt-12" onSubmit={handleEmailSubmit} noValidate>
@@ -88,15 +113,25 @@ export function LoginPage() {
 
               <button
                 type="submit"
-                disabled={isAuthenticating}
+                disabled={isAuthenticating || resetRequested}
                 className="group flex h-14 w-full items-center justify-center gap-3 rounded-lg bg-pomegranate px-5 text-[0.95rem] font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60 sm:h-16 sm:text-base"
               >
-                <span>{isAuthenticating ? 'Continuing…' : 'Continue with email'}</span>
+                <span>{resetRequested ? 'Reset email requested' : isAuthenticating ? 'Continuing…' : isRecoveringPassword ? 'Send reset link' : 'Continue with email'}</span>
                 <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />
               </button>
             </form>
 
-            <div className="my-7 flex items-center gap-4 text-sm text-muted" aria-hidden="true">
+            {isRecoveringPassword ? (
+              <button type="button" onClick={() => { setIsRecoveringPassword(false); setResetRequested(false); setError(null) }} className="mt-5 text-sm font-semibold text-ink-soft transition hover:text-pomegranate">
+                Back to sign in
+              </button>
+            ) : (
+              <button type="button" onClick={() => { setIsRecoveringPassword(true); setError(null); clearAuthenticationError() }} className="mt-5 text-sm font-semibold text-pomegranate transition hover:text-pomegranate-dark">
+                Forgot your password?
+              </button>
+            )}
+
+            {!isRecoveringPassword ? <><div className="my-7 flex items-center gap-4 text-sm text-muted" aria-hidden="true">
               <span className="h-px flex-1 bg-line" />
               <span>or</span>
               <span className="h-px flex-1 bg-line" />
@@ -118,7 +153,8 @@ export function LoginPage() {
               <button type="button" disabled={isAuthenticating} onClick={() => void handleSignUp()} className="font-semibold text-pomegranate hover:text-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60">
                 Create an account
               </button>
-            </p>
+            </p></> : null}
+            {authenticationError === null ? null : <p role="alert" className="mt-5 text-sm leading-6 text-pomegranate">{authenticationError}</p>}
             <p className="mt-8 text-sm leading-6 text-muted">
               AskRabbi is a study companion, not a source of binding psak.
             </p>
