@@ -46,6 +46,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const [isLoadingUsage, setIsLoadingUsage] = useState(false)
   const [conversationError, setConversationError] = useState<string | null>(null)
   const selectionRequestId = useRef(0)
@@ -98,6 +99,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const conversationStarter = ConversationStarters[conversationStarterIndex] ?? ConversationStarters[0]
   const selectedSourceKeys = selectedConversation?.enabledSourceKeys ?? unsavedSourceKeys
   const messages = selectedConversation?.messages ?? []
+  const displayedMessages = pendingQuestion === null ? messages : [...messages, { id: 'pending-user-message', role: 'User' as const, content: pendingQuestion, createdAtUtc: new Date().toISOString() }]
 
   async function handleNewConversation() {
     if (isCreatingConversation || isLoadingConversation || isLoadingConversations) {
@@ -227,6 +229,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     }
 
     setIsSending(true)
+    setPendingQuestion(question)
     setConversationError(null)
     try {
       let conversation = selectedConversation
@@ -235,7 +238,8 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         setSelectedId(conversation.id)
       }
 
-      conversation = await conversationClient.appendMessage(conversation.id, crypto.randomUUID(), question)
+      const turn = await conversationClient.appendMessage(conversation.id, crypto.randomUUID(), question)
+      conversation = turn.conversation
       if (conversation.title === 'New conversation') {
         const title = question.slice(0, 80)
         await conversationClient.rename(conversation.id, title)
@@ -245,10 +249,14 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
       setSelectedConversation(conversation)
       setConversations((current) => [toSummary(conversation), ...current.filter((value) => value.id !== conversation.id)])
       setDraft('')
+      if (turn.status !== 'answered') {
+        setConversationError(turn.message ?? 'AskRabbi could not create a validated source-grounded answer. Please try again.')
+      }
     } catch (error) {
       setConversationError(getErrorMessage(error, 'Your message could not be saved.'))
     } finally {
       setIsSending(false)
+      setPendingQuestion(null)
     }
   }
 
@@ -320,7 +328,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
               {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
               {isLoadingConversations || isLoadingConversation ? (
                 <div className="flex flex-1 items-center justify-center"><p className="text-sm text-muted" role="status">Loading conversation…</p></div>
-              ) : messages.length === 0 ? (
+              ) : displayedMessages.length === 0 ? (
                 <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
                   <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
                   <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{conversationStarter.supportingText}</p>
@@ -328,20 +336,16 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
               ) : (
                 <div className="flex-1 py-10 sm:py-14">
                   <article className="mx-auto max-w-[46rem] space-y-9">
-                    {messages.map((message) => (
+                    {displayedMessages.map((message) => (
                       <div key={message.id} className={message.role === 'Assistant' ? 'border-l-2 border-pomegranate pl-5' : ''}>
                         <p className={`mb-2 ${message.role === 'Assistant' ? 'font-display text-xl text-ink' : 'text-xs font-semibold uppercase tracking-[0.14em] text-muted'}`}>{message.role === 'Assistant' ? 'AskRabbi' : 'You'}</p>
                         <p className="whitespace-pre-wrap text-base leading-7 text-ink sm:text-lg">{message.content}</p>
                       </div>
                     ))}
-                    {messages.at(-1)?.role === 'User' ? (
+                    {isSending ? (
                       <div className="border-l-2 border-brass pl-5">
                         <p className="mb-2 font-display text-xl text-ink">AskRabbi</p>
-                        <p className="leading-7 text-ink-soft">Your message is saved to your account. Grounded AI replies are the next backend connection; this API currently stores canonical chat context without generating an answer.</p>
-                        <div className="mt-4 space-y-1.5 border-t border-line pt-4 text-sm leading-6 text-muted">
-                          <p><span className="font-semibold text-ink-soft">Sources:</span> {formatSourceSelection(selectedSourceKeys)}</p>
-                          <p><span className="font-semibold text-ink-soft">Language:</span> {personalizationProfile.conversationLanguage} response · {personalizationProfile.quotationLanguage} quotations</p>
-                        </div>
+                        <p className="leading-7 text-ink-soft" role="status">Finding relevant passages in {formatSourceSelection(selectedSourceKeys).toLowerCase()}, checking the quotations, and preparing a grounded answer…</p>
                       </div>
                     ) : null}
                   </article>

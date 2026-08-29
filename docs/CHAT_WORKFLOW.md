@@ -9,7 +9,7 @@ For the editable writing instructions themselves, see the [prompt catalog](../Pr
 ```mermaid
 flowchart LR
     Question[Question + optional source filters] --> Plan[Identify topic anchor + supporting concepts]
-    Plan --> Search[Run topic-anchored corpus searches]
+    Plan --> Search[Search the approved corpus]
     Profile[User profile] --> Prompt[Build the writing request]
     History[Recent validated conversation] --> Search
     History --> Prompt
@@ -50,7 +50,7 @@ Profile information does not count as evidence. It is not added to the source-se
 
 ## 2. Search the approved religious-text corpus
 
-Source retrieval is deterministic and local. The language model does not invent a search query, browse the web, or select outside material.
+Source retrieval is application-controlled and provider-neutral. The prototype queries a local SQLite FTS5 index. Production sends a bounded Responses API request that forces exactly one Azure OpenAI `file_search` tool over the configured vector store; the application ignores the retrieval model's prose and reads only the included scored search results through `AzureOpenAIVectorStoreRetriever`. Neither host creates an Assistant, allows a model to choose outside tools, browses the web, or accepts model-generated citation metadata.
 
 All approved logical sources are enabled when a chat begins. The `/sources` command displays their edition, passage, and language counts and can turn individual core collections or named supplemental works on or off; the resulting enabled keys are applied to the next answer and remain active until changed.
 
@@ -62,16 +62,18 @@ The retrieval query contains:
 
 It does not contain earlier AI prose or profile fields. That prevents generated text or identity labels from displacing the actual subject of the question.
 
-Before searching, AskARabbi normalizes Unicode, case, diacritics, and separators. It removes common question words that add little meaning and expands a small reviewed vocabulary map. For example, a question about chicken and milk can also search concepts such as `fowl`, `poultry`, `dairy`, and `cheese`. The planner also recognizes high-value relationships needed for modern questions: `Saturday`, `Sabbath`, and `Shabbos` map to a `Shabbat` topic anchor, while terms such as `automatically`, `server`, and `business` remain separate supporting concepts. Reviewed concepts are prioritized before leftover words, so a long conversational opening cannot push the real topic out of the search limit.
+For local retrieval, AskARabbi normalizes Unicode, case, diacritics, and separators. It removes common question words that add little meaning and expands a small reviewed vocabulary map. For example, a question about chicken and milk can also search concepts such as `fowl`, `poultry`, `dairy`, and `cheese`. The planner also recognizes high-value relationships needed for modern questions: `Saturday`, `Sabbath`, and `Shabbos` map to a `Shabbat` topic anchor, while terms such as `automatically`, `server`, and `business` remain separate supporting concepts. Reviewed concepts are prioritized before leftover words, so a long conversational opening cannot push the real topic out of the search limit.
 
-When a reviewed topic anchor is present, the text index is searched in anchored tiers:
+When a reviewed topic anchor is present, the local text index is searched in anchored tiers:
 
 1. Prefer passages containing the complete meaningful concept set.
 2. Search the topic anchor together with each supporting concept, such as `Shabbat + automation` and `Shabbat + business`.
 3. Use the topic anchor alone only to fill the remaining candidate space.
 4. Never run an unanchored fallback for the supporting words.
 
-Questions without a recognized topic anchor retain the existing full-concept, concept-pair, and broad tiers. This distinction prevents a passage about an ordinary business steward from ranking merely because a Shabbat question also used the word “business.”
+Questions without a recognized topic anchor retain the existing full-concept, concept-pair, and broad tiers. This distinction prevents a passage about an ordinary business steward from ranking merely because a Shabbat question also used the word “business.” Production sends the bounded natural-language query and requested source, collection, category, work, document, and language constraints to managed semantic/keyword search as ranking hints. Because this Azure resource currently omits uploaded file attributes from Responses search results, those hints are not the security boundary: AskRabbi resolves each stable document ID through its bundled validated manifest and reapplies every requested filter locally before accepting a result.
+
+Before its first production search, the retriever verifies that the configured store is completed and that its schema version, full-corpus fingerprint, provider, logical-document count, and bounded provider-file count match the expected immutable publication. Returned chunks must contain a complete AskRabbi record with a valid stable segment ID, context token, canonical reference, excerpt bounds, and document prefix found in the checksum-validated permissive manifest bundled with the API. Partial, unknown, or altered records are ignored or rejected rather than treated as evidence.
 
 The result is a ranked collection of source segments such as verses, Mishnah passages, Talmud passages, or commentary segments. At most 50 initial candidates move to the evidence-building stage.
 
@@ -210,7 +212,7 @@ This information never comes from model-generated citation metadata. The AI ther
 
 ## 8. Render the final conversational answer
 
-The console turns the validated structured answer into a readable conversation:
+The host turns the validated structured answer into a readable conversation. The prototype applies Spectre.Console color; the backend uses `GroundedAnswerTextRenderer` to persist provider-neutral plain text that the web application can display as chat:
 
 - `AskARabbi AI` identifies the responder.
 - The direct answer appears first in bold.
@@ -223,11 +225,11 @@ The console turns the validated structured answer into a readable conversation:
 
 The model does not write the closing notice. The application appends [`interpretive-notice.txt`](../Prototype/Prompts/interpretive-notice.txt) only after the answer passes validation.
 
-Readers can use `/evidence` to inspect the complete evidence packet and surrounding retrieved text. The normal answer stays concise instead of automatically dumping every source segment.
+Prototype readers can use `/evidence` to inspect the complete packet. A production source-inspection view remains product work; the normal answer already retains inline source numbers, exact quotations, trusted references, and attribution URLs instead of dumping every retrieved segment.
 
 ## 9. Process a follow-up question
 
-Only successfully validated answers enter in-memory conversation history. On a follow-up:
+Only successfully validated answers enter conversation history: process memory in the prototype and the user-owned conversation store in production. On a follow-up:
 
 - Retrieval uses the new question plus up to two recent user questions.
 - The writing request includes up to three recent validated question-and-answer turns.
@@ -276,12 +278,16 @@ Grounding makes an answer traceable and harder to fabricate. It does not turn an
 |---|---|
 | Question orchestration and validation | [`GroundedAnswerService.cs`](../Library/AskARabbiLIB/Grounding/GroundedAnswerService.cs) |
 | Concept planning and topic anchoring | [`RetrievalQueryPlanner.cs`](../Library/AskARabbiLIB/Retrieval/RetrievalQueryPlanner.cs) |
-| Source retrieval | [`SqliteSourceRetriever.cs`](../Library/AskARabbiLIB/Retrieval/SqliteSourceRetriever.cs) |
+| Local source retrieval | [`SqliteSourceRetriever.cs`](../Library/AskARabbiLIB/Retrieval/SqliteSourceRetriever.cs) |
+| Production source retrieval | [`AzureOpenAIVectorStoreRetriever.cs`](../Library/AskARabbiLIB/Retrieval/AzureOpenAIVectorStoreRetriever.cs) |
+| Managed corpus publication | [`AzureOpenAIVectorStoreCorpusPublisher.cs`](../Library/AskARabbiLIB/Retrieval/AzureOpenAIVectorStoreCorpusPublisher.cs) |
 | Pre-model evidence adequacy | [`SourceEvidenceAdequacyEvaluator.cs`](../Library/AskARabbiLIB/Grounding/SourceEvidenceAdequacyEvaluator.cs) |
 | Evidence selection and context | [`EvidencePacketBuilder.cs`](../Library/AskARabbiLIB/Grounding/EvidencePacketBuilder.cs) |
 | Answer behavior and writing style | [`system-behavior.txt`](../Prototype/Prompts/system-behavior.txt) |
 | Structured answer contract | [`grounded-answer.schema.json`](../Prototype/Prompts/grounded-answer.schema.json) |
 | Claim relevance and support audit | [`grounded-support-validation.txt`](../Prototype/Prompts/grounded-support-validation.txt) |
 | Draft repair instruction | [`validation-repair.txt`](../Prototype/Prompts/validation-repair.txt) |
-| Interactive chat loop | [`AIChatConsole.cs`](../Prototype/AskARabbiPrototype/AIChatConsole.cs) |
-| Final console rendering | [`ConsolePresentation.cs`](../Prototype/AskARabbiPrototype/ConsolePresentation.cs) |
+| Production turn orchestration | [`GroundedConversationTurnService.cs`](../Backend/AskARabbi.Api/Conversations/GroundedConversationTurnService.cs) |
+| Interactive prototype loop | [`AIChatConsole.cs`](../Prototype/AskARabbiPrototype/AIChatConsole.cs) |
+| Production text rendering | [`GroundedAnswerTextRenderer.cs`](../Library/AskARabbiLIB/Grounding/GroundedAnswerTextRenderer.cs) |
+| Prototype console rendering | [`ConsolePresentation.cs`](../Prototype/AskARabbiPrototype/ConsolePresentation.cs) |

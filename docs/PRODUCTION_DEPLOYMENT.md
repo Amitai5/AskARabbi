@@ -77,6 +77,11 @@ Set these runtime environment variables on the API host:
 | `MongoDB__ConnectionString` | Yes | Complete Azure Cosmos DB for MongoDB connection string; secret |
 | `MongoDB__DatabaseName` | Optional | `askarabbi` is already the production default |
 | `Usage__MonthlyAnswerLimit` | Optional | `50` is the current default |
+| `AI__ProjectEndpoint` | Yes | Azure OpenAI resource endpoint; non-secret |
+| `AI__ModelName` | Yes | `askarabbi-gpt-5-mini`; non-secret deployment name |
+| `AI__VectorStoreId` | Yes | Verified full-corpus managed vector-store ID; non-secret |
+| `AI__CorpusFingerprint` | Yes | Lowercase SHA-256 printed by the corpus publisher; non-secret |
+| `AI__TenantId` | Optional | Tenant used by `DefaultAzureCredential`; non-secret |
 
 The following non-secret values are already tracked in `appsettings.Production.json`. Set environment overrides only if the topology changes:
 
@@ -88,6 +93,8 @@ AllowedHosts=api.askarabbi.ai
 ```
 
 ASP.NET Core converts double underscores in environment-variable names into nested configuration separators. Never place `WorkOS__ApiKey` or `MongoDB__ConnectionString` in frontend configuration, a Vite variable, a build argument, source control, or logs.
+
+The Container App uses its system-assigned managed identity for Azure OpenAI Responses generation and forced vector-store `file_search`. Grant that identity **Cognitive Services OpenAI User** at only the `AARProduction-OpenAI` resource scope. No Azure OpenAI API key is required by production. A workstation publishing files/stores needs the resource-scoped **Cognitive Services OpenAI Contributor** role. Publish and rotate the corpus with the reviewed commands in [MANAGED_VECTOR_STORE.md](MANAGED_VECTOR_STORE.md); update `AI__VectorStoreId` and `AI__CorpusFingerprint` together.
 
 ### Azure Container Apps configuration
 
@@ -147,7 +154,7 @@ Configure the static host to rewrite unknown application routes to `/index.html`
 
 ## API publish
 
-Normal production releases are automatic. A push or merge to `production` starts `Verify`; only a successful push verification can start `Deploy Backend`. The workflow builds from the root Docker context so the API can reference `AskARabbiLIB`, while `.dockerignore` prevents the raw corpus, normalized corpus, frontend, local configuration, development settings, and build output from entering the image context.
+Normal production releases are automatic. A push or merge to `production` starts `Verify`; only a successful push verification can start `Deploy Backend`. The workflow builds from the root Docker context so the API can reference `AskARabbiLIB` and include the 2.6 MB trusted document manifest. `.dockerignore` prevents the raw corpus, normalized Markdown, SQLite index, frontend, local configuration, development settings, and build output from entering the image context.
 
 Each image is tagged with the verified Git commit SHA and the Container App is updated to the resulting digest. Re-running a deployment does not depend on a mutable `latest` tag. Runtime secrets and environment variables are not passed as Docker build arguments.
 
@@ -177,4 +184,4 @@ Perform these checks after DNS and TLS are active:
 
 Azure-managed ASP.NET Core Data Protection is already enabled and verified across Container App revisions. Before broad public access, replace or complete the planned shared server-side session/revocation design and finish rate limits, CSRF review, WorkOS webhook validation, dependency readiness checks, backups and retention, account deletion, telemetry redaction, and live-provider smoke automation.
 
-The backend still stores user turns without invoking the grounded answer pipeline. Production chat also needs a model deployment and a production retriever because the container image deliberately excludes local corpus data. Track all remaining launch work in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+The backend invokes the grounded answer pipeline and deliberately excludes local corpus data. The full managed corpus is published and its ID/fingerprint are bound together; production chat becomes usable after this integration is deployed, WorkOS is configured, and authenticated source/citation smoke tests pass. Track the remaining launch controls in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).

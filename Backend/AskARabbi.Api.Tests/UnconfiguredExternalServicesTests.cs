@@ -10,7 +10,7 @@ public sealed class UnconfiguredExternalServicesTests
     [TestCategory("Integration")]
     public async Task HealthAndLogin_ExternalServicesUnconfigured_HealthWorksAndLoginFailsExplicitly()
     {
-        await using var application = new TestApplicationFactory(false);
+        await using var application = new TestApplicationFactory(false, configureAi: false);
         using var client = application.CreateNonRedirectingClient();
 
         using var healthResponse = await client.GetAsync("/health");

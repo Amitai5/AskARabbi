@@ -3,6 +3,7 @@ using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.Usage;
+using AskARabbiLIB.Grounding;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -21,23 +22,35 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     private readonly string environmentName;
     private readonly bool useLocalDemoServices;
     private readonly string? corsOrigin;
+    private readonly bool configureAi;
 
-    internal TestApplicationFactory(bool useApplicationFakes = true, string environmentName = "Testing", bool useLocalDemoServices = false, string? corsOrigin = "https://frontend.askrabbi.test")
+    internal TestApplicationFactory(bool useApplicationFakes = true, string environmentName = "Testing", bool useLocalDemoServices = false, string? corsOrigin = "https://frontend.askrabbi.test", bool configureAi = true)
     {
         this.useApplicationFakes = useApplicationFakes;
         this.environmentName = environmentName;
         this.useLocalDemoServices = useLocalDemoServices;
         this.corsOrigin = corsOrigin;
+        this.configureAi = configureAi;
     }
 
     internal FakeUserAuthenticationService Authentication { get; } = new();
 
     internal InMemoryApplicationStore Store { get; } = new();
 
+    internal FakeGroundedAnswerService GroundedAnswers { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environmentName);
         builder.UseSetting("LocalDevelopment:UseDemoServices", useLocalDemoServices.ToString());
+        if (configureAi)
+        {
+            builder.UseSetting("AI:ProjectEndpoint", "https://openai.askrabbi.test/");
+            builder.UseSetting("AI:ModelName", "test-model");
+            builder.UseSetting("AI:VectorStoreId", "vs_test");
+            builder.UseSetting("AI:CorpusFingerprint", new string('a', 64));
+            builder.UseSetting("AI:TenantId", "42c55b1a-363e-4e7a-b5f3-b6b275908185");
+        }
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             var values = new Dictionary<string, string?>
@@ -48,6 +61,14 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 ["MongoDB:DatabaseName"] = "askarabbi",
                 ["LocalDevelopment:UseDemoServices"] = useLocalDemoServices.ToString(),
             };
+            if (configureAi)
+            {
+                values["AI:ProjectEndpoint"] = "https://openai.askrabbi.test/";
+                values["AI:ModelName"] = "test-model";
+                values["AI:VectorStoreId"] = "vs_test";
+                values["AI:CorpusFingerprint"] = new string('a', 64);
+                values["AI:TenantId"] = "42c55b1a-363e-4e7a-b5f3-b6b275908185";
+            }
             if (corsOrigin is not null)
             {
                 values["Cors:AllowedOrigins:0"] = corsOrigin;
@@ -58,6 +79,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();
+            services.RemoveAll<IGroundedAnswerService>();
+            services.AddSingleton<IGroundedAnswerService>(GroundedAnswers);
 
             if (useApplicationFakes)
             {

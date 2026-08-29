@@ -173,6 +173,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             instruction = prompts.CurrentQuestionInstruction,
             currentQuestion = question.Question,
+            responseLanguage = NormalizeOptionalContext(question.ConversationLanguage),
+            preferredQuotationLanguage = NormalizeOptionalContext(question.QuotationLanguage),
             userProfile = CreateUserProfileContext(question.UserProfile, currentDate),
             evidenceBoundary = new
             {
@@ -434,6 +436,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         ValidateFilter(question.Categories, nameof(question.Categories));
         ValidateFilter(question.WorkKeys, nameof(question.WorkKeys));
         ValidateFilter(question.SourceKeys, nameof(question.SourceKeys));
+        ValidateOptionalLanguage(question.ConversationLanguage, nameof(question.ConversationLanguage));
+        ValidateOptionalLanguage(question.QuotationLanguage, nameof(question.QuotationLanguage));
         if (question.SourceKeys.Any(sourceKey => !DocumentSourceCatalog.TryParseSourceKey(sourceKey, out _, out _)))
         {
             throw new ArgumentException("Source keys must start with 'work:' or 'collection:' and include a value.", nameof(question));
@@ -450,6 +454,14 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         if (values is null || values.Any(string.IsNullOrWhiteSpace))
         {
             throw new ArgumentException($"Filter '{name}' must contain only nonempty values.", name);
+        }
+    }
+
+    private static void ValidateOptionalLanguage(string? value, string name)
+    {
+        if (value is not null && (string.IsNullOrWhiteSpace(value) || value.Length > 80))
+        {
+            throw new ArgumentException($"Language preference '{name}' must be null or contain at most 80 characters.", name);
         }
     }
 

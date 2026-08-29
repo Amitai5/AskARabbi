@@ -1,6 +1,6 @@
 # Production readiness checklist
 
-This checklist reflects the deployed Azure resources and the current repository behavior as of August 27, 2026.
+This checklist reflects the deployed Azure resources and the current repository behavior as of August 29, 2026.
 
 ## Completed foundation
 
@@ -29,15 +29,19 @@ This checklist reflects the deployed Azure resources and the current repository 
 
 ## Blockers before AskARabbi can answer questions
 
-- [ ] Connect `IGroundedAnswerService` and the AI engine from `AskARabbiLIB` to the backend conversation-message endpoint.
-- [ ] Provision or select the production Azure OpenAI/Foundry model deployment and configure the backend authentication boundary for it.
-- [ ] Select and deploy the production source retriever. The current backend image intentionally excludes `Data`, so it cannot use the local SQLite index without an explicit index delivery or mount design. Azure AI Search remains the recommended production destination.
-- [ ] Retrieve source evidence using the conversation's selected collections and the user's language preferences.
-- [ ] Run deterministic citation and quotation validation before persisting or returning an assistant message.
-- [ ] Persist the validated assistant response and its evidence snapshot idempotently.
-- [ ] Enforce and increment monthly usage only after a validated answer is produced.
-- [ ] Define cancellation, timeout, retry, and safe failure behavior across retrieval, model generation, validation, and persistence.
-- [ ] Add backend tests for the complete user-message-to-grounded-answer workflow without making live network calls.
+- [x] Connect `IGroundedAnswerService`, `AzureOpenAIEngine`, and `GroundedAnswerTextRenderer` to the backend conversation-message endpoint.
+- [x] Deploy `askarabbi-gpt-5-mini` and configure Entra authentication through the Container App's managed identity.
+- [x] Implement forced Azure OpenAI Responses file-search retrieval behind `ISourceRetriever`, including immutable corpus verification, manifest-backed provenance, local source/language filters, stable IDs, and explicit excerpts.
+- [x] Grant the publishing operator resource-scoped **Cognitive Services OpenAI User** and **Cognitive Services OpenAI Contributor** roles.
+- [x] Publish a three-document pilot and validate forced file-search retrieval, empty-attribute manifest provenance, exact text reconstruction, and schema-v2 logical/provider counts.
+- [x] Publish and verify the full 1,441-document corpus and bind its returned store ID/fingerprint to the Container App as `AskARabbi Production Sefaria Corpus`.
+- [x] Retrieve source evidence using each conversation's selected sources; treat conversation and quotation languages as presentation preferences without inventing unavailable source translations.
+- [x] Run deterministic citation/quotation validation and an independent claim-support audit before persistence or return.
+- [x] Persist only validated assistant responses with deterministic assistant-message IDs.
+- [x] Increment monthly usage only after a validated answer is produced.
+- [x] Propagate cancellation and return stable fail-closed outcomes across retrieval, generation, and validation.
+- [x] Cover the backend message-to-grounded-answer HTTP workflow with fake providers and no live network calls.
+- [ ] Add a persistent reservation/finalization record so simultaneous retries across multiple API replicas cannot duplicate provider work or usage increments.
 
 ## Production smoke testing
 
@@ -47,6 +51,7 @@ This checklist reflects the deployed Azure resources and the current repository 
 - [ ] Create, rename, load, and delete conversations and verify ownership isolation in Cosmos DB.
 - [ ] Save personalization and conversation settings and verify one update cannot erase the other.
 - [ ] Ask representative questions and verify every displayed citation resolves to the exact approved source text.
+- [ ] Verify source selections alter managed retrieval and an unavailable preferred quotation language never causes an invented translation.
 - [ ] Restart and scale the Container App and confirm existing authentication sessions remain valid.
 - [ ] Confirm failed retrieval or failed citation validation never falls back to unsupported model knowledge.
 

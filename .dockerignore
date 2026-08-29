@@ -5,8 +5,17 @@
 .idea
 artifacts
 Data
+!Data/NormalizedData
+Data/NormalizedData/*
+!Data/NormalizedData/Sefaria
+Data/NormalizedData/Sefaria/*
+!Data/NormalizedData/Sefaria/Metadata
+Data/NormalizedData/Sefaria/Metadata/*
+!Data/NormalizedData/Sefaria/Metadata/document-manifest.json
 Frontend
 Prototype
+!Prototype/Prompts
+!Prototype/Prompts/**
 docs
 scripts
 **/bin

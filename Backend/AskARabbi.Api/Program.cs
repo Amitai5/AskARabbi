@@ -1,13 +1,20 @@
 using System.Text.Json.Serialization;
 using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Configuration;
+using AskARabbi.Api.Conversations;
 using AskARabbi.Api.Development;
 using AskARabbi.Api.Errors;
 using AskARabbi.Api.Persistence;
 using AskARabbi.Api.Usage;
+using AskARabbiLIB;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.AI;
+using AskARabbiLIB.Grounding;
+using AskARabbiLIB.Retrieval;
 using AskARabbiLIB.Usage;
+using Azure.Core;
+using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 
@@ -50,6 +57,61 @@ var usageOptions = builder.Configuration.GetSection(MonthlyUsageOptions.SectionN
 usageOptions.Validate();
 builder.Services.AddSingleton(usageOptions);
 builder.Services.AddScoped(provider => new MonthlyUsageService(provider.GetRequiredService<IUsageStore>(), usageOptions.MonthlyAnswerLimit, provider.GetRequiredService<TimeProvider>()));
+
+var groundedChatOptions = builder.Configuration.GetSection(GroundedChatOptions.SectionName).Get<GroundedChatOptions>() ?? new GroundedChatOptions();
+groundedChatOptions.Validate();
+builder.Services.AddSingleton(groundedChatOptions);
+builder.Services.AddSingleton<GroundedAnswerTextRenderer>();
+if (groundedChatOptions.IsConfigured)
+{
+    var managedManifestPath = Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json");
+    var managedManifest = await new ManifestLoader().LoadAsync(managedManifestPath).ConfigureAwait(false);
+    builder.Services.AddSingleton(managedManifest);
+    builder.Services.AddSingleton<TokenCredential>(_ => new DefaultAzureCredential(new DefaultAzureCredentialOptions
+    {
+        TenantId = string.IsNullOrWhiteSpace(groundedChatOptions.TenantId) ? null : groundedChatOptions.TenantId,
+    }));
+    builder.Services.AddHttpClient("AzureOpenAIVectorStore", client => client.Timeout = Timeout.InfiniteTimeSpan);
+    builder.Services.AddSingleton(provider => new AzureOpenAIVectorStoreClient(
+        new AzureOpenAIVectorStoreClientOptions
+        {
+            ProjectEndpoint = new Uri(groundedChatOptions.ProjectEndpoint, UriKind.Absolute),
+            ModelName = groundedChatOptions.ModelName,
+            Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
+        },
+        provider.GetRequiredService<TokenCredential>(),
+        provider.GetRequiredService<IHttpClientFactory>().CreateClient("AzureOpenAIVectorStore")));
+    builder.Services.AddSingleton<IAzureOpenAIVectorStoreSearchClient>(provider => provider.GetRequiredService<AzureOpenAIVectorStoreClient>());
+    builder.Services.AddSingleton<ISourceRetriever>(provider => new AzureOpenAIVectorStoreRetriever(
+        provider.GetRequiredService<IAzureOpenAIVectorStoreSearchClient>(),
+        new AzureOpenAIVectorStoreRetrieverOptions
+        {
+            VectorStoreId = groundedChatOptions.VectorStoreId,
+            ExpectedCorpusFingerprint = groundedChatOptions.CorpusFingerprint,
+            ScoreThreshold = groundedChatOptions.RetrievalScoreThreshold,
+        },
+        provider.GetRequiredService<AskARabbiLIB.Models.DocumentManifest>()));
+    builder.Services.AddSingleton<IAIEngine>(provider => new AzureOpenAIEngine(
+        new AIEngineOptions
+        {
+            ProjectEndpoint = new Uri(groundedChatOptions.ProjectEndpoint, UriKind.Absolute),
+            ModelName = groundedChatOptions.ModelName,
+            Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
+            MaximumOutputTokens = groundedChatOptions.MaximumOutputTokens,
+        },
+        provider.GetRequiredService<TokenCredential>()));
+    builder.Services.AddSingleton(_ => GroundedPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts")));
+    builder.Services.AddSingleton<IGroundedAnswerService>(provider => new GroundedAnswerService(
+        provider.GetRequiredService<ISourceRetriever>(),
+        provider.GetRequiredService<IAIEngine>(),
+        provider.GetRequiredService<GroundedPromptSet>(),
+        timeProvider: provider.GetRequiredService<TimeProvider>()));
+}
+else
+{
+    builder.Services.AddSingleton<IGroundedAnswerService, UnavailableGroundedAnswerService>();
+}
+builder.Services.AddScoped<GroundedConversationTurnService>();
 
 if (localDevelopmentOptions.UseDemoServices)
 {

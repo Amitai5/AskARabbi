@@ -15,7 +15,7 @@ The production frontend shell is a React 19, TypeScript, Tailwind CSS 4, and Vit
 
 The browser now uses the .NET API as the authority for the authenticated user, personalization, account preferences, usage, conversation summaries, source selections, and message history. Requests send `credentials: "include"`; the backend owns and validates the `HttpOnly` application cookie. Only the non-sensitive welcome-prompt index remains session-local.
 
-The current message endpoint stores the user turn and returns canonical context. It deliberately does not generate an assistant reply yet, and the UI says so instead of fabricating a response. Grounded retrieval, model generation, deterministic citation validation, assistant-message persistence, and usage increments remain the next backend milestone.
+The message endpoint now stores the user turn, retrieves only from the configured approved corpus, generates a structured draft, validates every citation and quotation, persists only a validated assistant answer, and increments usage only after success. The UI displays the canonical returned conversation and surfaces typed fail-closed outcomes instead of fabricating or retaining a local answer.
 
 ## Personalization boundary
 
@@ -54,7 +54,7 @@ The Vite development server defaults to `http://localhost:5173`, and development
 
 `src/features/auth/AuthProvider.tsx` depends on the narrow `AuthClient` contract in `authTypes.ts`; `backendAuthClient.ts` implements it with the AskRabbi API. Email supplies a WorkOS login hint, Google selects WorkOS Google OAuth directly, and account creation supplies the WorkOS sign-up screen hint. The backend owns every authorization URL, callback, token exchange, password-reset confirmation, user mapping, and secure application session. No WorkOS API key or provider secret belongs in this Vite project. Hermetic UI tests inject in-memory clients from `src/test` instead of contacting external services. See the [production authentication design](../docs/AUTHENTICATION.md).
 
-For a credential-free local walkthrough, run the API with its explicitly Development-only `local-demo` profile, then run Vite. That mode exercises the real controllers, cookies, ownership rules, and API adapters while storing data only in the API process:
+For a credential-free account and conversation walkthrough, run the API with its explicitly Development-only `local-demo` profile, then run Vite. That mode exercises the real controllers, cookies, ownership rules, and API adapters while storing data only in the API process. Grounded chat additionally needs all `AI:*` settings; when they are omitted, the API remains healthy and returns `ai_unavailable` without calling a model:
 
 ```powershell
 dotnet run --project Backend/AskARabbi.Api --launch-profile local-demo

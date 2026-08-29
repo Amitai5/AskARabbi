@@ -75,10 +75,14 @@ export function createDemoApplicationClients(): DemoApplicationClients {
       const current = getConversation(conversations, conversationId)
       const conversation: ConversationDetails = {
         ...current,
-        messages: [...current.messages, { id: messageId, role: 'User', content, createdAtUtc: FixedTimestamp }],
+        messages: [
+          ...current.messages,
+          { id: messageId, role: 'User', content, createdAtUtc: FixedTimestamp },
+          { id: crypto.randomUUID(), role: 'Assistant', content: 'This local demo answer represents the validated grounded response returned by the production API.', createdAtUtc: FixedTimestamp },
+        ],
       }
       conversations.set(conversationId, conversation)
-      return Promise.resolve(cloneConversation(conversation))
+      return Promise.resolve({ status: 'answered', conversation: cloneConversation(conversation), message: null })
     },
     rename: (conversationId, title) => {
       const current = getConversation(conversations, conversationId)

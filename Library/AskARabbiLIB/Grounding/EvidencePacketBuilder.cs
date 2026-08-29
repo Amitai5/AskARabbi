@@ -91,12 +91,12 @@ internal sealed class EvidencePacketBuilder
             return false;
         }
 
-        var presented = CreatePresentedText(segment.Text, queryText, Math.Min(remaining, options.MaximumCharactersPerSegment));
+        var presented = CreatePresentedText(segment, queryText, Math.Min(remaining, options.MaximumCharactersPerSegment));
         if (presented is null)
         {
             return false;
         }
-        var item = new EvidenceItem($"E{items.Count + 1}", segment, presented.Value.Text, presented.Value.IsExcerpt, segment.Text.Length);
+        var item = new EvidenceItem($"E{items.Count + 1}", segment, presented.Value.Text, presented.Value.IsExcerpt, presented.Value.OriginalCharacterCount);
         items.Add(item);
         seenSegments.Add(segment.SegmentId);
         documentCounts[segment.DocumentId] = currentDocumentCount + 1;
@@ -104,11 +104,43 @@ internal sealed class EvidencePacketBuilder
         return true;
     }
 
-    private static (string Text, bool IsExcerpt)? CreatePresentedText(string text, string queryText, int limit)
+    private static (string Text, bool IsExcerpt, int OriginalCharacterCount)? CreatePresentedText(SourceSegment segment, string queryText, int limit)
     {
+        var text = segment.Text;
+        if (segment.IsExcerpt)
+        {
+            if (segment.OriginalCharacterCount < text.Length || segment.ExcerptStart < 0 || segment.ExcerptStart + text.Length > segment.OriginalCharacterCount)
+            {
+                throw new InvalidDataException($"Provider excerpt '{segment.SegmentId}' has invalid character bounds.");
+            }
+            if (limit < 200)
+            {
+                return null;
+            }
+
+            var providerMarker = CreateExcerptMarker(segment.ExcerptStart, segment.ExcerptStart + text.Length, segment.OriginalCharacterCount);
+            var availableText = limit - providerMarker.Length;
+            if (availableText < 100)
+            {
+                return null;
+            }
+            if (text.Length <= availableText)
+            {
+                return (providerMarker + text, true, segment.OriginalCharacterCount);
+            }
+
+            var localStart = FindExcerptStart(text, queryText, availableText);
+            var localEnd = Math.Min(text.Length, localStart + availableText);
+            providerMarker = CreateExcerptMarker(segment.ExcerptStart + localStart, segment.ExcerptStart + localEnd, segment.OriginalCharacterCount);
+            availableText = Math.Max(1, limit - providerMarker.Length);
+            localStart = Math.Min(localStart, Math.Max(0, text.Length - availableText));
+            localEnd = Math.Min(text.Length, localStart + availableText);
+            providerMarker = CreateExcerptMarker(segment.ExcerptStart + localStart, segment.ExcerptStart + localEnd, segment.OriginalCharacterCount);
+            return (providerMarker + text[localStart..localEnd], true, segment.OriginalCharacterCount);
+        }
         if (text.Length <= limit)
         {
-            return (text, false);
+            return (text, false, text.Length);
         }
         if (limit < 200)
         {
@@ -128,8 +160,10 @@ internal sealed class EvidencePacketBuilder
             end = Math.Max(start + 1, start + limit - marker.Length);
             marker = $"[Explicit excerpt: characters {start + 1}-{end} of {text.Length}]\n";
         }
-        return (marker + text[start..end], true);
+        return (marker + text[start..end], true, text.Length);
     }
+
+    private static string CreateExcerptMarker(int zeroBasedStart, int exclusiveEnd, int originalCharacterCount) => $"[Explicit excerpt: characters {zeroBasedStart + 1}-{exclusiveEnd} of {originalCharacterCount}]\n";
 
     private static int FindExcerptStart(string text, string queryText, int bodyLength)
     {

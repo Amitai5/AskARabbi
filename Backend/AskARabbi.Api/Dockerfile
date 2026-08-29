@@ -8,6 +8,8 @@ RUN dotnet restore "Backend/AskARabbi.Api/AskARabbi.Api.csproj"
 
 COPY ["Library/AskARabbiLIB/", "Library/AskARabbiLIB/"]
 COPY ["Backend/AskARabbi.Api/", "Backend/AskARabbi.Api/"]
+COPY ["Prototype/Prompts/", "Prototype/Prompts/"]
+COPY ["Data/NormalizedData/Sefaria/Metadata/document-manifest.json", "Data/NormalizedData/Sefaria/Metadata/document-manifest.json"]
 RUN dotnet publish "Backend/AskARabbi.Api/AskARabbi.Api.csproj" --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

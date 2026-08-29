@@ -68,15 +68,18 @@ public sealed class LocalDevelopmentIntegrationTests
         var turn = await messageResponse.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
 
         Assert.AreEqual(HttpStatusCode.OK, messageResponse.StatusCode);
-        Assert.AreEqual("stored", turn?.Status);
+        Assert.AreEqual("answered", turn?.Status);
         Assert.IsNotNull(turn);
-        Assert.HasCount(1, turn.Conversation.Messages);
+        Assert.HasCount(2, turn.Conversation.Messages);
+        Assert.AreEqual("English", application.GroundedAnswers.LastQuestion?.ConversationLanguage);
+        Assert.AreEqual("Hebrew", application.GroundedAnswers.LastQuestion?.QuotationLanguage);
+        Assert.HasCount(0, application.GroundedAnswers.LastQuestion?.Languages ?? []);
 
         using var usageResponse = await client.GetAsync("/api/conversation-settings/usage");
         var usage = await usageResponse.Content.ReadFromJsonAsync<UsageResponse>();
 
         Assert.AreEqual(HttpStatusCode.OK, usageResponse.StatusCode);
-        Assert.AreEqual(0, usage?.AnswersUsed);
+        Assert.AreEqual(1, usage?.AnswersUsed);
         Assert.AreEqual(new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero), usage?.PeriodStartUtc);
     }
 

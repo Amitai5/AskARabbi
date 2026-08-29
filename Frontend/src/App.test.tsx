@@ -122,7 +122,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     expect(within(screen.getByRole('article')).getByText('Why do Jewish customs differ?')).toBeVisible()
-    expect(screen.getByText(/message is saved to your account/)).toBeVisible()
+    expect(await screen.findByText(/validated grounded response returned by the production API/)).toBeVisible()
   })
 
   it('ignores a stale initial conversation response after another conversation is selected', async () => {
@@ -186,7 +186,8 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Choose sources: 2 sources' }))
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(screen.getByText('Torah and Talmud')).toBeVisible()
+    expect(await screen.findByText(/validated grounded response returned by the production API/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Choose sources: 2 sources' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'New conversation' }))
     expect(screen.getByRole('button', { name: 'Choose sources: All sources' })).toBeVisible()
   })

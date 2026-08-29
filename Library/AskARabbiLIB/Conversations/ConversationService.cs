@@ -3,7 +3,8 @@ namespace AskARabbiLIB.Conversations;
 /// <summary>Applies conversation validation and coordinates canonical saved context.</summary>
 public sealed class ConversationService
 {
-    private const int MaximumMessageLength = 8_000;
+    private const int MaximumUserMessageLength = 8_000;
+    private const int MaximumAssistantMessageLength = 32_000;
     private const int MaximumTitleLength = 80;
     private readonly IConversationStore store;
     private readonly TimeProvider timeProvider;
@@ -78,28 +79,19 @@ public sealed class ConversationService
     /// <returns>The updated conversation when found; otherwise, <see langword="null"/>.</returns>
     public Task<Conversation?> AppendUserMessageAsync(Guid userId, Guid conversationId, Guid messageId, string content, CancellationToken cancellationToken = default)
     {
-        ValidateIds(userId, conversationId);
-        if (messageId == Guid.Empty)
-        {
-            throw new ArgumentException("Message ID is required.", nameof(messageId));
-        }
+        return AppendMessageAsync(userId, conversationId, messageId, content, ConversationMessageRole.User, MaximumUserMessageLength, cancellationToken);
+    }
 
-        var normalizedContent = content?.Trim() ?? string.Empty;
-        if (normalizedContent.Length is < 1 or > MaximumMessageLength)
-        {
-            throw new ArgumentException($"Message content must be between 1 and {MaximumMessageLength:N0} characters.", nameof(content));
-        }
-
-        var now = timeProvider.GetUtcNow();
-        var message = new ConversationMessage
-        {
-            Id = messageId,
-            Role = ConversationMessageRole.User,
-            Content = normalizedContent,
-            CreatedAtUtc = now,
-        };
-
-        return store.AppendMessageAsync(userId, conversationId, message, now, cancellationToken);
+    /// <summary>Appends one validated assistant message idempotently and returns the canonical context.</summary>
+    /// <param name="userId">Owning user ID.</param>
+    /// <param name="conversationId">Conversation ID.</param>
+    /// <param name="messageId">Server-generated idempotency ID.</param>
+    /// <param name="content">Validated grounded answer text.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>The updated conversation when found; otherwise, <see langword="null"/>.</returns>
+    public Task<Conversation?> AppendAssistantMessageAsync(Guid userId, Guid conversationId, Guid messageId, string content, CancellationToken cancellationToken = default)
+    {
+        return AppendMessageAsync(userId, conversationId, messageId, content, ConversationMessageRole.Assistant, MaximumAssistantMessageLength, cancellationToken);
     }
 
     /// <summary>Renames one user-owned conversation.</summary>
@@ -150,6 +142,29 @@ public sealed class ConversationService
         }
 
         return normalized;
+    }
+
+    private Task<Conversation?> AppendMessageAsync(Guid userId, Guid conversationId, Guid messageId, string content, ConversationMessageRole role, int maximumLength, CancellationToken cancellationToken)
+    {
+        ValidateIds(userId, conversationId);
+        if (messageId == Guid.Empty)
+        {
+            throw new ArgumentException("Message ID is required.", nameof(messageId));
+        }
+        var normalizedContent = content?.Trim() ?? string.Empty;
+        if (normalizedContent.Length is < 1 || normalizedContent.Length > maximumLength)
+        {
+            throw new ArgumentException($"Message content must be between 1 and {maximumLength:N0} characters.", nameof(content));
+        }
+        var now = timeProvider.GetUtcNow();
+        var message = new ConversationMessage
+        {
+            Id = messageId,
+            Role = role,
+            Content = normalizedContent,
+            CreatedAtUtc = now,
+        };
+        return store.AppendMessageAsync(userId, conversationId, message, now, cancellationToken);
     }
 
     private static IReadOnlyList<string> NormalizeSourceKeys(IReadOnlyCollection<string>? sourceKeys)

@@ -69,10 +69,12 @@ public sealed class ConversationsControllerTests
         Assert.AreEqual(HttpStatusCode.OK, firstResponse.StatusCode);
         Assert.AreEqual(HttpStatusCode.OK, secondResponse.StatusCode);
         Assert.IsNotNull(result);
-        Assert.AreEqual("stored", result.Status);
-        Assert.HasCount(1, result.Conversation.Messages);
+        Assert.AreEqual("answered", result.Status);
+        Assert.HasCount(2, result.Conversation.Messages);
         Assert.AreEqual("Why do customs differ?", result.Conversation.Messages[0].Content);
         Assert.AreEqual(ConversationMessageRole.User, result.Conversation.Messages[0].Role);
+        Assert.AreEqual(ConversationMessageRole.Assistant, result.Conversation.Messages[1].Role);
+        Assert.AreEqual(1, application.GroundedAnswers.CallCount);
     }
 
     [TestMethod]

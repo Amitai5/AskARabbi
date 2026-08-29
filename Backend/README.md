@@ -1,8 +1,8 @@
 # AskRabbi backend
 
-`Backend` contains the .NET 10 ASP.NET Core foundation for the production AskRabbi API. It now provides WorkOS AuthKit authentication, owner-scoped Azure Cosmos DB for MongoDB persistence, saved-conversation APIs, personalization, monthly usage reporting, and process health.
+`Backend` contains the .NET 10 ASP.NET Core foundation for the production AskRabbi API. It provides WorkOS AuthKit authentication, owner-scoped Azure Cosmos DB for MongoDB persistence, saved-conversation APIs, personalization, monthly usage enforcement, managed-corpus file-search retrieval, grounded Azure OpenAI answers, and process health.
 
-The answer-generation pipeline is not connected to this host yet. `POST /api/conversations/{conversationId}/messages` safely stores one idempotent user turn and returns the canonical server-owned context; it does not call Azure OpenAI, create an assistant message, or consume usage. That wiring will reuse the grounded retrieval and validation services already in `AskARabbiLIB`.
+`POST /api/conversations/{conversationId}/messages` stores one idempotent user turn, checks the current allowance, retrieves only approved Sefaria evidence through a forced Azure OpenAI Responses `file_search` call, generates and audits a strict structured draft, persists only the validated assistant text, and increments usage only after success. Retrieval ignores model prose, resolves provenance through the bundled checksum-validated manifest, and reapplies source filters locally. Missing evidence, stale corpus metadata, provider failure, or failed quotation/citation validation returns a stable fail-closed status without persisting an assistant answer.
 
 ## Projects
 
@@ -17,7 +17,7 @@ Two production dependencies are pinned for this milestone: `WorkOS.net` 6.2.0 in
 
 Every backend `appsettings*.json` file is secret-free. The ignored local `appsettings.json` and tracked `appsettings.example.json` contain only non-sensitive URLs, collection names, CORS, logging, and usage defaults. Store local WorkOS credentials and the complete Cosmos Mongo connection string in .NET User Secrets; the connection string contains both the Azure endpoint and credential and must never enter JSON, frontend configuration, source control, build artifacts, or logs.
 
-Production uses the tracked, non-secret `AskARabbi.Api/appsettings.Production.json`: the API is `https://api.askarabbi.ai`, the frontend and sole credentialed CORS origin are `https://askarabbi.ai`, and the WorkOS callback is `https://api.askarabbi.ai/api/user/callback`. Supply only the production WorkOS API key/client ID and Cosmos connection string through backend environment variables. After verification passes on a push to `production`, the backend deployment workflow builds the Dockerfile, pushes the commit-tagged image to ACR, and updates Azure Container Apps by immutable digest. Follow the [production deployment plan](../docs/PRODUCTION_DEPLOYMENT.md) and [production readiness checklist](../docs/PRODUCTION_READINESS.md).
+Production uses the tracked, secret-free `AskARabbi.Api/appsettings.Production.json`: the API is `https://api.askarabbi.ai`, the frontend and sole credentialed CORS origin are `https://askarabbi.ai`, and the WorkOS callback is `https://api.askarabbi.ai/api/user/callback`. WorkOS and Cosmos credentials remain secret-backed environment variables. Azure OpenAI endpoint, deployment, vector-store ID, corpus fingerprint, and optional tenant ID are non-secret runtime environment variables; production authentication uses the Container App's managed identity. The Docker image includes only `document-manifest.json` for trusted citation provenance—not raw texts, normalized Markdown, or the SQLite index. After verification passes on a push to `production`, the backend deployment workflow builds the Dockerfile, pushes the commit-tagged image to ACR, and updates Azure Container Apps by immutable digest. Follow the [production deployment plan](../docs/PRODUCTION_DEPLOYMENT.md), [managed corpus guide](../docs/MANAGED_VECTOR_STORE.md), and [production readiness checklist](../docs/PRODUCTION_READINESS.md).
 
 .NET User Secrets are the required local credential store. The project already has a `UserSecretsId`, so run these commands from the repository root:
 
@@ -40,6 +40,11 @@ MongoDB__ConnectionString
 MongoDB__DatabaseName
 Usage__MonthlyAnswerLimit
 Cors__AllowedOrigins__0
+AI__ProjectEndpoint
+AI__ModelName
+AI__VectorStoreId
+AI__CorpusFingerprint
+AI__TenantId
 ```
 
 Optional MongoDB collection-name keys are `MongoDB:UsersCollectionName`, `MongoDB:ConversationsCollectionName`, `MongoDB:ConversationMessagesCollectionName`, `MongoDB:ConversationSettingsCollectionName`, and `MongoDB:UsageCollectionName`. Their defaults are suitable for a new database.
@@ -48,7 +53,7 @@ In the WorkOS dashboard, configure `http://localhost:5090/api/user/callback` as 
 
 `Cors:AllowedOrigins` is an exact origin allow-list; wildcards, paths, queries, and fragments are rejected. Development defaults to `http://localhost:5173` when no origin is configured. Production has no default origin and must set its deployed frontend origin explicitly.
 
-The API deliberately remains runnable without WorkOS or MongoDB configuration so `GET /health` can support local and deployment smoke tests. In the normal `http` profile, authentication or persistence endpoints fail explicitly with `503` rather than falling back to an identity or datastore.
+The API deliberately remains runnable without WorkOS, MongoDB, or AI configuration so `GET /health` can support local and deployment smoke tests. With all AI settings omitted, chat fails closed with `ai_unavailable` and no provider call; a partial AI configuration fails startup validation. In the normal `http` profile, authentication or persistence endpoints fail explicitly with `503` rather than falling back to an identity or datastore.
 
 An explicit `local-demo` launch profile is available for frontend integration testing without credentials. It is guarded by `LocalDevelopment:UseDemoServices`, is rejected outside the `Development` environment, uses a deterministic local identity, and keeps account/conversation data only in process memory. It never replaces the production WorkOS/MongoDB registrations.
 
@@ -68,7 +73,7 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 | `GET /api/conversations` | Returns recent titles and source selections for navigation without loading message bodies. |
 | `POST /api/conversations` | Creates an empty saved conversation. |
 | `GET /api/conversations/{id}` | Loads metadata and ordered messages for one owned conversation. |
-| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context. |
+| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context plus a grounded turn status; only validated answers are persisted and counted. |
 | `PUT /api/conversations/{id}/title` | Renames one owned conversation. |
 | `PUT /api/conversations/{id}/sources` | Replaces its approved source selectors. |
 | `DELETE /api/conversations/{id}` | Removes its metadata and message records. |
@@ -107,8 +112,8 @@ dotnet run --project Backend/AskARabbi.Api --launch-profile local-demo
 
 ## Remaining production work
 
-- Connect the existing grounded-answer orchestration and record assistant turns only after deterministic validation succeeds.
-- Enforce usage reservations and idempotent completion around model calls; the current endpoint only reports stored counters.
+- Deploy this grounded-chat integration and complete authenticated live grounded-answer smoke tests against the bound production corpus.
+- Add a persistent usage reservation/finalization record for concurrent retries across multiple replicas; deterministic message IDs already make sequential request retries idempotent.
 - Replace the self-contained application ticket with a reviewed shared server-side session/revocation design before public launch. A rotating WorkOS refresh token is protected inside the encrypted `HttpOnly` ticket and is never exposed to JavaScript; near access-token expiry, the API refreshes WorkOS and rotates the ticket. A different device's already-issued ticket can nevertheless remain usable until its next refresh attempt.
 - Keep Azure Container Apps managed Data Protection enabled and include session continuity in deployment smoke testing.
 - Add the final CSRF policy, rate limits, dependency readiness checks, WorkOS webhooks, account deletion, retention jobs, and live-provider smoke tests. Restrictive credentialed CORS is already enforced from an exact origin allow-list.

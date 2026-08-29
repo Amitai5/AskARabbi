@@ -40,4 +40,16 @@ public sealed record SourceSegment
     public string? WorkKey { get; init; }
 
     public string? UsageNote { get; init; }
+
+    /// <summary>Gets whether this provider record is an explicit excerpt of an overlong canonical segment.</summary>
+    public bool IsExcerpt { get; init; }
+
+    /// <summary>Gets the original canonical segment ID when this record is an excerpt.</summary>
+    public string? OriginalSegmentId { get; init; }
+
+    /// <summary>Gets the zero-based character offset of this record within the original canonical segment.</summary>
+    public int ExcerptStart { get; init; }
+
+    /// <summary>Gets the original canonical segment length when this record is an excerpt.</summary>
+    public int OriginalCharacterCount { get; init; }
 }

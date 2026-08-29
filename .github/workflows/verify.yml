@@ -61,6 +61,9 @@ jobs:
       - name: Restore backend solution
         run: dotnet restore Backend/AskARabbiBackend.slnx
 
+      - name: Restore corpus tools
+        run: dotnet restore Tools/AskARabbi.Tools.slnx
+
       - name: Build library and tests
         run: dotnet build Library/AskARabbiLIB.slnx --configuration Release --no-restore
 
@@ -69,6 +72,9 @@ jobs:
 
       - name: Build backend and tests
         run: dotnet build Backend/AskARabbiBackend.slnx --configuration Release --no-restore
+
+      - name: Build corpus tools
+        run: dotnet build Tools/AskARabbi.Tools.slnx --configuration Release --no-restore
 
       - name: Run library tests
         run: dotnet test Library/AskARabbiLIB.slnx --configuration Release --no-build --no-restore --collect:"XPlat Code Coverage" --logger "trx;LogFileName=verification.trx" --results-directory Library/TestResults/Verification

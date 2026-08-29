@@ -5,15 +5,16 @@ export interface ConversationClient {
   list(): Promise<ConversationSummary[]>
   create(title?: string, enabledSourceKeys?: readonly string[]): Promise<ConversationDetails>
   get(conversationId: string): Promise<ConversationDetails>
-  appendMessage(conversationId: string, messageId: string, content: string): Promise<ConversationDetails>
+  appendMessage(conversationId: string, messageId: string, content: string): Promise<ConversationTurn>
   rename(conversationId: string, title: string): Promise<void>
   updateSources(conversationId: string, enabledSourceKeys: readonly string[]): Promise<void>
   delete(conversationId: string): Promise<void>
 }
 
-interface ConversationTurnResponse {
+export interface ConversationTurn {
   status: string
   conversation: ConversationDetails
+  message: string | null
 }
 
 export function createBackendConversationClient(apiClient: ApiClient = createApiClient()): ConversationClient {
@@ -30,12 +31,11 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
     get(conversationId) {
       return apiClient.request<ConversationDetails>(`/api/conversations/${encodeURIComponent(conversationId)}`)
     },
-    async appendMessage(conversationId, messageId, content) {
-      const response = await apiClient.request<ConversationTurnResponse>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
+    appendMessage(conversationId, messageId, content) {
+      return apiClient.request<ConversationTurn>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
         method: 'POST',
         body: JSON.stringify({ messageId, content }),
       })
-      return response.conversation
     },
     rename(conversationId, title) {
       return apiClient.request<void>(`/api/conversations/${encodeURIComponent(conversationId)}/title`, {

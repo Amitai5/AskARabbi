@@ -1,5 +1,6 @@
 using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Contracts.Conversations;
+using AskARabbi.Api.Conversations;
 using AskARabbiLIB.Conversations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,14 +14,17 @@ namespace AskARabbi.Api.Controllers;
 public sealed class ConversationsController : ControllerBase
 {
     private readonly ConversationService conversations;
+    private readonly GroundedConversationTurnService conversationTurns;
     private readonly ICurrentUser currentUser;
 
     /// <summary>Initializes the conversations API.</summary>
     /// <param name="conversations">Conversation application service.</param>
+    /// <param name="conversationTurns">Grounded user-turn orchestrator.</param>
     /// <param name="currentUser">Current authenticated user accessor.</param>
-    public ConversationsController(ConversationService conversations, ICurrentUser currentUser)
+    public ConversationsController(ConversationService conversations, GroundedConversationTurnService conversationTurns, ICurrentUser currentUser)
     {
         this.conversations = conversations ?? throw new ArgumentNullException(nameof(conversations));
+        this.conversationTurns = conversationTurns ?? throw new ArgumentNullException(nameof(conversationTurns));
         this.currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
     }
 
@@ -62,18 +66,18 @@ public sealed class ConversationsController : ControllerBase
         return conversation is null ? NotFound() : Ok(ConversationContractMapper.ToResponse(conversation));
     }
 
-    /// <summary>Appends one user message idempotently and returns the server-owned context.</summary>
+    /// <summary>Appends one user message and persists a validated, source-grounded assistant answer.</summary>
     /// <param name="conversationId">Conversation ID.</param>
     /// <param name="request">New user message.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
-    /// <returns>The canonical conversation after storing the user turn.</returns>
+    /// <returns>The canonical context plus a fail-closed turn status.</returns>
     [HttpPost("{conversationId:guid}/messages")]
     [ProducesResponseType<ConversationTurnResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ConversationTurnResponse>> AppendMessage(Guid conversationId, AppendMessageRequest request, CancellationToken cancellationToken)
     {
-        var conversation = await conversations.AppendUserMessageAsync(currentUser.UserId, conversationId, request.MessageId, request.Content, cancellationToken).ConfigureAwait(false);
-        return conversation is null ? NotFound() : Ok(new ConversationTurnResponse("stored", ConversationContractMapper.ToResponse(conversation)));
+        var result = await conversationTurns.ProcessAsync(currentUser.UserId, conversationId, request.MessageId, request.Content, cancellationToken).ConfigureAwait(false);
+        return result.Conversation is null ? NotFound() : Ok(new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(result.Conversation), result.Message));
     }
 
     /// <summary>Renames a saved conversation.</summary>

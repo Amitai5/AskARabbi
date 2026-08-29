@@ -111,4 +111,24 @@ public sealed class ConfigurationOptionsTests
 
         Assert.ThrowsExactly<InvalidOperationException>(() => options.Validate("Production"));
     }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void Validate_NoGroundedChatProviderConfiguration_AllowsProcessHealthMode()
+    {
+        var options = new GroundedChatOptions();
+
+        options.Validate();
+
+        Assert.IsFalse(options.IsConfigured);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void Validate_PartialGroundedChatConfiguration_Throws()
+    {
+        var options = new GroundedChatOptions { ProjectEndpoint = "https://openai.askrabbi.test/" };
+
+        Assert.ThrowsExactly<InvalidOperationException>(options.Validate);
+    }
 }

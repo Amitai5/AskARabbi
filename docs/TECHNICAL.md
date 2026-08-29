@@ -7,7 +7,7 @@
 [![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-.NET%2010-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet)
 [![Sefaria](https://img.shields.io/badge/texts-Sefaria-7C3AED?style=for-the-badge)](https://developers.sefaria.org/)
 
-This document describes the implemented local grounding prototype and the connected production frontend/API foundation for an account-based, source-grounded AI chat application. WorkOS identity and Azure Cosmos DB for MongoDB application persistence are wired end to end; grounded generation inside the API, deployment infrastructure, and public-launch hardening remain future milestones.
+This document describes the implemented local grounding prototype and the production frontend/API path for an account-based, source-grounded AI chat application. WorkOS identity, Azure Cosmos DB for MongoDB persistence, Azure OpenAI generation, managed Responses file-search retrieval, validated assistant persistence, and monthly usage enforcement are wired in code. Full corpus publication, live integration validation, and public-launch hardening remain.
 
 For the product mission, intended experience, and guiding principles, read the [project README](../README.md). For the step-by-step implemented question, retrieval, grounding, validation, and follow-up path, read the [chat workflow](CHAT_WORKFLOW.md).
 
@@ -37,9 +37,9 @@ For the product mission, intended experience, and guiding principles, read the [
 
 The repository now contains a reusable .NET library, a thin console application, the production frontend shell, and a tested .NET 10 API foundation. The decisions below are divided into two groups:
 
-- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable frontend authentication boundary; a .NET 10 ASP.NET Core API; WorkOS AuthKit code exchange and password recovery behind a narrow adapter; encrypted application cookies; owner-scoped MongoDB stores for accounts, conversation metadata/messages, personalization, and usage; and deterministic frontend, library, and API tests.
+- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable frontend authentication boundary; a .NET 10 ASP.NET Core API; WorkOS AuthKit code exchange and password recovery behind a narrow adapter; encrypted application cookies; owner-scoped MongoDB stores; Azure OpenAI Responses; forced managed file-search retrieval; fail-closed answer persistence and usage enforcement; and deterministic frontend, library, and API tests.
 - **Committed direction:** User-facing Google and other reviewed WorkOS methods; Azure Cosmos DB for MongoDB application persistence; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
-- **Open implementation choices:** vector or hybrid search provisioning, model deployment, hosting providers, background-job system, and server-side session persistence. The public topology is fixed at `https://askarabbi.ai` for the frontend and `https://api.askarabbi.ai` for the API.
+- **Open implementation choices:** long-term retrieval migration criteria, background-job system, server-side session persistence, and conversation retention. The first production retriever is an Azure OpenAI managed vector store, the model deployment is `askarabbi-gpt-5-mini`, and the public topology is fixed at `https://askarabbi.ai` plus `https://api.askarabbi.ai`.
 
 Dependencies and infrastructure should be selected only when an implementation milestone needs them. This keeps the first version small and prevents an early prototype from silently becoming the permanent privacy or security architecture.
 
@@ -61,7 +61,7 @@ Dependencies and infrastructure should be selected only when an implementation m
 - The Spectre.Console host starts with AI Chat as the first option and exposes Source Search separately. All approved logical sources begin enabled; `/sources` displays the on/off inventory with edition, passage, and language counts and changes the source set used by each subsequent retrieval. Before chat it requires a saved local JSON profile or process-memory custom context. Questions and follow-ups use a spaced `You` / `AskARabbi AI` transcript with a bold direct answer and natural follow-on paragraphs. Compact citation numbers remain beside their claims; exact quotations already written in a paragraph are highlighted yellow in place and are not repeated, while supporting quotations absent from the prose retain one yellow quotation with a cyan source line. Full retrieved context remains available through `/evidence` instead of being dumped into every answer. It omits a redundant closing bibliography because validated sources already appear inline. The editable application-controlled interpretive notice ends every validated answer in italic grey. Clearing or leaving AI Chat removes conversation turns, answers, evidence references, and traces from process memory; the only prototype persistence is a user-explicit local profile JSON that never contains chat content.
 - Prototype composition is split by responsibility: `ConsoleApplication` owns only process-level orchestration; `ApplicationStateLoader` loads the manifest and local configuration; `AIChatConsole` owns the in-memory conversation; `SourceSearchConsole` owns source inspection; `SegmentIndexConsole` owns local index lifecycle; `OneShotCommandExecutor` owns automation commands; and `ConsolePresentation` owns Spectre rendering. Safety-critical behavior remains in `AskARabbiLIB` and is covered by the library test solution.
 
-The implementation adapts the useful interface/configuration, prompt-building, retry, diagnostic, credential-specific client, Key Vault, and invariant BSON temporal-serialization ideas from ClearVowAI. AskRabbi supplies its own focused MongoDB stores because the audited ClearVowAI services contained serializers and BSON use but no reusable owner-scoped Mongo repository. It deliberately excludes Foundry Agents, hosted vector stores, reflection-discovered tools, web/file search, image handling, SQL/Redis services, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, and unrelated setup helpers.
+The implementation adapts the useful interface/configuration, prompt-building, retry, diagnostic, credential-specific client, Key Vault, and invariant BSON temporal-serialization ideas from ClearVowAI. AskRabbi supplies its own focused MongoDB stores because the audited ClearVowAI services contained serializers and BSON use but no reusable owner-scoped Mongo repository. It deliberately excludes Foundry Agents and model-controlled hosted file-search orchestration, reflection-discovered tools, web search, image handling, SQL/Redis services, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, and unrelated setup helpers. The managed-vector adapter forces a single-purpose Responses file-search call and retains application control behind `ISourceRetriever`; it is not an Agent engine.
 
 ## Design goals
 
@@ -86,7 +86,7 @@ flowchart LR
     Api --> Orchestrator[Chat orchestrator]
 
     Orchestrator --> Retriever[Bilingual retriever]
-    Retriever --> SourceIndex[(Local SQLite now / Azure AI Search later)]
+    Retriever --> SourceIndex[(SQLite prototype / Azure OpenAI managed store in production)]
     Sefaria[Sefaria API or approved data export] --> Ingestion[Ingestion and normalization]
     Ingestion --> SourceIndex
 
@@ -121,13 +121,13 @@ The frontend must treat all authorization and quota data as display information.
 
 The current shell implements compact responsive Personalization and Settings screens. Personalization captures full name; birth date and time; one reviewed U.S. IANA time zone; independent conversation and source-quotation languages; religious movement or practice; Jewish heritage or community; and optional context limited to 2,000 characters. Supported languages are English by default plus French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The backend validates and persists that profile. Settings loads the authenticated account email, exact monthly usage window, and conversation defaults from the API, and it sends password-reset requests to the backend. Only a versioned session-storage integer for non-sensitive welcome copy remains session-local.
 
-Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New conversations enable the complete set. Non-empty selections are validated and persisted by the API; clearing every source disables submission instead of allowing an ungrounded fallback. The exact selection is stored with the canonical conversation context. Quotation-language preference must constrain later retrieval to approved editions; an unavailable translation must be disclosed rather than generated and presented as source text.
+Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New conversations enable the complete set. Non-empty selections are validated and persisted by the API; clearing every source disables submission instead of allowing an ungrounded fallback. The exact selection is stored with the canonical conversation context. Conversation and quotation languages are presentation preferences, not source evidence. Retrieval searches all available approved editions within the selected sources so a preference such as Persian or Russian cannot erase the evidence corpus; exact quotations must still be copied from an available edition and may not be machine-invented as source text.
 
 The browser does not calculate a Hebrew birthday. Because the Hebrew date changes at sunset, a time zone alone cannot establish precise local sunset. The future API should request birthplace when the birth time is near sunset, use historical offset data and a reviewed sunset/calendar implementation, preserve the user-entered civil details, return the calculated Hebrew date and assumptions, and allow correction. Personalization remains untrusted user context: it may guide wording and relevant source distinctions, but it cannot count as evidence or justify assumptions about observance or identity.
 
 ### ASP.NET Core API
 
-The implemented backend foundation is a .NET 10 controller API. `GET /health` reports process health; dependency-specific readiness checks are still pending. `UserController` owns allow-listed WorkOS AuthKit login hints, constant-time state validation, S256 PKCE, code exchange, rotating session refresh, local-account resolution, safe session projection, password recovery, and logout. `ConversationsController` owns saved conversation creation, navigation summaries, owner-authorized context loading, idempotent user-message storage, title/source updates, and deletion. `ConversationSettingsController` owns personalization, account-backed conversation defaults, and exact UTC calendar-month usage reporting.
+The implemented backend is a .NET 10 controller API. `GET /health` reports process health; dependency-specific readiness checks are still pending. `UserController` owns allow-listed WorkOS AuthKit login hints, constant-time state validation, S256 PKCE, code exchange, rotating session refresh, local-account resolution, safe session projection, password recovery, and logout. `ConversationsController` owns saved conversation creation, navigation summaries, owner-authorized context loading, grounded message turns, title/source updates, and deletion. `GroundedConversationTurnService` checks usage, obtains personalization, reconstructs limited recent validated history, calls the provider-neutral grounding service, persists only validated assistant text under a deterministic ID, and records successful usage. `ConversationSettingsController` owns personalization, account-backed conversation defaults, and exact UTC calendar-month usage reporting.
 
 The browser receives an encrypted `HttpOnly` application cookie and never receives the WorkOS API key or access token. Its rotating WorkOS refresh token is contained only inside the ASP.NET Core protected ticket and is unavailable to JavaScript; the API renews it near provider-token expiration and rejects provider-revoked sessions. The ticket lasts at most eight sliding hours. A reviewed shared server-side session/revocation store and shared data-protection key ring remain required before horizontally scaled public deployment. WorkOS and MongoDB may be omitted for process-only health checks, and their endpoints normally fail explicitly with `503`. A separate `local-demo` launch profile is accepted only in the `Development` environment and supplies process-memory substitutes for an end-to-end local walkthrough; production cannot enable it. Credentialed CORS permits only exact configured origins, with the Vite origin defaulted solely in Development.
 
@@ -154,7 +154,7 @@ The implemented controller boundary is:
 | `ConversationsController` | Saved conversation lifecycle, source settings, message ingestion, and canonical context |
 | `ConversationSettingsController` | Current personalization and exact monthly usage window |
 
-The current message endpoint stores and returns a user turn but does not call the grounded-answer pipeline or increment usage. Assistant-message persistence, reservations, streaming, private mode, and validated citation snapshots remain part of chat orchestration work.
+The message endpoint returns a stable status plus canonical conversation context. Sequential retries with the same client message ID reuse the deterministic assistant ID and do not call the model again. A persistent reservation/finalization record is still required to prevent duplicate provider work and usage increments from truly simultaneous retries across multiple replicas. Streaming, private mode, and separately persisted evidence snapshots remain product work.
 
 ### Chat orchestration
 
@@ -175,7 +175,7 @@ Cancellation must propagate from the browser through retrieval and model request
 
 ### Source ingestion and retrieval
 
-The source pipeline should support a Sefaria data export, the live [Sefaria API](https://developers.sefaria.org/reference/getting-started), or a combination chosen after scale and licensing review. Live access is useful for prototyping; an approved local index provides predictable retrieval and version control.
+The source pipeline uses the reviewed Sefaria export and version metadata to produce a checksum-verified, permissively licensed normalized corpus. The same manifest drives both the local SQLite index and an immutable production managed-vector publication.
 
 Every ingested segment should preserve at least:
 
@@ -208,7 +208,9 @@ The local proof of concept implements:
 - Limited adjacent-segment context.
 - Diversity-aware ranking so one repeated source does not crowd out meaningful disagreement.
 
-The production adapter is planned as `AzureAiSearchSourceRetriever` using the same segment IDs and result contracts. Its index will add vector fields, semantic retrieval for paraphrases, bilingual query expansion, relationship expansion, and filterable provenance to the current lexical fields, allowing hybrid retrieval and reciprocal-rank fusion. Provisioning is intentionally deferred, and regional capacity, current pricing, data residency, and service terms must be checked when that milestone begins. A hybrid retriever still has to earn its added cost through citation-recall and answer-faithfulness evaluations.
+The first production adapter is `AzureOpenAIVectorStoreRetriever`. `AzureOpenAIVectorStoreCorpusPublisher` creates deterministic uploads capped at 60,000 UTF-8 bytes and marks each compact source record with stable segment/document IDs, canonical reference, context token, exact text, and explicit excerpt bounds. The checked 1,441-document corpus becomes 8,332 provider files. The publisher supplies sixteen provenance attributes, but the current Responses results omit them; the API therefore bundles the validated manifest, resolves each stable document prefix locally, and treats any returned attributes only as consistency checks. Before accepting a search result, the retriever verifies store schema/fingerprint/logical-document/provider-file counts and revalidates every complete record, permissive license, requested source/category/language filter, stable ID, and bound locally.
+
+Azure OpenAI performs managed keyword/semantic search through a forced Responses `file_search` call, but it does not own final answer generation or citation metadata. Retrieval-model prose is discarded; only scored file-search results proceed through local provenance/filter checks and then the same evidence builder and validation layers as SQLite. This means a production answer has a small retrieval-model call followed by the separate grounded-answer call. Azure AI Search remains a future migration option if evaluation shows a need for stronger hybrid ranking, custom analyzers, relationship expansion, or predictable provisioned throughput. See [MANAGED_VECTOR_STORE.md](MANAGED_VECTOR_STORE.md) for publication, IAM, cost, and rollback operations.
 
 #### Bilingual handling
 
@@ -309,7 +311,7 @@ The implemented foundation exposes:
 | `GET /api/conversations` | List recent owned conversation summaries |
 | `POST /api/conversations` | Create a saved conversation |
 | `GET /api/conversations/{conversationId}` | Return one owner-authorized conversation and its messages |
-| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn and return canonical context; AI response generation is not connected yet |
+| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn, run fail-closed retrieval/generation/validation, persist only a validated answer, and return canonical context plus a typed outcome |
 | `PUT /api/conversations/{conversationId}/title` | Rename an owned conversation |
 | `PUT /api/conversations/{conversationId}/sources` | Replace approved source selectors |
 | `DELETE /api/conversations/{conversationId}` | Delete an owned conversation and its messages |
@@ -450,6 +452,7 @@ AskARabbi/
 ├── Backend/                      # .NET 10 ASP.NET Core host and integration tests
 ├── Library/                      # Reusable corpus, retrieval, AI, and grounding code
 ├── Prototype/                    # Local Spectre.Console search and AI host
+├── Tools/                        # Reproducible managed-corpus publisher and verifier
 ├── Data/                         # Raw and normalized licensed corpus metadata
 ├── docs/
 │   └── TECHNICAL.md
@@ -479,7 +482,7 @@ The number of .NET projects should be revisited during scaffolding. If the first
 
 - Ingest a deliberately small, licensed bilingual corpus from Sefaria.
 - Implement canonical references and source cards.
-- Compare retrieval approaches against the evaluation set.
+- Compare SQLite and managed retrieval against the evaluation set.
 - Generate bounded answers and validate citations.
 
 ### Phase 3: conversation product
@@ -503,9 +506,9 @@ The following choices should be made through small proof-of-concept measurements
 
 - Server-session persistence, revocation, and retention strategy for the WorkOS-backed login flow.
 - Azure Cosmos DB for MongoDB provisioning mode, partition/shard-key policy, backup, retention, and data migration strategy.
-- Search engine and vector-storage approach.
+- Criteria and timing for migrating from the managed vector store to a dedicated hybrid search service.
 - Sefaria live API, periodic export, or hybrid ingestion.
-- Model provider, regional processing, retention, and training terms.
+- Model/provider regional processing, retention, and training terms after Azure's initial production deployment.
 - Streaming protocol and retry semantics.
 - Hosting region and data residency.
 - Exact source-selection model exposed to users.
@@ -535,9 +538,9 @@ pnpm dev
 pnpm verify
 ```
 
-Node.js 22.12 or newer and pnpm 11 are required. In `local-demo`, the browser still calls the real HTTP controllers and uses the real application cookie, but the API process owns an in-memory identity and datastore; restarting the API clears that data. See `Frontend/README.md` for the client boundary.
+Node.js 22.12 or newer and pnpm 11 are required. In `local-demo`, the browser still calls the real HTTP controllers and uses the real application cookie, but the API process owns an in-memory identity and datastore; restarting the API clears that data. Grounded chat uses the same production service only when all `AI:*` values are configured. With all of them omitted, liveness and the account/conversation walkthrough remain available while chat returns `ai_unavailable` without a provider call. See `Frontend/README.md` for the client boundary.
 
-The production API foundation runs on .NET 10. `GET /health` works without external configuration; application endpoints require the WorkOS and MongoDB settings documented in `Backend/README.md`. All backend JSON configuration is secret-free. Local credentials live in .NET User Secrets; deployed credentials come from the hosting platform's secret configuration:
+The production API foundation runs on .NET 10. `GET /health` works without external configuration; authenticated persistence endpoints require WorkOS and MongoDB, and grounded chat requires the complete AI/vector-store settings documented in `Backend/README.md`. All backend JSON configuration is secret-free. Local credentials live in .NET User Secrets; deployed credentials come from the hosting platform's secret configuration:
 
 ```powershell
 dotnet restore Backend/AskARabbiBackend.slnx

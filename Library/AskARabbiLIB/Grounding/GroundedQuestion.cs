@@ -17,5 +17,9 @@ public sealed record GroundedQuestion
 
     public IReadOnlyCollection<string> SourceKeys { get; init; } = [];
 
+    public string? ConversationLanguage { get; init; }
+
+    public string? QuotationLanguage { get; init; }
+
     public UserProfile? UserProfile { get; init; }
 }
