@@ -15,6 +15,27 @@ describe('App', () => {
     window.history.replaceState({}, '', '/')
   })
 
+  it('renders sign in immediately while session hydration is pending', async () => {
+    const clients = createDemoApplicationClients()
+    const session = createDeferred<null>()
+    const authClient = {
+      ...clients.authClient,
+      getSession: () => session.promise,
+    }
+
+    render(<App authClient={authClient} conversationClient={clients.conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent('Checking for an existing session')
+
+    await act(async () => {
+      session.resolve(null)
+      await session.promise
+    })
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('validates email before starting a session', async () => {
     const user = userEvent.setup()
     await renderApp()

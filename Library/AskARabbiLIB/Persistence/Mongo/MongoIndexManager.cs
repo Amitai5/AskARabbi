@@ -2,7 +2,7 @@ using MongoDB.Driver;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
-/// <summary>Creates the indexes required for account uniqueness and recent-conversation queries.</summary>
+/// <summary>Creates indexes for account uniqueness, recent conversations, and chronological message history.</summary>
 public sealed class MongoIndexManager
 {
     private readonly IMongoCollection<MongoUserAccountDocument> users;
@@ -37,16 +37,20 @@ public sealed class MongoIndexManager
             {
                 Name = "ix_conversations_userId_updatedAtUtc",
             });
-        var messageIndex = new CreateIndexModel<MongoConversationMessageDocument>(Builders<MongoConversationMessageDocument>.IndexKeys
-            .Ascending(document => document.UserId)
-            .Ascending(document => document.ConversationId)
-            .Ascending(document => document.CreatedAtUtc), new CreateIndexOptions
-            {
-                Name = "ix_conversationMessages_userId_conversationId_createdAtUtc",
-            });
+        var messageIndex = CreateMessageIndex();
 
         await users.Indexes.CreateOneAsync(userIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await conversations.Indexes.CreateOneAsync(conversationIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await messages.Indexes.CreateOneAsync(messageIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static CreateIndexModel<MongoConversationMessageDocument> CreateMessageIndex()
+    {
+        var keys = Builders<MongoConversationMessageDocument>.IndexKeys
+            .Ascending(document => document.CreatedAtUtc)
+            .Ascending(document => document.Id);
+
+        // Cosmos DB requires the composite-index sequence to exactly match every ORDER BY field.
+        return new CreateIndexModel<MongoConversationMessageDocument>(keys);
     }
 }

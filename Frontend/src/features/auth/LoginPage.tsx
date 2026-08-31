@@ -1,10 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowRight, Mail } from 'lucide-react'
-import manuscriptArtwork from '../../assets/library-manuscript.png'
+import manuscriptArtwork from '../../assets/library-manuscript.webp'
 import { Brand } from '../../components/Brand.tsx'
 import { useAuth } from './useAuth.ts'
 
 const EmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+interface LoginPageProps {
+  isCheckingSession?: boolean
+}
 
 function GoogleMark() {
   return (
@@ -17,7 +21,7 @@ function GoogleMark() {
   )
 }
 
-export function LoginPage() {
+export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
   const { authenticationError, clearAuthenticationError, isAuthenticating, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signUp } = useAuth()
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -71,7 +75,8 @@ export function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-dvh bg-parchment lg:grid-cols-[minmax(0,1.05fr)_minmax(28rem,0.95fr)]">
+    <main className="grid min-h-dvh bg-parchment lg:grid-cols-[minmax(0,1.05fr)_minmax(28rem,0.95fr)]" aria-busy={isCheckingSession}>
+      {isCheckingSession ? <span className="sr-only" role="status">Checking for an existing session.</span> : null}
       <section className="flex min-h-dvh flex-col px-6 py-7 sm:px-10 lg:px-16 lg:py-10 xl:px-20">
         <Brand />
 
@@ -163,7 +168,7 @@ export function LoginPage() {
       </section>
 
       <aside className="relative hidden min-h-dvh overflow-hidden border-l border-line bg-parchment lg:block" aria-hidden="true">
-        <img src={manuscriptArtwork} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+        <img src={manuscriptArtwork} alt="" loading="lazy" decoding="async" fetchPriority="low" className="absolute inset-0 h-full w-full object-cover object-center" />
       </aside>
     </main>
   )

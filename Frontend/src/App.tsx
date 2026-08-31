@@ -42,14 +42,11 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
   const { isInitializing, signOut, user } = useAuth()
   const resetToken = getPasswordResetToken()
 
-  if (isInitializing) {
-    return <LoadingScreen message="Connecting to AskRabbi…" />
-  }
   if (resetToken !== null) {
     return <PasswordResetPage token={resetToken} onReturnToLogin={returnToLogin} />
   }
   if (user === null) {
-    return <LoginPage />
+    return <LoginPage isCheckingSession={isInitializing} />
   }
 
   return <SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} onLogout={signOut} />

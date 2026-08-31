@@ -49,8 +49,7 @@ public sealed class MongoConversationStore : IConversationStore
         }
 
         var messageDocuments = await messages.Find(MessageOwnerFilter(userId, conversationId))
-            .SortBy(message => message.CreatedAtUtc)
-            .ThenBy(message => message.Id)
+            .Sort(CreateMessageSort())
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         return ToDomain(document, messageDocuments);
@@ -124,6 +123,10 @@ public sealed class MongoConversationStore : IConversationStore
     private static FilterDefinition<MongoConversationMessageDocument> MessageOwnerFilter(Guid userId, Guid conversationId) => Builders<MongoConversationMessageDocument>.Filter.And(
         Builders<MongoConversationMessageDocument>.Filter.Eq(document => document.ConversationId, conversationId.ToString("D")),
         Builders<MongoConversationMessageDocument>.Filter.Eq(document => document.UserId, userId.ToString("D")));
+
+    internal static SortDefinition<MongoConversationMessageDocument> CreateMessageSort() => Builders<MongoConversationMessageDocument>.Sort
+        .Ascending(document => document.CreatedAtUtc)
+        .Ascending(document => document.Id);
 
     private static MongoConversationDocument ToDocument(Conversation conversation) => new()
     {
