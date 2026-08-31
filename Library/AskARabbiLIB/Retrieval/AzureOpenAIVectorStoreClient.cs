@@ -9,7 +9,7 @@ namespace AskARabbiLIB.Retrieval;
 /// <summary>Calls Azure OpenAI v1 vector-store and Responses file-search APIs with Entra authentication.</summary>
 public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearchClient
 {
-    private const int FileSearchOutputTokenBudget = 256;
+    private const int FileSearchOutputTokenBudget = 2_048;
     private const int MaximumSearchAttempts = 3;
     private const int MaximumUploadAttempts = 3;
     private const string MissingFileSearchResultsMessage = "Azure file-search call does not contain included results.";

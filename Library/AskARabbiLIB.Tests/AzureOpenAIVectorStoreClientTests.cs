@@ -63,6 +63,8 @@ public sealed class AzureOpenAIVectorStoreClientTests
         Assert.AreEqual("?api-version=v1", handler.Requests[1].Uri.Query);
         StringAssert.Contains(handler.Requests[1].Body, "\"model\":\"search-model\"");
         StringAssert.Contains(handler.Requests[1].Body, "\"type\":\"file_search\"");
+        StringAssert.Contains(handler.Requests[1].Body, "\"reasoning\":{\"effort\":\"low\"}");
+        StringAssert.Contains(handler.Requests[1].Body, "\"max_output_tokens\":2048");
         StringAssert.Contains(handler.Requests[1].Body, "\"store\":false");
         StringAssert.Contains(handler.Requests[1].Body, "vs_test");
         StringAssert.Contains(handler.Requests[1].Body, "score_threshold");
