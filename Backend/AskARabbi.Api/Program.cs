@@ -100,7 +100,8 @@ if (groundedChatOptions.IsConfigured)
             MaximumOutputTokens = groundedChatOptions.MaximumOutputTokens,
         },
         provider.GetRequiredService<TokenCredential>()));
-    builder.Services.AddSingleton(_ => GroundedPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts")));
+    var groundedPrompts = GroundedPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts"));
+    builder.Services.AddSingleton(groundedPrompts);
     builder.Services.AddSingleton<IGroundedAnswerService>(provider => new GroundedAnswerService(
         provider.GetRequiredService<ISourceRetriever>(),
         provider.GetRequiredService<IAIEngine>(),

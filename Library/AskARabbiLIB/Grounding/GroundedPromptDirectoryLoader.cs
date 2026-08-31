@@ -73,10 +73,13 @@ public static class GroundedPromptDirectoryLoader
 
     private sealed record RequestPrompt
     {
+        [JsonPropertyName("instruction")]
         public required string Instruction { get; init; }
 
+        [JsonPropertyName("evidenceStartMarker")]
         public required string EvidenceStartMarker { get; init; }
 
+        [JsonPropertyName("evidenceEndMarker")]
         public required string EvidenceEndMarker { get; init; }
     }
 }
