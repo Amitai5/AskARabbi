@@ -10,7 +10,25 @@ internal static class ConversationContractMapper
         conversation.Id,
         conversation.Title,
         conversation.EnabledSourceKeys,
-        conversation.Messages.Select(message => new ConversationMessageResponse(message.Id, message.Role, message.Content, message.CreatedAtUtc)).ToArray(),
+        conversation.Messages.Select(message => new ConversationMessageResponse(message.Id, message.Role, message.Content, message.CreatedAtUtc)
+        {
+            Sources = message.Sources.Select(source => new ConversationSourceResponse
+            {
+                Number = source.Number,
+                Title = source.Title,
+                HebrewTitle = source.HebrewTitle,
+                CanonicalReference = source.CanonicalReference,
+                Edition = source.Edition,
+                Language = source.Language,
+                Collection = source.Collection,
+                License = source.License,
+                SourceUrl = source.SourceUrl,
+                AttributionUrl = source.AttributionUrl,
+                Quotations = source.Quotations,
+                Context = source.Context,
+                IsExcerpt = source.IsExcerpt,
+            }).ToArray(),
+        }).ToArray(),
         conversation.CreatedAtUtc,
         conversation.UpdatedAtUtc);
 }

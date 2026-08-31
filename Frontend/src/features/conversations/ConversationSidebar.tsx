@@ -10,7 +10,6 @@ interface ConversationSidebarProps {
   selectedId: string | null
   isMobileOpen: boolean
   isDesktopOpen: boolean
-  isCreatingConversation: boolean
   isNewConversationDisabled: boolean
   user: AuthenticatedUser
   onCloseMobile(): void
@@ -23,7 +22,7 @@ interface ConversationSidebarProps {
   onLogout(): Promise<void>
 }
 
-export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isDesktopOpen, isCreatingConversation, isNewConversationDisabled, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenSettings, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
+export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isDesktopOpen, isNewConversationDisabled, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenSettings, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -114,7 +113,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
       <div className="px-4">
         <button type="button" disabled={isNewConversationDisabled} onClick={onNewConversation} className="flex h-13 w-full items-center justify-center gap-2.5 rounded-lg bg-pomegranate px-4 text-sm font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60">
           <Plus aria-hidden="true" className="size-5" strokeWidth={1.75} />
-          {isCreatingConversation ? 'Creating…' : 'New conversation'}
+          New conversation
         </button>
       </div>
 

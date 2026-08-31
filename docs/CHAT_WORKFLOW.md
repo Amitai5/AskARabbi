@@ -52,7 +52,7 @@ Profile information does not count as evidence. It is not added to the source-se
 
 Source retrieval is application-controlled and provider-neutral. The prototype queries a local SQLite FTS5 index. Production sends a bounded Responses API request that forces exactly one Azure OpenAI `file_search` tool over the configured vector store; the application ignores the retrieval model's prose and reads only the included scored search results through `AzureOpenAIVectorStoreRetriever`. Neither host creates an Assistant, allows a model to choose outside tools, browses the web, or accepts model-generated citation metadata.
 
-All approved logical sources are enabled when a chat begins. The `/sources` command displays their edition, passage, and language counts and can turn individual core collections or named supplemental works on or off; the resulting enabled keys are applied to the next answer and remain active until changed.
+New chats begin with the core Torah, Tanakh, Mishnah, and Talmud collections enabled. The source controls can add named supplemental works individually, restore the core set, select every approved source, or remove sources; a chat cannot be sent with an empty selection. The resulting enabled keys are applied to the next answer and remain active for that conversation until changed. The prototype's `/sources` command exposes the same logical boundary.
 
 The retrieval query contains:
 
@@ -206,26 +206,28 @@ After validation succeeds, the application replaces opaque evidence IDs with tru
 - Edition and language.
 - Collection and categories.
 - License and attribution requirement.
-- Original source URL and local file path.
+- Exact validated quotations and the bounded surrounding text presented as evidence.
+- A canonical Sefaria passage URL plus the edition attribution URL and local file path.
 
 This information never comes from model-generated citation metadata. The AI therefore cannot turn `E1` into the wrong tractate, edition, link, or license while still passing validation.
 
 ## 8. Render the final conversational answer
 
-The host turns the validated structured answer into a readable conversation. The prototype applies Spectre.Console color; the backend uses `GroundedAnswerTextRenderer` to persist provider-neutral plain text that the web application can display as chat:
+The host turns the validated structured answer into a readable conversation. The prototype applies Spectre.Console color; the backend uses `GroundedAnswerTextRenderer` to persist concise provider-neutral prose while separately saving the application-materialized source records:
 
 - `AskARabbi AI` identifies the responder.
 - The direct answer appears first in bold.
 - Supporting explanation follows in normal paragraphs.
 - Compact citation numbers such as `[1]` stay next to the claim they support.
-- An exact quotation already written in a claim is highlighted in yellow in that paragraph and is not repeated below it; quotations absent from the prose appear once with a source-reference line.
+- The web UI makes each inline citation number jump to its source, displays every exact quotation, and opens the canonical passage on Sefaria in a new tab.
+- Bounded surrounding evidence appears under an expandable `Source context` disclosure. The account preference controls whether it starts open; it is open by default.
 - Genuine disagreement and evidence limitations appear only when needed.
 - A useful next question becomes a conversational invitation to continue.
 - The editable application-controlled notice appears last.
 
 The model does not write the closing notice. The application appends [`interpretive-notice.txt`](../Prototype/Prompts/interpretive-notice.txt) only after the answer passes validation.
 
-Prototype readers can use `/evidence` to inspect the complete packet. A production source-inspection view remains product work; the normal answer already retains inline source numbers, exact quotations, trusted references, and attribution URLs instead of dumping every retrieved segment.
+Prototype readers can use `/evidence` to inspect the complete packet. Production saves the bounded source records with each validated assistant message so a resumed conversation retains the exact quotation, displayed context, reference, edition, license, and links used for that answer. It does not parse those details from model prose.
 
 ## 9. Process a follow-up question
 
@@ -289,5 +291,5 @@ Grounding makes an answer traceable and harder to fabricate. It does not turn an
 | Draft repair instruction | [`validation-repair.txt`](../Prototype/Prompts/validation-repair.txt) |
 | Production turn orchestration | [`GroundedConversationTurnService.cs`](../Backend/AskARabbi.Api/Conversations/GroundedConversationTurnService.cs) |
 | Interactive prototype loop | [`AIChatConsole.cs`](../Prototype/AskARabbiPrototype/AIChatConsole.cs) |
-| Production text rendering | [`GroundedAnswerTextRenderer.cs`](../Library/AskARabbiLIB/Grounding/GroundedAnswerTextRenderer.cs) |
+| Production text rendering | [`GroundedAnswerTextRenderer.cs`](../Library/AskARabbiLIB/Grounding/GroundedAnswerTextRenderer.cs) and [`AssistantMessage.tsx`](../Frontend/src/features/conversations/AssistantMessage.tsx) |
 | Prototype console rendering | [`ConsolePresentation.cs`](../Prototype/AskARabbiPrototype/ConsolePresentation.cs) |

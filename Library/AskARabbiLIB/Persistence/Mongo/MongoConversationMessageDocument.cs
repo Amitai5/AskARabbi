@@ -23,6 +23,9 @@ internal sealed class MongoConversationMessageDocument
     [BsonElement("content")]
     public required string Content { get; init; }
 
+    [BsonElement("sources")]
+    public List<MongoConversationSourceDocument> Sources { get; init; } = [];
+
     [BsonElement("createdAtUtc")]
     public DateTime CreatedAtUtc { get; init; }
 }

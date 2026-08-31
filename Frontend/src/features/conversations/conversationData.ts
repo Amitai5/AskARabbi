@@ -1,4 +1,4 @@
-import { AllSourceKeys } from './sourceOptions.ts'
+import { CoreSourceKeys } from './sourceOptions.ts'
 
 export interface ConversationSummary {
   id: string
@@ -12,6 +12,23 @@ export interface ConversationMessage {
   role: 'User' | 'Assistant'
   content: string
   createdAtUtc: string
+  sources?: ConversationSource[]
+}
+
+export interface ConversationSource {
+  number: number
+  title: string
+  hebrewTitle: string
+  canonicalReference: string
+  edition: string
+  language: string
+  collection: string
+  license: string
+  sourceUrl: string
+  attributionUrl: string
+  quotations: string[]
+  context: string
+  isExcerpt: boolean
 }
 
 export interface ConversationDetails extends ConversationSummary {
@@ -21,9 +38,9 @@ export interface ConversationDetails extends ConversationSummary {
 }
 
 export const InitialConversations: ConversationSummary[] = [
-  { id: 'chicken-dairy', title: 'Chicken and dairy', enabledSourceKeys: [...AllSourceKeys] },
-  { id: 'shabbat-automation', title: 'Shabbat and automation', enabledSourceKeys: [...AllSourceKeys] },
-  { id: 'customs-differ', title: 'Why customs differ', enabledSourceKeys: [...AllSourceKeys] },
-  { id: 'amidah', title: 'Understanding the Amidah', enabledSourceKeys: [...AllSourceKeys] },
-  { id: 'mezuzah', title: 'A question about mezuzah', enabledSourceKeys: [...AllSourceKeys] },
+  { id: 'chicken-dairy', title: 'Chicken and dairy', enabledSourceKeys: [...CoreSourceKeys] },
+  { id: 'shabbat-automation', title: 'Shabbat and automation', enabledSourceKeys: [...CoreSourceKeys] },
+  { id: 'customs-differ', title: 'Why customs differ', enabledSourceKeys: [...CoreSourceKeys] },
+  { id: 'amidah', title: 'Understanding the Amidah', enabledSourceKeys: [...CoreSourceKeys] },
+  { id: 'mezuzah', title: 'A question about mezuzah', enabledSourceKeys: [...CoreSourceKeys] },
 ]

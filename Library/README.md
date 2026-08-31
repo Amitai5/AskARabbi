@@ -67,7 +67,7 @@ The host supplies a validated `GroundedPromptSet` to `GroundedAnswerService`. In
 - Profiles: `UserProfile`, `UserProfileJsonSerializer`.
 - Secrets: `ISecretStore`, `AzureKeyVaultSecretStore`.
 - Accounts: `ExternalUserIdentity`, `UserAccount`, `IUserAccountStore`.
-- Conversations: `Conversation`, `ConversationMessage`, `ConversationSummary`, `ConversationService`, `ConversationSourceCatalog`, `IConversationStore`.
+- Conversations: `Conversation`, `ConversationMessage`, `ConversationSourceCitation`, `ConversationSummary`, `ConversationService`, `ConversationSourceCatalog`, `IConversationStore`.
 - Personalization and usage: `PersonalizationSettings`, `ConversationSettingsService`, `MonthlyUsageService`, `BillingPeriodUsage`, and their store contracts.
 - Persistence: `MongoDatabaseOptions`, owner-scoped MongoDB store implementations, required-index initialization, invariant temporal serializers, and an explicit unconfigured-store failure.
 
@@ -81,7 +81,7 @@ The library deliberately owns every reusable or safety-critical operation. The p
 
 Production code is organized with one primary type per file and provider-specific dependencies behind narrow internal or public contracts. Public models retain their current namespaces and serialization names; this cleanup did not change the manifest schema or console configuration keys.
 
-The production MongoDB boundary keeps account data, conversation metadata, messages, personalization, and monthly counters in separate collections. Conversation summaries project only navigation fields; loading one conversation joins its owner-scoped metadata with ordered message records. Client-generated message IDs make retries idempotent, and every mutation requires both the immutable local user ID and resource ID. `TimeProvider` drives persisted application timestamps and calendar-month usage boundaries so business tests do not depend on system time.
+The production MongoDB boundary keeps account data, conversation metadata, messages, personalization, and monthly counters in separate collections. Conversation summaries project only navigation fields; loading one conversation joins its owner-scoped metadata with ordered message records. Assistant messages may embed bounded `ConversationSourceCitation` records containing trusted quotations, presented context, canonical and attribution URLs, edition, language, license, and excerpt state; legacy messages without that additive field remain valid. Client-generated message IDs make retries idempotent, and every mutation requires both the immutable local user ID and resource ID. `TimeProvider` drives persisted application timestamps and calendar-month usage boundaries so business tests do not depend on system time.
 
 ## Dependencies
 

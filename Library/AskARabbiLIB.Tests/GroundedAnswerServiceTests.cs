@@ -98,6 +98,62 @@ public sealed class GroundedAnswerServiceTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task AnswerAsync_FirstResponseTitleRequested_MaterializesNormalizedAiTitleAndPromptFlag()
+    {
+        var segment = CreateSegment();
+        var draft = CreateValidDraft() with { ConversationTitle = "  Shabbat   Lamp Laws  " };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(draft));
+        var service = CreateService(retriever, engine);
+        var question = CreateQuestion() with { ShouldGenerateConversationTitle = true };
+
+        var result = await service.AnswerAsync(question, []);
+
+        Assert.IsNotNull(result.Answer);
+        Assert.AreEqual("Shabbat Lamp Laws", result.Answer.SuggestedConversationTitle);
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[^1].Content, "\"shouldGenerateConversationTitle\":true");
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AnswerAsync_OverlongConversationTitle_BoundsTitleWithoutFailingGroundedAnswer()
+    {
+        var segment = CreateSegment();
+        var draft = CreateValidDraft() with { ConversationTitle = new string('x', 100) };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(draft));
+        var service = CreateService(retriever, engine);
+
+        var result = await service.AnswerAsync(CreateQuestion() with { ShouldGenerateConversationTitle = true }, []);
+
+        Assert.IsNotNull(result.Answer);
+        Assert.IsNotNull(result.Answer.SuggestedConversationTitle);
+        Assert.AreEqual(80, result.Answer.SuggestedConversationTitle.Length);
+        StringAssert.EndsWith(result.Answer.SuggestedConversationTitle, "…");
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AnswerAsync_FirstResponseMissingTitle_RepairsWithSameEvidence()
+    {
+        var segment = CreateSegment();
+        var repaired = CreateValidDraft() with { ConversationTitle = "Shabbat Lamp Laws" };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(CreateValidDraft()), Success(repaired));
+        var service = CreateService(retriever, engine);
+
+        var result = await service.AnswerAsync(CreateQuestion() with { ShouldGenerateConversationTitle = true }, []);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Answer);
+        Assert.AreEqual("Shabbat Lamp Laws", result.Answer.SuggestedConversationTitle);
+        Assert.IsTrue(result.Trace.RepairAttempted);
+        Assert.AreEqual(2, engine.CallCount);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task AnswerAsync_MissingMandatoryQuotationAfterRepair_ReturnsValidationFailure()
     {
         // Arrange

@@ -1,11 +1,28 @@
 import type { AuthClient, AuthenticatedUser } from '../features/auth/authTypes.ts'
 import type { ConversationClient } from '../features/conversations/conversationClient.ts'
-import { InitialConversations, type ConversationDetails, type ConversationSummary } from '../features/conversations/conversationData.ts'
+import { InitialConversations, type ConversationDetails, type ConversationSource, type ConversationSummary } from '../features/conversations/conversationData.ts'
 import type { ConversationSettingsClient } from '../features/personalization/conversationSettingsClient.ts'
 import type { PersonalizationProfile } from '../features/personalization/personalizationTypes.ts'
 import { createDefaultUserSettings, type UserSettings } from '../features/settings/settingsTypes.ts'
 
 const FixedTimestamp = '2026-08-25T12:30:00Z'
+const DemoSources: ConversationSource[] = [
+  {
+    number: 1,
+    title: 'Mishnah Chullin',
+    hebrewTitle: 'משנה חולין',
+    canonicalReference: 'Mishnah Chullin 8:1',
+    edition: 'Mishnah Yomit by Dr. Joshua Kulp',
+    language: 'English',
+    collection: 'Mishnah',
+    license: 'CC-BY',
+    sourceUrl: 'https://www.sefaria.org/Mishnah_Chullin.8.1',
+    attributionUrl: 'https://www.sefaria.org',
+    quotations: ['Fowl may be placed upon the table together with cheese but may not be eaten with it, the words of Bet Shammai. Bet Hillel say: it may neither be placed upon the table together with cheese nor eaten with it.'],
+    context: 'Every kind of flesh is forbidden to be cooked in milk, except for the flesh of fish and of locusts. Fowl may be placed upon the table together with cheese but may not be eaten with it, the words of Bet Shammai. Bet Hillel say: it may neither be placed upon the table together with cheese nor eaten with it.',
+    isExcerpt: false,
+  },
+]
 
 const DemoUser: AuthenticatedUser = {
   id: '11111111-1111-1111-1111-111111111111',
@@ -58,17 +75,20 @@ export function createDemoApplicationClients(): DemoApplicationClients {
 
   const conversationClient: ConversationClient = {
     list: () => Promise.resolve([...conversations.values()].map(toSummary)),
-    create: (title = 'New conversation', enabledSourceKeys = []) => {
+    createWithMessage: (messageId, content, enabledSourceKeys) => {
       const conversation: ConversationDetails = {
         id: crypto.randomUUID(),
-        title,
+        title: createDemoConversationTitle(content),
         enabledSourceKeys: [...enabledSourceKeys],
-        messages: [],
+        messages: [
+          { id: messageId, role: 'User', content, createdAtUtc: FixedTimestamp },
+          { id: crypto.randomUUID(), role: 'Assistant', content: 'The short answer is that this local demo represents a validated grounded response. [1]', sources: cloneSources(DemoSources), createdAtUtc: FixedTimestamp },
+        ],
         createdAtUtc: FixedTimestamp,
         updatedAtUtc: FixedTimestamp,
       }
       conversations.set(conversation.id, conversation)
-      return Promise.resolve(cloneConversation(conversation))
+      return Promise.resolve({ status: 'answered', conversation: cloneConversation(conversation), message: null })
     },
     get: (conversationId) => Promise.resolve(cloneConversation(getConversation(conversations, conversationId))),
     appendMessage: (conversationId, messageId, content) => {
@@ -78,7 +98,7 @@ export function createDemoApplicationClients(): DemoApplicationClients {
         messages: [
           ...current.messages,
           { id: messageId, role: 'User', content, createdAtUtc: FixedTimestamp },
-          { id: crypto.randomUUID(), role: 'Assistant', content: 'This local demo answer represents the validated grounded response returned by the production API.', createdAtUtc: FixedTimestamp },
+          { id: crypto.randomUUID(), role: 'Assistant', content: 'This local demo follow-up remains grounded in the cited source. [1]', sources: cloneSources(DemoSources), createdAtUtc: FixedTimestamp },
         ],
       }
       conversations.set(conversationId, conversation)
@@ -123,6 +143,11 @@ export function createDemoApplicationClients(): DemoApplicationClients {
   return { authClient, conversationClient, conversationSettingsClient }
 }
 
+function createDemoConversationTitle(content: string) {
+  const normalized = content.trim().replace(/[?!.]+$/, '')
+  return normalized.length <= 60 ? normalized : `${normalized.slice(0, 59).trimEnd()}…`
+}
+
 function getConversation(conversations: Map<string, ConversationDetails>, conversationId: string) {
   const conversation = conversations.get(conversationId)
   if (conversation === undefined) {
@@ -135,8 +160,12 @@ function cloneConversation(conversation: ConversationDetails): ConversationDetai
   return {
     ...conversation,
     enabledSourceKeys: [...conversation.enabledSourceKeys],
-    messages: conversation.messages.map((message) => ({ ...message })),
+    messages: conversation.messages.map((message) => ({ ...message, sources: message.sources === undefined ? undefined : cloneSources(message.sources) })),
   }
+}
+
+function cloneSources(sources: readonly ConversationSource[]): ConversationSource[] {
+  return sources.map((source) => ({ ...source, quotations: [...source.quotations] }))
 }
 
 function toSummary(conversation: ConversationDetails): ConversationSummary {

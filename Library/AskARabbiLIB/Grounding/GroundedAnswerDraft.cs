@@ -4,6 +4,9 @@ namespace AskARabbiLIB.Grounding;
 
 internal sealed record GroundedAnswerDraft
 {
+    [JsonPropertyName("conversationTitle")]
+    public string? ConversationTitle { get; init; }
+
     [JsonPropertyName("claims")]
     public required IReadOnlyList<GroundedClaimDraft> Claims { get; init; }
 

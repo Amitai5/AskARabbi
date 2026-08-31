@@ -30,26 +30,55 @@ public sealed class ConversationsControllerTests
 
     [TestMethod]
     [TestCategory("Integration")]
-    public async Task CreateAndList_AuthenticatedUser_ReturnsNavigationSummary()
+    public async Task CreateAndList_FirstMessage_ReturnsAiTitledNavigationSummary()
     {
         await using var application = new TestApplicationFactory();
         using var client = await application.CreateAuthenticatedClientAsync();
 
         using var createResponse = await client.PostAsJsonAsync("/api/conversations", new
         {
-            title = "Shabbat automation",
+            messageId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            content = "How does Shabbat automation work?",
             enabledSourceKeys = new[] { "collection:Torah", "collection:Talmud" },
         });
-        var created = await createResponse.Content.ReadFromJsonAsync<ConversationResponse>();
+        var created = await createResponse.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
         using var listResponse = await client.GetAsync("/api/conversations");
         var summaries = await listResponse.Content.ReadFromJsonAsync<ConversationSummaryResponse[]>();
 
         Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.IsNotNull(created);
-        Assert.AreEqual("Shabbat automation", created.Title);
+        Assert.AreEqual("answered", created.Status);
+        Assert.AreEqual("Jewish Customs and Practice", created.Conversation.Title);
+        Assert.HasCount(2, created.Conversation.Messages);
+        Assert.HasCount(1, created.Conversation.Messages[1].Sources);
+        var source = created.Conversation.Messages[1].Sources[0];
+        Assert.AreEqual("The tested source text.", source.Quotations[0]);
+        StringAssert.Contains(source.Context, "surrounding tested source context");
+        Assert.AreEqual("https://www.sefaria.org/Test_1.1", source.SourceUrl);
+        Assert.AreEqual("https://example.test/source", source.AttributionUrl);
         Assert.IsNotNull(summaries);
         Assert.HasCount(1, summaries);
-        Assert.AreEqual(created.Id, summaries[0].Id);
+        Assert.AreEqual(created.Conversation.Id, summaries[0].Id);
+        Assert.AreEqual("Jewish Customs and Practice", summaries[0].Title);
+        Assert.IsNotNull(application.GroundedAnswers.LastQuestion);
+        Assert.IsTrue(application.GroundedAnswers.LastQuestion.ShouldGenerateConversationTitle);
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task Create_MissingFirstMessage_RejectsRequestWithoutSavingConversation()
+    {
+        await using var application = new TestApplicationFactory();
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        using var createResponse = await client.PostAsJsonAsync("/api/conversations", new { enabledSourceKeys = new[] { "collection:Torah" } });
+        using var listResponse = await client.GetAsync("/api/conversations");
+        var summaries = await listResponse.Content.ReadFromJsonAsync<ConversationSummaryResponse[]>();
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, createResponse.StatusCode);
+        Assert.IsNotNull(summaries);
+        Assert.HasCount(0, summaries);
+        Assert.AreEqual(0, application.GroundedAnswers.CallCount);
     }
 
     [TestMethod]
@@ -58,7 +87,7 @@ public sealed class ConversationsControllerTests
     {
         await using var application = new TestApplicationFactory();
         using var client = await application.CreateAuthenticatedClientAsync();
-        var conversation = await CreateConversationAsync(client);
+        var conversation = (await CreateConversationAsync(client)).Conversation;
         var messageId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var request = new { messageId, content = "  Why do customs differ?  " };
 
@@ -70,11 +99,14 @@ public sealed class ConversationsControllerTests
         Assert.AreEqual(HttpStatusCode.OK, secondResponse.StatusCode);
         Assert.IsNotNull(result);
         Assert.AreEqual("answered", result.Status);
-        Assert.HasCount(2, result.Conversation.Messages);
-        Assert.AreEqual("Why do customs differ?", result.Conversation.Messages[0].Content);
+        Assert.HasCount(4, result.Conversation.Messages);
+        Assert.AreEqual("Why do customs differ?", result.Conversation.Messages[2].Content);
         Assert.AreEqual(ConversationMessageRole.User, result.Conversation.Messages[0].Role);
         Assert.AreEqual(ConversationMessageRole.Assistant, result.Conversation.Messages[1].Role);
-        Assert.AreEqual(1, application.GroundedAnswers.CallCount);
+        Assert.AreEqual("Jewish Customs and Practice", result.Conversation.Title);
+        Assert.AreEqual(2, application.GroundedAnswers.CallCount);
+        Assert.IsNotNull(application.GroundedAnswers.LastQuestion);
+        Assert.IsFalse(application.GroundedAnswers.LastQuestion.ShouldGenerateConversationTitle);
     }
 
     [TestMethod]
@@ -83,12 +115,12 @@ public sealed class ConversationsControllerTests
     {
         await using var application = new TestApplicationFactory();
         using var client = await application.CreateAuthenticatedClientAsync();
-        var conversation = await CreateConversationAsync(client);
+        var conversation = (await CreateConversationAsync(client)).Conversation;
 
         using var renameResponse = await client.PutAsJsonAsync($"/api/conversations/{conversation.Id}/title", new { title = "New title" });
         using var sourcesResponse = await client.PutAsJsonAsync($"/api/conversations/{conversation.Id}/sources", new { enabledSourceKeys = new[] { "collection:Mishnah" } });
         using var getResponse = await client.GetAsync($"/api/conversations/{conversation.Id}");
-        var updated = await getResponse.Content.ReadFromJsonAsync<ConversationResponse>();
+        var updated = await getResponse.Content.ReadFromJsonAsync<ConversationResponse>(JsonOptions);
         using var deleteResponse = await client.DeleteAsync($"/api/conversations/{conversation.Id}");
         using var missingResponse = await client.GetAsync($"/api/conversations/{conversation.Id}");
 
@@ -101,10 +133,15 @@ public sealed class ConversationsControllerTests
         Assert.AreEqual(HttpStatusCode.NotFound, missingResponse.StatusCode);
     }
 
-    private static async Task<ConversationResponse> CreateConversationAsync(HttpClient client)
+    private static async Task<ConversationTurnResponse> CreateConversationAsync(HttpClient client)
     {
-        using var response = await client.PostAsJsonAsync("/api/conversations", new { title = "Study" });
+        using var response = await client.PostAsJsonAsync("/api/conversations", new
+        {
+            messageId = Guid.NewGuid(),
+            content = "What should we study?",
+            enabledSourceKeys = new[] { "collection:Torah" },
+        });
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ConversationResponse>())!;
+        return (await response.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions))!;
     }
 }

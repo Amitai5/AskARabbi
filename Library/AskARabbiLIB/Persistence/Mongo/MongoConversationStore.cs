@@ -56,10 +56,34 @@ public sealed class MongoConversationStore : IConversationStore
     }
 
     /// <inheritdoc/>
-    public Task CreateAsync(Conversation conversation, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(conversation);
-        return conversations.InsertOneAsync(ToDocument(conversation), cancellationToken: cancellationToken);
+        var initialMessages = conversation.Messages.Select(message => ToDocument(conversation.UserId, conversation.Id, message)).ToArray();
+        if (initialMessages.Length == 0)
+        {
+            await conversations.InsertOneAsync(ToDocument(conversation), cancellationToken: cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await messages.InsertManyAsync(initialMessages, cancellationToken: cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await conversations.InsertOneAsync(ToDocument(conversation), cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception creationException)
+        {
+            try
+            {
+                await messages.DeleteManyAsync(MessageOwnerFilter(conversation.UserId, conversation.Id), CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception cleanupException)
+            {
+                throw new AggregateException("Conversation creation failed and its initial-message compensation also failed.", creationException, cleanupException);
+            }
+
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -146,7 +170,25 @@ public sealed class MongoConversationStore : IConversationStore
         MessageId = message.Id.ToString("D"),
         Role = message.Role.ToString(),
         Content = message.Content,
+        Sources = message.Sources.Select(ToDocument).ToList(),
         CreatedAtUtc = message.CreatedAtUtc.UtcDateTime,
+    };
+
+    private static MongoConversationSourceDocument ToDocument(ConversationSourceCitation source) => new()
+    {
+        Number = source.Number,
+        Title = source.Title,
+        HebrewTitle = source.HebrewTitle,
+        CanonicalReference = source.CanonicalReference,
+        Edition = source.Edition,
+        Language = source.Language,
+        Collection = source.Collection,
+        License = source.License,
+        SourceUrl = source.SourceUrl,
+        AttributionUrl = source.AttributionUrl,
+        Quotations = source.Quotations.ToList(),
+        Context = source.Context,
+        IsExcerpt = source.IsExcerpt,
     };
 
     private static Conversation ToDomain(MongoConversationDocument document, IReadOnlyList<MongoConversationMessageDocument> messageDocuments) => new()
@@ -165,7 +207,25 @@ public sealed class MongoConversationStore : IConversationStore
         Id = Guid.Parse(document.MessageId),
         Role = Enum.Parse<ConversationMessageRole>(document.Role, false),
         Content = document.Content,
+        Sources = document.Sources.Select(ToDomain).ToArray(),
         CreatedAtUtc = AsUtc(document.CreatedAtUtc),
+    };
+
+    private static ConversationSourceCitation ToDomain(MongoConversationSourceDocument source) => new()
+    {
+        Number = source.Number,
+        Title = source.Title,
+        HebrewTitle = source.HebrewTitle,
+        CanonicalReference = source.CanonicalReference,
+        Edition = source.Edition,
+        Language = source.Language,
+        Collection = source.Collection,
+        License = source.License,
+        SourceUrl = source.SourceUrl,
+        AttributionUrl = source.AttributionUrl,
+        Quotations = source.Quotations.ToArray(),
+        Context = source.Context,
+        IsExcerpt = source.IsExcerpt,
     };
 
     private static DateTimeOffset AsUtc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));

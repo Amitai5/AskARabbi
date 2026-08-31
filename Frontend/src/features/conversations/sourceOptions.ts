@@ -19,10 +19,14 @@ export const SourceOptions: readonly SourceOption[] = [
 ]
 
 export const AllSourceKeys = SourceOptions.map((source) => source.key)
+export const CoreSourceKeys = SourceOptions.filter((source) => source.group === 'Core collections').map((source) => source.key)
 
 export function formatSourceSelection(sourceKeys: readonly string[]) {
   if (sourceKeys.length === SourceOptions.length) {
     return 'All approved sources'
+  }
+  if (hasSameSourceKeys(sourceKeys, CoreSourceKeys)) {
+    return 'Core collections'
   }
 
   const labels = SourceOptions
@@ -34,4 +38,8 @@ export function formatSourceSelection(sourceKeys: readonly string[]) {
   }
 
   return `${labels.length} selected sources`
+}
+
+function hasSameSourceKeys(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && right.every((sourceKey) => left.includes(sourceKey))
 }

@@ -1,5 +1,6 @@
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Models;
+using AskARabbiLIB.Retrieval;
 
 namespace AskARabbi.Api.Tests;
 
@@ -24,14 +25,35 @@ internal sealed class FakeGroundedAnswerService : IGroundedAnswerService
             false,
             [citation])
         {
+            SuggestedConversationTitle = question.ShouldGenerateConversationTitle ? "Jewish Customs and Practice" : null,
             InterpretiveNotice = "AskRabbi offers source-based Jewish learning, not personal halakhic rulings.",
         };
         return Task.FromResult(new GroundedAnswerResult
         {
             Status = GroundedAnswerStatus.Success,
             Answer = answer,
-            Evidence = new EvidencePacket([], 0),
+            Evidence = new EvidencePacket([new EvidenceItem("E1", CreateSourceSegment(), "The surrounding tested source context includes the exact statement: The tested source text. It also includes the next line of context.", false, 128)], 128),
             Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.Zero, 1, 1, 23, null, GroundedValidationStatus.Passed, false, "test-response", "test-model"),
         });
     }
+
+    private static SourceSegment CreateSourceSegment() => new()
+    {
+        SegmentId = "sefaria:test:segment:00000001",
+        DocumentId = "sefaria:test",
+        CanonicalReference = "Test 1:1",
+        DocumentOrdinal = 1,
+        Text = "The surrounding tested source context includes the exact statement: The tested source text. It also includes the next line of context.",
+        Title = "Test source",
+        HebrewTitle = "מקור",
+        Language = "English",
+        LanguageCode = "en",
+        Collection = "Torah",
+        Categories = ["Torah"],
+        Version = "Test edition",
+        License = "CC-BY",
+        LicenseCategory = SourceLicenseCategory.CcBy,
+        SourceUrl = "https://example.test/source",
+        FilePath = "Data/NormalizedData/Sefaria/Test.md",
+    };
 }

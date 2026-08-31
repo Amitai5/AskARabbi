@@ -2,7 +2,9 @@
 
 `Backend` contains the .NET 10 ASP.NET Core foundation for the production AskRabbi API. It provides WorkOS AuthKit authentication, owner-scoped Azure Cosmos DB for MongoDB persistence, saved-conversation APIs, personalization, monthly usage enforcement, managed-corpus file-search retrieval, grounded Azure OpenAI answers, and process health.
 
-`POST /api/conversations/{conversationId}/messages` stores one idempotent user turn, checks the current allowance, retrieves only approved Sefaria evidence through a forced Azure OpenAI Responses `file_search` call, generates and audits a strict structured draft, persists only the validated assistant text, and increments usage only after success. Retrieval ignores model prose, resolves provenance through the bundled checksum-validated manifest, and reapplies source filters locally. Missing evidence, stale corpus metadata, provider failure, or failed quotation/citation validation returns a stable fail-closed status without persisting an assistant answer.
+`POST /api/conversations` creates a saved conversation together with its first user message; opening or abandoning an empty browser draft never writes to Cosmos DB. That first turn and `POST /api/conversations/{conversationId}/messages` check the current allowance, retrieve only approved Sefaria evidence through a forced Azure OpenAI Responses `file_search` call, generate and audit a strict structured draft, persist only validated assistant text plus trusted quotation/context/provenance snapshots, and increment usage only after success. The first successful structured response also supplies a concise AI-generated title, which the backend applies once and never regenerates for later turns. Retrieval ignores model prose, resolves provenance through the bundled checksum-validated manifest, and reapplies source filters locally. Missing evidence, stale corpus metadata, provider failure, or failed quotation/citation validation returns a stable fail-closed status without persisting an assistant answer.
+
+When a source selection is omitted, new conversations use the core Torah, Tanakh, Mishnah, and Talmud collections. Supplemental approved works must be selected explicitly. Existing conversations retain their saved source choices.
 
 ## Projects
 
@@ -71,9 +73,9 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 | `POST /api/user/reset-password` | Confirms the WorkOS reset, clears the current AskRabbi cookie, and returns `204`. |
 | `POST /api/user/logout` | Clears the local cookie and returns the WorkOS logout destination. |
 | `GET /api/conversations` | Returns recent titles and source selections for navigation without loading message bodies. |
-| `POST /api/conversations` | Creates an empty saved conversation. |
-| `GET /api/conversations/{id}` | Loads metadata and ordered messages for one owned conversation. |
-| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context plus a grounded turn status; only validated answers are persisted and counted. |
+| `POST /api/conversations` | Creates a saved conversation from its first user message, processes the first grounded response, and applies its one-time AI-generated title. |
+| `GET /api/conversations/{id}` | Loads metadata and ordered messages, including trusted assistant-source snapshots, for one owned conversation. |
+| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context plus a grounded turn status; only validated answers and their trusted sources are persisted and counted. |
 | `PUT /api/conversations/{id}/title` | Renames one owned conversation. |
 | `PUT /api/conversations/{id}/sources` | Replaces its approved source selectors. |
 | `DELETE /api/conversations/{id}` | Removes its metadata and message records. |
@@ -85,7 +87,7 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 
 ## Persistence shape
 
-Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver. Account records, conversation metadata, messages, personalization/preferences, and monthly counters use separate collections. Separating messages from conversation metadata prevents every message append from rewriting an ever-growing conversation document and keeps sidebar queries lightweight. Personalization and general preferences share one document but are updated with field-level Mongo operations so saving either one cannot erase the other. Required indexes are created when configured persistence starts.
+Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver. Account records, conversation metadata, messages, personalization/preferences, and monthly counters use separate collections. Assistant message documents embed only the bounded, validated source citations used for that answer: exact quotations, presented context, canonical Sefaria URL, edition attribution URL, language, license, and excerpt state. Older message documents without the additive `sources` field deserialize with an empty source list. Separating messages from conversation metadata prevents every message append from rewriting an ever-growing conversation document and keeps sidebar queries lightweight. Personalization and general preferences share one document but are updated with field-level Mongo operations so saving either one cannot erase the other. Required indexes are created when configured persistence starts.
 
 The implementation adapts only the relevant invariant `DateOnly` and `TimeOnly` BSON-serialization idea discovered in ClearVowAI. AskRabbi already had focused Azure OpenAI, Key Vault, retrieval, and grounding services, so the older Foundry Agent, SQL, Redis, reflection-tool, and unrelated service code was not duplicated.
 

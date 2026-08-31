@@ -37,6 +37,19 @@ public sealed class GroundedConversationTurnService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>Creates a conversation with its first user message and processes its first grounded response.</summary>
+    /// <param name="userId">Authenticated account ID.</param>
+    /// <param name="userMessageId">Client-generated user-message ID.</param>
+    /// <param name="content">Question text.</param>
+    /// <param name="sourceKeys">Approved source selectors for the conversation.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>A stored, answered, limited, or fail-closed first-turn result.</returns>
+    public async Task<GroundedConversationTurnResult> CreateAsync(Guid userId, Guid userMessageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default)
+    {
+        var conversation = await conversations.CreateWithUserMessageAsync(userId, userMessageId, content, sourceKeys, cancellationToken).ConfigureAwait(false);
+        return await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Processes one idempotent user message and returns canonical persisted context.</summary>
     /// <param name="userId">Authenticated account ID.</param>
     /// <param name="conversationId">Owned conversation ID.</param>
@@ -51,6 +64,12 @@ public sealed class GroundedConversationTurnService
         {
             return new GroundedConversationTurnResult("not_found", null, null);
         }
+
+        return await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<GroundedConversationTurnResult> ProcessStoredMessageAsync(Guid userId, Conversation conversation, Guid userMessageId, string content, CancellationToken cancellationToken)
+    {
         var storedQuestion = conversation.Messages.SingleOrDefault(message => message.Id == userMessageId);
         if (storedQuestion is null || storedQuestion.Role != ConversationMessageRole.User || !string.Equals(storedQuestion.Content, content.Trim(), StringComparison.Ordinal))
         {
@@ -62,6 +81,7 @@ public sealed class GroundedConversationTurnService
         {
             return new GroundedConversationTurnResult("answered", conversation, null);
         }
+        var shouldGenerateConversationTitle = string.Equals(conversation.Title, "New conversation", StringComparison.Ordinal) && conversation.Messages.All(message => message.Role != ConversationMessageRole.Assistant);
         var currentUsage = await usage.GetCurrentAsync(userId, cancellationToken).ConfigureAwait(false);
         if (currentUsage.AnswersRemaining <= 0)
         {
@@ -72,7 +92,7 @@ public sealed class GroundedConversationTurnService
         try
         {
             var personalization = await settings.GetPersonalizationAsync(userId, cancellationToken).ConfigureAwait(false);
-            var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization);
+            var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization, shouldGenerateConversationTitle);
             var recentTurns = CreateRecentTurns(conversation.Messages, userMessageId);
             answerResult = await groundedAnswers.AnswerAsync(question, recentTurns, cancellationToken).ConfigureAwait(false);
         }
@@ -82,7 +102,7 @@ public sealed class GroundedConversationTurnService
         }
         catch (Exception exception) when (exception is HttpRequestException or AuthenticationFailedException or RequestFailedException or InvalidDataException)
         {
-            logger.LogError(exception, "Grounded retrieval failed for conversation {ConversationId} and user {UserId}.", conversationId, userId);
+            logger.LogError(exception, "Grounded retrieval failed for conversation {ConversationId} and user {UserId}.", conversation.Id, userId);
             return new GroundedConversationTurnResult("retrieval_unavailable", conversation, "The approved source library is temporarily unavailable, so AskRabbi did not generate an unsupported answer. Please try again shortly.");
         }
 
@@ -91,7 +111,9 @@ public sealed class GroundedConversationTurnService
             return new GroundedConversationTurnResult(ToStatus(answerResult.Status), conversation, answerResult.ErrorMessage);
         }
         var rendered = renderer.Render(answerResult.Answer);
-        var updated = await conversations.AppendAssistantMessageAsync(userId, conversationId, assistantMessageId, rendered, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
+        var sources = ConversationSourceMaterializer.Materialize(answerResult.Answer, answerResult.Evidence ?? throw new InvalidOperationException("A successful grounded answer must retain its trusted evidence packet."));
+        var updated = await conversations.AppendAssistantMessageAsync(userId, conversation.Id, assistantMessageId, rendered, sources, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
+        updated = await ApplyInitialTitleAsync(userId, updated, answerResult.Answer.SuggestedConversationTitle, shouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
         await usage.RecordAnswerAsync(userId, cancellationToken).ConfigureAwait(false);
         return new GroundedConversationTurnResult("answered", updated, null);
     }
@@ -106,11 +128,35 @@ public sealed class GroundedConversationTurnService
         return Guid.ParseExact(Convert.ToHexString(hash.AsSpan(0, 16)), "N");
     }
 
-    private static GroundedQuestion CreateQuestion(string content, IReadOnlyList<string> sourceKeys, PersonalizationSettings? personalization)
+    private async Task<Conversation> ApplyInitialTitleAsync(Guid userId, Conversation conversation, string? suggestedTitle, bool shouldGenerateConversationTitle, CancellationToken cancellationToken)
+    {
+        if (!shouldGenerateConversationTitle || string.IsNullOrWhiteSpace(suggestedTitle))
+        {
+            return conversation;
+        }
+
+        try
+        {
+            var renamed = await conversations.RenameAsync(userId, conversation.Id, suggestedTitle, cancellationToken).ConfigureAwait(false);
+            return renamed ? conversation with { Title = suggestedTitle } : conversation;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "The first validated response was saved, but its generated title could not be applied to conversation {ConversationId}.", conversation.Id);
+            return conversation;
+        }
+    }
+
+    private static GroundedQuestion CreateQuestion(string content, IReadOnlyList<string> sourceKeys, PersonalizationSettings? personalization, bool shouldGenerateConversationTitle)
     {
         return new GroundedQuestion
         {
             Question = content,
+            ShouldGenerateConversationTitle = shouldGenerateConversationTitle,
             Languages = [],
             SourceKeys = sourceKeys,
             ConversationLanguage = personalization?.ConversationLanguage,

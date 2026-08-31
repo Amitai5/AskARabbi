@@ -60,7 +60,7 @@ Users will be able to have a natural conversation with an AI that retrieves rele
 
 ### Transparent citations
 
-Answers will link claims to precise textual references. Citation details are expected to include the work, canonical reference, language, edition or translation, and a link back to the source when available.
+Answers link claims to precise textual references. Saved assistant messages retain exact validated quotations, bounded source context, work, canonical reference, language, edition or translation, license, a direct Sefaria passage link, and separate edition attribution when available.
 
 ### Hebrew and translation together
 
@@ -68,7 +68,7 @@ The system will preserve source-language text—including Hebrew and Aramaic whe
 
 ### Selectable source collections
 
-Settings will allow users to choose which collections or kinds of texts the system may draw from. The exact controls are still being designed, but the aim is to make the source boundary visible and user-controlled.
+Each new conversation enables the core Torah, Tanakh, Mishnah, and Talmud collections by default. Users can add approved supplemental works, select every approved source, or narrow the set for that conversation; sending is disabled when no source remains selected.
 
 ### Saved and private chats
 

@@ -12,6 +12,9 @@ public sealed record ConversationMessage
     /// <summary>Gets the plain message content.</summary>
     public required string Content { get; init; }
 
+    /// <summary>Gets trusted source quotations and context for an assistant message.</summary>
+    public IReadOnlyList<ConversationSourceCitation> Sources { get; init; } = [];
+
     /// <summary>Gets when the message was accepted in UTC.</summary>
     public DateTimeOffset CreatedAtUtc { get; init; }
 }

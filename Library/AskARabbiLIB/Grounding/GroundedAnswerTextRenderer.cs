@@ -2,27 +2,26 @@ using System.Text;
 
 namespace AskARabbiLIB.Grounding;
 
-/// <summary>Renders a validated grounded answer as readable conversation text with inline citations.</summary>
+/// <summary>Renders a validated grounded answer as readable conversation text with numbered source references.</summary>
 public sealed class GroundedAnswerTextRenderer
 {
-    /// <summary>Renders claims, exact quotations, disagreements, limits, guidance, and the application-owned notice.</summary>
+    /// <summary>Renders claims, source references, disagreements, limits, guidance, and the application-owned notice.</summary>
     /// <param name="answer">Validated grounded answer.</param>
     /// <returns>Plain conversation text suitable for persistence and presentation.</returns>
     public string Render(GroundedAnswer answer)
     {
         ArgumentNullException.ThrowIfNull(answer);
         var builder = new StringBuilder();
-        var renderedQuotations = new HashSet<string>(StringComparer.Ordinal);
         foreach (var claim in answer.Claims)
         {
-            AppendStatement(builder, claim.Text, claim.Citations, claim.Quotations, renderedQuotations);
+            AppendStatement(builder, claim.Text, claim.Citations);
         }
         if (answer.Disagreements.Count > 0)
         {
             AppendParagraph(builder, "Another perspective:");
             foreach (var disagreement in answer.Disagreements)
             {
-                AppendStatement(builder, disagreement.Text, disagreement.Citations, disagreement.Quotations, renderedQuotations);
+                AppendStatement(builder, disagreement.Text, disagreement.Citations);
             }
         }
         if (answer.Limitations.Count > 0)
@@ -41,18 +40,9 @@ public sealed class GroundedAnswerTextRenderer
         return builder.ToString().Trim();
     }
 
-    private static void AppendStatement(StringBuilder builder, string text, IReadOnlyList<SourceCitation> citations, IReadOnlyList<GroundedQuotation> quotations, ISet<string> renderedQuotations)
+    private static void AppendStatement(StringBuilder builder, string text, IReadOnlyList<SourceCitation> citations)
     {
         AppendParagraph(builder, $"{text.Trim()} {FormatCitationNumbers(citations)}".TrimEnd());
-        foreach (var quotation in quotations)
-        {
-            var key = $"{quotation.Source.SegmentId}\n{quotation.Text}";
-            if (!renderedQuotations.Add(key))
-            {
-                continue;
-            }
-            AppendParagraph(builder, $"“{quotation.Text}”\n— {quotation.Source.CanonicalReference} [{quotation.Source.Number}] ({quotation.Source.SourceUrl})");
-        }
     }
 
     private static string FormatCitationNumbers(IReadOnlyList<SourceCitation> citations) => string.Join(' ', citations.Select(citation => $"[{citation.Number}]"));

@@ -132,29 +132,50 @@ describe('App', () => {
     expect(screen.getByText('Amitai Ben Erfanian')).toBeVisible()
   })
 
-  it('creates a conversation and stores a message through the client boundary', async () => {
+  it('does not persist a new conversation until its first message is sent', async () => {
     const user = userEvent.setup()
-    await renderApp()
+    const clients = createDemoApplicationClients()
+    let creationCount = 0
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      createWithMessage(messageId, content, enabledSourceKeys) {
+        creationCount++
+        return clients.conversationClient.createWithMessage(messageId, content, enabledSourceKeys)
+      },
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
 
-    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
     await expectConversationStarter()
     await user.click(screen.getByRole('button', { name: 'New conversation' }))
+
+    expect(creationCount).toBe(0)
+    expect(screen.queryByRole('button', { name: 'New conversation', current: 'page' })).not.toBeInTheDocument()
+
     await user.type(screen.getByLabelText('Message AskRabbi'), 'Why do Jewish customs differ?')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     expect(within(screen.getByRole('article')).getByText('Why do Jewish customs differ?')).toBeVisible()
-    expect(await screen.findByText(/validated grounded response returned by the production API/)).toBeVisible()
+    expect(await screen.findByText(/local demo represents a validated grounded response/)).toBeVisible()
+    expect(creationCount).toBe(1)
+    expect(screen.getByRole('button', { name: 'Why do Jewish customs differ', current: 'page' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'View source 1' })).toBeVisible()
+    const sourceLink = screen.getByRole('link', { name: /Mishnah Chullin 8:1.*Open source on Sefaria/ })
+    expect(sourceLink).toHaveAttribute('href', 'https://www.sefaria.org/Mishnah_Chullin.8.1')
+    expect(sourceLink).toHaveAttribute('target', '_blank')
+    expect(screen.getByText(/Fowl may be placed upon the table together with cheese/, { selector: 'blockquote' })).toBeVisible()
+    expect(screen.getByText('Source context').closest('details')).toHaveAttribute('open')
   })
 
   it('clears the submitted message while the grounded response is pending', async () => {
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const pendingTurn = createDeferred<ConversationTurn>()
-    let submittedConversationId = ''
+    let submittedContent = ''
     const conversationClient: ConversationClient = {
       ...clients.conversationClient,
-      appendMessage(conversationId) {
-        submittedConversationId = conversationId
+      createWithMessage(_messageId, content) {
+        submittedContent = content
         return pendingTurn.promise
       },
     }
@@ -168,17 +189,22 @@ describe('App', () => {
 
     expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('')
     expect(within(screen.getByRole('article')).getByText('Why is chicken treated like meat?')).toBeVisible()
-    await waitFor(() => expect(submittedConversationId).not.toBe(''))
-    const conversation = await clients.conversationClient.get(submittedConversationId)
+    expect(screen.getByRole('status')).toHaveTextContent('checking the quotations')
+    expect(screen.getByTestId('answer-progress-dots').children).toHaveLength(3)
+    await waitFor(() => expect(submittedContent).toBe('Why is chicken treated like meat?'))
     await act(async () => {
       pendingTurn.resolve({
         status: 'answered',
         conversation: {
-          ...conversation,
+          id: 'first-grounded-conversation',
+          title: 'Chicken and Dairy Laws',
+          enabledSourceKeys: [],
           messages: [
-            { id: 'user-message', role: 'User', content: 'Why is chicken treated like meat?', createdAtUtc: conversation.createdAtUtc },
-            { id: 'assistant-message', role: 'Assistant', content: 'A validated grounded answer.', createdAtUtc: conversation.createdAtUtc },
+            { id: 'user-message', role: 'User', content: 'Why is chicken treated like meat?', createdAtUtc: '2026-08-25T12:30:00Z' },
+            { id: 'assistant-message', role: 'Assistant', content: 'A validated grounded answer.', createdAtUtc: '2026-08-25T12:30:00Z' },
           ],
+          createdAtUtc: '2026-08-25T12:30:00Z',
+          updatedAtUtc: '2026-08-25T12:30:00Z',
         },
         message: null,
       })
@@ -186,6 +212,7 @@ describe('App', () => {
     })
 
     expect(await screen.findByText('A validated grounded answer.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Chicken and Dairy Laws', current: 'page' })).toBeVisible()
   })
 
   it('ignores a stale initial conversation response after another conversation is selected', async () => {
@@ -235,7 +262,10 @@ describe('App', () => {
 
     const sourceDialog = screen.getByRole('dialog', { name: 'Sources used for this conversation' })
     expect(within(sourceDialog).getAllByRole('checkbox')).toHaveLength(10)
-    expect(within(sourceDialog).getAllByRole('checkbox').every((checkbox) => checkbox.hasAttribute('checked'))).toBe(true)
+    expect(within(sourceDialog).getAllByRole('checkbox').filter((checkbox) => checkbox.hasAttribute('checked'))).toHaveLength(4)
+    expect(within(sourceDialog).getByRole('checkbox', { name: 'Torah' })).toBeChecked()
+    expect(within(sourceDialog).getByRole('checkbox', { name: 'Talmud' })).toBeChecked()
+    expect(within(sourceDialog).getByRole('checkbox', { name: 'Rif' })).not.toBeChecked()
 
     await user.click(within(sourceDialog).getByRole('button', { name: 'Clear all sources' }))
     await user.type(screen.getByLabelText('Message AskRabbi'), 'What do these sources say about Shabbat?')
@@ -249,10 +279,10 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Choose sources: 2 sources' }))
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(await screen.findByText(/validated grounded response returned by the production API/)).toBeVisible()
+    expect(await screen.findByText(/local demo follow-up remains grounded/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Choose sources: 2 sources' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'New conversation' }))
-    expect(screen.getByRole('button', { name: 'Choose sources: All sources' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Choose sources: Core sources' })).toBeVisible()
   })
 
   it('advances the welcome prompt only when a new conversation starts', async () => {

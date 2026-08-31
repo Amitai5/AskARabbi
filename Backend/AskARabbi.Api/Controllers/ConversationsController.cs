@@ -40,16 +40,17 @@ public sealed class ConversationsController : ControllerBase
         return Ok(values.Select(ConversationContractMapper.ToResponse).ToArray());
     }
 
-    /// <summary>Creates a new empty saved conversation.</summary>
-    /// <param name="request">Conversation creation request.</param>
+    /// <summary>Creates a saved conversation from its first message and processes its first grounded response.</summary>
+    /// <param name="request">First conversation turn.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
-    /// <returns>The created canonical conversation.</returns>
+    /// <returns>The created canonical conversation plus its fail-closed first-turn status.</returns>
     [HttpPost]
-    [ProducesResponseType<ConversationResponse>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<ConversationResponse>> Create(CreateConversationRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType<ConversationTurnResponse>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<ConversationTurnResponse>> Create(CreateConversationRequest request, CancellationToken cancellationToken)
     {
-        var conversation = await conversations.CreateAsync(currentUser.UserId, request.Title, request.EnabledSourceKeys, cancellationToken).ConfigureAwait(false);
-        var response = ConversationContractMapper.ToResponse(conversation);
+        var result = await conversationTurns.CreateAsync(currentUser.UserId, request.MessageId, request.Content, request.EnabledSourceKeys, cancellationToken).ConfigureAwait(false);
+        var conversation = result.Conversation ?? throw new InvalidOperationException("A newly created conversation must return canonical context.");
+        var response = new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(conversation), result.Message);
         return CreatedAtAction(nameof(Get), new { conversationId = conversation.Id }, response);
     }
 

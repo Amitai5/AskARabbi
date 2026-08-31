@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BookOpenCheck, Check, ChevronDown } from 'lucide-react'
-import { AllSourceKeys, SourceOptions } from './sourceOptions.ts'
+import { AllSourceKeys, CoreSourceKeys, SourceOptions } from './sourceOptions.ts'
 
 interface SourceFilterMenuProps {
   selectedSourceKeys: readonly string[]
@@ -12,7 +12,8 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
   const containerRef = useRef<HTMLDivElement>(null)
   const selectedSourceKeySet = new Set(selectedSourceKeys)
   const areAllSourcesSelected = selectedSourceKeys.length === SourceOptions.length
-  const selectionLabel = areAllSourcesSelected ? 'All sources' : selectedSourceKeys.length === 0 ? 'Choose sources' : `${selectedSourceKeys.length} sources`
+  const areCoreSourcesSelected = selectedSourceKeys.length === CoreSourceKeys.length && CoreSourceKeys.every((sourceKey) => selectedSourceKeySet.has(sourceKey))
+  const selectionLabel = areAllSourcesSelected ? 'All sources' : areCoreSourcesSelected ? 'Core sources' : selectedSourceKeys.length === 0 ? 'Choose sources' : `${selectedSourceKeys.length} sources`
 
   useEffect(() => {
     if (!isOpen) {
@@ -69,6 +70,7 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
               <p className="mt-1 text-xs leading-5 text-muted">Only enabled sources will ground this conversation.</p>
             </div>
             <div className="flex shrink-0 gap-1">
+              <button type="button" aria-label="Select core sources" onClick={() => onChange([...CoreSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone">Core</button>
               <button type="button" aria-label="Select all sources" onClick={() => onChange([...AllSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone">All</button>
               <button type="button" aria-label="Clear all sources" onClick={() => onChange([])} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-soft transition hover:bg-stone">Clear</button>
             </div>

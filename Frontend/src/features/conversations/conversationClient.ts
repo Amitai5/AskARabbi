@@ -3,7 +3,7 @@ import type { ConversationDetails, ConversationSummary } from './conversationDat
 
 export interface ConversationClient {
   list(): Promise<ConversationSummary[]>
-  create(title?: string, enabledSourceKeys?: readonly string[]): Promise<ConversationDetails>
+  createWithMessage(messageId: string, content: string, enabledSourceKeys: readonly string[]): Promise<ConversationTurn>
   get(conversationId: string): Promise<ConversationDetails>
   appendMessage(conversationId: string, messageId: string, content: string): Promise<ConversationTurn>
   rename(conversationId: string, title: string): Promise<void>
@@ -22,10 +22,10 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
     list() {
       return apiClient.request<ConversationSummary[]>('/api/conversations')
     },
-    create(title, enabledSourceKeys) {
-      return apiClient.request<ConversationDetails>('/api/conversations', {
+    createWithMessage(messageId, content, enabledSourceKeys) {
+      return apiClient.request<ConversationTurn>('/api/conversations', {
         method: 'POST',
-        body: JSON.stringify({ title, enabledSourceKeys }),
+        body: JSON.stringify({ messageId, content, enabledSourceKeys }),
       })
     },
     get(conversationId) {

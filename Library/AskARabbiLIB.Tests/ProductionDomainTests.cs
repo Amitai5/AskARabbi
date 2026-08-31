@@ -84,6 +84,7 @@ public sealed class ProductionDomainTests
     {
         Assert.IsTrue(ConversationSourceCatalog.Contains("collection:Torah"));
         Assert.IsFalse(ConversationSourceCatalog.Contains("collection:NotApproved"));
+        CollectionAssert.AreEqual(new[] { "collection:Torah", "collection:Tanakh", "collection:Mishnah", "collection:Talmud" }, ConversationSourceCatalog.Core.ToArray());
     }
 
     private const string ValidConnectionString = "mongodb://localhost:27017";

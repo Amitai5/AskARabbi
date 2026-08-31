@@ -18,7 +18,7 @@ The wrapper for each recent validated AskARabbi answer. `{{context}}` is replace
 
 ### `current-question.json`
 
-The static portion of the current request. It reinforces direct, concise BLUF phrasing, connected prose, natural source mentions, a useful follow-up question, and the prohibition on report-like headings and packet language. It also limits profile use to respectful personalization and age-appropriate clarity. It discourages repeated points and sources, limits factual content to the retrieved evidence packet, and delimits that packet as untrusted data. The library adds the current question, an optional birth-date-minimized profile context, and selected evidence before serializing the complete user message as JSON.
+The static portion of the current request. It reinforces direct, concise BLUF phrasing, connected prose, natural source mentions, a useful follow-up question, and the prohibition on report-like headings and packet language. It also tells the model to return a concise conversation title only when the application marks the turn as the first response. Profile use remains limited to respectful personalization and age-appropriate clarity. The prompt discourages repeated points and sources, limits factual content to the retrieved evidence packet, and delimits that packet as untrusted data. The library adds the current question, the one-time title flag, an optional birth-date-minimized profile context, and selected evidence before serializing the complete user message as JSON.
 
 ### `validation-repair.txt`
 
@@ -30,7 +30,7 @@ The editable closing shown in italic grey after every validated answer. The enti
 
 ### `grounded-answer.schema.json`
 
-The strict Structured Outputs contract. It is not prose, but it constrains the model just as importantly as a prompt. Each claim and disagreement contains an optional attribution plus mandatory quotation objects covering every cited evidence ID. Each quotation identifies its explanatory role. The response also contains limitations, an optional clarifying question, and the human-guidance flag. The application separately verifies every evidence ID and exact quotation after deserialization, then appends the content of `interpretive-notice.txt` outside model control.
+The strict Structured Outputs contract. It is not prose, but it constrains the model just as importantly as a prompt. Each claim and disagreement contains an optional attribution plus mandatory quotation objects covering every cited evidence ID. Each quotation identifies its explanatory role. The response also contains the optional one-time conversation title, limitations, an optional clarifying question, and the human-guidance flag. The application separately verifies every evidence ID and exact quotation after deserialization, then appends the content of `interpretive-notice.txt` outside model control.
 
 ### `grounded-support-validation.txt`
 

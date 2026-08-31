@@ -55,19 +55,13 @@ public sealed class LocalDevelopmentIntegrationTests
         Assert.IsTrue(profile?.IsConfigured);
         Assert.AreEqual("Hebrew", profile?.Personalization?.QuotationLanguage);
 
-        using var createResponse = await client.PostAsJsonAsync("/api/conversations", new CreateConversationRequest());
-        var created = await createResponse.Content.ReadFromJsonAsync<ConversationResponse>();
-        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
-        Assert.IsNotNull(created);
-
-        using var messageResponse = await client.PostAsJsonAsync($"/api/conversations/{created.Id:D}/messages", new AppendMessageRequest
+        using var createResponse = await client.PostAsJsonAsync("/api/conversations", new CreateConversationRequest
         {
             MessageId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
             Content = "Why do Jewish customs differ?",
         });
-        var turn = await messageResponse.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
-
-        Assert.AreEqual(HttpStatusCode.OK, messageResponse.StatusCode);
+        var turn = await createResponse.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.AreEqual("answered", turn?.Status);
         Assert.IsNotNull(turn);
         Assert.HasCount(2, turn.Conversation.Messages);

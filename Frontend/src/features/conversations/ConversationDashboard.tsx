@@ -10,10 +10,12 @@ import { SettingsPage } from '../settings/SettingsPage.tsx'
 import type { UsageSummary, UserSettings } from '../settings/settingsTypes.ts'
 import type { ConversationClient } from './conversationClient.ts'
 import type { ConversationDetails, ConversationSummary } from './conversationData.ts'
+import { AnswerProgress } from './AnswerProgress.tsx'
+import { AssistantMessage } from './AssistantMessage.tsx'
 import { ConversationSidebar } from './ConversationSidebar.tsx'
 import { advanceConversationStarterIndex, ConversationStarters, getInitialConversationStarterIndex } from './conversationStarters.ts'
 import { MessageComposer } from './MessageComposer.tsx'
-import { AllSourceKeys, formatSourceSelection } from './sourceOptions.ts'
+import { CoreSourceKeys, formatSourceSelection } from './sourceOptions.ts'
 
 interface ConversationDashboardProps {
   user: AuthenticatedUser
@@ -41,10 +43,9 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const [usage, setUsage] = useState<UsageSummary | null>(null)
   const [usageError, setUsageError] = useState<string | null>(null)
   const [conversationStarterIndex, setConversationStarterIndex] = useState(getInitialConversationStarterIndex)
-  const [unsavedSourceKeys, setUnsavedSourceKeys] = useState<string[]>(() => [...AllSourceKeys])
+  const [unsavedSourceKeys, setUnsavedSourceKeys] = useState<string[]>(() => [...CoreSourceKeys])
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const [isLoadingUsage, setIsLoadingUsage] = useState(false)
@@ -101,28 +102,20 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const messages = selectedConversation?.messages ?? []
   const displayedMessages = pendingQuestion === null ? messages : [...messages, { id: 'pending-user-message', role: 'User' as const, content: pendingQuestion, createdAtUtc: new Date().toISOString() }]
 
-  async function handleNewConversation() {
-    if (isCreatingConversation || isLoadingConversation || isLoadingConversations) {
+  function handleNewConversation() {
+    if (isSending || isLoadingConversation || isLoadingConversations) {
       return
     }
 
-    setIsCreatingConversation(true)
+    selectionRequestId.current += 1
     setConversationError(null)
-    try {
-      const created = await conversationClient.create(undefined, AllSourceKeys)
-      setConversations((current) => [toSummary(created), ...current])
-      setSelectedId(created.id)
-      setSelectedConversation(created)
-      setUnsavedSourceKeys([...AllSourceKeys])
-      setDraft('')
-      setIsMobileSidebarOpen(false)
-      setActiveView('conversation')
-      setConversationStarterIndex((current) => advanceConversationStarterIndex(current))
-    } catch (error) {
-      setConversationError(getErrorMessage(error, 'A new conversation could not be created.'))
-    } finally {
-      setIsCreatingConversation(false)
-    }
+    setSelectedId(null)
+    setSelectedConversation(null)
+    setUnsavedSourceKeys([...CoreSourceKeys])
+    setDraft('')
+    setIsMobileSidebarOpen(false)
+    setActiveView('conversation')
+    setConversationStarterIndex((current) => advanceConversationStarterIndex(current))
   }
 
   async function handleSelectConversation(id: string) {
@@ -233,20 +226,13 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     setDraft('')
     setConversationError(null)
     try {
-      let conversation = selectedConversation
-      if (conversation === null) {
-        conversation = await conversationClient.create(undefined, selectedSourceKeys)
-        setSelectedId(conversation.id)
-      }
+      const messageId = crypto.randomUUID()
+      const turn = selectedConversation === null
+        ? await conversationClient.createWithMessage(messageId, question, selectedSourceKeys)
+        : await conversationClient.appendMessage(selectedConversation.id, messageId, question)
+      const conversation = turn.conversation
 
-      const turn = await conversationClient.appendMessage(conversation.id, crypto.randomUUID(), question)
-      conversation = turn.conversation
-      if (conversation.title === 'New conversation') {
-        const title = question.slice(0, 80)
-        await conversationClient.rename(conversation.id, title)
-        conversation = { ...conversation, title }
-      }
-
+      setSelectedId(conversation.id)
       setSelectedConversation(conversation)
       setConversations((current) => [toSummary(conversation), ...current.filter((value) => value.id !== conversation.id)])
       if (turn.status !== 'answered') {
@@ -289,11 +275,10 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         selectedId={selectedId}
         isMobileOpen={isMobileSidebarOpen}
         isDesktopOpen={isDesktopSidebarOpen}
-        isCreatingConversation={isCreatingConversation}
-        isNewConversationDisabled={isCreatingConversation || isLoadingConversation || isLoadingConversations}
+        isNewConversationDisabled={isSending || isLoadingConversation || isLoadingConversations}
         user={personalizedUser}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
-        onNewConversation={() => void handleNewConversation()}
+        onNewConversation={handleNewConversation}
         onSelectConversation={(id) => void handleSelectConversation(id)}
         onRenameConversation={(id, title) => void handleRenameConversation(id, title)}
         onDeleteConversation={(id) => void handleDeleteConversation(id)}
@@ -338,17 +323,11 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
                 <div className="flex-1 py-10 sm:py-14">
                   <article className="mx-auto max-w-[46rem] space-y-9">
                     {displayedMessages.map((message) => (
-                      <div key={message.id} className={message.role === 'Assistant' ? 'border-l-2 border-pomegranate pl-5' : ''}>
-                        <p className={`mb-2 ${message.role === 'Assistant' ? 'font-display text-xl text-ink' : 'text-xs font-semibold uppercase tracking-[0.14em] text-muted'}`}>{message.role === 'Assistant' ? 'AskRabbi' : 'You'}</p>
-                        <p className="whitespace-pre-wrap text-base leading-7 text-ink sm:text-lg">{message.content}</p>
-                      </div>
+                      message.role === 'Assistant'
+                        ? <AssistantMessage key={message.id} message={message} showSourceContextByDefault={userSettings.showSourceContextByDefault} />
+                        : <div key={message.id}><p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">You</p><p className="whitespace-pre-wrap text-base leading-7 text-ink sm:text-lg">{message.content}</p></div>
                     ))}
-                    {isSending ? (
-                      <div className="border-l-2 border-brass pl-5">
-                        <p className="mb-2 font-display text-xl text-ink">AskRabbi</p>
-                        <p className="leading-7 text-ink-soft" role="status">Finding relevant passages in {formatSourceSelection(selectedSourceKeys).toLowerCase()}, checking the quotations, and preparing a grounded answer…</p>
-                      </div>
-                    ) : null}
+                    {isSending ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
                   </article>
                 </div>
               )}

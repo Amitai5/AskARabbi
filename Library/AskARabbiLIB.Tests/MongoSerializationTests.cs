@@ -61,6 +61,66 @@ public sealed class MongoSerializationTests
         Assert.ThrowsExactly<NotSupportedException>(() => new TimeOnlySerializer().Deserialize(context, default));
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void ConversationMessageDocument_LegacyDocumentWithoutSources_UsesEmptySourceList()
+    {
+        var bson = new BsonDocument
+        {
+            ["_id"] = "conversation:message",
+            ["conversationId"] = Guid.NewGuid().ToString("D"),
+            ["userId"] = Guid.NewGuid().ToString("D"),
+            ["messageId"] = Guid.NewGuid().ToString("D"),
+            ["role"] = "Assistant",
+            ["content"] = "Legacy grounded answer.",
+            ["createdAtUtc"] = DateTime.SpecifyKind(new DateTime(2026, 8, 25, 12, 30, 0), DateTimeKind.Utc),
+        };
+
+        var result = BsonSerializer.Deserialize<MongoConversationMessageDocument>(bson);
+
+        Assert.HasCount(0, result.Sources);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void ConversationMessageDocument_StructuredSource_RoundTripsQuotationAndContext()
+    {
+        var document = new MongoConversationMessageDocument
+        {
+            Id = "conversation:message",
+            ConversationId = Guid.NewGuid().ToString("D"),
+            UserId = Guid.NewGuid().ToString("D"),
+            MessageId = Guid.NewGuid().ToString("D"),
+            Role = "Assistant",
+            Content = "Grounded answer. [1]",
+            Sources =
+            [
+                new MongoConversationSourceDocument
+                {
+                    Number = 1,
+                    Title = "Genesis",
+                    HebrewTitle = "בראשית",
+                    CanonicalReference = "Genesis 1:1",
+                    Edition = "Test edition",
+                    Language = "English",
+                    Collection = "Torah",
+                    License = "CC-BY",
+                    SourceUrl = "https://www.sefaria.org/Genesis.1.1",
+                    AttributionUrl = "https://example.test/edition",
+                    Quotations = ["Exact quotation."],
+                    Context = "Surrounding source context.",
+                },
+            ],
+            CreatedAtUtc = DateTime.SpecifyKind(new DateTime(2026, 8, 25, 12, 30, 0), DateTimeKind.Utc),
+        };
+
+        var result = BsonSerializer.Deserialize<MongoConversationMessageDocument>(document.ToBsonDocument());
+
+        Assert.HasCount(1, result.Sources);
+        Assert.AreEqual("Exact quotation.", result.Sources[0].Quotations[0]);
+        Assert.AreEqual("Surrounding source context.", result.Sources[0].Context);
+    }
+
     public sealed class TemporalDocument
     {
         [BsonSerializer(typeof(DateOnlySerializer))]

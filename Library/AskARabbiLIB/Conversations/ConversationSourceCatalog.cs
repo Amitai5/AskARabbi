@@ -3,6 +3,15 @@ namespace AskARabbiLIB.Conversations;
 /// <summary>Defines source selectors supported by production conversations.</summary>
 public static class ConversationSourceCatalog
 {
+    /// <summary>Gets the core source selectors enabled for new conversations by default.</summary>
+    public static IReadOnlyList<string> Core { get; } = Array.AsReadOnly<string>(
+    [
+        "collection:Torah",
+        "collection:Tanakh",
+        "collection:Mishnah",
+        "collection:Talmud",
+    ]);
+
     /// <summary>Gets every currently supported source selector.</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly<string>(
     [

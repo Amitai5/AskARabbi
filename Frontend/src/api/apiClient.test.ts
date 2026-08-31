@@ -107,6 +107,18 @@ describe('backend adapters', () => {
     })
   })
 
+  it('creates a conversation only through a first-message request', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'answered', conversation: {}, message: null })
+    const client = createBackendConversationClient(createMockApiClient(request))
+
+    await client.createWithMessage('first-message-id', 'Why do customs differ?', ['collection:Torah'])
+
+    expect(request).toHaveBeenCalledWith('/api/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ messageId: 'first-message-id', content: 'Why do customs differ?', enabledSourceKeys: ['collection:Torah'] }),
+    })
+  })
+
   it('sends a local birth time without adding a UTC offset', async () => {
     const request = vi.fn().mockResolvedValue({
       isConfigured: true,

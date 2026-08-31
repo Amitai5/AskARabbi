@@ -9,7 +9,7 @@ public sealed class GroundedAnswerTextRendererTests
 {
     [TestMethod]
     [TestCategory("Unit")]
-    public void Render_CompleteValidatedAnswer_ProducesConversationalTextWithoutDuplicateQuotation()
+    public void Render_CompleteValidatedAnswer_ProducesConversationalTextWithSourceReferences()
     {
         var citation = CreateCitation();
         var quotation = new GroundedQuotation("A tested quotation.", "Supports the explanation.", citation);
@@ -32,7 +32,8 @@ public sealed class GroundedAnswerTextRendererTests
         StringAssert.Contains(rendered, "A useful next question:");
         StringAssert.Contains(rendered, "qualified rabbi");
         StringAssert.Contains(rendered, "This is source-based learning, not personal psak.");
-        Assert.AreEqual(1, CountOccurrences(rendered, "“A tested quotation.”"));
+        Assert.IsFalse(rendered.Contains("A tested quotation.", StringComparison.Ordinal));
+        Assert.IsFalse(rendered.Contains("https://www.sefaria.org", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -76,15 +77,4 @@ public sealed class GroundedAnswerTextRendererTests
         "Data/NormalizedData/Sefaria/Torah/Genesis.md",
         false);
 
-    private static int CountOccurrences(string value, string search)
-    {
-        var count = 0;
-        var index = 0;
-        while ((index = value.IndexOf(search, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += search.Length;
-        }
-        return count;
-    }
 }

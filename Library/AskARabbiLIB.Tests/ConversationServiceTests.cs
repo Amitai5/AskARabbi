@@ -19,7 +19,7 @@ public sealed class ConversationServiceTests
         var result = await service.CreateAsync(UserId, null, null);
 
         Assert.AreEqual("New conversation", result.Title);
-        CollectionAssert.AreEqual(ConversationSourceCatalog.All.ToArray(), result.EnabledSourceKeys.ToArray());
+        CollectionAssert.AreEqual(ConversationSourceCatalog.Core.ToArray(), result.EnabledSourceKeys.ToArray());
         Assert.AreEqual(Now, result.CreatedAtUtc);
         Assert.AreSame(result, store.Created);
     }
@@ -46,6 +46,37 @@ public sealed class ConversationServiceTests
         var exception = await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.CreateAsync(UserId, null, ["collection:NotApproved"]));
 
         StringAssert.Contains(exception.Message, "Unsupported source selector");
+        Assert.IsNull(store.Created);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task CreateWithUserMessageAsync_ValidMessage_PersistsConversationWithFirstMessage()
+    {
+        var store = new FakeConversationStore();
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+        var messageId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var result = await service.CreateWithUserMessageAsync(UserId, messageId, "  Why do customs differ?  ", ["collection:Torah"]);
+
+        Assert.AreSame(result, store.Created);
+        Assert.AreEqual("New conversation", result.Title);
+        Assert.HasCount(1, result.Messages);
+        Assert.AreEqual(messageId, result.Messages[0].Id);
+        Assert.AreEqual("Why do customs differ?", result.Messages[0].Content);
+        Assert.AreEqual(ConversationMessageRole.User, result.Messages[0].Role);
+        Assert.AreEqual(Now, result.Messages[0].CreatedAtUtc);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task CreateWithUserMessageAsync_BlankMessage_ThrowsWithoutWriting()
+    {
+        var store = new FakeConversationStore();
+        var service = new ConversationService(store);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.CreateWithUserMessageAsync(UserId, Guid.NewGuid(), " ", null));
+
         Assert.IsNull(store.Created);
     }
 
@@ -100,6 +131,99 @@ public sealed class ConversationServiceTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_TrustedSources_PreservesQuotationAndContext()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+        var source = CreateSource();
+
+        await service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer. [1]", [source]);
+
+        Assert.IsNotNull(store.Appended);
+        Assert.AreEqual(ConversationMessageRole.Assistant, store.Appended.Role);
+        Assert.HasCount(1, store.Appended.Sources);
+        Assert.AreEqual("Exact quotation.", store.Appended.Sources[0].Quotations[0]);
+        Assert.AreEqual("Surrounding source context.", store.Appended.Sources[0].Context);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_DuplicateSourceNumbers_ThrowsWithoutWriting()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+        var source = CreateSource();
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer. [1]", [source, source]));
+
+        Assert.IsNull(store.Appended);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_MoreThanMaximumSources_ThrowsWithoutWriting()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+        var sources = Enumerable.Range(1, 51).Select(number => CreateSource() with { Number = number }).ToArray();
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer.", sources));
+
+        Assert.IsNull(store.Appended);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_BlankSourceTitle_ThrowsWithoutWriting()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer.", [CreateSource() with { Title = " " }]));
+
+        Assert.IsNull(store.Appended);
+    }
+
+    [TestMethod]
+    [DataRow("not-a-url")]
+    [DataRow("ftp://example.test/source")]
+    [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_InvalidSourceUrl_ThrowsWithoutWriting(string sourceUrl)
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer.", [CreateSource() with { SourceUrl = sourceUrl }]));
+
+        Assert.IsNull(store.Appended);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_BlankSourceContext_ThrowsWithoutWriting()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer.", [CreateSource() with { Context = " " }]));
+
+        Assert.IsNull(store.Appended);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task AppendAssistantMessageAsync_BlankQuotation_ThrowsWithoutWriting()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation() };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.AppendAssistantMessageAsync(UserId, store.AppendResult.Id, Guid.NewGuid(), "Grounded answer.", [CreateSource() with { Quotations = [" "] }]));
+
+        Assert.IsNull(store.Appended);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task RenameAsync_ValidTitle_NormalizesAndDelegates()
     {
         var store = new FakeConversationStore { MutationResult = true };
@@ -146,6 +270,23 @@ public sealed class ConversationServiceTests
         Messages = [],
         CreatedAtUtc = Now,
         UpdatedAtUtc = Now,
+    };
+
+    private static ConversationSourceCitation CreateSource() => new()
+    {
+        Number = 1,
+        Title = "Genesis",
+        HebrewTitle = "בראשית",
+        CanonicalReference = "Genesis 1:1",
+        Edition = "Test edition",
+        Language = "English",
+        Collection = "Torah",
+        License = "CC-BY",
+        SourceUrl = "https://www.sefaria.org/Genesis.1.1",
+        AttributionUrl = "https://example.test/edition",
+        Quotations = ["Exact quotation."],
+        Context = "Surrounding source context.",
+        IsExcerpt = false,
     };
 
     private sealed class FixedTimeProvider : TimeProvider

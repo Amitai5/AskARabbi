@@ -121,7 +121,7 @@ The frontend must treat all authorization and quota data as display information.
 
 The current shell implements compact responsive Personalization and Settings screens. Personalization captures full name; birth date and time; one reviewed U.S. IANA time zone; independent conversation and source-quotation languages; religious movement or practice; Jewish heritage or community; and optional context limited to 2,000 characters. Supported languages are English by default plus French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The backend validates and persists that profile. Settings loads the authenticated account email, exact monthly usage window, and conversation defaults from the API, and it sends password-reset requests to the backend. Only a versioned session-storage integer for non-sensitive welcome copy remains session-local.
 
-Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New conversations enable the complete set. Non-empty selections are validated and persisted by the API; clearing every source disables submission instead of allowing an ungrounded fallback. The exact selection is stored with the canonical conversation context. Conversation and quotation languages are presentation preferences, not source evidence. Retrieval searches all available approved editions within the selected sources so a preference such as Persian or Russian cannot erase the evidence corpus; exact quotations must still be copied from an available edition and may not be machine-invented as source text.
+Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New drafts enable the complete set but remain browser-only until the first message is submitted. The create request persists metadata and that first message together, preventing abandoned drafts from becoming empty sidebar records. The first validated structured response may return a concise conversation title; the backend applies it only when no earlier assistant response exists, while explicit user renames remain authoritative afterward. Non-empty source selections are validated and persisted by the API; clearing every source disables submission instead of allowing an ungrounded fallback. The exact selection is stored with the canonical conversation context. Conversation and quotation languages are presentation preferences, not source evidence. Retrieval searches all available approved editions within the selected sources so a preference such as Persian or Russian cannot erase the evidence corpus; exact quotations must still be copied from an available edition and may not be machine-invented as source text.
 
 The browser does not calculate a Hebrew birthday. Because the Hebrew date changes at sunset, a time zone alone cannot establish precise local sunset. The future API should request birthplace when the birth time is near sunset, use historical offset data and a reviewed sunset/calendar implementation, preserve the user-entered civil details, return the calculated Hebrew date and assumptions, and allow correction. Personalization remains untrusted user context: it may guide wording and relevant source distinctions, but it cannot count as evidence or justify assumptions about observance or identity.
 
@@ -154,7 +154,7 @@ The implemented controller boundary is:
 | `ConversationsController` | Saved conversation lifecycle, source settings, message ingestion, and canonical context |
 | `ConversationSettingsController` | Current personalization and exact monthly usage window |
 
-The message endpoint returns a stable status plus canonical conversation context. Sequential retries with the same client message ID reuse the deterministic assistant ID and do not call the model again. A persistent reservation/finalization record is still required to prevent duplicate provider work and usage increments from truly simultaneous retries across multiple replicas. Streaming, private mode, and separately persisted evidence snapshots remain product work.
+The message endpoint returns a stable status plus canonical conversation context. Sequential retries with the same client message ID reuse the deterministic assistant ID and do not call the model again. Validated assistant messages persist bounded structured source snapshots containing exact quotations, presented context, canonical passage links, edition attribution, language, license, and excerpt state. A persistent reservation/finalization record is still required to prevent duplicate provider work and usage increments from truly simultaneous retries across multiple replicas. Streaming and private mode remain product work.
 
 ### Chat orchestration
 
@@ -167,8 +167,8 @@ The orchestrator should coordinate a request without containing vendor-specific 
 5. Deterministic evidence-adequacy validation and construction of a bounded packet.
 6. Model generation using the product's nonjudgmental behavior contract.
 7. Deterministic quotation/citation validation and an independent claim-support audit.
-8. Streaming or returning the response.
-9. Durable storage only when the request uses saved mode.
+8. Materializing trusted source metadata and returning the response.
+9. Durable storage of validated prose and its bounded source snapshots only when the request uses saved mode.
 10. Usage accounting without retaining private message content.
 
 Cancellation must propagate from the browser through retrieval and model requests so abandoned generations do not continue consuming capacity.
@@ -243,6 +243,8 @@ SourceCitation
   SupportedClaimIds
 ```
 
+The production conversation contract maps validated citations into additive `sources` arrays on assistant messages. Each entry contains the exact matched quotation list, the evidence text presented to the model, a canonical Sefaria passage URL derived from the trusted reference, and a separate edition-attribution URL. Legacy message records without this field remain valid and return an empty list.
+
 Before a completed answer is shown, validation should confirm that:
 
 - The canonical reference exists in the approved corpus.
@@ -309,9 +311,9 @@ The implemented foundation exposes:
 | `POST /api/user/reset-password` | Confirm a reset and clear the current application cookie |
 | `POST /api/user/logout` | Clear the cookie and return the provider logout destination |
 | `GET /api/conversations` | List recent owned conversation summaries |
-| `POST /api/conversations` | Create a saved conversation |
-| `GET /api/conversations/{conversationId}` | Return one owner-authorized conversation and its messages |
-| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn, run fail-closed retrieval/generation/validation, persist only a validated answer, and return canonical context plus a typed outcome |
+| `POST /api/conversations` | Persist the first user message, run its grounded response, and return the new conversation with its one-time AI-generated title when successful |
+| `GET /api/conversations/{conversationId}` | Return one owner-authorized conversation and its messages with trusted assistant-source snapshots |
+| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn, run fail-closed retrieval/generation/validation, persist only a validated answer and trusted sources, and return canonical context plus a typed outcome |
 | `PUT /api/conversations/{conversationId}/title` | Rename an owned conversation |
 | `PUT /api/conversations/{conversationId}/sources` | Replace approved source selectors |
 | `DELETE /api/conversations/{conversationId}` | Delete an owned conversation and its messages |
@@ -404,11 +406,11 @@ Integration tests use in-memory identity and persistence substitutes plus inject
 
 ### Frontend tests
 
-The current Vitest and Testing Library suite covers invalid login input, injected login/logout behavior, rotating welcome copy, conversation creation, rename and confirmed deletion, source persistence, message storage, profile validation, U.S. time-zone selection, API-reported usage, password-reset disclosure, settings preferences, and save toasts. Adapter tests verify credentialed requests, structured API failures, authorization-state mapping, idempotency IDs, and offset-free birth-time serialization. Later milestones should add coverage for:
+The current Vitest and Testing Library suite covers invalid login input, injected login/logout behavior, rotating welcome copy, conversation creation, rename and confirmed deletion, core-source defaults and source persistence, message storage, clickable citation navigation, exact quotation/context display, pending-answer animation, profile validation, U.S. time-zone selection, API-reported usage, password-reset disclosure, settings preferences, and save toasts. Adapter tests verify credentialed requests, structured API failures, authorization-state mapping, idempotency IDs, and offset-free birth-time serialization. Later milestones should add coverage for:
 
 - Mode selection and unmistakable privacy language.
 - Streaming, cancellation, retry, and error states.
-- Citation navigation and source-language display.
+- Full right-to-left source-language display.
 - Right-to-left layout and keyboard navigation.
 - Account isolation in cached client state.
 - Usage-limit messaging without exposing provider details.
@@ -481,7 +483,7 @@ The number of .NET projects should be revisited during scaffolding. If the first
 ### Phase 2: textual grounding proof of concept
 
 - Ingest a deliberately small, licensed bilingual corpus from Sefaria.
-- Implement canonical references and source cards.
+- Evaluate canonical-reference links and structured source presentation against the production corpus.
 - Compare SQLite and managed retrieval against the evaluation set.
 - Generate bounded answers and validate citations.
 

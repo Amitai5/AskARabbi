@@ -96,7 +96,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(failureStatus, firstResult.ErrorMessage ?? "The AI provider did not return a structured answer.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, CombineDiagnostics(diagnostics));
         }
 
-        var firstValidation = await ValidateCandidateAsync(retrievalText, firstDraft, packet, cancellationToken).ConfigureAwait(false);
+        var firstValidation = await ValidateCandidateAsync(retrievalText, firstDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
         if (firstValidation.Diagnostics is not null)
         {
             diagnostics.Add(firstValidation.Diagnostics);
@@ -123,7 +123,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(MapProviderFailure(repairResult.Status), message, packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Failed, true, CombineDiagnostics(diagnostics));
         }
 
-        var repairValidation = await ValidateCandidateAsync(retrievalText, repairDraft, packet, cancellationToken).ConfigureAwait(false);
+        var repairValidation = await ValidateCandidateAsync(retrievalText, repairDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
         if (repairValidation.Diagnostics is not null)
         {
             diagnostics.Add(repairValidation.Diagnostics);
@@ -139,9 +139,9 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return CreateSuccess(GetValidatedAnswer(repairValidation), packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Repaired, true, CombineDiagnostics(diagnostics));
     }
 
-    private async Task<CandidateValidationResult> ValidateCandidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, CancellationToken cancellationToken)
+    private async Task<CandidateValidationResult> ValidateCandidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, CancellationToken cancellationToken)
     {
-        if (!TryValidateDraft(draft, packet, out var answer, out var deterministicError))
+        if (!TryValidateDraft(draft, packet, shouldGenerateConversationTitle, out var answer, out var deterministicError))
         {
             return CandidateValidationResult.Unsupported(deterministicError ?? "The draft failed deterministic grounding validation.");
         }
@@ -173,6 +173,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             instruction = prompts.CurrentQuestionInstruction,
             currentQuestion = question.Question,
+            shouldGenerateConversationTitle = question.ShouldGenerateConversationTitle,
             responseLanguage = NormalizeOptionalContext(question.ConversationLanguage),
             preferredQuotationLanguage = NormalizeOptionalContext(question.QuotationLanguage),
             userProfile = CreateUserProfileContext(question.UserProfile, currentDate),
@@ -239,10 +240,16 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return $"[Explicit context excerpt: first {maximumCharacters} of {value.Length} characters]\n{value[..maximumCharacters]}";
     }
 
-    private bool TryValidateDraft(GroundedAnswerDraft draft, EvidencePacket packet, out GroundedAnswer? answer, out string? error)
+    private bool TryValidateDraft(GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, out GroundedAnswer? answer, out string? error)
     {
         answer = null;
         error = null;
+        var suggestedConversationTitle = NormalizeSuggestedConversationTitle(draft.ConversationTitle);
+        if (shouldGenerateConversationTitle && suggestedConversationTitle is null)
+        {
+            error = "The first grounded response must include a nonempty conversation title.";
+            return false;
+        }
         if (draft.Claims is null || draft.Claims.Count is < 1 or > 12 || draft.Claims.Any(claim => claim is null))
         {
             error = "Between one and twelve sourced claims are required.";
@@ -307,9 +314,26 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var disagreements = draft.Disagreements.Select(disagreement => CreateDisagreement(disagreement, citationById)).ToArray();
         answer = new GroundedAnswer(claims, disagreements, draft.Limitations.Select(value => value.Trim()).ToArray(), draft.ClarifyingQuestion?.Trim(), draft.HumanGuidanceRecommended, citationById.Values.OrderBy(citation => citation.Number).ToArray())
         {
+            SuggestedConversationTitle = suggestedConversationTitle,
             InterpretiveNotice = prompts.InterpretiveNotice.Trim(),
         };
         return true;
+    }
+
+    private static string? NormalizeSuggestedConversationTitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (normalized.Length <= 80)
+        {
+            return normalized;
+        }
+
+        return $"{normalized[..79].TrimEnd()}…";
     }
 
     private static bool ValidateAttribution(string? attribution, out string? error)
