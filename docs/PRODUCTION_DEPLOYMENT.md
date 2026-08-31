@@ -82,6 +82,7 @@ Set these runtime environment variables on the API host:
 | `AI__VectorStoreId` | Yes | Verified full-corpus managed vector-store ID; non-secret |
 | `AI__CorpusFingerprint` | Yes | Lowercase SHA-256 printed by the corpus publisher; non-secret |
 | `AI__TenantId` | Optional | Tenant used by `DefaultAzureCredential`; non-secret |
+| `AI__MaximumOutputTokens` | Optional | `8000` is the production default and includes hidden reasoning plus structured answer tokens |
 
 The following non-secret values are already tracked in `appsettings.Production.json`. Set environment overrides only if the topology changes:
 

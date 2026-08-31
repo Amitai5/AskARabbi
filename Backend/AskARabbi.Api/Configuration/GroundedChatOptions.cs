@@ -24,8 +24,8 @@ public sealed record GroundedChatOptions
     /// <summary>Gets the Azure model request timeout in seconds.</summary>
     public int TimeoutSeconds { get; init; } = 120;
 
-    /// <summary>Gets the maximum structured-output token count.</summary>
-    public int MaximumOutputTokens { get; init; } = 2_000;
+    /// <summary>Gets the maximum combined reasoning and structured-output token count.</summary>
+    public int MaximumOutputTokens { get; init; } = 8_000;
 
     /// <summary>Gets the direct vector-search score threshold.</summary>
     public double RetrievalScoreThreshold { get; init; }

@@ -102,7 +102,7 @@ AI__VectorStoreId=vs_returned_by_full_publication
 AI__CorpusFingerprint=7328aa9c42ece3fd9442f0596fd45de4c3dff950cc26c4615c704e37ac1a06cc
 AI__TenantId=42c55b1a-363e-4e7a-b5f3-b6b275908185
 AI__TimeoutSeconds=120
-AI__MaximumOutputTokens=2000
+AI__MaximumOutputTokens=8000
 AI__RetrievalScoreThreshold=0.0
 ```
 
