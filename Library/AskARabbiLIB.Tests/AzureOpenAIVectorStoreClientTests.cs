@@ -122,6 +122,26 @@ public sealed class AzureOpenAIVectorStoreClientTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task SearchAsync_MissingIncludedResultsWithoutResponseMetadata_UsesSafeDiagnosticDefaults()
+    {
+        const string response = """{"output":[{"type":"file_search_call"}]}""";
+        var handler = new QueueHandler(
+            _ => Json(HttpStatusCode.OK, response),
+            _ => Json(HttpStatusCode.OK, response),
+            _ => Json(HttpStatusCode.OK, response));
+        using var httpClient = new HttpClient(handler);
+        var client = CreateClient(httpClient, (_, _) => Task.CompletedTask);
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"] }));
+
+        StringAssert.Contains(exception.Message, "Response ID: 'unknown'");
+        StringAssert.Contains(exception.Message, "response status: 'unknown'");
+        StringAssert.Contains(exception.Message, "call status: 'unknown'");
+        Assert.HasCount(3, handler.Requests);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task GetAsync_ProviderError_ThrowsWithStatusAndBoundedDetail()
     {
         var handler = new QueueHandler(_ => Json(HttpStatusCode.Forbidden, "{\"error\":\"denied\"}"));
