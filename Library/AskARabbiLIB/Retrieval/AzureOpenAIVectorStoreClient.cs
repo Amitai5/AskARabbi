@@ -10,7 +10,9 @@ namespace AskARabbiLIB.Retrieval;
 public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearchClient
 {
     private const int FileSearchOutputTokenBudget = 256;
+    private const int MaximumSearchAttempts = 3;
     private const int MaximumUploadAttempts = 3;
+    private const string MissingFileSearchResultsMessage = "Azure file-search call does not contain included results.";
     private static readonly string[] TokenScopes = ["https://cognitiveservices.azure.com/.default"];
     private static readonly JsonSerializerOptions RequestJsonOptions = new()
     {
@@ -87,9 +89,19 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
             ["store"] = false,
         };
 
-        using var httpRequest = CreateJsonRequest(HttpMethod.Post, "responses", payload);
-        using var document = await SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
-        return ParseFileSearchResponse(document.RootElement);
+        for (var attempt = 1; ; attempt++)
+        {
+            using var httpRequest = CreateJsonRequest(HttpMethod.Post, "responses", payload);
+            using var document = await SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return ParseFileSearchResponse(document.RootElement);
+            }
+            catch (InvalidDataException exception) when (attempt < MaximumSearchAttempts && exception.Message.StartsWith(MissingFileSearchResultsMessage, StringComparison.Ordinal))
+            {
+                await delayAsync(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     internal async Task<AzureOpenAIVectorStoreInfo> CreateStoreAsync(string name, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken)
@@ -292,7 +304,10 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
             foundFileSearchCall = true;
             if (!outputItem.TryGetProperty("results", out var searchResults) || searchResults.ValueKind != JsonValueKind.Array)
             {
-                throw new InvalidDataException("Azure file-search call does not contain included results.");
+                var responseId = root.TryGetProperty("id", out var id) ? id.GetString() : null;
+                var responseStatus = root.TryGetProperty("status", out var status) ? status.GetString() : null;
+                var callStatus = outputItem.TryGetProperty("status", out var fileSearchStatus) ? fileSearchStatus.GetString() : null;
+                throw new InvalidDataException($"{MissingFileSearchResultsMessage} Response ID: '{responseId ?? "unknown"}'; response status: '{responseStatus ?? "unknown"}'; call status: '{callStatus ?? "unknown"}'.");
             }
             foreach (var item in searchResults.EnumerateArray())
             {

@@ -72,6 +72,55 @@ public sealed class AzureOpenAIVectorStoreClientTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task SearchAsync_MissingIncludedResultsOnce_RetriesAndParsesSecondResponse()
+    {
+        var handler = new QueueHandler(
+            _ => Json(HttpStatusCode.OK, """{"id":"resp_missing","status":"incomplete","output":[{"type":"file_search_call","status":"completed"}]}"""),
+            _ => Json(HttpStatusCode.OK, """{"id":"resp_complete","status":"completed","output":[{"type":"file_search_call","status":"completed","results":[{"file_id":"file_1","filename":"source.md","score":0.75,"attributes":{},"text":"result text"}]}]}"""));
+        using var httpClient = new HttpClient(handler);
+        var delays = new List<TimeSpan>();
+        var client = CreateClient(httpClient, (delay, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        var page = await client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"] });
+
+        Assert.HasCount(1, page.Results);
+        Assert.AreEqual("result text", page.Results[0].Content[0]);
+        Assert.HasCount(2, handler.Requests);
+        CollectionAssert.AreEqual(new[] { TimeSpan.FromMilliseconds(250) }, delays);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task SearchAsync_MissingIncludedResultsAfterMaximumAttempts_ThrowsDiagnosticInvalidData()
+    {
+        const string response = """{"id":"resp_missing","status":"incomplete","output":[{"type":"file_search_call","status":"completed"}]}""";
+        var handler = new QueueHandler(
+            _ => Json(HttpStatusCode.OK, response),
+            _ => Json(HttpStatusCode.OK, response),
+            _ => Json(HttpStatusCode.OK, response));
+        using var httpClient = new HttpClient(handler);
+        var delays = new List<TimeSpan>();
+        var client = CreateClient(httpClient, (delay, _) =>
+        {
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"] }));
+
+        StringAssert.Contains(exception.Message, "resp_missing");
+        StringAssert.Contains(exception.Message, "incomplete");
+        Assert.HasCount(3, handler.Requests);
+        CollectionAssert.AreEqual(new[] { TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500) }, delays);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task GetAsync_ProviderError_ThrowsWithStatusAndBoundedDetail()
     {
@@ -579,7 +628,6 @@ public sealed class AzureOpenAIVectorStoreClientTests
 
     [TestMethod]
     [DataRow("missing-data")]
-    [DataRow("missing-content")]
     [DataRow("missing-file-id")]
     [DataRow("missing-score")]
     [DataRow("attributes-not-object")]
@@ -589,7 +637,6 @@ public sealed class AzureOpenAIVectorStoreClientTests
         var json = scenario switch
         {
             "missing-data" => "{}",
-            "missing-content" => "{\"output\":[{\"type\":\"file_search_call\",\"status\":\"completed\"}]}",
             "missing-file-id" => "{\"output\":[{\"type\":\"file_search_call\",\"results\":[{\"filename\":\"source.md\",\"score\":0.5,\"attributes\":{},\"text\":\"result\"}]}]}",
             "missing-score" => "{\"output\":[{\"type\":\"file_search_call\",\"results\":[{\"file_id\":\"file_1\",\"filename\":\"source.md\",\"attributes\":{},\"text\":\"result\"}]}]}",
             "attributes-not-object" => "{\"output\":[{\"type\":\"file_search_call\",\"results\":[{\"file_id\":\"file_1\",\"filename\":\"source.md\",\"score\":0.5,\"attributes\":[],\"text\":\"result\"}]}]}",
@@ -750,11 +797,17 @@ public sealed class AzureOpenAIVectorStoreClientTests
         Assert.HasCount(0, handler.Requests);
     }
 
-    private static AzureOpenAIVectorStoreClient CreateClient(HttpClient httpClient) => new(new AzureOpenAIVectorStoreClientOptions
+    private static AzureOpenAIVectorStoreClient CreateClient(HttpClient httpClient, Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
     {
-        ProjectEndpoint = new Uri("https://openai.example.test/"),
-        ModelName = "search-model",
-    }, new FakeTokenCredential(), httpClient);
+        var options = new AzureOpenAIVectorStoreClientOptions
+        {
+            ProjectEndpoint = new Uri("https://openai.example.test/"),
+            ModelName = "search-model",
+        };
+        return delayAsync is null
+            ? new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient)
+            : new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient, delayAsync);
+    }
 
     private static string StoreJson(string id, string fingerprint, string status = "completed", int completed = 1, int failed = 0, long usageBytes = 123, int documentCount = 1, int fileCount = 1, long segmentCount = 1) => $$"""
         {

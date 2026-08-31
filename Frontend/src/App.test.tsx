@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App.tsx'
-import type { ConversationClient } from './features/conversations/conversationClient.ts'
+import type { ConversationClient, ConversationTurn } from './features/conversations/conversationClient.ts'
 import type { ConversationDetails } from './features/conversations/conversationData.ts'
 import { ConversationStarters } from './features/conversations/conversationStarters.ts'
 import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
@@ -144,6 +144,48 @@ describe('App', () => {
 
     expect(within(screen.getByRole('article')).getByText('Why do Jewish customs differ?')).toBeVisible()
     expect(await screen.findByText(/validated grounded response returned by the production API/)).toBeVisible()
+  })
+
+  it('clears the submitted message while the grounded response is pending', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const pendingTurn = createDeferred<ConversationTurn>()
+    let submittedConversationId = ''
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      appendMessage(conversationId) {
+        submittedConversationId = conversationId
+        return pendingTurn.promise
+      },
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    await expectConversationStarter()
+    await user.click(screen.getByRole('button', { name: 'New conversation' }))
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'Why is chicken treated like meat?')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('')
+    expect(within(screen.getByRole('article')).getByText('Why is chicken treated like meat?')).toBeVisible()
+    await waitFor(() => expect(submittedConversationId).not.toBe(''))
+    const conversation = await clients.conversationClient.get(submittedConversationId)
+    await act(async () => {
+      pendingTurn.resolve({
+        status: 'answered',
+        conversation: {
+          ...conversation,
+          messages: [
+            { id: 'user-message', role: 'User', content: 'Why is chicken treated like meat?', createdAtUtc: conversation.createdAtUtc },
+            { id: 'assistant-message', role: 'Assistant', content: 'A validated grounded answer.', createdAtUtc: conversation.createdAtUtc },
+          ],
+        },
+        message: null,
+      })
+      await pendingTurn.promise
+    })
+
+    expect(await screen.findByText('A validated grounded answer.')).toBeVisible()
   })
 
   it('ignores a stale initial conversation response after another conversation is selected', async () => {

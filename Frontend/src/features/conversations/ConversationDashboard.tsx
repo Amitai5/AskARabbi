@@ -230,6 +230,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
 
     setIsSending(true)
     setPendingQuestion(question)
+    setDraft('')
     setConversationError(null)
     try {
       let conversation = selectedConversation
@@ -248,11 +249,11 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
 
       setSelectedConversation(conversation)
       setConversations((current) => [toSummary(conversation), ...current.filter((value) => value.id !== conversation.id)])
-      setDraft('')
       if (turn.status !== 'answered') {
         setConversationError(turn.message ?? 'AskRabbi could not create a validated source-grounded answer. Please try again.')
       }
     } catch (error) {
+      setDraft((current) => current.length === 0 ? question : current)
       setConversationError(getErrorMessage(error, 'Your message could not be saved.'))
     } finally {
       setIsSending(false)
