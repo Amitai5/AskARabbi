@@ -1,3 +1,4 @@
+using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.Persistence.Mongo;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MongoDB.Bson;
@@ -119,6 +120,42 @@ public sealed class MongoSerializationTests
         Assert.HasCount(1, result.Sources);
         Assert.AreEqual("Exact quotation.", result.Sources[0].Quotations[0]);
         Assert.AreEqual("Surrounding source context.", result.Sources[0].Context);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void ConversationPreferencesDocument_LegacyDefaultsVersion_ClosesSourceContext()
+    {
+        var legacyBson = new BsonDocument
+        {
+            ["showSourceContextByDefault"] = true,
+            ["emailProductUpdates"] = true,
+        };
+        var legacy = BsonSerializer.Deserialize<MongoConversationPreferencesDocument>(legacyBson);
+
+        var result = legacy.ToDomain();
+
+        Assert.AreEqual(0, legacy.DefaultsVersion);
+        Assert.IsFalse(result.ShowSourceContextByDefault);
+        Assert.IsTrue(result.EmailProductUpdates);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void ConversationPreferencesDocument_CurrentDefaultsVersion_PreservesExplicitOptIn()
+    {
+        var preferences = new ConversationPreferences
+        {
+            ShowSourceContextByDefault = true,
+            EmailProductUpdates = false,
+        };
+
+        var document = MongoConversationPreferencesDocument.FromDomain(preferences);
+        var result = document.ToDomain();
+
+        Assert.AreEqual(MongoConversationPreferencesDocument.CurrentDefaultsVersion, document.DefaultsVersion);
+        Assert.IsTrue(result.ShowSourceContextByDefault);
+        Assert.IsFalse(result.EmailProductUpdates);
     }
 
     public sealed class TemporalDocument

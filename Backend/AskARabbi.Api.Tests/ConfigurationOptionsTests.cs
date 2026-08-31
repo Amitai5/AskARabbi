@@ -2,6 +2,7 @@ using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Configuration;
 using AskARabbi.Api.Development;
 using AskARabbi.Api.Usage;
+using AskARabbiLIB.AI;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AskARabbi.Api.Tests;
@@ -130,5 +131,59 @@ public sealed class ConfigurationOptionsTests
         var options = new GroundedChatOptions { ProjectEndpoint = "https://openai.askrabbi.test/" };
 
         Assert.ThrowsExactly<InvalidOperationException>(options.Validate);
+    }
+
+    [TestMethod]
+    [DataRow("validation-tokens")]
+    [DataRow("retry-count")]
+    [DataRow("reasoning-effort")]
+    [DataRow("enrichment-hits")]
+    [DataRow("cache-duration")]
+    [DataRow("cache-capacity")]
+    [TestCategory("Unit")]
+    public void Validate_InvalidGroundedChatPerformanceLimit_Throws(string scenario)
+    {
+        var options = scenario switch
+        {
+            "validation-tokens" => new GroundedChatOptions { ValidationMaximumOutputTokens = 0 },
+            "retry-count" => new GroundedChatOptions { MaximumRetryCount = 6 },
+            "reasoning-effort" => new GroundedChatOptions { ReasoningEffort = (AIReasoningEffort)999 },
+            "enrichment-hits" => new GroundedChatOptions { MaximumEnrichmentHits = 11 },
+            "cache-duration" => new GroundedChatOptions { RetrievalCacheSeconds = 0 },
+            "cache-capacity" => new GroundedChatOptions { RetrievalCacheMaximumEntries = 0 },
+            _ => throw new AssertFailedException($"Unknown scenario '{scenario}'."),
+        };
+
+        Assert.ThrowsExactly<InvalidOperationException>(options.Validate);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void CreatePerformanceOptions_ValidConfiguration_MapsEveryLimit()
+    {
+        var options = new GroundedChatOptions
+        {
+            MaximumCandidates = 12,
+            MaximumEvidenceSegments = 8,
+            MaximumEvidenceCharacters = 12_000,
+            MaximumCharactersPerSegment = 2_000,
+            MaximumSegmentsPerDocument = 2,
+            ContextRadius = 1,
+            MaximumEnrichmentHits = 0,
+            RecentConversationTurns = 2,
+            RetrievalCacheSeconds = 90,
+            RetrievalCacheMaximumEntries = 32,
+        };
+
+        options.Validate();
+        var answerOptions = options.CreateGroundedAnswerOptions();
+        var cacheOptions = options.CreateRetrieverCacheOptions();
+
+        Assert.AreEqual(12, answerOptions.MaximumCandidates);
+        Assert.AreEqual(8, answerOptions.MaximumEvidenceSegments);
+        Assert.AreEqual(0, answerOptions.MaximumEnrichmentHits);
+        Assert.AreEqual(2, answerOptions.RecentConversationTurns);
+        Assert.AreEqual(TimeSpan.FromSeconds(90), cacheOptions.Duration);
+        Assert.AreEqual(32, cacheOptions.MaximumEntries);
     }
 }

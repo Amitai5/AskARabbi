@@ -19,6 +19,8 @@ public sealed class GroundedAnswerOptionsTests
     [DataRow("maximumSegmentsPerDocument", 25)]
     [DataRow("contextRadius", -1)]
     [DataRow("contextRadius", 11)]
+    [DataRow("maximumEnrichmentHits", -1)]
+    [DataRow("maximumEnrichmentHits", 11)]
     [DataRow("recentConversationTurns", -1)]
     [DataRow("recentConversationTurns", 11)]
     [TestCategory("Unit")]
@@ -33,6 +35,7 @@ public sealed class GroundedAnswerOptionsTests
             "maximumCharactersPerSegment" => new GroundedAnswerOptions { MaximumCharactersPerSegment = value },
             "maximumSegmentsPerDocument" => new GroundedAnswerOptions { MaximumSegmentsPerDocument = value },
             "contextRadius" => new GroundedAnswerOptions { ContextRadius = value },
+            "maximumEnrichmentHits" => new GroundedAnswerOptions { MaximumEnrichmentHits = value },
             "recentConversationTurns" => new GroundedAnswerOptions { RecentConversationTurns = value },
             _ => throw new AssertFailedException($"Unknown option '{optionName}'."),
         };
@@ -54,6 +57,7 @@ public sealed class GroundedAnswerOptionsTests
             MaximumCharactersPerSegment = 200,
             MaximumSegmentsPerDocument = 1,
             ContextRadius = 0,
+            MaximumEnrichmentHits = 0,
             RecentConversationTurns = 0,
         };
 
@@ -77,6 +81,7 @@ public sealed class GroundedAnswerOptionsTests
             MaximumCharactersPerSegment = 200_000,
             MaximumSegmentsPerDocument = 50,
             ContextRadius = 10,
+            MaximumEnrichmentHits = 10,
             RecentConversationTurns = 10,
         };
 

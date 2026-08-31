@@ -32,6 +32,14 @@ public interface IConversationStore
     /// <returns>The updated conversation when found; otherwise, <see langword="null"/>.</returns>
     Task<Conversation?> AppendMessageAsync(Guid userId, Guid conversationId, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default);
 
+    /// <summary>Appends a message using already loaded canonical context so optimized stores can avoid rereading the conversation.</summary>
+    /// <param name="conversation">Already loaded user-owned canonical conversation.</param>
+    /// <param name="message">Message to append.</param>
+    /// <param name="updatedAtUtc">UTC update time.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>The updated conversation when it still exists; otherwise, <see langword="null"/>.</returns>
+    Task<Conversation?> AppendMessageAsync(Conversation conversation, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => AppendMessageAsync(conversation.UserId, conversation.Id, message, updatedAtUtc, cancellationToken);
+
     /// <summary>Renames a user-owned conversation.</summary>
     /// <param name="userId">Owning user ID.</param>
     /// <param name="conversationId">Conversation ID.</param>

@@ -6,11 +6,17 @@ internal static class ConversationContractMapper
 {
     internal static ConversationSummaryResponse ToResponse(ConversationSummary summary) => new(summary.Id, summary.Title, summary.EnabledSourceKeys, summary.UpdatedAtUtc);
 
+    internal static ConversationSummaryResponse ToSummaryResponse(Conversation conversation) => new(conversation.Id, conversation.Title, conversation.EnabledSourceKeys, conversation.UpdatedAtUtc);
+
     internal static ConversationResponse ToResponse(Conversation conversation) => new(
         conversation.Id,
         conversation.Title,
         conversation.EnabledSourceKeys,
-        conversation.Messages.Select(message => new ConversationMessageResponse(message.Id, message.Role, message.Content, message.CreatedAtUtc)
+        conversation.Messages.Select(ToResponse).ToArray(),
+        conversation.CreatedAtUtc,
+        conversation.UpdatedAtUtc);
+
+    internal static ConversationMessageResponse ToResponse(ConversationMessage message) => new(message.Id, message.Role, message.Content, message.CreatedAtUtc)
         {
             Sources = message.Sources.Select(source => new ConversationSourceResponse
             {
@@ -28,7 +34,5 @@ internal static class ConversationContractMapper
                 Context = source.Context,
                 IsExcerpt = source.IsExcerpt,
             }).ToArray(),
-        }).ToArray(),
-        conversation.CreatedAtUtc,
-        conversation.UpdatedAtUtc);
+        };
 }

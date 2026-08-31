@@ -112,6 +112,17 @@ public sealed class ConversationService
         return AppendMessageAsync(userId, conversationId, messageId, content, ConversationMessageRole.User, MaximumUserMessageLength, [], cancellationToken);
     }
 
+    /// <summary>Appends one user message to already loaded canonical context without requiring a second context read.</summary>
+    /// <param name="conversation">Already loaded canonical conversation.</param>
+    /// <param name="messageId">Client-generated idempotency ID.</param>
+    /// <param name="content">User message content.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>The updated conversation when it still exists; otherwise, <see langword="null"/>.</returns>
+    public Task<Conversation?> AppendUserMessageAsync(Conversation conversation, Guid messageId, string content, CancellationToken cancellationToken = default)
+    {
+        return AppendMessageAsync(conversation, messageId, content, ConversationMessageRole.User, MaximumUserMessageLength, [], cancellationToken);
+    }
+
     /// <summary>Appends one validated assistant message idempotently and returns the canonical context.</summary>
     /// <param name="userId">Owning user ID.</param>
     /// <param name="conversationId">Conversation ID.</param>
@@ -136,6 +147,19 @@ public sealed class ConversationService
     {
         ArgumentNullException.ThrowIfNull(sources);
         return AppendMessageAsync(userId, conversationId, messageId, content, ConversationMessageRole.Assistant, MaximumAssistantMessageLength, sources, cancellationToken);
+    }
+
+    /// <summary>Appends one validated assistant message to already loaded canonical context without requiring a second context read.</summary>
+    /// <param name="conversation">Already loaded canonical conversation.</param>
+    /// <param name="messageId">Server-generated idempotency ID.</param>
+    /// <param name="content">Validated grounded answer text.</param>
+    /// <param name="sources">Trusted quotations, context, and provenance materialized from validated evidence.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>The updated conversation when it still exists; otherwise, <see langword="null"/>.</returns>
+    public Task<Conversation?> AppendAssistantMessageAsync(Conversation conversation, Guid messageId, string content, IReadOnlyCollection<ConversationSourceCitation> sources, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        return AppendMessageAsync(conversation, messageId, content, ConversationMessageRole.Assistant, MaximumAssistantMessageLength, sources, cancellationToken);
     }
 
     /// <summary>Renames one user-owned conversation.</summary>
@@ -194,6 +218,15 @@ public sealed class ConversationService
         var now = timeProvider.GetUtcNow();
         var message = CreateMessage(messageId, content, role, maximumLength, now, sources);
         return store.AppendMessageAsync(userId, conversationId, message, now, cancellationToken);
+    }
+
+    private Task<Conversation?> AppendMessageAsync(Conversation conversation, Guid messageId, string content, ConversationMessageRole role, int maximumLength, IReadOnlyCollection<ConversationSourceCitation> sources, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        ValidateIds(conversation.UserId, conversation.Id);
+        var now = timeProvider.GetUtcNow();
+        var message = CreateMessage(messageId, content, role, maximumLength, now, sources);
+        return store.AppendMessageAsync(conversation, message, now, cancellationToken);
     }
 
     private static ConversationMessage CreateMessage(Guid messageId, string content, ConversationMessageRole role, int maximumLength, DateTimeOffset createdAtUtc, IReadOnlyCollection<ConversationSourceCitation> sources)

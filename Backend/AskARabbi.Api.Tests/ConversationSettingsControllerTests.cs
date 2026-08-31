@@ -94,7 +94,7 @@ public sealed class ConversationSettingsControllerTests
 
         using var updateResponse = await client.PutAsJsonAsync("/api/conversation-settings/preferences", new
         {
-            showSourceContextByDefault = false,
+            showSourceContextByDefault = true,
             emailProductUpdates = true,
         });
         var updated = await updateResponse.Content.ReadFromJsonAsync<ConversationPreferencesResponse>();
@@ -102,11 +102,11 @@ public sealed class ConversationSettingsControllerTests
         var current = await getResponse.Content.ReadFromJsonAsync<ConversationPreferencesResponse>();
 
         Assert.IsNotNull(initial);
-        Assert.IsTrue(initial.ShowSourceContextByDefault);
+        Assert.IsFalse(initial.ShowSourceContextByDefault);
         Assert.IsFalse(initial.EmailProductUpdates);
         Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
         Assert.IsNotNull(updated);
-        Assert.IsFalse(updated.ShowSourceContextByDefault);
+        Assert.IsTrue(updated.ShowSourceContextByDefault);
         Assert.IsTrue(updated.EmailProductUpdates);
         Assert.AreEqual(updated, current);
     }

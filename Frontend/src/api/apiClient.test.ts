@@ -101,7 +101,7 @@ describe('backend adapters', () => {
 
     await client.appendMessage('conversation-id', 'message-id', 'Why?')
 
-    expect(request).toHaveBeenCalledWith('/api/conversations/conversation-id/messages', {
+    expect(request).toHaveBeenCalledWith('/api/conversations/conversation-id/messages?compact=true', {
       method: 'POST',
       body: JSON.stringify({ messageId: 'message-id', content: 'Why?' }),
     })
@@ -113,7 +113,7 @@ describe('backend adapters', () => {
 
     await client.createWithMessage('first-message-id', 'Why do customs differ?', ['collection:Torah'])
 
-    expect(request).toHaveBeenCalledWith('/api/conversations', {
+    expect(request).toHaveBeenCalledWith('/api/conversations?compact=true', {
       method: 'POST',
       body: JSON.stringify({ messageId: 'first-message-id', content: 'Why do customs differ?', enabledSourceKeys: ['collection:Torah'] }),
     })

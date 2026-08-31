@@ -90,25 +90,39 @@ public sealed class MongoConversationStore : IConversationStore
     public async Task<Conversation?> AppendMessageAsync(Guid userId, Guid conversationId, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
-        var ownerExists = await conversations.Find(OwnerFilter(userId, conversationId)).AnyAsync(cancellationToken).ConfigureAwait(false);
-        if (!ownerExists)
+        var conversation = await GetAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        return conversation is null ? null : await AppendMessageAsync(conversation, message, updatedAtUtc, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Conversation?> AppendMessageAsync(Conversation conversation, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        ArgumentNullException.ThrowIfNull(message);
+        if (conversation.Messages.Any(existing => existing.Id == message.Id))
         {
-            return null;
+            return conversation;
         }
 
         try
         {
-            await messages.InsertOneAsync(ToDocument(userId, conversationId, message), cancellationToken: cancellationToken).ConfigureAwait(false);
+            await messages.InsertOneAsync(ToDocument(conversation.UserId, conversation.Id, message), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
-            return await GetAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+            return await GetAsync(conversation.UserId, conversation.Id, cancellationToken).ConfigureAwait(false);
         }
 
         var update = Builders<MongoConversationDocument>.Update.Set(document => document.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
-        await conversations.UpdateOneAsync(OwnerFilter(userId, conversationId), update, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var updateResult = await conversations.UpdateOneAsync(OwnerFilter(conversation.UserId, conversation.Id), update, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (updateResult.MatchedCount != 1)
+        {
+            await messages.DeleteOneAsync(document => document.Id == $"{conversation.Id:D}:{message.Id:D}", cancellationToken).ConfigureAwait(false);
+            return null;
+        }
 
-        return await GetAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var updatedMessages = conversation.Messages.Append(message).OrderBy(value => value.CreatedAtUtc).ThenBy(value => value.Id).ToArray();
+        return conversation with { Messages = updatedMessages, UpdatedAtUtc = updatedAtUtc };
     }
 
     /// <inheritdoc/>

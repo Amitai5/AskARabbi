@@ -13,7 +13,7 @@ export interface UsageSummary {
 
 export function createDefaultUserSettings(): UserSettings {
   return {
-    showSourceContextByDefault: true,
+    showSourceContextByDefault: false,
     emailProductUpdates: false,
   }
 }

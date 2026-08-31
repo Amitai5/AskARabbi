@@ -1,5 +1,6 @@
 using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Configuration;
+using AskARabbiLIB.AI;
 using AskARabbiLIB.Grounding;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,7 +33,14 @@ public sealed class ProductionConfigurationTests
 
         Assert.AreEqual("https://api.askarabbi.ai/api/user/callback", workOs.RedirectUri);
         Assert.AreEqual("https://askarabbi.ai/", workOs.FrontendUri);
-        Assert.AreEqual(8_000, groundedChat.MaximumOutputTokens);
+        Assert.AreEqual(2_400, groundedChat.MaximumOutputTokens);
+        Assert.AreEqual(800, groundedChat.ValidationMaximumOutputTokens);
+        Assert.AreEqual(AIReasoningEffort.Low, groundedChat.ReasoningEffort);
+        Assert.AreEqual(20, groundedChat.MaximumCandidates);
+        Assert.AreEqual(10, groundedChat.MaximumEvidenceSegments);
+        Assert.AreEqual(0, groundedChat.MaximumEnrichmentHits);
+        Assert.AreEqual(2, groundedChat.RecentConversationTurns);
+        Assert.AreEqual(600, groundedChat.RetrievalCacheSeconds);
         Assert.AreEqual("https://askarabbi.ai", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.IsTrue(response.Headers.GetValues("Access-Control-Allow-Credentials").Single().Equals("true", StringComparison.OrdinalIgnoreCase));
         StringAssert.StartsWith(groundedPrompts.CurrentQuestionInstruction, "Write one flowing, human answer.");

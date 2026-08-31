@@ -17,6 +17,7 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,11 @@ if (localDevelopmentOptions.UseDemoServices)
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddHealthChecks();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/problem+json"]);
+});
 builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -42,7 +48,7 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<WorkOsCookieAuthenticationEvents>();
 builder.Services.AddCors(options => options.AddPolicy(FrontendCorsOptions.PolicyName, policy =>
 {
-    policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials().WithExposedHeaders("Server-Timing");
     if (allowedFrontendOrigins.Count > 0)
     {
         policy.WithOrigins([.. allowedFrontendOrigins]);
@@ -82,15 +88,18 @@ if (groundedChatOptions.IsConfigured)
         provider.GetRequiredService<TokenCredential>(),
         provider.GetRequiredService<IHttpClientFactory>().CreateClient("AzureOpenAIVectorStore")));
     builder.Services.AddSingleton<IAzureOpenAIVectorStoreSearchClient>(provider => provider.GetRequiredService<AzureOpenAIVectorStoreClient>());
-    builder.Services.AddSingleton<ISourceRetriever>(provider => new AzureOpenAIVectorStoreRetriever(
-        provider.GetRequiredService<IAzureOpenAIVectorStoreSearchClient>(),
-        new AzureOpenAIVectorStoreRetrieverOptions
-        {
-            VectorStoreId = groundedChatOptions.VectorStoreId,
-            ExpectedCorpusFingerprint = groundedChatOptions.CorpusFingerprint,
-            ScoreThreshold = groundedChatOptions.RetrievalScoreThreshold,
-        },
-        provider.GetRequiredService<AskARabbiLIB.Models.DocumentManifest>()));
+    builder.Services.AddSingleton<ISourceRetriever>(provider => new CachingSourceRetriever(
+        new AzureOpenAIVectorStoreRetriever(
+            provider.GetRequiredService<IAzureOpenAIVectorStoreSearchClient>(),
+            new AzureOpenAIVectorStoreRetrieverOptions
+            {
+                VectorStoreId = groundedChatOptions.VectorStoreId,
+                ExpectedCorpusFingerprint = groundedChatOptions.CorpusFingerprint,
+                ScoreThreshold = groundedChatOptions.RetrievalScoreThreshold,
+            },
+            provider.GetRequiredService<AskARabbiLIB.Models.DocumentManifest>()),
+        groundedChatOptions.CreateRetrieverCacheOptions(),
+        provider.GetRequiredService<TimeProvider>()));
     builder.Services.AddSingleton<IAIEngine>(provider => new AzureOpenAIEngine(
         new AIEngineOptions
         {
@@ -98,15 +107,33 @@ if (groundedChatOptions.IsConfigured)
             ModelName = groundedChatOptions.ModelName,
             Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
             MaximumOutputTokens = groundedChatOptions.MaximumOutputTokens,
+            ReasoningEffort = groundedChatOptions.ReasoningEffort,
+            MaximumRetryCount = groundedChatOptions.MaximumRetryCount,
         },
         provider.GetRequiredService<TokenCredential>()));
     var groundedPrompts = GroundedPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts"));
     builder.Services.AddSingleton(groundedPrompts);
-    builder.Services.AddSingleton<IGroundedAnswerService>(provider => new GroundedAnswerService(
-        provider.GetRequiredService<ISourceRetriever>(),
-        provider.GetRequiredService<IAIEngine>(),
-        provider.GetRequiredService<GroundedPromptSet>(),
-        timeProvider: provider.GetRequiredService<TimeProvider>()));
+    builder.Services.AddSingleton<IGroundedAnswerService>(provider =>
+    {
+        var validationEngine = new AzureOpenAIEngine(
+            new AIEngineOptions
+            {
+                ProjectEndpoint = new Uri(groundedChatOptions.ProjectEndpoint, UriKind.Absolute),
+                ModelName = groundedChatOptions.ModelName,
+                Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
+                MaximumOutputTokens = groundedChatOptions.ValidationMaximumOutputTokens,
+                ReasoningEffort = AIReasoningEffort.Low,
+                MaximumRetryCount = groundedChatOptions.MaximumRetryCount,
+            },
+            provider.GetRequiredService<TokenCredential>());
+        return new GroundedAnswerService(
+            provider.GetRequiredService<ISourceRetriever>(),
+            provider.GetRequiredService<IAIEngine>(),
+            validationEngine,
+            provider.GetRequiredService<GroundedPromptSet>(),
+            groundedChatOptions.CreateGroundedAnswerOptions(),
+            provider.GetRequiredService<TimeProvider>());
+    });
 }
 else
 {
@@ -143,6 +170,7 @@ if (localDevelopmentOptions.UseDemoServices)
 
 var app = builder.Build();
 
+app.UseResponseCompression();
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();

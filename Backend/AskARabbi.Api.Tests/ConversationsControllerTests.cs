@@ -111,6 +111,36 @@ public sealed class ConversationsControllerTests
 
     [TestMethod]
     [TestCategory("Integration")]
+    public async Task AppendMessage_CompactResponse_ReturnsOnlyCurrentTurnAndServerTiming()
+    {
+        // Arrange
+        await using var application = new TestApplicationFactory();
+        using var client = await application.CreateAuthenticatedClientAsync();
+        var conversation = (await CreateConversationAsync(client)).Conversation;
+        var messageId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        // Act
+        using var response = await client.PostAsJsonAsync($"/api/conversations/{conversation.Id}/messages?compact=true", new { messageId, content = "Why do customs differ?" });
+        var result = await response.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+
+        // Assert
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsNotNull(result);
+        Assert.AreEqual("answered", result.Status);
+        Assert.AreEqual(conversation.Id, result.Conversation.Id);
+        Assert.AreEqual("Jewish Customs and Practice", result.Conversation.Title);
+        Assert.HasCount(2, result.Messages);
+        Assert.AreEqual(messageId, result.Messages[0].Id);
+        Assert.AreEqual(ConversationMessageRole.User, result.Messages[0].Role);
+        Assert.AreEqual(ConversationMessageRole.Assistant, result.Messages[1].Role);
+        var serverTiming = response.Headers.GetValues("Server-Timing").Single();
+        StringAssert.Contains(serverTiming, "turn;dur=");
+        StringAssert.Contains(serverTiming, "retrieval;dur=");
+        StringAssert.Contains(serverTiming, "model;dur=");
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
     public async Task UpdateAndDelete_ExistingConversation_ChangesThenRemovesConversation()
     {
         await using var application = new TestApplicationFactory();

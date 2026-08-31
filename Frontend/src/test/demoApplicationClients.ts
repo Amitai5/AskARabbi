@@ -17,10 +17,25 @@ const DemoSources: ConversationSource[] = [
     collection: 'Mishnah',
     license: 'CC-BY',
     sourceUrl: 'https://www.sefaria.org/Mishnah_Chullin.8.1',
-    attributionUrl: 'https://www.sefaria.org',
+    attributionUrl: 'https://example.test/mishnah-yomit-attribution',
     quotations: ['Fowl may be placed upon the table together with cheese but may not be eaten with it, the words of Bet Shammai. Bet Hillel say: it may neither be placed upon the table together with cheese nor eaten with it.'],
     context: 'Every kind of flesh is forbidden to be cooked in milk, except for the flesh of fish and of locusts. Fowl may be placed upon the table together with cheese but may not be eaten with it, the words of Bet Shammai. Bet Hillel say: it may neither be placed upon the table together with cheese nor eaten with it.',
     isExcerpt: false,
+  },
+  {
+    number: 2,
+    title: 'Jerusalem Talmud Terumot',
+    hebrewTitle: 'תלמוד ירושלמי תרומות',
+    canonicalReference: 'Jerusalem Talmud Terumot 1:5:4',
+    edition: 'The Jerusalem Talmud, translation and commentary by Heinrich W. Guggenheimer',
+    language: 'English',
+    collection: 'Talmud',
+    license: 'CC-BY',
+    sourceUrl: 'https://www.sefaria.org/Jerusalem_Talmud_Terumot.1.5.4',
+    attributionUrl: 'https://example.test/guggenheimer-attribution',
+    quotations: ['Everybody agrees that fowl meat is not meat in the biblical sense since birds have no milk. Nevertheless, as a rabbinic fence, one may not eat birds’ meat with any milk product.'],
+    context: 'The passage records the dispute between the Houses of Shammai and Hillel and explains that poultry is outside the biblical category while remaining prohibited as a rabbinic safeguard.',
+    isExcerpt: true,
   },
 ]
 
@@ -82,7 +97,7 @@ export function createDemoApplicationClients(): DemoApplicationClients {
         enabledSourceKeys: [...enabledSourceKeys],
         messages: [
           { id: messageId, role: 'User', content, createdAtUtc: FixedTimestamp },
-          { id: crypto.randomUUID(), role: 'Assistant', content: 'The short answer is that this local demo represents a validated grounded response. [1]', sources: cloneSources(DemoSources), createdAtUtc: FixedTimestamp },
+          { id: crypto.randomUUID(), role: 'Assistant', content: 'The short answer is that this local demo represents a validated grounded response. [1] A second source preserves the surrounding discussion. [2]', sources: cloneSources(DemoSources), createdAtUtc: FixedTimestamp },
         ],
         createdAtUtc: FixedTimestamp,
         updatedAtUtc: FixedTimestamp,
@@ -98,7 +113,7 @@ export function createDemoApplicationClients(): DemoApplicationClients {
         messages: [
           ...current.messages,
           { id: messageId, role: 'User', content, createdAtUtc: FixedTimestamp },
-          { id: crypto.randomUUID(), role: 'Assistant', content: 'This local demo follow-up remains grounded in the cited source. [1]', sources: cloneSources(DemoSources), createdAtUtc: FixedTimestamp },
+          { id: crypto.randomUUID(), role: 'Assistant', content: 'This local demo follow-up remains grounded in the cited sources. [1] [2]', sources: cloneSources(DemoSources), createdAtUtc: FixedTimestamp },
         ],
       }
       conversations.set(conversationId, conversation)

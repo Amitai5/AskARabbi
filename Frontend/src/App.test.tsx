@@ -158,13 +158,31 @@ describe('App', () => {
     expect(within(screen.getByRole('article')).getByText('Why do Jewish customs differ?')).toBeVisible()
     expect(await screen.findByText(/local demo represents a validated grounded response/)).toBeVisible()
     expect(creationCount).toBe(1)
-    expect(screen.getByRole('button', { name: 'Why do Jewish customs differ', current: 'page' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'View source 1' })).toBeVisible()
-    const sourceLink = screen.getByRole('link', { name: /Mishnah Chullin 8:1.*Open source on Sefaria/ })
+    expect(await screen.findByRole('button', { name: 'Why do Jewish customs differ', current: 'page' })).toBeVisible()
+    expect(screen.queryByText('Sources and quotations')).not.toBeInTheDocument()
+
+    const citation = screen.getByRole('button', { name: 'View source 1' })
+    await user.click(citation)
+    const sourceReader = screen.getByRole('dialog', { name: 'Source reader' })
+    const sourceLink = within(sourceReader).getByRole('link', { name: /Mishnah Chullin 8:1.*Open source on Sefaria/ })
     expect(sourceLink).toHaveAttribute('href', 'https://www.sefaria.org/Mishnah_Chullin.8.1')
     expect(sourceLink).toHaveAttribute('target', '_blank')
-    expect(screen.getByText(/Fowl may be placed upon the table together with cheese/, { selector: 'blockquote' })).toBeVisible()
-    expect(screen.getByText('Source context').closest('details')).toHaveAttribute('open')
+    expect(within(sourceReader).getByText(/Fowl may be placed upon the table together with cheese/, { selector: 'blockquote' })).toBeVisible()
+    const sourceContext = within(sourceReader).getByText('Show source context').closest('details')
+    expect(sourceContext).not.toHaveAttribute('open')
+    await user.click(within(sourceReader).getByText('Show source context'))
+    expect(sourceContext).toHaveAttribute('open')
+    expect(within(sourceReader).getByRole('button', { name: 'Previous source' })).toBeDisabled()
+    await user.click(within(sourceReader).getByRole('button', { name: 'Next source' }))
+    expect(within(sourceReader).getByRole('link', { name: /Jerusalem Talmud Terumot 1:5:4.*Open source on Sefaria/ })).toBeVisible()
+    expect(within(sourceReader).getByText('2 of 2')).toBeVisible()
+    expect(within(sourceReader).getByText('Show source context (excerpt)').closest('details')).not.toHaveAttribute('open')
+    expect(within(sourceReader).getByRole('button', { name: 'Next source' })).toBeDisabled()
+    expect(screen.queryByRole('link', { name: 'Edition attribution' })).not.toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Source reader' })).not.toBeInTheDocument()
+    expect(citation).toHaveFocus()
   })
 
   it('clears the submitted message while the grounded response is pending', async () => {
@@ -199,13 +217,13 @@ describe('App', () => {
           id: 'first-grounded-conversation',
           title: 'Chicken and Dairy Laws',
           enabledSourceKeys: [],
-          messages: [
-            { id: 'user-message', role: 'User', content: 'Why is chicken treated like meat?', createdAtUtc: '2026-08-25T12:30:00Z' },
-            { id: 'assistant-message', role: 'Assistant', content: 'A validated grounded answer.', createdAtUtc: '2026-08-25T12:30:00Z' },
-          ],
-          createdAtUtc: '2026-08-25T12:30:00Z',
           updatedAtUtc: '2026-08-25T12:30:00Z',
         },
+        messages: [
+          { id: 'user-message', role: 'User', content: 'Why is chicken treated like meat?', createdAtUtc: '2026-08-25T12:30:00Z' },
+          { id: 'assistant-message', role: 'Assistant', content: 'A validated grounded answer.', createdAtUtc: '2026-08-25T12:30:00Z' },
+        ],
+        createdAtUtc: '2026-08-25T12:30:00Z',
         message: null,
       })
       await pendingTurn.promise
@@ -213,6 +231,53 @@ describe('App', () => {
 
     expect(await screen.findByText('A validated grounded answer.')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Chicken and Dairy Laws', current: 'page' })).toBeVisible()
+  })
+
+  it('merges a compact follow-up response without discarding earlier messages', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const loaded = await clients.conversationClient.get('chicken-dairy')
+    const existingConversation = {
+      ...loaded,
+      messages: [
+        { id: 'earlier-user', role: 'User' as const, content: 'What does the Mishnah say?', createdAtUtc: '2026-08-25T12:00:00Z' },
+        { id: 'earlier-assistant', role: 'Assistant' as const, content: 'The earlier validated answer remains visible.', createdAtUtc: '2026-08-25T12:01:00Z' },
+      ],
+    }
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      get(conversationId) {
+        return conversationId === existingConversation.id ? Promise.resolve(existingConversation) : clients.conversationClient.get(conversationId)
+      },
+      appendMessage(conversationId, messageId, content) {
+        return Promise.resolve({
+          status: 'answered',
+          conversation: {
+            id: conversationId,
+            title: existingConversation.title,
+            enabledSourceKeys: existingConversation.enabledSourceKeys,
+            updatedAtUtc: '2026-08-25T12:03:00Z',
+          },
+          messages: [
+            { id: messageId, role: 'User', content, createdAtUtc: '2026-08-25T12:02:00Z' },
+            { id: 'new-assistant', role: 'Assistant', content: 'The compact grounded follow-up is visible.', createdAtUtc: '2026-08-25T12:03:00Z' },
+          ],
+          createdAtUtc: existingConversation.createdAtUtc,
+          message: null,
+        })
+      },
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    await user.click(await screen.findByRole('button', { name: 'Chicken and dairy' }))
+    expect(await screen.findByText('The earlier validated answer remains visible.')).toBeVisible()
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'How does that affect practice?')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByText('The compact grounded follow-up is visible.')).toBeVisible()
+    expect(screen.getByText('The earlier validated answer remains visible.')).toBeVisible()
+    expect(screen.getByText('How does that affect practice?')).toBeVisible()
   })
 
   it('ignores a stale initial conversation response after another conversation is selected', async () => {

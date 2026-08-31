@@ -21,6 +21,9 @@ public sealed record GroundedAnswerOptions
     /// <summary>Gets the maximum adjacent segments considered on each side of a hit.</summary>
     public int ContextRadius { get; init; } = 6;
 
+    /// <summary>Gets the maximum top-ranked hits that receive translation-pair and neighboring-context lookups.</summary>
+    public int MaximumEnrichmentHits { get; init; } = 4;
+
     /// <summary>Gets the maximum recent conversation turns used for follow-up retrieval context.</summary>
     public int RecentConversationTurns { get; init; } = 3;
 
@@ -55,6 +58,11 @@ public sealed record GroundedAnswerOptions
         if (ContextRadius is < 0 or > 10)
         {
             throw new ArgumentOutOfRangeException(nameof(ContextRadius), "Context radius must be between 0 and 10 segments on each side.");
+        }
+
+        if (MaximumEnrichmentHits is < 0 or > 10)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaximumEnrichmentHits), "Maximum enrichment hits must be between 0 and 10.");
         }
 
         if (RecentConversationTurns is < 0 or > 10)

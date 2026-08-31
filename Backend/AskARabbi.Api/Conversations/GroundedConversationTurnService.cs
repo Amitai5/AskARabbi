@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using AskARabbiLIB.Conversations;
@@ -59,7 +60,13 @@ public sealed class GroundedConversationTurnService
     /// <returns>A stored, answered, limited, or fail-closed turn result.</returns>
     public async Task<GroundedConversationTurnResult> ProcessAsync(Guid userId, Guid conversationId, Guid userMessageId, string content, CancellationToken cancellationToken = default)
     {
-        var conversation = await conversations.AppendUserMessageAsync(userId, conversationId, userMessageId, content, cancellationToken).ConfigureAwait(false);
+        var existing = await conversations.GetAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        if (existing is null)
+        {
+            return new GroundedConversationTurnResult("not_found", null, null);
+        }
+
+        var conversation = await conversations.AppendUserMessageAsync(existing, userMessageId, content, cancellationToken).ConfigureAwait(false);
         if (conversation is null)
         {
             return new GroundedConversationTurnResult("not_found", null, null);
@@ -70,6 +77,7 @@ public sealed class GroundedConversationTurnService
 
     private async Task<GroundedConversationTurnResult> ProcessStoredMessageAsync(Guid userId, Conversation conversation, Guid userMessageId, string content, CancellationToken cancellationToken)
     {
+        var processingStopwatch = Stopwatch.StartNew();
         var storedQuestion = conversation.Messages.SingleOrDefault(message => message.Id == userMessageId);
         if (storedQuestion is null || storedQuestion.Role != ConversationMessageRole.User || !string.Equals(storedQuestion.Content, content.Trim(), StringComparison.Ordinal))
         {
@@ -79,19 +87,22 @@ public sealed class GroundedConversationTurnService
         var assistantMessageId = CreateAssistantMessageId(userMessageId);
         if (conversation.Messages.Any(message => message.Id == assistantMessageId && message.Role == ConversationMessageRole.Assistant))
         {
-            return new GroundedConversationTurnResult("answered", conversation, null);
+            return new GroundedConversationTurnResult("answered", conversation, null, null, processingStopwatch.Elapsed);
         }
         var shouldGenerateConversationTitle = string.Equals(conversation.Title, "New conversation", StringComparison.Ordinal) && conversation.Messages.All(message => message.Role != ConversationMessageRole.Assistant);
-        var currentUsage = await usage.GetCurrentAsync(userId, cancellationToken).ConfigureAwait(false);
+        var currentUsageTask = usage.GetCurrentAsync(userId, cancellationToken);
+        var personalizationTask = settings.GetPersonalizationAsync(userId, cancellationToken);
+        await Task.WhenAll(currentUsageTask, personalizationTask).ConfigureAwait(false);
+        var currentUsage = await currentUsageTask.ConfigureAwait(false);
         if (currentUsage.AnswersRemaining <= 0)
         {
-            return new GroundedConversationTurnResult("usage_limit_reached", conversation, "You have reached the answer limit for this billing period. Your question was saved, but the model was not called.");
+            return new GroundedConversationTurnResult("usage_limit_reached", conversation, "You have reached the answer limit for this billing period. Your question was saved, but the model was not called.", null, processingStopwatch.Elapsed);
         }
 
         GroundedAnswerResult answerResult;
         try
         {
-            var personalization = await settings.GetPersonalizationAsync(userId, cancellationToken).ConfigureAwait(false);
+            var personalization = await personalizationTask.ConfigureAwait(false);
             var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization, shouldGenerateConversationTitle);
             var recentTurns = CreateRecentTurns(conversation.Messages, userMessageId);
             answerResult = await groundedAnswers.AnswerAsync(question, recentTurns, cancellationToken).ConfigureAwait(false);
@@ -103,19 +114,41 @@ public sealed class GroundedConversationTurnService
         catch (Exception exception) when (exception is HttpRequestException or AuthenticationFailedException or RequestFailedException or InvalidDataException)
         {
             logger.LogError(exception, "Grounded retrieval failed for conversation {ConversationId} and user {UserId}.", conversation.Id, userId);
-            return new GroundedConversationTurnResult("retrieval_unavailable", conversation, "The approved source library is temporarily unavailable, so AskRabbi did not generate an unsupported answer. Please try again shortly.");
+            return new GroundedConversationTurnResult("retrieval_unavailable", conversation, "The approved source library is temporarily unavailable, so AskRabbi did not generate an unsupported answer. Please try again shortly.", null, processingStopwatch.Elapsed);
         }
 
         if (!answerResult.IsSuccess || answerResult.Answer is null)
         {
-            return new GroundedConversationTurnResult(ToStatus(answerResult.Status), conversation, answerResult.ErrorMessage);
+            LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, false);
+            return new GroundedConversationTurnResult(ToStatus(answerResult.Status), conversation, answerResult.ErrorMessage, answerResult.Trace, processingStopwatch.Elapsed);
         }
         var rendered = renderer.Render(answerResult.Answer);
         var sources = ConversationSourceMaterializer.Materialize(answerResult.Answer, answerResult.Evidence ?? throw new InvalidOperationException("A successful grounded answer must retain its trusted evidence packet."));
-        var updated = await conversations.AppendAssistantMessageAsync(userId, conversation.Id, assistantMessageId, rendered, sources, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
-        updated = await ApplyInitialTitleAsync(userId, updated, answerResult.Answer.SuggestedConversationTitle, shouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
-        await usage.RecordAnswerAsync(userId, cancellationToken).ConfigureAwait(false);
-        return new GroundedConversationTurnResult("answered", updated, null);
+        var updated = await conversations.AppendAssistantMessageAsync(conversation, assistantMessageId, rendered, sources, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
+        var titleTask = ApplyInitialTitleAsync(userId, updated, answerResult.Answer.SuggestedConversationTitle, shouldGenerateConversationTitle, cancellationToken);
+        var usageTask = usage.RecordAnswerAsync(userId, cancellationToken);
+        await Task.WhenAll(titleTask, usageTask).ConfigureAwait(false);
+        updated = await titleTask.ConfigureAwait(false);
+        processingStopwatch.Stop();
+        LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, true);
+        return new GroundedConversationTurnResult("answered", updated, null, answerResult.Trace, processingStopwatch.Elapsed);
+    }
+
+    private void LogTurnMetrics(Guid conversationId, GroundedAnswerResult result, TimeSpan processingLatency, bool wasPersisted)
+    {
+        logger.LogInformation(
+            "Grounded turn completed for conversation {ConversationId}: status {Status}, persisted {WasPersisted}, total {TotalMilliseconds} ms, retrieval {RetrievalMilliseconds} ms, model {ModelMilliseconds} ms, candidates {CandidateCount}, evidence {EvidenceCount}, evidence characters {EvidenceCharacterCount}, validation {ValidationStatus}, repair {RepairAttempted}.",
+            conversationId,
+            result.Status,
+            wasPersisted,
+            processingLatency.TotalMilliseconds,
+            result.Trace.RetrievalLatency.TotalMilliseconds,
+            result.Trace.ModelLatency.TotalMilliseconds,
+            result.Trace.CandidateCount,
+            result.Trace.EvidenceCount,
+            result.Trace.EvidenceCharacterCount,
+            result.Trace.ValidationStatus,
+            result.Trace.RepairAttempted);
     }
 
     internal static Guid CreateAssistantMessageId(Guid userMessageId)

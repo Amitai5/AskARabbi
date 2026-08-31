@@ -50,6 +50,28 @@ public sealed class GroundedAnswerServiceTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_EnrichmentDisabled_PerformsOneRetrievalCall()
+    {
+        // Arrange
+        var segment = CreateSegment();
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(CreateValidDraft()));
+        var options = new GroundedAnswerOptions { MaximumEnrichmentHits = 0 };
+        var service = CreateService(retriever, engine, options);
+
+        // Act
+        var result = await service.AnswerAsync(CreateQuestion(), []);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(1, retriever.SearchCallCount);
+        Assert.AreEqual(0, retriever.ContextCallCount);
+        Assert.IsNotNull(result.Evidence);
+        Assert.HasCount(1, result.Evidence.Items);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task AnswerAsync_UnauthorizedModelCall_ReturnsAuthenticationFailure()
     {
@@ -954,9 +976,14 @@ public sealed class GroundedAnswerServiceTests
 
         internal int? LastContextRadius { get; private set; }
 
+        internal int SearchCallCount { get; private set; }
+
+        internal int ContextCallCount { get; private set; }
+
         public Task<IReadOnlyList<SourceRetrievalHit>> SearchAsync(SourceRetrievalQuery query, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            SearchCallCount++;
             if (string.IsNullOrWhiteSpace(query.ExactCanonicalReference))
             {
                 LastKeywordQuery = query;
@@ -967,6 +994,7 @@ public sealed class GroundedAnswerServiceTests
         public Task<IReadOnlyList<SourceSegment>> GetContextAsync(string documentId, int documentOrdinal, int radius, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ContextCallCount++;
             LastContextRadius = radius;
             var segments = contextSegments.Where(segment => segment.DocumentId == documentId && Math.Abs(segment.DocumentOrdinal - documentOrdinal) <= radius).ToArray();
             return Task.FromResult<IReadOnlyList<SourceSegment>>(segments);

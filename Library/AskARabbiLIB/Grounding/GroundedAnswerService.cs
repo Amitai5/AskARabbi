@@ -36,6 +36,17 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     {
     }
 
+    /// <summary>Creates a grounded-answer orchestrator with an independently configured claim-audit engine.</summary>
+    /// <param name="retriever">Approved-corpus source retriever.</param>
+    /// <param name="answerEngine">Structured-output engine used to draft and repair answers.</param>
+    /// <param name="validationEngine">Structured-output engine configured for the smaller independent grounding audit.</param>
+    /// <param name="prompts">Validated model instructions and response schema.</param>
+    /// <param name="options">Optional retrieval and evidence budgets.</param>
+    /// <param name="timeProvider">Optional clock used to calculate a profile holder's current age.</param>
+    public GroundedAnswerService(ISourceRetriever retriever, IAIEngine answerEngine, IAIEngine validationEngine, GroundedPromptSet prompts, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null) : this(retriever, answerEngine, prompts, new AIGroundedClaimEvidenceValidator(validationEngine, prompts), options, timeProvider)
+    {
+    }
+
     internal GroundedAnswerService(ISourceRetriever retriever, IAIEngine engine, GroundedPromptSet prompts, IGroundedClaimEvidenceValidator claimEvidenceValidator, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(retriever);

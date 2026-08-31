@@ -1,5 +1,5 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
-import type { ConversationDetails, ConversationSummary } from './conversationData.ts'
+import type { ConversationDetails, ConversationMessage, ConversationSummary } from './conversationData.ts'
 
 export interface ConversationClient {
   list(): Promise<ConversationSummary[]>
@@ -11,11 +11,22 @@ export interface ConversationClient {
   delete(conversationId: string): Promise<void>
 }
 
-export interface ConversationTurn {
+interface ConversationTurnBase {
   status: string
-  conversation: ConversationDetails
   message: string | null
 }
+
+export interface CompactConversationTurn extends ConversationTurnBase {
+  conversation: ConversationSummary
+  messages: ConversationMessage[]
+  createdAtUtc: string
+}
+
+export interface FullConversationTurn extends ConversationTurnBase {
+  conversation: ConversationDetails
+}
+
+export type ConversationTurn = CompactConversationTurn | FullConversationTurn
 
 export function createBackendConversationClient(apiClient: ApiClient = createApiClient()): ConversationClient {
   return {
@@ -23,7 +34,7 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
       return apiClient.request<ConversationSummary[]>('/api/conversations')
     },
     createWithMessage(messageId, content, enabledSourceKeys) {
-      return apiClient.request<ConversationTurn>('/api/conversations', {
+      return apiClient.request<ConversationTurn>('/api/conversations?compact=true', {
         method: 'POST',
         body: JSON.stringify({ messageId, content, enabledSourceKeys }),
       })
@@ -32,7 +43,7 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
       return apiClient.request<ConversationDetails>(`/api/conversations/${encodeURIComponent(conversationId)}`)
     },
     appendMessage(conversationId, messageId, content) {
-      return apiClient.request<ConversationTurn>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
+      return apiClient.request<ConversationTurn>(`/api/conversations/${encodeURIComponent(conversationId)}/messages?compact=true`, {
         method: 'POST',
         body: JSON.stringify({ messageId, content }),
       })

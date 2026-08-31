@@ -4,7 +4,7 @@ namespace AskARabbi.Api.Contracts.ConversationSettings;
 public sealed record ConversationPreferencesRequest
 {
     /// <summary>Gets whether supporting source context should be shown by default.</summary>
-    public bool ShowSourceContextByDefault { get; init; } = true;
+    public bool ShowSourceContextByDefault { get; init; }
 
     /// <summary>Gets whether the account has opted in to product-update emails.</summary>
     public bool EmailProductUpdates { get; init; }

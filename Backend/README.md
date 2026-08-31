@@ -6,6 +6,8 @@
 
 When a source selection is omitted, new conversations use the core Torah, Tanakh, Mishnah, and Talmud collections. Supplemental approved works must be selected explicitly. Existing conversations retain their saved source choices.
 
+Warm answer requests use one bounded managed-corpus search, up to 20 candidates, at most 10 evidence segments, low model reasoning, and separate 2,400-token answer and 800-token audit budgets. Successful retrievals are cached in process for 10 minutes by normalized query and source filters. The independent grounding audit, exact-quotation checks, citation validation, and fail-closed behavior remain mandatory. Usage and personalization reads run together; successful title/usage writes run together; known conversation context avoids redundant Cosmos reads. Responses expose `Server-Timing` entries for the complete turn, retrieval, and model work.
+
 ## Projects
 
 - `AskARabbi.Api` is the production HTTP host and composition root.
@@ -49,6 +51,8 @@ AI__CorpusFingerprint
 AI__TenantId
 ```
 
+The non-secret performance settings can also be overridden with `AI__MaximumOutputTokens`, `AI__ValidationMaximumOutputTokens`, `AI__ReasoningEffort`, `AI__MaximumCandidates`, `AI__MaximumEvidenceSegments`, `AI__MaximumEvidenceCharacters`, `AI__MaximumEnrichmentHits`, `AI__RecentConversationTurns`, `AI__RetrievalCacheSeconds`, and `AI__RetrievalCacheMaximumEntries`. The tracked production defaults favor conversational answers and one-pass retrieval; raise them only after measuring answer quality and latency together.
+
 Optional MongoDB collection-name keys are `MongoDB:UsersCollectionName`, `MongoDB:ConversationsCollectionName`, `MongoDB:ConversationMessagesCollectionName`, `MongoDB:ConversationSettingsCollectionName`, and `MongoDB:UsageCollectionName`. Their defaults are suitable for a new database.
 
 In the WorkOS dashboard, configure `http://localhost:5090/api/user/callback` as an exact redirect URI, `http://localhost:5173/` as an allowed sign-out/application URI, and `http://localhost:5173/reset-password` as the password-reset URL. Enable email/password and Google in the same WorkOS environment whose API key and client ID are stored in User Secrets.
@@ -73,9 +77,9 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 | `POST /api/user/reset-password` | Confirms the WorkOS reset, clears the current AskRabbi cookie, and returns `204`. |
 | `POST /api/user/logout` | Clears the local cookie and returns the WorkOS logout destination. |
 | `GET /api/conversations` | Returns recent titles and source selections for navigation without loading message bodies. |
-| `POST /api/conversations` | Creates a saved conversation from its first user message, processes the first grounded response, and applies its one-time AI-generated title. |
+| `POST /api/conversations` | Creates a saved conversation from its first user message, processes the first grounded response, and applies its one-time AI-generated title. Add `?compact=true` to return only navigation metadata and the current turn's messages. |
 | `GET /api/conversations/{id}` | Loads metadata and ordered messages, including trusted assistant-source snapshots, for one owned conversation. |
-| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context plus a grounded turn status; only validated answers and their trusted sources are persisted and counted. |
+| `POST /api/conversations/{id}/messages` | Stores one user message by client idempotency ID and returns canonical context plus a grounded turn status; only validated answers and their trusted sources are persisted and counted. Add `?compact=true` for the bounded current-turn response used by the frontend. |
 | `PUT /api/conversations/{id}/title` | Renames one owned conversation. |
 | `PUT /api/conversations/{id}/sources` | Replaces its approved source selectors. |
 | `DELETE /api/conversations/{id}` | Removes its metadata and message records. |
@@ -87,7 +91,7 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 
 ## Persistence shape
 
-Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver. Account records, conversation metadata, messages, personalization/preferences, and monthly counters use separate collections. Assistant message documents embed only the bounded, validated source citations used for that answer: exact quotations, presented context, canonical Sefaria URL, edition attribution URL, language, license, and excerpt state. Older message documents without the additive `sources` field deserialize with an empty source list. Separating messages from conversation metadata prevents every message append from rewriting an ever-growing conversation document and keeps sidebar queries lightweight. Personalization and general preferences share one document but are updated with field-level Mongo operations so saving either one cannot erase the other. Required indexes are created when configured persistence starts.
+Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver. Account records, conversation metadata, messages, personalization/preferences, and monthly counters use separate collections. Assistant message documents embed only the bounded, validated source citations used for that answer: exact quotations, presented context, canonical Sefaria URL, edition attribution URL, language, license, and excerpt state. Older message documents without the additive `sources` field deserialize with an empty source list. Separating messages from conversation metadata prevents every message append from rewriting an ever-growing conversation document and keeps sidebar queries lightweight. Personalization and general preferences share one document but are updated with field-level Mongo operations so saving either one cannot erase the other. Conversation preferences carry a defaults version: legacy records without that version resolve source context to closed, while a subsequent explicit user save records the current version and preserves the user's choice. Required indexes are created when configured persistence starts.
 
 The implementation adapts only the relevant invariant `DateOnly` and `TimeOnly` BSON-serialization idea discovered in ClearVowAI. AskRabbi already had focused Azure OpenAI, Key Vault, retrieval, and grounding services, so the older Foundry Agent, SQL, Redis, reflection-tool, and unrelated service code was not duplicated.
 

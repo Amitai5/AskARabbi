@@ -121,7 +121,7 @@ public sealed class ConversationSettingsServiceTests
 
         var result = await service.GetPreferencesAsync(UserId);
 
-        Assert.IsTrue(result.ShowSourceContextByDefault);
+        Assert.IsFalse(result.ShowSourceContextByDefault);
         Assert.IsFalse(result.EmailProductUpdates);
     }
 
@@ -131,7 +131,7 @@ public sealed class ConversationSettingsServiceTests
     {
         var store = new FakeSettingsStore();
         var service = new ConversationSettingsService(store, new FixedTimeProvider(Now));
-        var preferences = new ConversationPreferences { ShowSourceContextByDefault = false, EmailProductUpdates = true };
+        var preferences = new ConversationPreferences { ShowSourceContextByDefault = true, EmailProductUpdates = true };
 
         var result = await service.UpdatePreferencesAsync(UserId, preferences);
 

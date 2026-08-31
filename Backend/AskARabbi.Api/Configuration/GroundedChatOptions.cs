@@ -1,3 +1,7 @@
+using AskARabbiLIB.AI;
+using AskARabbiLIB.Grounding;
+using AskARabbiLIB.Retrieval;
+
 namespace AskARabbi.Api.Configuration;
 
 /// <summary>Configures production grounded-answer generation and managed retrieval.</summary>
@@ -25,7 +29,46 @@ public sealed record GroundedChatOptions
     public int TimeoutSeconds { get; init; } = 120;
 
     /// <summary>Gets the maximum combined reasoning and structured-output token count.</summary>
-    public int MaximumOutputTokens { get; init; } = 8_000;
+    public int MaximumOutputTokens { get; init; } = 2_400;
+
+    /// <summary>Gets the smaller output budget used by the independent claim-support audit.</summary>
+    public int ValidationMaximumOutputTokens { get; init; } = 800;
+
+    /// <summary>Gets the reasoning effort used for answer generation.</summary>
+    public AIReasoningEffort ReasoningEffort { get; init; } = AIReasoningEffort.Low;
+
+    /// <summary>Gets the maximum retries after an initial answer or audit request.</summary>
+    public int MaximumRetryCount { get; init; } = 1;
+
+    /// <summary>Gets the number of initial source candidates requested from managed retrieval.</summary>
+    public int MaximumCandidates { get; init; } = 20;
+
+    /// <summary>Gets the maximum source segments supplied to answer generation.</summary>
+    public int MaximumEvidenceSegments { get; init; } = 10;
+
+    /// <summary>Gets the total character budget for source evidence.</summary>
+    public int MaximumEvidenceCharacters { get; init; } = 16_000;
+
+    /// <summary>Gets the character budget for one source segment.</summary>
+    public int MaximumCharactersPerSegment { get; init; } = 2_400;
+
+    /// <summary>Gets the maximum evidence segments selected from one document edition.</summary>
+    public int MaximumSegmentsPerDocument { get; init; } = 3;
+
+    /// <summary>Gets the neighboring segment radius used when enrichment is enabled.</summary>
+    public int ContextRadius { get; init; } = 2;
+
+    /// <summary>Gets the number of hits that trigger additional retrieval calls; production defaults to zero to keep retrieval single-pass.</summary>
+    public int MaximumEnrichmentHits { get; init; }
+
+    /// <summary>Gets the recent conversational turns included in answer generation.</summary>
+    public int RecentConversationTurns { get; init; } = 2;
+
+    /// <summary>Gets the duration of the safe corpus-search cache in seconds.</summary>
+    public int RetrievalCacheSeconds { get; init; } = 600;
+
+    /// <summary>Gets the maximum distinct corpus searches retained by one API process.</summary>
+    public int RetrievalCacheMaximumEntries { get; init; } = 256;
 
     /// <summary>Gets the direct vector-search score threshold.</summary>
     public double RetrievalScoreThreshold { get; init; }
@@ -73,6 +116,28 @@ public sealed record GroundedChatOptions
         ValidateLimits();
     }
 
+    /// <summary>Creates validated retrieval and evidence budgets for the grounded-answer service.</summary>
+    /// <returns>Grounded-answer options matching this API configuration.</returns>
+    public GroundedAnswerOptions CreateGroundedAnswerOptions() => new()
+    {
+        MaximumCandidates = MaximumCandidates,
+        MaximumEvidenceSegments = MaximumEvidenceSegments,
+        MaximumEvidenceCharacters = MaximumEvidenceCharacters,
+        MaximumCharactersPerSegment = MaximumCharactersPerSegment,
+        MaximumSegmentsPerDocument = MaximumSegmentsPerDocument,
+        ContextRadius = ContextRadius,
+        MaximumEnrichmentHits = MaximumEnrichmentHits,
+        RecentConversationTurns = RecentConversationTurns,
+    };
+
+    /// <summary>Creates validated process-local retrieval cache settings.</summary>
+    /// <returns>Source-retrieval cache options matching this API configuration.</returns>
+    public SourceRetrieverCacheOptions CreateRetrieverCacheOptions() => new()
+    {
+        Duration = TimeSpan.FromSeconds(RetrievalCacheSeconds),
+        MaximumEntries = RetrievalCacheMaximumEntries,
+    };
+
     private void ValidateLimits()
     {
         if (TimeoutSeconds is < 1 or > 600)
@@ -83,9 +148,31 @@ public sealed record GroundedChatOptions
         {
             throw new InvalidOperationException($"{SectionName}:{nameof(MaximumOutputTokens)} must be between 1 and 100,000.");
         }
+        if (ValidationMaximumOutputTokens is < 1 or > 100_000)
+        {
+            throw new InvalidOperationException($"{SectionName}:{nameof(ValidationMaximumOutputTokens)} must be between 1 and 100,000.");
+        }
+        if (!Enum.IsDefined(ReasoningEffort))
+        {
+            throw new InvalidOperationException($"{SectionName}:{nameof(ReasoningEffort)} is not supported.");
+        }
+        if (MaximumRetryCount is < 0 or > 5)
+        {
+            throw new InvalidOperationException($"{SectionName}:{nameof(MaximumRetryCount)} must be between zero and five.");
+        }
         if (RetrievalScoreThreshold is < 0 or > 1)
         {
             throw new InvalidOperationException($"{SectionName}:{nameof(RetrievalScoreThreshold)} must be between zero and one.");
+        }
+
+        try
+        {
+            CreateGroundedAnswerOptions().Validate();
+            CreateRetrieverCacheOptions().Validate();
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            throw new InvalidOperationException($"{SectionName} retrieval limits are invalid: {exception.Message}", exception);
         }
     }
 }

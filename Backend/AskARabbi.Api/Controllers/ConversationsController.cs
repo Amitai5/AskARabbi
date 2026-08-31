@@ -42,15 +42,20 @@ public sealed class ConversationsController : ControllerBase
 
     /// <summary>Creates a saved conversation from its first message and processes its first grounded response.</summary>
     /// <param name="request">First conversation turn.</param>
+    /// <param name="compact">Whether to return only this turn's messages instead of complete history.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The created canonical conversation plus its fail-closed first-turn status.</returns>
     [HttpPost]
     [ProducesResponseType<ConversationTurnResponse>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<ConversationTurnResponse>> Create(CreateConversationRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType<ConversationTurnDeltaResponse>(StatusCodes.Status201Created)]
+    public async Task<IActionResult> Create(CreateConversationRequest request, [FromQuery] bool compact = false, CancellationToken cancellationToken = default)
     {
         var result = await conversationTurns.CreateAsync(currentUser.UserId, request.MessageId, request.Content, request.EnabledSourceKeys, cancellationToken).ConfigureAwait(false);
         var conversation = result.Conversation ?? throw new InvalidOperationException("A newly created conversation must return canonical context.");
-        var response = new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(conversation), result.Message);
+        ApplyServerTiming(result);
+        var response = compact
+            ? (object)CreateCompactTurnResponse(result, request.MessageId)
+            : new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(conversation), result.Message);
         return CreatedAtAction(nameof(Get), new { conversationId = conversation.Id }, response);
     }
 
@@ -70,15 +75,25 @@ public sealed class ConversationsController : ControllerBase
     /// <summary>Appends one user message and persists a validated, source-grounded assistant answer.</summary>
     /// <param name="conversationId">Conversation ID.</param>
     /// <param name="request">New user message.</param>
+    /// <param name="compact">Whether to return only this turn's messages instead of complete history.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The canonical context plus a fail-closed turn status.</returns>
     [HttpPost("{conversationId:guid}/messages")]
     [ProducesResponseType<ConversationTurnResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ConversationTurnDeltaResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ConversationTurnResponse>> AppendMessage(Guid conversationId, AppendMessageRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> AppendMessage(Guid conversationId, AppendMessageRequest request, [FromQuery] bool compact = false, CancellationToken cancellationToken = default)
     {
         var result = await conversationTurns.ProcessAsync(currentUser.UserId, conversationId, request.MessageId, request.Content, cancellationToken).ConfigureAwait(false);
-        return result.Conversation is null ? NotFound() : Ok(new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(result.Conversation), result.Message));
+        if (result.Conversation is null)
+        {
+            return NotFound();
+        }
+
+        ApplyServerTiming(result);
+        return compact
+            ? Ok(CreateCompactTurnResponse(result, request.MessageId))
+            : Ok(new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(result.Conversation), result.Message));
     }
 
     /// <summary>Renames a saved conversation.</summary>
@@ -120,5 +135,32 @@ public sealed class ConversationsController : ControllerBase
     {
         var deleted = await conversations.DeleteAsync(currentUser.UserId, conversationId, cancellationToken).ConfigureAwait(false);
         return deleted ? NoContent() : NotFound();
+    }
+
+    private static ConversationTurnDeltaResponse CreateCompactTurnResponse(GroundedConversationTurnResult result, Guid userMessageId)
+    {
+        var conversation = result.Conversation ?? throw new InvalidOperationException("A turn response requires canonical conversation metadata.");
+        var assistantMessageId = GroundedConversationTurnService.CreateAssistantMessageId(userMessageId);
+        var messages = conversation.Messages
+            .Where(message => message.Id == userMessageId || message.Id == assistantMessageId)
+            .Select(ConversationContractMapper.ToResponse)
+            .ToArray();
+        return new ConversationTurnDeltaResponse(result.Status, ConversationContractMapper.ToSummaryResponse(conversation), messages, conversation.CreatedAtUtc, result.Message);
+    }
+
+    private void ApplyServerTiming(GroundedConversationTurnResult result)
+    {
+        if (result.ProcessingLatency is not { } processingLatency)
+        {
+            return;
+        }
+
+        var values = new List<string> { FormattableString.Invariant($"turn;dur={processingLatency.TotalMilliseconds:0.0}") };
+        if (result.Trace is { } trace)
+        {
+            values.Add(FormattableString.Invariant($"retrieval;dur={trace.RetrievalLatency.TotalMilliseconds:0.0}"));
+            values.Add(FormattableString.Invariant($"model;dur={trace.ModelLatency.TotalMilliseconds:0.0}"));
+        }
+        Response.Headers["Server-Timing"] = string.Join(", ", values);
     }
 }

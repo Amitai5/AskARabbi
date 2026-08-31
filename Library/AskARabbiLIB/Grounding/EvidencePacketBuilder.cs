@@ -33,7 +33,7 @@ internal sealed class EvidencePacketBuilder
                 break;
             }
 
-            if (enhancedHits >= 4)
+            if (enhancedHits >= options.MaximumEnrichmentHits)
             {
                 continue;
             }

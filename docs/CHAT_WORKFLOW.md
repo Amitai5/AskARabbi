@@ -219,8 +219,10 @@ The host turns the validated structured answer into a readable conversation. The
 - The direct answer appears first in bold.
 - Supporting explanation follows in normal paragraphs.
 - Compact citation numbers such as `[1]` stay next to the claim they support.
-- The web UI makes each inline citation number jump to its source, displays every exact quotation, and opens the canonical passage on Sefaria in a new tab.
-- Bounded surrounding evidence appears under an expandable `Source context` disclosure. The account preference controls whether it starts open; it is open by default.
+- The web UI makes each inline citation number open that exact trusted source. Wide screens use an independently scrollable reader beside the conversation; smaller screens use a dismissible bottom sheet so the source remains usable without permanently shrinking the chat.
+- The source reader provides previous/next navigation, displays every exact quotation, and opens the canonical passage on Sefaria in a new tab.
+- Bounded surrounding evidence appears under an expandable `Source context` disclosure inside the reader. It starts closed unless the account preference is explicitly enabled, including for legacy account records created before the closed-context default.
+- The web UI does not render a separate edition-attribution footer. Trusted attribution metadata remains attached to the persisted source snapshot for licensing and provenance.
 - Genuine disagreement and evidence limitations appear only when needed.
 - A useful next question becomes a conversational invitation to continue.
 - The editable application-controlled notice appears last.

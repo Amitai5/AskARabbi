@@ -41,11 +41,7 @@ public sealed class MongoConversationSettingsStore : IConversationSettingsStore
     public async Task<ConversationPreferences?> GetPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var document = await collection.Find(item => item.UserId == userId.ToString("D")).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
-        return document?.Preferences is null ? null : new ConversationPreferences
-        {
-            ShowSourceContextByDefault = document.Preferences.ShowSourceContextByDefault,
-            EmailProductUpdates = document.Preferences.EmailProductUpdates,
-        };
+        return document?.Preferences?.ToDomain();
     }
 
     /// <inheritdoc/>
@@ -53,11 +49,7 @@ public sealed class MongoConversationSettingsStore : IConversationSettingsStore
     {
         ArgumentNullException.ThrowIfNull(preferences);
         var userIdValue = userId.ToString("D");
-        var document = new MongoConversationPreferencesDocument
-        {
-            ShowSourceContextByDefault = preferences.ShowSourceContextByDefault,
-            EmailProductUpdates = preferences.EmailProductUpdates,
-        };
+        var document = MongoConversationPreferencesDocument.FromDomain(preferences);
         var update = Builders<MongoConversationSettingsDocument>.Update
             .SetOnInsert(value => value.UserId, userIdValue)
             .Set(value => value.Preferences, document)
