@@ -3,6 +3,9 @@ namespace AskARabbiLIB.Conversations;
 /// <summary>Represents the canonical server-owned context for a saved conversation.</summary>
 public sealed record Conversation
 {
+    /// <summary>Gets the canonical title used until the first grounded answer supplies a descriptive title.</summary>
+    public const string DefaultTitle = "New Conversation";
+
     /// <summary>Gets the conversation ID.</summary>
     public required Guid Id { get; init; }
 

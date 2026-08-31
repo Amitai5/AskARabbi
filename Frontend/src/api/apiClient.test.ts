@@ -119,6 +119,20 @@ describe('backend adapters', () => {
     })
   })
 
+  it('uses the canonical default title when the backend returns a blank conversation title', async () => {
+    const request = vi.fn().mockResolvedValue([{
+      id: 'conversation-id',
+      title: '   ',
+      enabledSourceKeys: ['collection:Torah'],
+      updatedAtUtc: '2026-08-25T00:00:00Z',
+    }])
+    const client = createBackendConversationClient(createMockApiClient(request))
+
+    const conversations = await client.list()
+
+    expect(conversations[0]?.title).toBe('New Conversation')
+  })
+
   it('sends a local birth time without adding a UTC offset', async () => {
     const request = vi.fn().mockResolvedValue({
       isConfigured: true,

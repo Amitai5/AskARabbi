@@ -9,9 +9,10 @@ namespace AskARabbiLIB.Retrieval;
 /// <summary>Calls Azure OpenAI v1 vector-store and Responses file-search APIs with Entra authentication.</summary>
 public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearchClient
 {
-    private const int FileSearchOutputTokenBudget = 64;
+    private const int FileSearchOutputTokenBudget = 2_048;
     private const int MaximumSearchAttempts = 3;
     private const int MaximumUploadAttempts = 3;
+    private const string MissingFileSearchCallMessage = "Azure response did not execute the required file-search tool.";
     private const string MissingFileSearchResultsMessage = "Azure file-search call does not contain included results.";
     private static readonly string[] TokenScopes = ["https://cognitiveservices.azure.com/.default"];
     private static readonly JsonSerializerOptions RequestJsonOptions = new()
@@ -97,7 +98,7 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
             {
                 return ParseFileSearchResponse(document.RootElement);
             }
-            catch (InvalidDataException exception) when (attempt < MaximumSearchAttempts && exception.Message.StartsWith(MissingFileSearchResultsMessage, StringComparison.Ordinal))
+            catch (InvalidDataException exception) when (attempt < MaximumSearchAttempts && IsRetryableSearchResponse(exception))
             {
                 await delayAsync(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken).ConfigureAwait(false);
             }
@@ -321,10 +322,13 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
         }
         if (!foundFileSearchCall)
         {
-            throw new InvalidDataException("Azure response did not execute the required file-search tool.");
+            throw new InvalidDataException(MissingFileSearchCallMessage);
         }
         return new AzureOpenAIVectorStoreSearchPage(results, false);
     }
+
+    private static bool IsRetryableSearchResponse(InvalidDataException exception) => exception.Message.StartsWith(MissingFileSearchResultsMessage, StringComparison.Ordinal)
+        || exception.Message.StartsWith(MissingFileSearchCallMessage, StringComparison.Ordinal);
 
     private static AzureOpenAIVectorStoreFilePage ParseStoreFilePage(JsonElement root)
     {

@@ -64,7 +64,7 @@ public sealed class AzureOpenAIVectorStoreClientTests
         StringAssert.Contains(handler.Requests[1].Body, "\"model\":\"search-model\"");
         StringAssert.Contains(handler.Requests[1].Body, "\"type\":\"file_search\"");
         StringAssert.Contains(handler.Requests[1].Body, "\"reasoning\":{\"effort\":\"low\"}");
-        StringAssert.Contains(handler.Requests[1].Body, "\"max_output_tokens\":64");
+        StringAssert.Contains(handler.Requests[1].Body, "\"max_output_tokens\":2048");
         StringAssert.Contains(handler.Requests[1].Body, "\"store\":false");
         StringAssert.Contains(handler.Requests[1].Body, "vs_test");
         StringAssert.Contains(handler.Requests[1].Body, "score_threshold");
@@ -79,6 +79,30 @@ public sealed class AzureOpenAIVectorStoreClientTests
     {
         var handler = new QueueHandler(
             _ => Json(HttpStatusCode.OK, """{"id":"resp_missing","status":"incomplete","output":[{"type":"file_search_call","status":"completed"}]}"""),
+            _ => Json(HttpStatusCode.OK, """{"id":"resp_complete","status":"completed","output":[{"type":"file_search_call","status":"completed","results":[{"file_id":"file_1","filename":"source.md","score":0.75,"attributes":{},"text":"result text"}]}]}"""));
+        using var httpClient = new HttpClient(handler);
+        var delays = new List<TimeSpan>();
+        var client = CreateClient(httpClient, (delay, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        var page = await client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"] });
+
+        Assert.HasCount(1, page.Results);
+        Assert.AreEqual("result text", page.Results[0].Content[0]);
+        Assert.HasCount(2, handler.Requests);
+        CollectionAssert.AreEqual(new[] { TimeSpan.FromMilliseconds(250) }, delays);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task SearchAsync_RequiredToolMissingOnce_RetriesAndParsesSecondResponse()
+    {
+        var handler = new QueueHandler(
+            _ => Json(HttpStatusCode.OK, """{"id":"resp_without_tool","status":"incomplete","output":[{"type":"reasoning"}]}"""),
             _ => Json(HttpStatusCode.OK, """{"id":"resp_complete","status":"completed","output":[{"type":"file_search_call","status":"completed","results":[{"file_id":"file_1","filename":"source.md","score":0.75,"attributes":{},"text":"result text"}]}]}"""));
         using var httpClient = new HttpClient(handler);
         var delays = new List<TimeSpan>();

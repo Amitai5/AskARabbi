@@ -89,7 +89,7 @@ public sealed class GroundedConversationTurnService
         {
             return new GroundedConversationTurnResult("answered", conversation, null, null, processingStopwatch.Elapsed);
         }
-        var shouldGenerateConversationTitle = string.Equals(conversation.Title, "New conversation", StringComparison.Ordinal) && conversation.Messages.All(message => message.Role != ConversationMessageRole.Assistant);
+        var shouldGenerateConversationTitle = string.Equals(conversation.Title, Conversation.DefaultTitle, StringComparison.Ordinal) && conversation.Messages.All(message => message.Role != ConversationMessageRole.Assistant);
         var currentUsageTask = usage.GetCurrentAsync(userId, cancellationToken);
         var personalizationTask = settings.GetPersonalizationAsync(userId, cancellationToken);
         await Task.WhenAll(currentUsageTask, personalizationTask).ConfigureAwait(false);

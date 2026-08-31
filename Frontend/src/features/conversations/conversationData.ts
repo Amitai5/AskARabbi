@@ -1,5 +1,12 @@
 import { CoreSourceKeys } from './sourceOptions.ts'
 
+export const DefaultConversationTitle = 'New Conversation'
+
+export function normalizeConversationTitle(title: string | null | undefined) {
+  const normalized = title?.trim() ?? ''
+  return normalized.length === 0 ? DefaultConversationTitle : normalized
+}
+
 export interface ConversationSummary {
   id: string
   title: string

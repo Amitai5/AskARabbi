@@ -18,7 +18,7 @@ public sealed class ConversationServiceTests
 
         var result = await service.CreateAsync(UserId, null, null);
 
-        Assert.AreEqual("New conversation", result.Title);
+        Assert.AreEqual(Conversation.DefaultTitle, result.Title);
         CollectionAssert.AreEqual(ConversationSourceCatalog.Core.ToArray(), result.EnabledSourceKeys.ToArray());
         Assert.AreEqual(Now, result.CreatedAtUtc);
         Assert.AreSame(result, store.Created);
@@ -60,7 +60,7 @@ public sealed class ConversationServiceTests
         var result = await service.CreateWithUserMessageAsync(UserId, messageId, "  Why do customs differ?  ", ["collection:Torah"]);
 
         Assert.AreSame(result, store.Created);
-        Assert.AreEqual("New conversation", result.Title);
+        Assert.AreEqual(Conversation.DefaultTitle, result.Title);
         Assert.HasCount(1, result.Messages);
         Assert.AreEqual(messageId, result.Messages[0].Id);
         Assert.AreEqual("Why do customs differ?", result.Messages[0].Content);
@@ -89,6 +89,27 @@ public sealed class ConversationServiceTests
         var service = new ConversationService(new FakeConversationStore());
 
         await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => service.ListAsync(UserId, limit));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task ReadAsync_BlankPersistedTitles_ReturnsCanonicalDefaultTitle()
+    {
+        var blankConversation = CreateConversation() with { Title = " " };
+        var store = new FakeConversationStore
+        {
+            AppendResult = blankConversation,
+            Listed = [new ConversationSummary(blankConversation.Id, string.Empty, blankConversation.EnabledSourceKeys, blankConversation.UpdatedAtUtc)],
+        };
+        var service = new ConversationService(store);
+
+        var summaries = await service.ListAsync(UserId);
+        var conversation = await service.GetAsync(UserId, blankConversation.Id);
+
+        Assert.HasCount(1, summaries);
+        Assert.AreEqual(Conversation.DefaultTitle, summaries[0].Title);
+        Assert.IsNotNull(conversation);
+        Assert.AreEqual(Conversation.DefaultTitle, conversation.Title);
     }
 
     [TestMethod]
@@ -305,6 +326,7 @@ public sealed class ConversationServiceTests
     {
         internal Conversation? Created { get; private set; }
         internal Conversation? AppendResult { get; init; }
+        internal IReadOnlyList<ConversationSummary> Listed { get; init; } = [];
         internal ConversationMessage? Appended { get; private set; }
         internal string? RenamedTitle { get; private set; }
         internal DateTimeOffset MutationTime { get; private set; }
@@ -312,7 +334,7 @@ public sealed class ConversationServiceTests
         internal Guid LastUserId { get; private set; }
         internal Guid LastConversationId { get; private set; }
 
-        public Task<IReadOnlyList<ConversationSummary>> ListAsync(Guid userId, int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ConversationSummary>>([]);
+        public Task<IReadOnlyList<ConversationSummary>> ListAsync(Guid userId, int limit, CancellationToken cancellationToken = default) => Task.FromResult(Listed);
 
         public Task<Conversation?> GetAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken = default) => Task.FromResult<Conversation?>(AppendResult);
 

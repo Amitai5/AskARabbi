@@ -26,7 +26,7 @@ public sealed class ConversationService
     /// <param name="limit">Maximum summaries to return.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>Recent conversation summaries.</returns>
-    public Task<IReadOnlyList<ConversationSummary>> ListAsync(Guid userId, int limit = 50, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ConversationSummary>> ListAsync(Guid userId, int limit = 50, CancellationToken cancellationToken = default)
     {
         ValidateUserId(userId);
         if (limit is < 1 or > 100)
@@ -34,7 +34,8 @@ public sealed class ConversationService
             throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100.");
         }
 
-        return store.ListAsync(userId, limit, cancellationToken);
+        var summaries = await store.ListAsync(userId, limit, cancellationToken).ConfigureAwait(false);
+        return summaries.Select(NormalizeSummary).ToArray();
     }
 
     /// <summary>Gets the canonical context for one user-owned conversation.</summary>
@@ -42,10 +43,11 @@ public sealed class ConversationService
     /// <param name="conversationId">Conversation ID.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The conversation when found; otherwise, <see langword="null"/>.</returns>
-    public Task<Conversation?> GetAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken = default)
+    public async Task<Conversation?> GetAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken = default)
     {
         ValidateIds(userId, conversationId);
-        return store.GetAsync(userId, conversationId, cancellationToken);
+        var conversation = await store.GetAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        return NormalizeConversation(conversation);
     }
 
     /// <summary>Creates a new saved conversation.</summary>
@@ -200,9 +202,9 @@ public sealed class ConversationService
     private static string NormalizeTitle(string? title, bool allowDefault = true)
     {
         var normalized = title?.Trim() ?? string.Empty;
-        if (normalized.Length == 0 && allowDefault)
+        if (allowDefault && (normalized.Length == 0 || string.Equals(normalized, Conversation.DefaultTitle, StringComparison.OrdinalIgnoreCase)))
         {
-            return "New conversation";
+            return Conversation.DefaultTitle;
         }
         if (normalized.Length is < 1 or > MaximumTitleLength)
         {
@@ -212,12 +214,35 @@ public sealed class ConversationService
         return normalized;
     }
 
+    private static ConversationSummary NormalizeSummary(ConversationSummary summary)
+    {
+        var title = NormalizeTitle(summary.Title);
+        return string.Equals(title, summary.Title, StringComparison.Ordinal) ? summary : summary with { Title = title };
+    }
+
+    private static Conversation? NormalizeConversation(Conversation? conversation)
+    {
+        if (conversation is null)
+        {
+            return null;
+        }
+
+        var title = NormalizeTitle(conversation.Title);
+        return string.Equals(title, conversation.Title, StringComparison.Ordinal) ? conversation : conversation with { Title = title };
+    }
+
+    private static async Task<Conversation?> NormalizeConversationAsync(Task<Conversation?> conversationTask)
+    {
+        var conversation = await conversationTask.ConfigureAwait(false);
+        return NormalizeConversation(conversation);
+    }
+
     private Task<Conversation?> AppendMessageAsync(Guid userId, Guid conversationId, Guid messageId, string content, ConversationMessageRole role, int maximumLength, IReadOnlyCollection<ConversationSourceCitation> sources, CancellationToken cancellationToken)
     {
         ValidateIds(userId, conversationId);
         var now = timeProvider.GetUtcNow();
         var message = CreateMessage(messageId, content, role, maximumLength, now, sources);
-        return store.AppendMessageAsync(userId, conversationId, message, now, cancellationToken);
+        return NormalizeConversationAsync(store.AppendMessageAsync(userId, conversationId, message, now, cancellationToken));
     }
 
     private Task<Conversation?> AppendMessageAsync(Conversation conversation, Guid messageId, string content, ConversationMessageRole role, int maximumLength, IReadOnlyCollection<ConversationSourceCitation> sources, CancellationToken cancellationToken)
@@ -226,7 +251,7 @@ public sealed class ConversationService
         ValidateIds(conversation.UserId, conversation.Id);
         var now = timeProvider.GetUtcNow();
         var message = CreateMessage(messageId, content, role, maximumLength, now, sources);
-        return store.AppendMessageAsync(conversation, message, now, cancellationToken);
+        return NormalizeConversationAsync(store.AppendMessageAsync(conversation, message, now, cancellationToken));
     }
 
     private static ConversationMessage CreateMessage(Guid messageId, string content, ConversationMessageRole role, int maximumLength, DateTimeOffset createdAtUtc, IReadOnlyCollection<ConversationSourceCitation> sources)

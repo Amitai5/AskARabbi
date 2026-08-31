@@ -1,5 +1,5 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
-import type { ConversationDetails, ConversationMessage, ConversationSummary } from './conversationData.ts'
+import { normalizeConversationTitle, type ConversationDetails, type ConversationMessage, type ConversationSummary } from './conversationData.ts'
 
 export interface ConversationClient {
   list(): Promise<ConversationSummary[]>
@@ -30,23 +30,27 @@ export type ConversationTurn = CompactConversationTurn | FullConversationTurn
 
 export function createBackendConversationClient(apiClient: ApiClient = createApiClient()): ConversationClient {
   return {
-    list() {
-      return apiClient.request<ConversationSummary[]>('/api/conversations')
+    async list() {
+      const conversations = await apiClient.request<ConversationSummary[]>('/api/conversations')
+      return conversations.map(normalizeConversationSummary)
     },
-    createWithMessage(messageId, content, enabledSourceKeys) {
-      return apiClient.request<ConversationTurn>('/api/conversations?compact=true', {
+    async createWithMessage(messageId, content, enabledSourceKeys) {
+      const turn = await apiClient.request<ConversationTurn>('/api/conversations?compact=true', {
         method: 'POST',
         body: JSON.stringify({ messageId, content, enabledSourceKeys }),
       })
+      return normalizeConversationTurn(turn)
     },
-    get(conversationId) {
-      return apiClient.request<ConversationDetails>(`/api/conversations/${encodeURIComponent(conversationId)}`)
+    async get(conversationId) {
+      const conversation = await apiClient.request<ConversationDetails>(`/api/conversations/${encodeURIComponent(conversationId)}`)
+      return normalizeConversationDetails(conversation)
     },
-    appendMessage(conversationId, messageId, content) {
-      return apiClient.request<ConversationTurn>(`/api/conversations/${encodeURIComponent(conversationId)}/messages?compact=true`, {
+    async appendMessage(conversationId, messageId, content) {
+      const turn = await apiClient.request<ConversationTurn>(`/api/conversations/${encodeURIComponent(conversationId)}/messages?compact=true`, {
         method: 'POST',
         body: JSON.stringify({ messageId, content }),
       })
+      return normalizeConversationTurn(turn)
     },
     rename(conversationId, title) {
       return apiClient.request<void>(`/api/conversations/${encodeURIComponent(conversationId)}/title`, {
@@ -64,4 +68,18 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
       return apiClient.request<void>(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' })
     },
   }
+}
+
+function normalizeConversationSummary(conversation: ConversationSummary): ConversationSummary {
+  return { ...conversation, title: normalizeConversationTitle(conversation.title) }
+}
+
+function normalizeConversationDetails(conversation: ConversationDetails): ConversationDetails {
+  return { ...conversation, title: normalizeConversationTitle(conversation.title) }
+}
+
+function normalizeConversationTurn(turn: ConversationTurn): ConversationTurn {
+  return 'messages' in turn
+    ? { ...turn, conversation: normalizeConversationSummary(turn.conversation) }
+    : { ...turn, conversation: normalizeConversationDetails(turn.conversation) }
 }
