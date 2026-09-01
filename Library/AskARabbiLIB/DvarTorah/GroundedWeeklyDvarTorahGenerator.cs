@@ -81,7 +81,12 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var researchErrors = ValidateResearch(research, newsCandidates);
         if (researchErrors.Count > 0)
         {
-            throw new WeeklyDvarTorahGenerationException("ResearchSelectionInvalid", $"Weekly Dvar Torah research selection was invalid: {string.Join(" ", researchErrors)}");
+            research = await ResearchAsync(week, newsWindowStartedAtUtc, newsWindowEndedAtUtc, newsCandidates, cancellationToken, research, string.Join(" ", researchErrors)).ConfigureAwait(false);
+            researchErrors = ValidateResearch(research, newsCandidates);
+        }
+        if (researchErrors.Count > 0)
+        {
+            throw new WeeklyDvarTorahGenerationException("ResearchSelectionInvalid", $"Weekly Dvar Torah research selection failed its repair attempt: {string.Join(" ", researchErrors)}");
         }
 
         var selectedNews = research.SelectedNewsEvidenceIds.Select(id => newsCandidates.Single(candidate => candidate.EvidenceId == id)).ToArray();
@@ -151,7 +156,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}");
     }
 
-    private async Task<WeeklyDvarTorahResearchDraft> ResearchAsync(WeeklyDvarTorahWeek week, DateTimeOffset windowStart, DateTimeOffset windowEnd, IReadOnlyList<NewsCandidate> candidates, CancellationToken cancellationToken)
+    private async Task<WeeklyDvarTorahResearchDraft> ResearchAsync(WeeklyDvarTorahWeek week, DateTimeOffset windowStart, DateTimeOffset windowEnd, IReadOnlyList<NewsCandidate> candidates, CancellationToken cancellationToken, WeeklyDvarTorahResearchDraft? previousResearch = null, string? validationError = null)
     {
         var input = new
         {
@@ -183,10 +188,16 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 candidate.Item.PublishedAtUtc,
             }),
         };
-        var messages = new AIPromptBuilder()
+        var builder = new AIPromptBuilder()
             .AddSystem(prompts.ResearchSystemPrompt)
-            .AddUser($"<UNTRUSTED_CURRENT_EVENTS_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_CURRENT_EVENTS_JSON>")
-            .Build();
+            .AddUser($"<UNTRUSTED_CURRENT_EVENTS_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_CURRENT_EVENTS_JSON>");
+        if (previousResearch is not null)
+        {
+            builder
+                .AddAssistant(JsonSerializer.Serialize(previousResearch, PromptJsonOptions))
+                .AddUser(prompts.FormatRepair(validationError ?? "The prior research selection did not pass validation."));
+        }
+        var messages = builder.Build();
         var result = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahResearchDraft>(messages, prompts.ResearchSchemaName, researchSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } research)
         {

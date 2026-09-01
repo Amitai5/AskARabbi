@@ -72,6 +72,33 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsFalse(exception.FailureCode.Contains("Sensitive", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_FirstResearchSelectionInvalid_RepairsBeforeDrafting()
+    {
+        var invalidResearch = CreateResearchDraft() with { SelectedNewsEvidenceIds = ["N1"] };
+        var generationEngine = new QueueEngine(invalidResearch, CreateResearchDraft(), CreateArticleDraft("Repaired research title"));
+        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.AreEqual("Repaired research title", result.Title);
+        Assert.AreEqual(3, generationEngine.Calls);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_ResearchSelectionRejectsBothAttempts_FailsClosed()
+    {
+        var invalidResearch = CreateResearchDraft() with { TorahSearchQueries = ["one query"] };
+        var generator = CreateGenerator(CreateTorahHits(), new QueueEngine(invalidResearch, invalidResearch), new QueueEngine(CreatePassingReview()));
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("ResearchSelectionInvalid", exception.FailureCode);
+        StringAssert.Contains(exception.Message, "repair attempt");
+    }
+
     private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine)
     {
         var prompts = new WeeklyDvarTorahPromptSet
