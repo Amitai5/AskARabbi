@@ -10,11 +10,18 @@ internal sealed class FakeGroundedAnswerService : IGroundedAnswerService
 
     internal GroundedQuestion? LastQuestion { get; private set; }
 
+    internal GroundedAnswerResult? NextResult { get; set; }
+
     public Task<GroundedAnswerResult> AnswerAsync(GroundedQuestion question, IReadOnlyList<GroundedConversationTurn> recentConversation, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CallCount++;
         LastQuestion = question;
+        if (NextResult is { } nextResult)
+        {
+            NextResult = null;
+            return Task.FromResult(nextResult);
+        }
         var citation = new SourceCitation(1, "E1", "sefaria:test:segment:00000001", "Test source", "מקור", "Test 1:1", "Test edition", "English", "en", "Torah", ["Torah"], "CC-BY", SourceLicenseCategory.CcBy, "https://example.test/source", "Data/NormalizedData/Sefaria/Test.md", false);
         var quotation = new GroundedQuotation("The tested source text.", "Direct support for the test answer", citation);
         var answer = new GroundedAnswer(

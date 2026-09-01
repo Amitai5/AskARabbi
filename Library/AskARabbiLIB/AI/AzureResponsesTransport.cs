@@ -36,28 +36,55 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         var responseOptions = CreateOptions(request);
         try
         {
-            ClientResult<ResponseResult> response = await client.CreateResponseAsync(responseOptions, cancellationToken).ConfigureAwait(false);
-            var value = response.Value;
-            var usage = value.Usage is null ? null : new AIUsage(value.Usage.InputTokenCount, value.Usage.OutputTokenCount, value.Usage.TotalTokenCount);
-            var responseId = value.Id;
-            var responseModel = string.IsNullOrWhiteSpace(value.Model) ? request.Model : value.Model;
-            if (value.Status == ResponseStatus.Completed)
+            AIUsage? aggregateUsage = null;
+            while (true)
             {
-                return new AITransportResult(AIEngineStatus.Success, value.GetOutputText(), null, responseId, responseModel, usage, false);
-            }
+                ClientResult<ResponseResult> response = await client.CreateResponseAsync(responseOptions, cancellationToken).ConfigureAwait(false);
+                var value = response.Value;
+                var responseUsage = value.Usage is null ? null : new AIUsage(value.Usage.InputTokenCount, value.Usage.OutputTokenCount, value.Usage.TotalTokenCount);
+                aggregateUsage = CombineUsage(aggregateUsage, responseUsage);
+                var responseId = value.Id;
+                var responseModel = string.IsNullOrWhiteSpace(value.Model) ? request.Model : value.Model;
+                var functionCalls = value.OutputItems.OfType<FunctionCallResponseItem>().ToArray();
+                if (functionCalls.Length > 0)
+                {
+                    if (request.ToolSession is null)
+                    {
+                        return new AITransportResult(AIEngineStatus.InvalidResponse, null, "Azure OpenAI requested a tool when no tool session was configured.", responseId, responseModel, aggregateUsage, false);
+                    }
 
-            if (value.Status == ResponseStatus.Failed && value.Error?.Code == ResponseErrorCode.RateLimitExceeded)
-            {
-                return new AITransportResult(AIEngineStatus.RateLimited, null, value.Error.Message, responseId, responseModel, usage, true);
-            }
+                    AppendResponseOutputItems(responseOptions, value.OutputItems);
+                    foreach (var functionCall in functionCalls)
+                    {
+                        var output = await request.ToolSession.ExecuteAsync(functionCall.FunctionName, functionCall.FunctionArguments, cancellationToken).ConfigureAwait(false);
+                        responseOptions.InputItems.Add(new FunctionCallOutputResponseItem(functionCall.CallId, output.ToString()));
+                    }
+                    if (request.ToolSession.ExecutionCount >= request.ToolSession.MaximumExecutionCount)
+                    {
+                        responseOptions.ToolChoice = ResponseToolChoice.CreateNoneChoice();
+                        responseOptions.Tools.Clear();
+                    }
+                    continue;
+                }
 
-            if (value.Status == ResponseStatus.Failed && value.Error?.Code == ResponseErrorCode.ServerError)
-            {
-                return new AITransportResult(AIEngineStatus.ProviderFailure, null, value.Error.Message, responseId, responseModel, usage, true);
-            }
+                if (value.Status == ResponseStatus.Completed)
+                {
+                    return new AITransportResult(AIEngineStatus.Success, value.GetOutputText(), null, responseId, responseModel, aggregateUsage, false);
+                }
 
-            var error = value.Error?.Message ?? $"Azure OpenAI returned response status '{value.Status}'.";
-            return new AITransportResult(AIEngineStatus.InvalidResponse, null, error, responseId, responseModel, usage, false);
+                if (value.Status == ResponseStatus.Failed && value.Error?.Code == ResponseErrorCode.RateLimitExceeded)
+                {
+                    return new AITransportResult(AIEngineStatus.RateLimited, null, value.Error.Message, responseId, responseModel, aggregateUsage, true);
+                }
+
+                if (value.Status == ResponseStatus.Failed && value.Error?.Code == ResponseErrorCode.ServerError)
+                {
+                    return new AITransportResult(AIEngineStatus.ProviderFailure, null, value.Error.Message, responseId, responseModel, aggregateUsage, true);
+                }
+
+                var error = value.Error?.Message ?? $"Azure OpenAI returned response status '{value.Status}'.";
+                return new AITransportResult(AIEngineStatus.InvalidResponse, null, error, responseId, responseModel, aggregateUsage, false);
+            }
         }
         catch (ClientResultException exception) when (exception.Status == 429)
         {
@@ -150,7 +177,40 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
             });
         }
 
+        if (request.ToolSession is not null)
+        {
+            foreach (var definition in request.ToolSession.Definitions)
+            {
+                options.Tools.Add(ResponseTool.CreateFunctionTool(definition.Name, definition.ParametersJsonSchema, false, definition.Description));
+            }
+            options.MaxToolCallCount = request.ToolSession.MaximumExecutionCount;
+            options.ParallelToolCallsEnabled = false;
+        }
+
         return options;
+    }
+
+    internal static void AppendResponseOutputItems(CreateResponseOptions responseOptions, IEnumerable<ResponseItem> outputItems)
+    {
+        ArgumentNullException.ThrowIfNull(responseOptions);
+        ArgumentNullException.ThrowIfNull(outputItems);
+        foreach (var outputItem in outputItems)
+        {
+            responseOptions.InputItems.Add(outputItem);
+        }
+    }
+
+    private static AIUsage? CombineUsage(AIUsage? first, AIUsage? second)
+    {
+        if (first is null)
+        {
+            return second;
+        }
+        if (second is null)
+        {
+            return first;
+        }
+        return new AIUsage(first.InputTokens + second.InputTokens, first.OutputTokens + second.OutputTokens, first.TotalTokens + second.TotalTokens);
     }
 
     private AITransportResult CreateAuthorizationFailure(int status, string model, string providerDetail)

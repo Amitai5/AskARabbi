@@ -14,12 +14,17 @@ flowchart LR
     History[Recent validated conversation] --> Search
     History --> Prompt
     Search --> Adequate{Evidence connects the topic and supporting concepts?}
-    Adequate -->|No| Insufficient[Stop with InsufficientEvidence]
+    Adequate -->|No| ToolEligible{Recognized calendar calculation?}
+    ToolEligible -->|No| Insufficient[Stop with InsufficientEvidence]
+    ToolEligible -->|Yes| Prompt
     Adequate -->|Yes| Evidence[Build a bounded evidence packet]
     Evidence --> Prompt
     Question --> Prompt
-    Prompt --> Draft[AI writes a structured draft]
-    Draft --> Validate{IDs, structure, and exact quotes valid?}
+    Prompt --> Draft[AI writes a draft or requests a local tool]
+    Draft -->|Tool call| Calendar[Run a bounded local calendar calculation]
+    Calendar --> Calculated[Add exact calculated evidence]
+    Calculated --> Draft
+    Draft -->|Structured draft| Validate{IDs, structure, and exact quotes valid?}
     Validate -->|Yes| Support{Claims relevant and supported?}
     Validate -->|No| Repair[One repair using the same evidence]
     Support -->|Yes| Materialize[Attach trusted source details]
@@ -30,7 +35,7 @@ flowchart LR
     Materialize --> Answer[Render conversational answer]
 ```
 
-The most important rule is that the AI does not get to answer from general model knowledge when the local sources are missing. If no useful evidence is retrieved, or if the draft cannot be validated, AskARabbi stops instead of displaying an unsupported answer.
+The most important rule is that the AI does not get to answer from general model knowledge when trusted evidence is missing. Evidence normally comes from the approved corpus; three narrow calendar functions can also create deterministic calculated evidence. If neither path supports the question, or if the draft cannot be validated, AskARabbi stops instead of displaying an unsupported answer.
 
 ## 1. Understand the current question
 
@@ -44,7 +49,7 @@ AskARabbi keeps three kinds of context separate:
 - **Recent user questions** help resolve a natural follow-up such as “What about turkey?”
 - **The user profile** helps the AI choose appropriate wording and recognize when a community distinction may matter.
 
-The profile can contain the person’s name, calculated age, optional bio, optional self-described religious background, and self-described Jewish heritage. The exact date of birth is reduced to age before the model request is built.
+The profile can contain the person’s name, calculated age, optional bio, optional self-described religious background, and self-described Jewish heritage. The exact date and time of birth and birth time zone are omitted from the normal model prompt. When a birthday calculation is requested, a trusted local function can use those saved fields on the server and return only the derived calendar result and its assumptions.
 
 Profile information does not count as evidence. It is not added to the source-search query, and it cannot establish that a rule is Sephardi, Mizrahi, Ashkenazi, Reform, Conservative, Orthodox, or anything else. A community-specific distinction must still be supported by retrieved text. The prompts also prohibit stereotyping, assumed observance, and repeating personal details when they are irrelevant.
 
@@ -79,7 +84,7 @@ The result is a ranked collection of source segments such as verses, Mishnah pas
 
 ## 3. Build a usable evidence packet
 
-Before packet construction, a deterministic adequacy gate checks whether the candidates connect the identified topic to enough of the question’s supporting concepts. A Shabbat automation question therefore needs Shabbat-anchored evidence about more than an isolated generic word. If the candidates are empty or merely tangential, AskARabbi returns `InsufficientEvidence` and does not call the answer model.
+Before packet construction, a deterministic adequacy gate checks whether the candidates connect the identified topic to enough of the question’s supporting concepts. A Shabbat automation question therefore needs Shabbat-anchored evidence about more than an isolated generic word. If the candidates are empty or merely tangential, AskARabbi normally returns `InsufficientEvidence` and does not call the answer model. The only exception is a question recognized as a supported local calendar calculation; the model may then call the approved function, but it still cannot answer from memory.
 
 After that gate passes, the model is not given every search result. `EvidencePacketBuilder` chooses a smaller packet that gives the answer enough textual support without flooding the prompt.
 
@@ -107,7 +112,7 @@ An unusually long segment is marked as an explicit excerpt centered near the rel
 
 ## 4. Tell the AI what kind of answer to write
 
-Once evidence exists, AskARabbi constructs the writing request from:
+Once corpus evidence exists—or a recognized calendar request is allowed to obtain calculated evidence—AskARabbi constructs the writing request from:
 
 1. The trusted behavior contract in [`system-behavior.txt`](../Prototype/Prompts/system-behavior.txt).
 2. Up to three recent validated question-and-answer turns.
@@ -115,6 +120,20 @@ Once evidence exists, AskARabbi constructs the writing request from:
 4. The minimized user profile.
 5. The bounded evidence packet.
 6. The strict response shape in [`grounded-answer.schema.json`](../Prototype/Prompts/grounded-answer.schema.json).
+
+For a recognized calendar question, the request also exposes a small function schema catalog. The server registers the providers explicitly, rejects unknown functions and arguments, disables parallel calls, and allows at most four executions in one request. No service locator, broad assembly scan, web access, or arbitrary code tool is available.
+
+### Local calendar calculations
+
+Three functions are available:
+
+- `convert_birthdate_to_hebrew` converts a supplied Gregorian `DateTime`, or privately uses the authenticated profile's saved birth date when the argument is omitted.
+- `find_parashah_for_week` returns the regular parashah or a festival-displaced reading for the Shabbat on or after a supplied date. It can also calculate the Shabbat on or after a saved profile's Hebrew birthday anniversary, including a typical age-13 bar mitzvah or age-12 bat mitzvah request.
+- `get_today_as_hebrew_and_gregorian` returns both dates from one captured UTC instant, converted with the saved profile time zone when available.
+
+The caller must explicitly state whether the relevant event or current time is after local sunset. If that fact is unknown, the tool uses the civil date without advancing it and returns a sunset caveat. The parashah function defaults to the Diaspora reading cycle unless the user specifies Israel, and it identifies festival weeks where no regular weekly portion is assigned.
+
+Successful output becomes an application-owned `EvidenceItem` with an opaque ID, exact result text, calculation method, and assumptions. That output is a calculated fact, not a religious text or *psak*. The model must cite its ID and quote the exact contiguous result; failed calculations create no evidence.
 
 The behavior contract tells the AI to:
 
@@ -162,7 +181,7 @@ A simplified claim looks like this:
 }
 ```
 
-The model supplies prose, evidence IDs, and exact quotation text. It does not get final authority over citation titles, editions, links, licenses, or file locations.
+The model supplies prose, evidence IDs, and exact quotation text. It does not get final authority over citation titles, editions, links, licenses, file locations, or the contents of calculated evidence.
 
 ## 6. Validate every claim, quotation, and inference
 
@@ -174,7 +193,7 @@ The deterministic layer checks that:
 - Every substantive claim and disagreement cites one or more evidence IDs.
 - Every cited ID exists in the evidence packet for this exact question.
 - Every cited evidence ID has a quotation attached to that same statement.
-- Every quotation is a character-for-character substring of both the text shown to the model and the trusted complete source segment.
+- Every quotation is a character-for-character substring of both the text shown to the model and the trusted complete source segment or local calculation result.
 - Quotation roles are present and source relationships are complete.
 - Claims, attributions, limitations, and follow-up questions stay within their allowed sizes.
 
@@ -199,7 +218,7 @@ The repair cannot search for different passages, add unsupported sources, or esc
 
 ## 7. Attach trustworthy citation details
 
-After validation succeeds, the application replaces opaque evidence IDs with trusted source information from the local index. It constructs each citation’s:
+After validation succeeds, the application replaces opaque evidence IDs with trusted information from the local index or calendar-tool result. For religious text it constructs each citation’s:
 
 - Display number.
 - Title and canonical reference.
@@ -209,7 +228,7 @@ After validation succeeds, the application replaces opaque evidence IDs with tru
 - Exact validated quotations and the bounded surrounding text presented as evidence.
 - A canonical Sefaria passage URL plus the edition attribution URL and local file path.
 
-This information never comes from model-generated citation metadata. The AI therefore cannot turn `E1` into the wrong tractate, edition, link, or license while still passing validation.
+Calculated calendar evidence is labeled `Calendar calculations`, links to the pinned calculation package rather than fabricating a Sefaria passage, and retains the exact result and caveats shown to the model. None of this information comes from model-generated citation metadata. The AI therefore cannot turn `E1` into the wrong tractate, date, edition, link, or license while still passing validation.
 
 ## 8. Render the final conversational answer
 
@@ -239,6 +258,7 @@ Only successfully validated answers enter conversation history: process memory i
 - The writing request includes up to three recent validated question-and-answer turns.
 - The selected profile remains available for respectful personalization.
 - Source retrieval runs again.
+- Relevant local calendar tools are made available again with a fresh request-local execution limit and current-time snapshot.
 - A new evidence packet is built.
 - The new draft must pass the full citation and quotation validation again.
 
@@ -287,6 +307,8 @@ Grounding makes an answer traceable and harder to fabricate. It does not turn an
 | Managed corpus publication | [`AzureOpenAIVectorStoreCorpusPublisher.cs`](../Library/AskARabbiLIB/Retrieval/AzureOpenAIVectorStoreCorpusPublisher.cs) |
 | Pre-model evidence adequacy | [`SourceEvidenceAdequacyEvaluator.cs`](../Library/AskARabbiLIB/Grounding/SourceEvidenceAdequacyEvaluator.cs) |
 | Evidence selection and context | [`EvidencePacketBuilder.cs`](../Library/AskARabbiLIB/Grounding/EvidencePacketBuilder.cs) |
+| Tool discovery and bounded execution | [`AIToolRegistry.cs`](../Library/AskARabbiLIB/AI/Tools/AIToolRegistry.cs) and [`AIToolExecutionSession.cs`](../Library/AskARabbiLIB/AI/Tools/AIToolExecutionSession.cs) |
+| Hebrew dates and weekly readings | [`HebrewCalendarService.cs`](../Library/AskARabbiLIB/Calendar/HebrewCalendarService.cs) and [`CalendarAITools.cs`](../Library/AskARabbiLIB/AI/Tools/CalendarAITools.cs) |
 | Answer behavior and writing style | [`system-behavior.txt`](../Prototype/Prompts/system-behavior.txt) |
 | Structured answer contract | [`grounded-answer.schema.json`](../Prototype/Prompts/grounded-answer.schema.json) |
 | Claim relevance and support audit | [`grounded-support-validation.txt`](../Prototype/Prompts/grounded-support-validation.txt) |

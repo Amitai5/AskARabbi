@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AskARabbiLIB.AI;
+using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.Profiles;
 using AskARabbiLIB.Retrieval;
 
@@ -25,6 +26,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     private readonly GroundedAnswerOptions options;
     private readonly TimeProvider timeProvider;
     private readonly EvidencePacketBuilder packetBuilder;
+    private readonly IAIToolRegistry? toolRegistry;
 
     /// <summary>Creates a provider-neutral grounded-answer orchestrator.</summary>
     /// <param name="retriever">Approved-corpus source retriever.</param>
@@ -32,7 +34,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     /// <param name="prompts">Validated model instructions and response schema.</param>
     /// <param name="options">Optional retrieval and evidence budgets.</param>
     /// <param name="timeProvider">Optional clock used to calculate a profile holder's current age.</param>
-    public GroundedAnswerService(ISourceRetriever retriever, IAIEngine engine, GroundedPromptSet prompts, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null) : this(retriever, engine, prompts, new AIGroundedClaimEvidenceValidator(engine, prompts), options, timeProvider)
+    /// <param name="toolRegistry">Optional explicitly registered local calculation tools.</param>
+    public GroundedAnswerService(ISourceRetriever retriever, IAIEngine engine, GroundedPromptSet prompts, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null, IAIToolRegistry? toolRegistry = null) : this(retriever, engine, prompts, new AIGroundedClaimEvidenceValidator(engine, prompts), options, timeProvider, toolRegistry)
     {
     }
 
@@ -43,11 +46,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     /// <param name="prompts">Validated model instructions and response schema.</param>
     /// <param name="options">Optional retrieval and evidence budgets.</param>
     /// <param name="timeProvider">Optional clock used to calculate a profile holder's current age.</param>
-    public GroundedAnswerService(ISourceRetriever retriever, IAIEngine answerEngine, IAIEngine validationEngine, GroundedPromptSet prompts, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null) : this(retriever, answerEngine, prompts, new AIGroundedClaimEvidenceValidator(validationEngine, prompts), options, timeProvider)
+    /// <param name="toolRegistry">Optional explicitly registered local calculation tools.</param>
+    public GroundedAnswerService(ISourceRetriever retriever, IAIEngine answerEngine, IAIEngine validationEngine, GroundedPromptSet prompts, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null, IAIToolRegistry? toolRegistry = null) : this(retriever, answerEngine, prompts, new AIGroundedClaimEvidenceValidator(validationEngine, prompts), options, timeProvider, toolRegistry)
     {
     }
 
-    internal GroundedAnswerService(ISourceRetriever retriever, IAIEngine engine, GroundedPromptSet prompts, IGroundedClaimEvidenceValidator claimEvidenceValidator, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null)
+    internal GroundedAnswerService(ISourceRetriever retriever, IAIEngine engine, GroundedPromptSet prompts, IGroundedClaimEvidenceValidator claimEvidenceValidator, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null, IAIToolRegistry? toolRegistry = null)
     {
         ArgumentNullException.ThrowIfNull(retriever);
         ArgumentNullException.ThrowIfNull(engine);
@@ -61,6 +65,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         this.claimEvidenceValidator = claimEvidenceValidator;
         this.prompts = prompts;
         this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.toolRegistry = toolRegistry;
         packetBuilder = new EvidencePacketBuilder(retriever, this.options);
         responseJsonSchema = BinaryData.FromString(prompts.ResponseJsonSchema);
     }
@@ -68,8 +73,10 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     /// <inheritdoc cref="IGroundedAnswerService.AnswerAsync"/>
     public async Task<GroundedAnswerResult> AnswerAsync(GroundedQuestion question, IReadOnlyList<GroundedConversationTurn> recentConversation, CancellationToken cancellationToken = default)
     {
+        var currentUtc = timeProvider.GetUtcNow();
         var currentDate = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
         ValidateQuestion(question, recentConversation, currentDate);
+        var mayUseTools = toolRegistry?.MayApply(question.Question) == true;
         var retrievalStopwatch = Stopwatch.StartNew();
         var retrievalText = BuildRetrievalText(question.Question, recentConversation);
         var hits = await retriever.SearchAsync(new SourceRetrievalQuery
@@ -84,22 +91,28 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         }, cancellationToken).ConfigureAwait(false);
 
         var adequacy = SourceEvidenceAdequacyEvaluator.Evaluate(retrievalText, hits);
-        if (!adequacy.IsAdequate)
+        if (!adequacy.IsAdequate && !mayUseTools)
         {
             retrievalStopwatch.Stop();
             return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, adequacy.ErrorMessage ?? "The retrieved passages were not adequate to ground an answer. The model was not called.", null, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
         }
 
-        var packet = await packetBuilder.BuildAsync(adequacy.OrderedHits, question, cancellationToken).ConfigureAwait(false);
+        var packet = adequacy.IsAdequate
+            ? await packetBuilder.BuildAsync(adequacy.OrderedHits, question, cancellationToken).ConfigureAwait(false)
+            : new EvidencePacket([], 0);
         retrievalStopwatch.Stop();
-        if (packet.Items.Count == 0)
+        if (packet.Items.Count == 0 && !mayUseTools)
         {
             return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, "Retrieved passages could not fit safely within the evidence budget. The model was not called.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
         }
 
         var diagnostics = new List<AIResponseDiagnostics>();
+        var toolSession = mayUseTools && toolRegistry is not null
+            ? new AIToolExecutionSession(toolRegistry, new AIToolExecutionContext(question.UserProfile, currentUtc), packet.Items.Count)
+            : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate);
-        var firstResult = await engine.GenerateStructuredAsync<GroundedAnswerDraft>(messages, prompts.ResponseSchemaName, responseJsonSchema, cancellationToken).ConfigureAwait(false);
+        var firstResult = await GenerateDraftAsync(messages, toolSession, cancellationToken).ConfigureAwait(false);
+        packet = MergeToolEvidence(packet, toolSession);
         diagnostics.Add(firstResult.Diagnostics);
         if (!firstResult.IsSuccess || firstResult.Value is not { } firstDraft)
         {
@@ -121,12 +134,13 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(MapProviderFailure(firstValidation.EngineStatus), firstValidation.ErrorMessage ?? "The independent claim-support audit failed.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Failed, false, CombineDiagnostics(diagnostics));
         }
 
-        var repairMessages = messages.Concat(
+        var repairMessages = BuildMessages(question, recentConversation, packet, currentDate).Concat(
         [
             new AIMessage(AIMessageRole.Assistant, JsonSerializer.Serialize(firstDraft, PromptJsonOptions)),
             new AIMessage(AIMessageRole.User, prompts.FormatValidationRepair(firstValidation.ErrorMessage ?? "The draft did not satisfy the grounded-answer contract.")),
         ]).ToArray();
-        var repairResult = await engine.GenerateStructuredAsync<GroundedAnswerDraft>(repairMessages, prompts.ResponseSchemaName, responseJsonSchema, cancellationToken).ConfigureAwait(false);
+        var repairResult = await GenerateDraftAsync(repairMessages, toolSession, cancellationToken).ConfigureAwait(false);
+        packet = MergeToolEvidence(packet, toolSession);
         diagnostics.Add(repairResult.Diagnostics);
         if (!repairResult.IsSuccess || repairResult.Value is not { } repairDraft)
         {
@@ -148,6 +162,27 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(GroundedAnswerStatus.ValidationFailed, $"The repaired draft still failed grounding validation: {repairValidation.ErrorMessage}", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Failed, true, CombineDiagnostics(diagnostics));
         }
         return CreateSuccess(GetValidatedAnswer(repairValidation), packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Repaired, true, CombineDiagnostics(diagnostics));
+    }
+
+    private Task<AIEngineResult<GroundedAnswerDraft>> GenerateDraftAsync(IReadOnlyList<AIMessage> messages, AIToolExecutionSession? toolSession, CancellationToken cancellationToken)
+    {
+        return toolSession is null
+            ? engine.GenerateStructuredAsync<GroundedAnswerDraft>(messages, prompts.ResponseSchemaName, responseJsonSchema, cancellationToken)
+            : engine.GenerateStructuredAsync<GroundedAnswerDraft>(messages, prompts.ResponseSchemaName, responseJsonSchema, toolSession, cancellationToken);
+    }
+
+    private static EvidencePacket MergeToolEvidence(EvidencePacket packet, AIToolExecutionSession? toolSession)
+    {
+        if (toolSession is null || toolSession.EvidenceItems.Count == 0)
+        {
+            return packet;
+        }
+
+        var existingIds = packet.Items.Select(item => item.EvidenceId).ToHashSet(StringComparer.Ordinal);
+        var additions = toolSession.EvidenceItems.Where(item => existingIds.Add(item.EvidenceId)).ToArray();
+        return additions.Length == 0
+            ? packet
+            : new EvidencePacket(packet.Items.Concat(additions).ToArray(), packet.CharacterCount + additions.Sum(item => item.PresentedText.Length));
     }
 
     private async Task<CandidateValidationResult> ValidateCandidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, CancellationToken cancellationToken)
@@ -289,6 +324,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var evidence = packet.Items.ToDictionary(item => item.EvidenceId, StringComparer.Ordinal);
         var orderedIds = new List<string>();
+        var resolvedClaimQuotations = new List<IReadOnlyList<GroundedQuotationDraft>>(draft.Claims.Count);
         foreach (var claim in draft.Claims)
         {
             if (!ValidateSourcedStatement(claim.Text, 4_000, claim.EvidenceIds, evidence, orderedIds, out error))
@@ -299,11 +335,13 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             {
                 return false;
             }
-            if (!ValidateQuotations(claim.Quotations, claim.EvidenceIds, evidence, out error))
+            if (!TryResolveQuotations(claim.Quotations, claim.EvidenceIds, evidence, out var resolvedQuotations, out error))
             {
                 return false;
             }
+            resolvedClaimQuotations.Add(resolvedQuotations);
         }
+        var resolvedDisagreementQuotations = new List<IReadOnlyList<GroundedQuotationDraft>>(draft.Disagreements.Count);
         foreach (var disagreement in draft.Disagreements)
         {
             if (!ValidateSourcedStatement(disagreement.Text, 3_000, disagreement.EvidenceIds, evidence, orderedIds, out error))
@@ -314,15 +352,16 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             {
                 return false;
             }
-            if (!ValidateQuotations(disagreement.Quotations, disagreement.EvidenceIds, evidence, out error))
+            if (!TryResolveQuotations(disagreement.Quotations, disagreement.EvidenceIds, evidence, out var resolvedQuotations, out error))
             {
                 return false;
             }
+            resolvedDisagreementQuotations.Add(resolvedQuotations);
         }
 
         var citationById = orderedIds.Select((id, index) => CreateCitation(index + 1, evidence[id])).ToDictionary(citation => citation.EvidenceId, StringComparer.Ordinal);
-        var claims = draft.Claims.Select(claim => CreateClaim(claim, citationById)).ToArray();
-        var disagreements = draft.Disagreements.Select(disagreement => CreateDisagreement(disagreement, citationById)).ToArray();
+        var claims = draft.Claims.Select((claim, index) => CreateClaim(claim, resolvedClaimQuotations[index], citationById)).ToArray();
+        var disagreements = draft.Disagreements.Select((disagreement, index) => CreateDisagreement(disagreement, resolvedDisagreementQuotations[index], citationById)).ToArray();
         answer = new GroundedAnswer(claims, disagreements, draft.Limitations.Select(value => value.Trim()).ToArray(), draft.ClarifyingQuestion?.Trim(), draft.HumanGuidanceRecommended, citationById.Values.OrderBy(citation => citation.Number).ToArray())
         {
             SuggestedConversationTitle = suggestedConversationTitle,
@@ -358,8 +397,9 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return true;
     }
 
-    private static bool ValidateQuotations(IReadOnlyList<GroundedQuotationDraft>? quotations, IReadOnlyList<string> evidenceIds, IReadOnlyDictionary<string, EvidenceItem> evidence, out string? error)
+    private static bool TryResolveQuotations(IReadOnlyList<GroundedQuotationDraft>? quotations, IReadOnlyList<string> evidenceIds, IReadOnlyDictionary<string, EvidenceItem> evidence, out IReadOnlyList<GroundedQuotationDraft> resolvedQuotations, out string? error)
     {
+        resolvedQuotations = [];
         if (quotations is null || quotations.Count is < 1 or > 12 || quotations.Any(quotation => quotation is null))
         {
             error = "Every sourced statement must contain between one and twelve exact quotations.";
@@ -368,6 +408,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var citedIds = evidenceIds.ToHashSet(StringComparer.Ordinal);
         var quotedIds = new HashSet<string>(StringComparer.Ordinal);
+        var resolved = new List<GroundedQuotationDraft>(quotations.Count);
         foreach (var quotation in quotations)
         {
             if (string.IsNullOrWhiteSpace(quotation.EvidenceId) || !citedIds.Contains(quotation.EvidenceId) || !evidence.TryGetValue(quotation.EvidenceId, out var quotationItem))
@@ -385,11 +426,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
                 error = "Every quotation must explain its role in at most 300 characters.";
                 return false;
             }
-            if (!quotationItem.PresentedText.Contains(quotation.Text, StringComparison.Ordinal) || !quotationItem.Source.Text.Contains(quotation.Text, StringComparison.Ordinal))
+            if (!GroundedQuotationResolver.TryResolve(quotationItem, quotation.Text, out var exactText) || exactText.Length > 1_200)
             {
-                error = $"Direct quotation for evidence ID '{quotation.EvidenceId}' is not an exact substring of the identified segment.";
+                error = $"Direct quotation for evidence ID '{quotation.EvidenceId}' does not match a contiguous passage in the identified segment.";
                 return false;
             }
+            resolved.Add(quotation with { Text = exactText });
             quotedIds.Add(quotation.EvidenceId);
         }
         if (!quotedIds.SetEquals(citedIds))
@@ -397,13 +439,14 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             error = "Every cited evidence ID must have at least one exact quotation so the complete reasoning chain remains inspectable.";
             return false;
         }
+        resolvedQuotations = resolved;
         error = null;
         return true;
     }
 
-    private static GroundedClaim CreateClaim(GroundedClaimDraft draft, IReadOnlyDictionary<string, SourceCitation> citationById)
+    private static GroundedClaim CreateClaim(GroundedClaimDraft draft, IReadOnlyList<GroundedQuotationDraft> resolvedQuotations, IReadOnlyDictionary<string, SourceCitation> citationById)
     {
-        var quotations = CreateQuotations(draft.Quotations, citationById);
+        var quotations = CreateQuotations(resolvedQuotations, citationById);
         return new GroundedClaim(draft.Text.Trim(), draft.EvidenceIds.Distinct(StringComparer.Ordinal).Select(id => citationById[id]).ToArray(), quotations[0].Text, quotations[0].Source)
         {
             Attribution = draft.Attribution?.Trim(),
@@ -411,12 +454,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         };
     }
 
-    private static GroundedDisagreement CreateDisagreement(GroundedSourcedStatementDraft draft, IReadOnlyDictionary<string, SourceCitation> citationById)
+    private static GroundedDisagreement CreateDisagreement(GroundedSourcedStatementDraft draft, IReadOnlyList<GroundedQuotationDraft> resolvedQuotations, IReadOnlyDictionary<string, SourceCitation> citationById)
     {
         return new GroundedDisagreement(draft.Text.Trim(), draft.EvidenceIds.Distinct(StringComparer.Ordinal).Select(id => citationById[id]).ToArray())
         {
             Attribution = draft.Attribution?.Trim(),
-            Quotations = CreateQuotations(draft.Quotations, citationById),
+            Quotations = CreateQuotations(resolvedQuotations, citationById),
         };
     }
 

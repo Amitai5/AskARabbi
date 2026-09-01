@@ -120,6 +120,22 @@ public sealed class UserProfileTests
         Assert.IsFalse(json.Contains("\"age\"", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void SerializeAndDeserialize_ProfileCalendarContext_PreservesTimeAndNormalizesTimeZone()
+    {
+        // Arrange
+        var profile = CreateProfile() with { TimeOfBirth = new TimeOnly(21, 15), BirthTimeZone = "  America/Los_Angeles  " };
+
+        // Act
+        var json = UserProfileJsonSerializer.Serialize(profile, new DateOnly(2026, 8, 23));
+        var roundTrip = UserProfileJsonSerializer.Deserialize(json, new DateOnly(2026, 8, 23));
+
+        // Assert
+        Assert.AreEqual(new TimeOnly(21, 15), roundTrip.TimeOfBirth);
+        Assert.AreEqual("America/Los_Angeles", roundTrip.BirthTimeZone);
+    }
+
     private static UserProfile CreateProfile() => new()
     {
         Name = "Amitai Erfanian",

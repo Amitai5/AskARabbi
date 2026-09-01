@@ -120,7 +120,11 @@ public sealed class GroundedConversationTurnService
         if (!answerResult.IsSuccess || answerResult.Answer is null)
         {
             LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, false);
-            return new GroundedConversationTurnResult(ToStatus(answerResult.Status), conversation, answerResult.ErrorMessage, answerResult.Trace, processingStopwatch.Elapsed);
+            if (answerResult.Status == GroundedAnswerStatus.ValidationFailed)
+            {
+                logger.LogWarning("Grounded validation rejected the generated answer for conversation {ConversationId}: {ValidationError}", conversation.Id, answerResult.ErrorMessage);
+            }
+            return new GroundedConversationTurnResult(ToStatus(answerResult.Status), conversation, CreateClientFailureMessage(answerResult), answerResult.Trace, processingStopwatch.Elapsed);
         }
         var rendered = renderer.Render(answerResult.Answer);
         var sources = ConversationSourceMaterializer.Materialize(answerResult.Answer, answerResult.Evidence ?? throw new InvalidOperationException("A successful grounded answer must retain its trusted evidence packet."));
@@ -198,6 +202,8 @@ public sealed class GroundedConversationTurnService
             {
                 Name = personalization.FullName,
                 DateOfBirth = personalization.BirthDate,
+                TimeOfBirth = personalization.BirthTime,
+                BirthTimeZone = personalization.BirthTimeZone,
                 Bio = personalization.AdditionalContext,
                 ReligiousBackground = personalization.ReligiousMovement,
                 JewishHeritage = personalization.JewishHeritage,
@@ -237,4 +243,8 @@ public sealed class GroundedConversationTurnService
         GroundedAnswerStatus.Success => throw new InvalidOperationException("A successful grounded answer must contain materialized answer content."),
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown grounded-answer status."),
     };
+
+    private static string? CreateClientFailureMessage(GroundedAnswerResult result) => result.Status == GroundedAnswerStatus.ValidationFailed
+        ? "AskARabbi could not verify every quotation against its source, so it did not show the answer. Please try again."
+        : result.ErrorMessage;
 }

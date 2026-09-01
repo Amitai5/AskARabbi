@@ -2,6 +2,7 @@ using System.ClientModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AskARabbiLIB.AI.Tools;
 using Azure.Core;
 using Azure.Identity;
 
@@ -58,11 +59,23 @@ public sealed class AzureOpenAIEngine : IAIEngine
     /// <inheritdoc cref="IAIEngine.GenerateStructuredAsync{T}"/>
     public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
     {
+        return await GenerateCoreAsync<T>(messages, schemaName, jsonSchema, null, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc cref="IAIEngine.GenerateStructuredAsync{T}(IReadOnlyList{AIMessage}, string, BinaryData, AIToolExecutionSession, CancellationToken)"/>
+    public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, AIToolExecutionSession toolSession, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(toolSession);
+        return await GenerateCoreAsync<T>(messages, schemaName, jsonSchema, toolSession, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<AIEngineResult<T>> GenerateCoreAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, AIToolExecutionSession? toolSession, CancellationToken cancellationToken)
+    {
         ValidateRequest(messages, schemaName, jsonSchema);
         var stopwatch = Stopwatch.StartNew();
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(options.Timeout);
-        var request = new AITransportRequest(messages.ToArray(), schemaName, jsonSchema, options.ModelName, options.MaximumOutputTokens, options.ReasoningEffort);
+        var request = new AITransportRequest(messages.ToArray(), schemaName, jsonSchema, options.ModelName, options.MaximumOutputTokens, options.ReasoningEffort, toolSession);
         AITransportResult? lastResult = null;
 
         for (var attempt = 0; attempt <= options.MaximumRetryCount; attempt++)

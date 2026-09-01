@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
+using AskARabbiLIB.AI.Tools;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Retrieval;
 
@@ -62,7 +64,8 @@ internal sealed class OneShotCommandExecutor
         var engine = AIEngineFactory.Create(state.Configuration);
         await using var retriever = new SqliteSourceRetriever(state.Location.SegmentIndexPath, state.Manifest);
         var prompts = GroundedPromptFileLoader.Load(state.Location.RepositoryRoot);
-        var service = new GroundedAnswerService(retriever, engine, prompts);
+        var toolRegistry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
+        var service = new GroundedAnswerService(retriever, engine, prompts, timeProvider: timeProvider, toolRegistry: toolRegistry);
         var question = command.GroundedQuestion ?? throw new InvalidOperationException("Ask command is missing its question.");
         if (command.ProfileFileName is not null)
         {

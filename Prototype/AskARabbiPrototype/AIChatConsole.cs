@@ -1,3 +1,5 @@
+using AskARabbiLIB.AI.Tools;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Profiles;
 using AskARabbiLIB.Retrieval;
@@ -39,7 +41,8 @@ internal sealed class AIChatConsole
         var engine = AIEngineFactory.Create(state.Configuration);
         await using var retriever = new SqliteSourceRetriever(state.Location.SegmentIndexPath, state.Manifest);
         var prompts = GroundedPromptFileLoader.Load(state.Location.RepositoryRoot);
-        var answerService = new GroundedAnswerService(retriever, engine, prompts);
+        var toolRegistry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
+        var answerService = new GroundedAnswerService(retriever, engine, prompts, timeProvider: timeProvider, toolRegistry: toolRegistry);
         var session = new InMemoryGroundedSession();
         var preferences = SourcePreferences.CreateDefault(state.SourceCatalog);
         GroundedAnswerResult? lastResult = null;

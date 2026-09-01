@@ -68,6 +68,9 @@ public sealed class LocalDevelopmentIntegrationTests
         Assert.AreEqual("English", application.GroundedAnswers.LastQuestion?.ConversationLanguage);
         Assert.AreEqual("Hebrew", application.GroundedAnswers.LastQuestion?.QuotationLanguage);
         Assert.HasCount(0, application.GroundedAnswers.LastQuestion?.Languages ?? []);
+        Assert.AreEqual(new DateOnly(2001, 12, 17), application.GroundedAnswers.LastQuestion?.UserProfile?.DateOfBirth);
+        Assert.AreEqual(new TimeOnly(9, 30), application.GroundedAnswers.LastQuestion?.UserProfile?.TimeOfBirth);
+        Assert.AreEqual("America/Los_Angeles", application.GroundedAnswers.LastQuestion?.UserProfile?.BirthTimeZone);
 
         using var usageResponse = await client.GetAsync("/api/conversation-settings/usage");
         var usage = await usageResponse.Content.ReadFromJsonAsync<UsageResponse>();

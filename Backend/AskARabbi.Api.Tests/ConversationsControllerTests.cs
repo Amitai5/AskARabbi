@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AskARabbi.Api.Contracts.Conversations;
 using AskARabbiLIB.Conversations;
+using AskARabbiLIB.Grounding;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AskARabbi.Api.Tests;
@@ -79,6 +80,40 @@ public sealed class ConversationsControllerTests
         Assert.IsNotNull(summaries);
         Assert.HasCount(0, summaries);
         Assert.AreEqual(0, application.GroundedAnswers.CallCount);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task Create_GroundingValidationFails_ReturnsSafeMessageWithoutInternalDetails()
+    {
+        // Arrange
+        await using var application = new TestApplicationFactory();
+        application.GroundedAnswers.NextResult = new GroundedAnswerResult
+        {
+            Status = GroundedAnswerStatus.ValidationFailed,
+            ErrorMessage = "Direct quotation for evidence ID 'E5' does not match the source.",
+            Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.FromMilliseconds(20), 6, 6, 4_648, null, GroundedValidationStatus.Failed, true, "test-response", "test-model"),
+        };
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        // Act
+        using var response = await client.PostAsJsonAsync("/api/conversations", new
+        {
+            messageId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            content = "Why do Jewish customs differ?",
+            enabledSourceKeys = new[] { "collection:Torah" },
+        });
+        var result = await response.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
+
+        // Assert
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        Assert.IsNotNull(result);
+        Assert.AreEqual("validation_failed", result.Status);
+        Assert.AreEqual("AskARabbi could not verify every quotation against its source, so it did not show the answer. Please try again.", result.Message);
+        Assert.IsNotNull(result.Message);
+        Assert.IsFalse(result.Message.Contains("E5", StringComparison.Ordinal));
+        Assert.AreEqual(Conversation.DefaultTitle, result.Conversation.Title);
+        Assert.HasCount(1, result.Conversation.Messages);
     }
 
     [TestMethod]

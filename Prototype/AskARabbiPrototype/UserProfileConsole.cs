@@ -22,7 +22,7 @@ internal static class UserProfileConsole
         AnsiConsole.WriteLine();
         AnsiConsole.Write(new Rule("[bold cyan]A little context before we chat[/]"));
         AnsiConsole.MarkupLine("[grey]This helps AskARabbi choose clearer language and recognize potentially relevant community differences without assuming what you believe or practice.[/]");
-        AnsiConsole.MarkupLine("[grey]Saved JSON profiles stay local and are ignored by Git. Azure receives your calculated age, not your exact date of birth.[/]");
+        AnsiConsole.MarkupLine("[grey]Saved JSON profiles stay local and are ignored by Git. Normal prompts receive age, not exact birth data; a calendar tool can privately use the saved date and return only its calculated result.[/]");
         AnsiConsole.WriteLine();
 
         var choice = AnsiConsole.Prompt(

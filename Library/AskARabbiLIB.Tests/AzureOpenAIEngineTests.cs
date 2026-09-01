@@ -1,6 +1,8 @@
 using System.ClientModel;
 using System.Text.Json.Serialization;
 using AskARabbiLIB.AI;
+using AskARabbiLIB.AI.Tools;
+using AskARabbiLIB.Calendar;
 using Azure.Core;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenAI.Responses;
@@ -106,6 +108,24 @@ public sealed class AzureOpenAIEngineTests
         Assert.AreEqual(14, result.Diagnostics.Usage?.TotalTokens);
         Assert.IsNotNull(transport.LastRequest);
         Assert.AreEqual("test-deployment", transport.LastRequest.Model);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateStructuredAsync_ToolSession_PropagatesSessionToTransport()
+    {
+        // Arrange
+        var transport = new QueueTransport(new AITransportResult(AIEngineStatus.Success, "{\"answer\":\"grounded\"}", null, "resp-tool", "returned-model", null, false));
+        var engine = new AzureOpenAIEngine(CreateOptions(), transport, static (_, _) => Task.CompletedTask);
+        var session = CreateToolSession();
+
+        // Act
+        var result = await engine.GenerateStructuredAsync<TestResponse>([new AIMessage(AIMessageRole.User, "Question")], "test_schema", BinaryData.FromString("{\"type\":\"object\"}"), session);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(transport.LastRequest);
+        Assert.AreSame(session, transport.LastRequest.ToolSession);
     }
 
     [TestMethod]
@@ -343,6 +363,41 @@ public sealed class AzureOpenAIEngineTests
     }
 
     [TestMethod]
+    [TestCategory("Unit")]
+    public void CreateOptions_ToolSession_AddsBoundedNonParallelFunctionTools()
+    {
+        // Arrange
+        var session = CreateToolSession();
+        var request = new AITransportRequest([new AIMessage(AIMessageRole.System, "Contract")], "grounded", BinaryData.FromString("{\"type\":\"object\"}"), "deployment-name", 2000, AIReasoningEffort.Medium, session);
+
+        // Act
+        var options = AzureResponsesTransport.CreateOptions(request);
+
+        // Assert
+        Assert.HasCount(3, options.Tools);
+        Assert.AreEqual(session.MaximumExecutionCount, options.MaxToolCallCount);
+        Assert.AreEqual(false, options.ParallelToolCallsEnabled);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void AppendResponseOutputItems_ToolContinuation_PreservesEveryProviderItemInOrder()
+    {
+        // Arrange
+        var options = new CreateResponseOptions();
+        var reasoningState = MessageResponseItem.CreateAssistantMessageItem("Provider reasoning state");
+        var functionCall = new FunctionCallResponseItem("call-1", "get_today_as_hebrew_and_gregorian", BinaryData.FromString("{}"));
+
+        // Act
+        AzureResponsesTransport.AppendResponseOutputItems(options, [reasoningState, functionCall]);
+
+        // Assert
+        Assert.HasCount(2, options.InputItems);
+        Assert.AreSame(reasoningState, options.InputItems[0]);
+        Assert.AreSame(functionCall, options.InputItems[1]);
+    }
+
+    [TestMethod]
     [DataRow(AIReasoningEffort.Low)]
     [DataRow(AIReasoningEffort.Medium)]
     [DataRow(AIReasoningEffort.High)]
@@ -410,6 +465,12 @@ public sealed class AzureOpenAIEngineTests
         MaximumOutputTokens = 2000,
         MaximumRetryCount = 2,
     };
+
+    private static AIToolExecutionSession CreateToolSession()
+    {
+        var registry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
+        return new AIToolExecutionSession(registry, new AIToolExecutionContext(null, new DateTimeOffset(2026, 8, 31, 18, 0, 0, TimeSpan.Zero)), 0);
+    }
 
     private sealed record TestResponse
     {

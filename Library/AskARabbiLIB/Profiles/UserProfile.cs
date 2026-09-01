@@ -9,6 +9,12 @@ public sealed record UserProfile
     /// <summary>Gets the birth date used locally to calculate age.</summary>
     public required DateOnly DateOfBirth { get; init; }
 
+    /// <summary>Gets the optional local birth time used only by server-side calendar tools.</summary>
+    public TimeOnly? TimeOfBirth { get; init; }
+
+    /// <summary>Gets the optional birth time-zone identifier used only by server-side calendar tools.</summary>
+    public string? BirthTimeZone { get; init; }
+
     /// <summary>Gets optional user-provided background context.</summary>
     public string? Bio { get; init; }
 
@@ -49,6 +55,7 @@ public sealed record UserProfile
         ValidateOptionalText(Bio, 2_000, nameof(Bio));
         ValidateOptionalText(ReligiousBackground, 250, nameof(ReligiousBackground));
         ValidateRequiredText(JewishHeritage, 250, nameof(JewishHeritage));
+        ValidateOptionalText(BirthTimeZone, 120, nameof(BirthTimeZone));
         var age = CalculateAge(currentDate);
         if (age > 130)
         {

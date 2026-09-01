@@ -7,9 +7,11 @@ using AskARabbi.Api.Errors;
 using AskARabbi.Api.Persistence;
 using AskARabbi.Api.Usage;
 using AskARabbiLIB;
+using AskARabbiLIB.AI;
+using AskARabbiLIB.AI.Tools;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
-using AskARabbiLIB.AI;
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Retrieval;
 using AskARabbiLIB.Usage;
@@ -68,6 +70,9 @@ var groundedChatOptions = builder.Configuration.GetSection(GroundedChatOptions.S
 groundedChatOptions.Validate();
 builder.Services.AddSingleton(groundedChatOptions);
 builder.Services.AddSingleton<GroundedAnswerTextRenderer>();
+builder.Services.AddSingleton<IHebrewCalendarService, HebrewCalendarService>();
+builder.Services.AddSingleton<CalendarAITools>();
+builder.Services.AddSingleton<IAIToolRegistry>(provider => new AIToolRegistry([provider.GetRequiredService<CalendarAITools>()]));
 if (groundedChatOptions.IsConfigured)
 {
     var managedManifestPath = Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json");
@@ -132,7 +137,8 @@ if (groundedChatOptions.IsConfigured)
             validationEngine,
             provider.GetRequiredService<GroundedPromptSet>(),
             groundedChatOptions.CreateGroundedAnswerOptions(),
-            provider.GetRequiredService<TimeProvider>());
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetRequiredService<IAIToolRegistry>());
     });
 }
 else

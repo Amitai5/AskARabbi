@@ -46,6 +46,7 @@ public static class UserProfileJsonSerializer
         Bio = NormalizeOptional(profile.Bio),
         ReligiousBackground = NormalizeOptional(profile.ReligiousBackground),
         JewishHeritage = profile.JewishHeritage?.Trim() ?? string.Empty,
+        BirthTimeZone = NormalizeOptional(profile.BirthTimeZone),
     };
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

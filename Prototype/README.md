@@ -65,13 +65,14 @@ Interactive AI Chat requires context before the first question. The user may sel
 
 - Required name.
 - Required date of birth, used to calculate age.
+- Optional birth time and IANA birth time zone for local Hebrew-calendar calculations.
 - Optional short bio.
 - Optional self-described religious background or movement.
 - Required self-described Jewish heritage or community background.
 
 The tracked [`profile.example.json`](Profiles/profile.example.json) documents the strict camel-case schema. Unknown properties, missing required fields, future dates, ages over 130, and overlong values are rejected before retrieval or an AI call. The interactive date prompt accepts `MM/DD/YYYY`; JSON uses ISO `YYYY-MM-DD`.
 
-The exact date of birth stays in the local file. `GroundedAnswerService` sends only the calculated age, name, optional bio, optional religious background, and Jewish heritage to the model. It marks all profile fields as untrusted personalization context, does not add them to retrieval keywords, and instructs the model not to stereotype, infer observance, or claim profile-specific rules without supporting textual evidence.
+The normal writing prompt contains only calculated age, name, optional bio, optional religious background, and Jewish heritage—not the exact birth date, time, or time zone. When a calendar question requires the saved date, the model omits that function argument and trusted process-local code performs the calculation; only the derived result and its assumptions return as citable evidence. `GroundedAnswerService` marks all ordinary profile fields as untrusted personalization context, does not add them to retrieval keywords, and instructs the model not to stereotype, infer observance, or claim profile-specific rules without supporting textual evidence.
 
 Inside the chat, `/profile` displays the active context. `/clear` removes conversation content but keeps the selected profile active until the user leaves the chat.
 
@@ -94,7 +95,7 @@ $env:AI__APIKey = "your-resource-api-key"
 
 `AI:ProjectEndpoint`, `AI:ModelName`, and `AI:APIKey` are validated only when AI Chat or the `ask` command is used. `ProjectEndpoint` must be an absolute HTTPS URL. User Secrets are stored in the current Windows user profile outside the repository and are never copied to build or publish output. The unused `KeyVault` section remains in the example only to make its current status explicit; reusable Key Vault support lives in the library and is not initialized by this host.
 
-The prototype uses the library's 2,000-output-token ceiling, a 120-second timeout, medium reasoning effort, strict JSON Schema output, and `store=false`. The prompts target roughly 180–325 words of explanatory prose for ordinary questions, leaving room for required exact quotations without encouraging report-length responses.
+The prototype uses the library's 2,000-output-token ceiling, a 120-second timeout, medium reasoning effort, strict JSON Schema output, `store=false`, and the same three bounded local calendar functions as production. The prompts target roughly 180–325 words of explanatory prose for ordinary questions, leaving room for required exact quotations without encouraging report-length responses.
 
 If Azure returns 401, verify that `AI:APIKey` is a current key from the same resource named by `AI:ProjectEndpoint`. If Azure returns 403, verify that local/key authentication is enabled on the resource and that `AI:ModelName` is a deployment on that resource.
 
