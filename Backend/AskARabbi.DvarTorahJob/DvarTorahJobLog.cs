@@ -49,7 +49,7 @@ internal static class DvarTorahJobLog
             timestampUtc = DateTimeOffset.UtcNow,
             level = "Error",
             eventName = "WeeklyDvarTorahGenerationFailed",
-            failureCode = exception.GetType().Name,
+            failureCode = exception is WeeklyDvarTorahGenerationException generationException ? generationException.FailureCode : exception.GetType().Name,
             configurationError = exception is DvarTorahJobConfigurationException ? exception.Message : null,
         }));
     }

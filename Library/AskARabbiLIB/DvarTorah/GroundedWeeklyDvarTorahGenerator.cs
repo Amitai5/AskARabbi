@@ -74,14 +74,14 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var newsCandidates = SelectNewsCandidates(recentItems);
         if (newsCandidates.Select(candidate => candidate.Item.Publisher).Distinct(StringComparer.OrdinalIgnoreCase).Count() < options.MinimumNewsPublishers)
         {
-            throw new InvalidOperationException($"Free current-events research did not return at least {options.MinimumNewsPublishers} independent publishers.");
+            throw new WeeklyDvarTorahGenerationException("CurrentEventsInsufficientPublishers", $"Free current-events research did not return at least {options.MinimumNewsPublishers} independent publishers.");
         }
 
         var research = await ResearchAsync(week, newsWindowStartedAtUtc, newsWindowEndedAtUtc, newsCandidates, cancellationToken).ConfigureAwait(false);
         var researchErrors = ValidateResearch(research, newsCandidates);
         if (researchErrors.Count > 0)
         {
-            throw new InvalidOperationException($"Weekly Dvar Torah research selection was invalid: {string.Join(" ", researchErrors)}");
+            throw new WeeklyDvarTorahGenerationException("ResearchSelectionInvalid", $"Weekly Dvar Torah research selection was invalid: {string.Join(" ", researchErrors)}");
         }
 
         var selectedNews = research.SelectedNewsEvidenceIds.Select(id => newsCandidates.Single(candidate => candidate.EvidenceId == id)).ToArray();
@@ -114,7 +114,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             var draftResult = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahArticleDraft>(messages, prompts.DraftSchemaName, draftSchema, cancellationToken).ConfigureAwait(false);
             if (!draftResult.IsSuccess || draftResult.Value is not { } draft)
             {
-                throw new InvalidOperationException($"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
+                throw new WeeklyDvarTorahGenerationException("DraftProviderFailed", $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
             }
 
             previousDraft = draft;
@@ -148,7 +148,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             return new WeeklyDvarTorahDraft(draft.Title, draft.Body, options.GeneratorVersion, metadata);
         }
 
-        throw new InvalidOperationException($"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}");
+        throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}");
     }
 
     private async Task<WeeklyDvarTorahResearchDraft> ResearchAsync(WeeklyDvarTorahWeek week, DateTimeOffset windowStart, DateTimeOffset windowEnd, IReadOnlyList<NewsCandidate> candidates, CancellationToken cancellationToken)
@@ -190,7 +190,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var result = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahResearchDraft>(messages, prompts.ResearchSchemaName, researchSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } research)
         {
-            throw new InvalidOperationException($"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+            throw new WeeklyDvarTorahGenerationException("ResearchProviderFailed", $"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.");
         }
 
         return research;
@@ -201,7 +201,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var reading = week.Parashah ?? week.Holiday ?? "the weekly Torah reading";
         if (!WeeklyTorahReadingRangeCatalog.IsSupported(week))
         {
-            throw new InvalidOperationException($"The canonical Torah range for '{reading}' on {week.ShabbatDate:yyyy-MM-dd} is not configured; generation stopped without publishing.");
+            throw new WeeklyDvarTorahGenerationException("UnsupportedTorahReading", $"The canonical Torah range for '{reading}' on {week.ShabbatDate:yyyy-MM-dd} is not configured; generation stopped without publishing.");
         }
 
         var queries = research.TorahSearchQueries
@@ -239,7 +239,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             .ToArray();
         if (selected.Length < options.MinimumTorahEvidenceItems)
         {
-            throw new InvalidOperationException($"Approved corpus retrieval found only {selected.Length} passages for '{reading}'; at least {options.MinimumTorahEvidenceItems} are required.");
+            throw new WeeklyDvarTorahGenerationException("TorahEvidenceInsufficient", $"Approved corpus retrieval found only {selected.Length} passages for '{reading}'; at least {options.MinimumTorahEvidenceItems} are required.");
         }
 
         var retrievedAtUtc = timeProvider.GetUtcNow();
@@ -312,7 +312,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var result = await reviewEngine.GenerateStructuredAsync<WeeklyDvarTorahReviewDraft>(messages, prompts.ReviewSchemaName, reviewSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } review)
         {
-            throw new InvalidOperationException($"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+            throw new WeeklyDvarTorahGenerationException("IndependentReviewFailed", $"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.");
         }
 
         return review;

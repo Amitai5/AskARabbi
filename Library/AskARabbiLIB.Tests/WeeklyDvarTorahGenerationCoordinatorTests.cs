@@ -76,6 +76,20 @@ public sealed class WeeklyDvarTorahGenerationCoordinatorTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task Run_GroundedGenerationFails_PersistsStableStageCode()
+    {
+        var store = new GenerationStore();
+        var generator = new RecordingGenerator { Exception = new WeeklyDvarTorahGenerationException("ResearchSelectionInvalid", "Sensitive model detail") };
+        var coordinator = CreateCoordinator(store, generator);
+
+        await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => coordinator.RunAsync("invocation-stage"));
+
+        Assert.AreEqual("ResearchSelectionInvalid", store.FailureCode);
+        Assert.IsFalse(store.FailureCode?.Contains("Sensitive", StringComparison.Ordinal) ?? false);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task Run_PublicationLosesLease_RecordsFailureAndThrows()
     {
         var store = new GenerationStore { CanPublish = false };

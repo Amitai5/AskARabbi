@@ -52,8 +52,9 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         };
         var generator = CreateGenerator(CreateTorahHits(), new QueueEngine(CreateResearchDraft(), CreateArticleDraft("First"), CreateArticleDraft("Second")), new QueueEngine(rejected, rejected));
 
-        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => generator.GenerateAsync(Week));
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
 
+        Assert.AreEqual("CandidateValidationFailed", exception.FailureCode);
         StringAssert.Contains(exception.Message, "repair attempt");
         StringAssert.Contains(exception.Message, "violence");
     }

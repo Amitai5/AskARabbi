@@ -77,7 +77,8 @@ public sealed class WeeklyDvarTorahGenerationCoordinator
         {
             try
             {
-                await store.RecordGenerationFailureAsync(lease, exception.GetType().Name, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+                var failureCode = exception is WeeklyDvarTorahGenerationException generationException ? generationException.FailureCode : exception.GetType().Name;
+                await store.RecordGenerationFailureAsync(lease, failureCode, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception persistenceException)
             {
