@@ -12,7 +12,7 @@ public sealed class DvarTorahJobApplicationTests
         var wasCoordinatorCreated = false;
         var application = new DvarTorahJobApplication(
             () => false,
-            () =>
+            _ =>
             {
                 wasCoordinatorCreated = true;
                 throw new InvalidOperationException("The coordinator must not be created while generation is disabled.");
@@ -30,7 +30,7 @@ public sealed class DvarTorahJobApplicationTests
     public async Task RunAsync_WhenGenerationIsEnabled_PropagatesCoordinatorCreationFailure()
     {
         var expected = new InvalidOperationException("Expected failure");
-        var application = new DvarTorahJobApplication(() => true, () => throw expected, () => "test-invocation");
+        var application = new DvarTorahJobApplication(() => true, _ => Task.FromException<AskARabbiLIB.DvarTorah.WeeklyDvarTorahGenerationCoordinator>(expected), () => "test-invocation");
 
         var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => application.RunAsync());
 
@@ -50,7 +50,7 @@ public sealed class DvarTorahJobApplicationTests
                 wasConfigurationRead = true;
                 return false;
             },
-            () => throw new InvalidOperationException("The coordinator must not be created after cancellation."),
+            _ => throw new InvalidOperationException("The coordinator must not be created after cancellation."),
             () => "test-invocation");
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => application.RunAsync(cancellation.Token));

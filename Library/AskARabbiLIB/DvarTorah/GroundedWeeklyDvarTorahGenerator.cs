@@ -1,0 +1,397 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using AskARabbiLIB.AI;
+using AskARabbiLIB.CurrentEvents;
+using AskARabbiLIB.Retrieval;
+
+namespace AskARabbiLIB.DvarTorah;
+
+/// <summary>Researches, drafts, audits, and materializes a Torah-centered weekly Dvar Torah.</summary>
+public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
+{
+    private static readonly JsonSerializerOptions PromptJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+    };
+
+    private readonly ICurrentEventsSource currentEvents;
+    private readonly ISourceRetriever torahRetriever;
+    private readonly IAIEngine generationEngine;
+    private readonly IAIEngine reviewEngine;
+    private readonly WeeklyDvarTorahPromptSet prompts;
+    private readonly WeeklyDvarTorahContentOptions options;
+    private readonly TimeProvider timeProvider;
+    private readonly BinaryData researchSchema;
+    private readonly BinaryData draftSchema;
+    private readonly BinaryData reviewSchema;
+
+    /// <summary>Initializes a fail-closed weekly content generator.</summary>
+    /// <param name="currentEvents">No-subscription current-events source.</param>
+    /// <param name="torahRetriever">Approved Torah corpus retriever.</param>
+    /// <param name="generationEngine">Structured research and drafting engine.</param>
+    /// <param name="reviewEngine">Independent structured grounding and safety review engine.</param>
+    /// <param name="prompts">Version-controlled prompt and schema contract.</param>
+    /// <param name="options">Research and validation bounds.</param>
+    /// <param name="timeProvider">Clock used for research-window provenance.</param>
+    public GroundedWeeklyDvarTorahGenerator(ICurrentEventsSource currentEvents, ISourceRetriever torahRetriever, IAIEngine generationEngine, IAIEngine reviewEngine, WeeklyDvarTorahPromptSet prompts, WeeklyDvarTorahContentOptions? options = null, TimeProvider? timeProvider = null)
+    {
+        this.currentEvents = currentEvents ?? throw new ArgumentNullException(nameof(currentEvents));
+        this.torahRetriever = torahRetriever ?? throw new ArgumentNullException(nameof(torahRetriever));
+        this.generationEngine = generationEngine ?? throw new ArgumentNullException(nameof(generationEngine));
+        this.reviewEngine = reviewEngine ?? throw new ArgumentNullException(nameof(reviewEngine));
+        this.prompts = prompts ?? throw new ArgumentNullException(nameof(prompts));
+        prompts.Validate();
+        this.options = options ?? new WeeklyDvarTorahContentOptions();
+        this.options.Validate();
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+        researchSchema = BinaryData.FromString(prompts.ResearchJsonSchema);
+        draftSchema = BinaryData.FromString(prompts.DraftJsonSchema);
+        reviewSchema = BinaryData.FromString(prompts.ReviewJsonSchema);
+    }
+
+    /// <inheritdoc/>
+    public async Task<WeeklyDvarTorahDraft> GenerateAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(week);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(options.OverallTimeout);
+        try
+        {
+            return await GenerateCoreAsync(week, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Weekly Dvar Torah research exceeded the {options.OverallTimeout.TotalMinutes:N0}-minute limit.");
+        }
+    }
+
+    private async Task<WeeklyDvarTorahDraft> GenerateCoreAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken)
+    {
+        var newsWindowEndedAtUtc = timeProvider.GetUtcNow();
+        var newsWindowStartedAtUtc = newsWindowEndedAtUtc.AddDays(-options.ResearchWindowDays);
+        var recentItems = await currentEvents.GetRecentAsync(newsWindowStartedAtUtc, newsWindowEndedAtUtc, cancellationToken).ConfigureAwait(false);
+        var newsCandidates = SelectNewsCandidates(recentItems);
+        if (newsCandidates.Select(candidate => candidate.Item.Publisher).Distinct(StringComparer.OrdinalIgnoreCase).Count() < options.MinimumNewsPublishers)
+        {
+            throw new InvalidOperationException($"Free current-events research did not return at least {options.MinimumNewsPublishers} independent publishers.");
+        }
+
+        var research = await ResearchAsync(week, newsWindowStartedAtUtc, newsWindowEndedAtUtc, newsCandidates, cancellationToken).ConfigureAwait(false);
+        var researchErrors = ValidateResearch(research, newsCandidates);
+        if (researchErrors.Count > 0)
+        {
+            throw new InvalidOperationException($"Weekly Dvar Torah research selection was invalid: {string.Join(" ", researchErrors)}");
+        }
+
+        var selectedNews = research.SelectedNewsEvidenceIds.Select(id => newsCandidates.Single(candidate => candidate.EvidenceId == id)).ToArray();
+        var evidence = new List<WeeklyDvarTorahEvidence>();
+        evidence.AddRange(await RetrieveTorahEvidenceAsync(week, research, cancellationToken).ConfigureAwait(false));
+        evidence.AddRange(selectedNews.Select(candidate => new WeeklyDvarTorahEvidence(
+            candidate.EvidenceId,
+            WeeklyDvarTorahSourceKind.News,
+            candidate.Item.Title,
+            candidate.Item.Publisher,
+            candidate.Item.SourceUrl,
+            candidate.Item.Summary,
+            candidate.Item.RetrievedAtUtc,
+            null,
+            candidate.Item.PublishedAtUtc,
+            "Public RSS/Atom metadata; linked article remains with its publisher.")));
+
+        var draftMessages = BuildDraftMessages(week, research, evidence);
+        WeeklyDvarTorahArticleDraft? previousDraft = null;
+        string? validationError = null;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            IReadOnlyList<AIMessage> messages = attempt == 0
+                ? draftMessages
+                : draftMessages.Concat(
+                [
+                    new AIMessage(AIMessageRole.Assistant, JsonSerializer.Serialize(previousDraft, PromptJsonOptions)),
+                    new AIMessage(AIMessageRole.User, prompts.FormatRepair(validationError ?? "The prior draft did not pass validation.")),
+                ]).ToArray();
+            var draftResult = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahArticleDraft>(messages, prompts.DraftSchemaName, draftSchema, cancellationToken).ConfigureAwait(false);
+            if (!draftResult.IsSuccess || draftResult.Value is not { } draft)
+            {
+                throw new InvalidOperationException($"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
+            }
+
+            previousDraft = draft;
+            var validation = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, options);
+            if (!validation.IsValid)
+            {
+                validationError = string.Join(" ", validation.Errors);
+                continue;
+            }
+
+            var review = await ReviewAsync(week, research, draft, evidence, validation, cancellationToken).ConfigureAwait(false);
+            var reviewErrors = WeeklyDvarTorahReviewValidator.Validate(review);
+            if (reviewErrors.Count > 0)
+            {
+                validationError = string.Join(" ", reviewErrors);
+                continue;
+            }
+
+            var evidenceById = evidence.ToDictionary(item => item.EvidenceId, StringComparer.Ordinal);
+            var sources = validation.UsedEvidenceIds.Select(id => evidenceById[id].ToSource()).ToArray();
+            var tags = CreateTags(draft.Tags, research.SuggestedTags, week);
+            var metadata = new WeeklyDvarTorahContentMetadata(
+                draft.CentralTeaching,
+                tags,
+                sources,
+                validation.TorahGroundingPercent,
+                prompts.ReviewSchemaName,
+                draftResult.Diagnostics.Model,
+                newsWindowStartedAtUtc,
+                newsWindowEndedAtUtc);
+            return new WeeklyDvarTorahDraft(draft.Title, draft.Body, options.GeneratorVersion, metadata);
+        }
+
+        throw new InvalidOperationException($"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}");
+    }
+
+    private async Task<WeeklyDvarTorahResearchDraft> ResearchAsync(WeeklyDvarTorahWeek week, DateTimeOffset windowStart, DateTimeOffset windowEnd, IReadOnlyList<NewsCandidate> candidates, CancellationToken cancellationToken)
+    {
+        var input = new
+        {
+            week = new
+            {
+                week.WeekKey,
+                week.ShabbatDate,
+                week.HebrewDate,
+                week.Parashah,
+                week.Holiday,
+                week.InIsrael,
+            },
+            researchWindow = new { startedAtUtc = windowStart, endedAtUtc = windowEnd },
+            requirements = new
+            {
+                focus = "United States news, technology, science, health, economic life, or a major global event with material U.S. impact",
+                minimumIndependentPublishers = options.MinimumNewsPublishers,
+                maximumNewsSources = options.MaximumNewsSources,
+                torahGroundingPercent = options.MinimumTorahGroundingPercent,
+            },
+            newsEvidence = candidates.Select(candidate => new
+            {
+                evidenceId = candidate.EvidenceId,
+                candidate.Item.Publisher,
+                candidate.Item.Category,
+                candidate.Item.Title,
+                candidate.Item.Summary,
+                candidate.Item.SourceUrl,
+                candidate.Item.PublishedAtUtc,
+            }),
+        };
+        var messages = new AIPromptBuilder()
+            .AddSystem(prompts.ResearchSystemPrompt)
+            .AddUser($"<UNTRUSTED_CURRENT_EVENTS_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_CURRENT_EVENTS_JSON>")
+            .Build();
+        var result = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahResearchDraft>(messages, prompts.ResearchSchemaName, researchSchema, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Value is not { } research)
+        {
+            throw new InvalidOperationException($"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+        }
+
+        return research;
+    }
+
+    private async Task<IReadOnlyList<WeeklyDvarTorahEvidence>> RetrieveTorahEvidenceAsync(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, CancellationToken cancellationToken)
+    {
+        var reading = week.Parashah ?? week.Holiday ?? "the weekly Torah reading";
+        if (!WeeklyTorahReadingRangeCatalog.IsSupported(week))
+        {
+            throw new InvalidOperationException($"The canonical Torah range for '{reading}' on {week.ShabbatDate:yyyy-MM-dd} is not configured; generation stopped without publishing.");
+        }
+
+        var queries = research.TorahSearchQueries
+            .Append($"{reading}: {research.Theme}. {research.MoralQuestion}")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToArray();
+        var hits = new Dictionary<string, SourceRetrievalHit>(StringComparer.Ordinal);
+        foreach (var query in queries)
+        {
+            var results = await torahRetriever.SearchAsync(new SourceRetrievalQuery
+            {
+                QueryText = query,
+                Languages = ["English"],
+                Collections = ["Torah"],
+                CandidateLimit = 30,
+            }, cancellationToken).ConfigureAwait(false);
+            foreach (var hit in results)
+            {
+                if (!WeeklyTorahReadingRangeCatalog.Contains(week, hit.Segment.CanonicalReference))
+                {
+                    continue;
+                }
+                if (!hits.TryGetValue(hit.Segment.SegmentId, out var existing) || hit.Score > existing.Score)
+                {
+                    hits[hit.Segment.SegmentId] = hit;
+                }
+            }
+        }
+
+        var selected = hits.Values
+            .OrderByDescending(hit => hit.Score)
+            .ThenBy(hit => hit.Segment.CanonicalReference, StringComparer.OrdinalIgnoreCase)
+            .Take(options.MaximumTorahEvidenceItems)
+            .ToArray();
+        if (selected.Length < options.MinimumTorahEvidenceItems)
+        {
+            throw new InvalidOperationException($"Approved corpus retrieval found only {selected.Length} passages for '{reading}'; at least {options.MinimumTorahEvidenceItems} are required.");
+        }
+
+        var retrievedAtUtc = timeProvider.GetUtcNow();
+        return selected.Select((hit, index) => new WeeklyDvarTorahEvidence(
+            $"T{index + 1}",
+            WeeklyDvarTorahSourceKind.Torah,
+            hit.Segment.Title,
+            hit.Segment.Version,
+            hit.Segment.SourceUrl,
+            Bound(hit.Segment.Text, 2_000),
+            retrievedAtUtc,
+            hit.Segment.CanonicalReference,
+            null,
+            hit.Segment.License)).ToArray();
+    }
+
+    private IReadOnlyList<AIMessage> BuildDraftMessages(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, IReadOnlyList<WeeklyDvarTorahEvidence> evidence)
+    {
+        var input = new
+        {
+            week = new { week.WeekKey, week.ShabbatDate, week.HebrewDate, week.Parashah, week.Holiday, week.InIsrael },
+            research = new { research.Theme, research.MoralQuestion },
+            requirements = new
+            {
+                minimumTorahGroundingPercent = options.MinimumTorahGroundingPercent,
+                minimumTorahSources = options.MinimumTorahEvidenceItems,
+                minimumNewsPublishers = options.MinimumNewsPublishers,
+                bodyCharacters = new { minimum = options.MinimumBodyCharacters, maximum = options.MaximumBodyCharacters },
+            },
+            evidence = evidence.Select(item => new
+            {
+                evidenceId = item.EvidenceId,
+                kind = item.Kind.ToString(),
+                item.Title,
+                item.Publisher,
+                item.CanonicalReference,
+                item.PublishedAtUtc,
+                text = item.PresentedText,
+            }),
+        };
+        return new AIPromptBuilder()
+            .AddSystem(prompts.DraftSystemPrompt)
+            .AddUser($"<UNTRUSTED_EVIDENCE_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_EVIDENCE_JSON>")
+            .Build();
+    }
+
+    private async Task<WeeklyDvarTorahReviewDraft> ReviewAsync(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, WeeklyDvarTorahCandidateValidation validation, CancellationToken cancellationToken)
+    {
+        var used = validation.UsedEvidenceIds.ToHashSet(StringComparer.Ordinal);
+        var input = new
+        {
+            week = new { week.WeekKey, week.ShabbatDate, week.HebrewDate, week.Parashah, week.Holiday },
+            research = new { research.Theme, research.MoralQuestion },
+            deterministicTorahGroundingPercent = validation.TorahGroundingPercent,
+            article = draft,
+            evidence = evidence.Where(item => used.Contains(item.EvidenceId)).Select(item => new
+            {
+                evidenceId = item.EvidenceId,
+                kind = item.Kind.ToString(),
+                item.Title,
+                item.Publisher,
+                item.CanonicalReference,
+                text = item.PresentedText,
+            }),
+        };
+        var messages = new AIPromptBuilder()
+            .AddSystem(prompts.ReviewSystemPrompt)
+            .AddUser($"<UNTRUSTED_DRAFT_AND_EVIDENCE_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_DRAFT_AND_EVIDENCE_JSON>")
+            .Build();
+        var result = await reviewEngine.GenerateStructuredAsync<WeeklyDvarTorahReviewDraft>(messages, prompts.ReviewSchemaName, reviewSchema, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Value is not { } review)
+        {
+            throw new InvalidOperationException($"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+        }
+
+        return review;
+    }
+
+    private IReadOnlyList<NewsCandidate> SelectNewsCandidates(IReadOnlyList<CurrentEventItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var groups = items
+            .Where(item => item is not null)
+            .GroupBy(item => item.Publisher, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new Queue<CurrentEventItem>(group.OrderByDescending(item => item.PublishedAtUtc)))
+            .ToArray();
+        var selected = new List<CurrentEventItem>(options.MaximumNewsCandidates);
+        while (selected.Count < options.MaximumNewsCandidates && groups.Any(group => group.Count > 0))
+        {
+            foreach (var group in groups)
+            {
+                if (group.Count > 0 && selected.Count < options.MaximumNewsCandidates)
+                {
+                    selected.Add(group.Dequeue());
+                }
+            }
+        }
+
+        return selected.Select((item, index) => new NewsCandidate($"N{index + 1}", item)).ToArray();
+    }
+
+    private IReadOnlyList<string> ValidateResearch(WeeklyDvarTorahResearchDraft research, IReadOnlyList<NewsCandidate> candidates)
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(research.Theme) || research.Theme.Length > 300)
+        {
+            errors.Add("Research theme must contain at most three hundred characters.");
+        }
+        if (string.IsNullOrWhiteSpace(research.MoralQuestion) || research.MoralQuestion.Length > 500)
+        {
+            errors.Add("Research moral question must contain at most five hundred characters.");
+        }
+
+        var selectedIds = research.SelectedNewsEvidenceIds ?? [];
+        var candidateById = candidates.ToDictionary(candidate => candidate.EvidenceId, StringComparer.Ordinal);
+        if (selectedIds.Count < options.MinimumNewsPublishers || selectedIds.Count > options.MaximumNewsSources || selectedIds.Any(id => !candidateById.ContainsKey(id)) || selectedIds.Distinct(StringComparer.Ordinal).Count() != selectedIds.Count)
+        {
+            errors.Add($"Research must select between {options.MinimumNewsPublishers} and {options.MaximumNewsSources} unique known news evidence IDs.");
+        }
+        else if (selectedIds.Select(id => candidateById[id].Item.Publisher).Distinct(StringComparer.OrdinalIgnoreCase).Count() < options.MinimumNewsPublishers)
+        {
+            errors.Add($"Research must select at least {options.MinimumNewsPublishers} independent publishers.");
+        }
+
+        var queries = research.TorahSearchQueries ?? [];
+        if (queries.Count is < 2 or > 4 || queries.Any(query => string.IsNullOrWhiteSpace(query) || query.Length > 300) || queries.Distinct(StringComparer.OrdinalIgnoreCase).Count() != queries.Count)
+        {
+            errors.Add("Research must provide two to four unique bounded Torah search queries.");
+        }
+        var tags = research.SuggestedTags ?? [];
+        if (tags.Count is < 3 or > 12 || tags.Any(tag => string.IsNullOrWhiteSpace(tag) || tag.Length > 60))
+        {
+            errors.Add("Research must suggest between three and twelve bounded tags.");
+        }
+
+        return errors;
+    }
+
+    private static IReadOnlyList<string> CreateTags(IReadOnlyList<string> draftTags, IReadOnlyList<string> researchTags, WeeklyDvarTorahWeek week)
+    {
+        var values = draftTags.Concat(researchTags)
+            .Append(week.Parashah ?? week.Holiday ?? "weekly Torah")
+            .Append("weekly dvar Torah")
+            .Select(tag => string.Join(' ', tag.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant())
+            .Where(tag => tag.Length is > 0 and <= 60)
+            .Distinct(StringComparer.Ordinal)
+            .Take(20)
+            .ToArray();
+        return values;
+    }
+
+    private static string Bound(string value, int maximumCharacters) => value.Length <= maximumCharacters ? value : value[..maximumCharacters].TrimEnd();
+
+    private sealed record NewsCandidate(string EvidenceId, CurrentEventItem Item);
+}

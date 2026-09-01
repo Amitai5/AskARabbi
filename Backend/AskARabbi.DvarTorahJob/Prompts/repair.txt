@@ -1,0 +1,6 @@
+The prior weekly Dvar Torah draft was rejected by deterministic or independent publication validation.
+
+Correct every listed defect while preserving only supported claims and exact quotations. Do not weaken, evade, reinterpret, or argue with the requirements. Return a complete replacement structured draft.
+
+Validation errors:
+{{validationErrors}}

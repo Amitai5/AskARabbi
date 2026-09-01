@@ -14,4 +14,9 @@
     <ProjectReference Include="..\..\Library\AskARabbiLIB\AskARabbiLIB.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\Data\NormalizedData\Sefaria\Metadata\document-manifest.json" Link="Data\document-manifest.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Prompts\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

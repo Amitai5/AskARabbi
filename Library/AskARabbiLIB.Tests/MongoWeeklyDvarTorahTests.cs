@@ -33,6 +33,28 @@ public sealed class MongoWeeklyDvarTorahTests
             Title = "A weekly teaching",
             Body = "Body",
             GeneratorVersion = "test-v1",
+            CentralTeaching = "Choose responsibility.",
+            Tags = ["responsibility", "community", "current events"],
+            Sources =
+            [
+                new MongoWeeklyDvarTorahSourceDocument
+                {
+                    SourceId = "T1",
+                    Kind = "Torah",
+                    Title = "Deuteronomy",
+                    Publisher = "Test edition",
+                    SourceUrl = "https://www.sefaria.org/Deuteronomy.29.9",
+                    Excerpt = "You stand this day.",
+                    RetrievedAtUtc = new DateTime(2026, 8, 31, 18, 0, 0, DateTimeKind.Utc),
+                    CanonicalReference = "Deuteronomy 29:9",
+                    License = "CC-BY",
+                },
+            ],
+            TorahGroundingPercent = 80,
+            SafetyReviewVersion = "review-v1",
+            Model = "model-v1",
+            NewsWindowStartedAtUtc = new DateTime(2026, 8, 24, 18, 0, 0, DateTimeKind.Utc),
+            NewsWindowEndedAtUtc = new DateTime(2026, 8, 31, 18, 0, 0, DateTimeKind.Utc),
             GeneratedAtUtc = new DateTime(2026, 8, 31, 18, 0, 0, DateTimeKind.Utc),
             PublishedAtUtc = new DateTime(2026, 8, 31, 18, 0, 0, DateTimeKind.Utc),
             LastAttemptedAtUtc = new DateTime(2026, 8, 31, 17, 0, 0, DateTimeKind.Utc),
@@ -45,6 +67,9 @@ public sealed class MongoWeeklyDvarTorahTests
         Assert.AreEqual("2026-09-05", bson["shabbatDate"].AsString);
         Assert.AreEqual(document.ShabbatDate, result.ShabbatDate);
         Assert.AreEqual(document.Body, result.Body);
+        CollectionAssert.AreEqual(document.Tags, result.Tags);
+        Assert.AreEqual("T1", result.Sources?[0].SourceId);
+        Assert.AreEqual(80, result.TorahGroundingPercent);
     }
 
     [TestMethod]
@@ -62,6 +87,21 @@ public sealed class MongoWeeklyDvarTorahTests
         Assert.AreEqual(-1, keys["shabbatDate"].AsInt32);
         CollectionAssert.AreEqual(new[] { "shabbatDate" }, sort.Names.ToArray());
         Assert.AreEqual(-1, sort["shabbatDate"].AsInt32);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void CreateTagIndex_SearchableMetadata_IndexesTags()
+    {
+        var registry = BsonSerializer.SerializerRegistry;
+        var serializer = registry.GetSerializer<MongoWeeklyDvarTorahDocument>();
+
+        var index = MongoWeeklyDvarTorahStore.CreateTagIndex();
+        var keys = index.Keys.Render(new RenderArgs<MongoWeeklyDvarTorahDocument>(serializer, registry));
+
+        CollectionAssert.AreEqual(new[] { "tags" }, keys.Names.ToArray());
+        Assert.AreEqual(1, keys["tags"].AsInt32);
+        Assert.AreEqual("ix_weeklyDvarTorah_tags", index.Options?.Name);
     }
 
     [TestMethod]

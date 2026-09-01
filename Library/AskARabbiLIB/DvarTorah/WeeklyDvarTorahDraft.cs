@@ -13,11 +13,21 @@ public sealed record WeeklyDvarTorahDraft
     /// <param name="title">Display title.</param>
     /// <param name="body">Plain-text article body.</param>
     /// <param name="generatorVersion">Auditable generator or prompt version, without secrets.</param>
-    public WeeklyDvarTorahDraft(string title, string body, string generatorVersion)
+    public WeeklyDvarTorahDraft(string title, string body, string generatorVersion) : this(title, body, generatorVersion, null)
+    {
+    }
+
+    /// <summary>Initializes a validated weekly Dvar Torah draft with auditable metadata.</summary>
+    /// <param name="title">Display title.</param>
+    /// <param name="body">Plain-text article body.</param>
+    /// <param name="generatorVersion">Auditable generator or prompt version, without secrets.</param>
+    /// <param name="metadata">Searchable source, grounding, and safety metadata.</param>
+    public WeeklyDvarTorahDraft(string title, string body, string generatorVersion, WeeklyDvarTorahContentMetadata? metadata)
     {
         Title = NormalizeRequired(title, MaximumTitleCharacters, nameof(title));
         Body = NormalizeRequired(body, MaximumBodyCharacters, nameof(body));
         GeneratorVersion = NormalizeRequired(generatorVersion, 120, nameof(generatorVersion));
+        Metadata = metadata;
     }
 
     /// <summary>Gets the display title.</summary>
@@ -28,6 +38,9 @@ public sealed record WeeklyDvarTorahDraft
 
     /// <summary>Gets the auditable generator or prompt version.</summary>
     public string GeneratorVersion { get; }
+
+    /// <summary>Gets searchable source, grounding, and safety metadata when produced by the configured generator.</summary>
+    public WeeklyDvarTorahContentMetadata? Metadata { get; }
 
     private static string NormalizeRequired(string value, int maximumCharacters, string parameterName)
     {

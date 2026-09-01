@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "allClaimsSupported": { "type": "boolean" },
+    "torahInterpretationResponsible": { "type": "boolean" },
+    "torahRemainsCentral": { "type": "boolean" },
+    "currentEventsNeutral": { "type": "boolean" },
+    "newsSourcesDescribeSameEvent": { "type": "boolean" },
+    "currentEventHasUsImpact": { "type": "boolean" },
+    "deepMoralTeachingPresent": { "type": "boolean" },
+    "doesNotEncourageViolence": { "type": "boolean" },
+    "doesNotGlorifyOrGraphicallyDescribeViolence": { "type": "boolean" },
+    "doesNotContainHateOrDehumanization": { "type": "boolean" },
+    "doesNotContainRacism": { "type": "boolean" },
+    "doesNotContainSexism": { "type": "boolean" },
+    "doesNotTargetProtectedGroups": { "type": "boolean" },
+    "doesNotScapegoatOrAlienateGroups": { "type": "boolean" },
+    "doesNotUsePartisanPersuasion": { "type": "boolean" },
+    "doesNotExploitSuffering": { "type": "boolean" },
+    "doesNotClaimDivinePunishment": { "type": "boolean" },
+    "respectfulAndInclusive": { "type": "boolean" },
+    "safeToPublish": { "type": "boolean" },
+    "concerns": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": [
+    "allClaimsSupported",
+    "torahInterpretationResponsible",
+    "torahRemainsCentral",
+    "currentEventsNeutral",
+    "newsSourcesDescribeSameEvent",
+    "currentEventHasUsImpact",
+    "deepMoralTeachingPresent",
+    "doesNotEncourageViolence",
+    "doesNotGlorifyOrGraphicallyDescribeViolence",
+    "doesNotContainHateOrDehumanization",
+    "doesNotContainRacism",
+    "doesNotContainSexism",
+    "doesNotTargetProtectedGroups",
+    "doesNotScapegoatOrAlienateGroups",
+    "doesNotUsePartisanPersuasion",
+    "doesNotExploitSuffering",
+    "doesNotClaimDivinePunishment",
+    "respectfulAndInclusive",
+    "safeToPublish",
+    "concerns"
+  ]
+}

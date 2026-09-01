@@ -109,6 +109,14 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
             .Set(document => document.Title, article.Title)
             .Set(document => document.Body, article.Body)
             .Set(document => document.GeneratorVersion, article.GeneratorVersion)
+            .Set(document => document.CentralTeaching, article.Metadata?.CentralTeaching)
+            .Set(document => document.Tags, article.Metadata?.Tags.ToArray())
+            .Set(document => document.Sources, article.Metadata?.Sources.Select(ToDocument).ToArray())
+            .Set(document => document.TorahGroundingPercent, article.Metadata?.TorahGroundingPercent)
+            .Set(document => document.SafetyReviewVersion, article.Metadata?.SafetyReviewVersion)
+            .Set(document => document.Model, article.Metadata?.Model)
+            .Set(document => document.NewsWindowStartedAtUtc, article.Metadata?.NewsWindowStartedAtUtc.UtcDateTime)
+            .Set(document => document.NewsWindowEndedAtUtc, article.Metadata?.NewsWindowEndedAtUtc.UtcDateTime)
             .Set(document => document.GeneratedAtUtc, article.GeneratedAtUtc.UtcDateTime)
             .Set(document => document.PublishedAtUtc, article.PublishedAtUtc.UtcDateTime)
             .Set(document => document.GenerationLeaseId, null)
@@ -150,6 +158,12 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
             .Ascending(document => document.Status)
             .Descending(document => document.ShabbatDate);
         return new CreateIndexModel<MongoWeeklyDvarTorahDocument>(keys, new CreateIndexOptions { Name = "ix_weeklyDvarTorah_inIsrael_status_shabbatDate" });
+    }
+
+    internal static CreateIndexModel<MongoWeeklyDvarTorahDocument> CreateTagIndex()
+    {
+        var keys = Builders<MongoWeeklyDvarTorahDocument>.IndexKeys.Ascending(document => document.Tags);
+        return new CreateIndexModel<MongoWeeklyDvarTorahDocument>(keys, new CreateIndexOptions { Name = "ix_weeklyDvarTorah_tags" });
     }
 
     internal static SortDefinition<MongoWeeklyDvarTorahDocument> CreateLatestPublishedSort() => Builders<MongoWeeklyDvarTorahDocument>.Sort.Descending(document => document.ShabbatDate);
@@ -205,7 +219,45 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
             throw new InvalidOperationException($"Weekly Dvar Torah document '{document.Id}' does not match its reading week.");
         }
 
-        return new WeeklyDvarTorahArticle(week, document.Title, document.Body, document.GeneratorVersion, AsUtc(document.GeneratedAtUtc.Value), AsUtc(document.PublishedAtUtc.Value));
+        var metadata = ToMetadata(document);
+        return new WeeklyDvarTorahArticle(week, document.Title, document.Body, document.GeneratorVersion, AsUtc(document.GeneratedAtUtc.Value), AsUtc(document.PublishedAtUtc.Value), metadata);
+    }
+
+    private static MongoWeeklyDvarTorahSourceDocument ToDocument(WeeklyDvarTorahSource source) => new()
+    {
+        SourceId = source.SourceId,
+        Kind = source.Kind.ToString(),
+        Title = source.Title,
+        Publisher = source.Publisher,
+        SourceUrl = source.SourceUrl,
+        Excerpt = source.Excerpt,
+        RetrievedAtUtc = source.RetrievedAtUtc.UtcDateTime,
+        CanonicalReference = source.CanonicalReference,
+        PublishedAtUtc = source.PublishedAtUtc?.UtcDateTime,
+        License = source.License,
+    };
+
+    private static WeeklyDvarTorahContentMetadata? ToMetadata(MongoWeeklyDvarTorahDocument document)
+    {
+        if (document.CentralTeaching is null && document.Tags is null && document.Sources is null && document.TorahGroundingPercent is null && document.SafetyReviewVersion is null && document.Model is null && document.NewsWindowStartedAtUtc is null && document.NewsWindowEndedAtUtc is null)
+        {
+            return null;
+        }
+        if (document.CentralTeaching is null || document.Tags is null || document.Sources is null || document.TorahGroundingPercent is null || document.SafetyReviewVersion is null || document.Model is null || document.NewsWindowStartedAtUtc is null || document.NewsWindowEndedAtUtc is null)
+        {
+            throw new InvalidOperationException($"Weekly Dvar Torah document '{document.Id}' contains incomplete content metadata.");
+        }
+
+        var sources = document.Sources.Select(source =>
+        {
+            if (!Enum.TryParse<WeeklyDvarTorahSourceKind>(source.Kind, false, out var kind))
+            {
+                throw new InvalidOperationException($"Weekly Dvar Torah document '{document.Id}' contains unsupported source kind '{source.Kind}'.");
+            }
+
+            return new WeeklyDvarTorahSource(source.SourceId, kind, source.Title, source.Publisher, source.SourceUrl, source.Excerpt, AsUtc(source.RetrievedAtUtc), source.CanonicalReference, source.PublishedAtUtc is null ? null : AsUtc(source.PublishedAtUtc.Value), source.License);
+        }).ToArray();
+        return new WeeklyDvarTorahContentMetadata(document.CentralTeaching, document.Tags, sources, document.TorahGroundingPercent.Value, document.SafetyReviewVersion, document.Model, AsUtc(document.NewsWindowStartedAtUtc.Value), AsUtc(document.NewsWindowEndedAtUtc.Value));
     }
 
     private static DateTimeOffset AsUtc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));

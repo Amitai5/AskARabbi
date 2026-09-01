@@ -1,0 +1,57 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string" },
+    "body": { "type": "string" },
+    "centralTeaching": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "practicalActions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "torahTeachings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourcedStatement" }
+    },
+    "currentEventFacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourcedStatement" }
+    },
+    "connections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourcedStatement" }
+    }
+  },
+  "required": ["title", "body", "centralTeaching", "tags", "practicalActions", "torahTeachings", "currentEventFacts", "connections"],
+  "$defs": {
+    "quotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidenceId": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["evidenceId", "text"]
+    },
+    "sourcedStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string" },
+        "evidenceIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "quotations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/quotation" }
+        }
+      },
+      "required": ["text", "evidenceIds", "quotations"]
+    }
+  }
+}

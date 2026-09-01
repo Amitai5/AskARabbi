@@ -65,7 +65,7 @@ public sealed class WeeklyDvarTorahGenerationCoordinator
             var draft = await generator.GenerateAsync(week, cancellationToken).ConfigureAwait(false);
             ArgumentNullException.ThrowIfNull(draft);
             var completedAtUtc = timeProvider.GetUtcNow();
-            var article = new WeeklyDvarTorahArticle(week, draft.Title, draft.Body, draft.GeneratorVersion, completedAtUtc, completedAtUtc);
+            var article = new WeeklyDvarTorahArticle(week, draft.Title, draft.Body, draft.GeneratorVersion, completedAtUtc, completedAtUtc, draft.Metadata);
             if (!await store.PublishAsync(lease, article, cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidOperationException("The weekly Dvar Torah generation lease expired before publication completed.");

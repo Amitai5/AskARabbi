@@ -41,6 +41,38 @@ internal sealed class MongoWeeklyDvarTorahDocument
     [BsonIgnoreIfNull]
     public string? GeneratorVersion { get; set; }
 
+    [BsonElement("centralTeaching")]
+    [BsonIgnoreIfNull]
+    public string? CentralTeaching { get; set; }
+
+    [BsonElement("tags")]
+    [BsonIgnoreIfNull]
+    public string[]? Tags { get; set; }
+
+    [BsonElement("sources")]
+    [BsonIgnoreIfNull]
+    public MongoWeeklyDvarTorahSourceDocument[]? Sources { get; set; }
+
+    [BsonElement("torahGroundingPercent")]
+    [BsonIgnoreIfNull]
+    public int? TorahGroundingPercent { get; set; }
+
+    [BsonElement("safetyReviewVersion")]
+    [BsonIgnoreIfNull]
+    public string? SafetyReviewVersion { get; set; }
+
+    [BsonElement("model")]
+    [BsonIgnoreIfNull]
+    public string? Model { get; set; }
+
+    [BsonElement("newsWindowStartedAtUtc")]
+    [BsonIgnoreIfNull]
+    public DateTime? NewsWindowStartedAtUtc { get; set; }
+
+    [BsonElement("newsWindowEndedAtUtc")]
+    [BsonIgnoreIfNull]
+    public DateTime? NewsWindowEndedAtUtc { get; set; }
+
     [BsonElement("generatedAtUtc")]
     [BsonIgnoreIfNull]
     public DateTime? GeneratedAtUtc { get; set; }

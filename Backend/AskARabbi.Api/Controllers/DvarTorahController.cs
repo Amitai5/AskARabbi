@@ -38,8 +38,24 @@ public sealed class DvarTorahController : ControllerBase
         ToResponse(article.Week),
         article.Title,
         article.Body,
+        article.Metadata?.CentralTeaching,
+        article.Metadata?.Tags ?? [],
+        article.Metadata?.Sources.Select(ToResponse).ToArray() ?? [],
+        article.Metadata?.TorahGroundingPercent,
         article.GeneratedAtUtc,
         article.PublishedAtUtc);
+
+    private static WeeklyDvarTorahSourceResponse ToResponse(WeeklyDvarTorahSource source) => new(
+        source.SourceId,
+        source.Kind,
+        source.Title,
+        source.Publisher,
+        source.SourceUrl,
+        source.Excerpt,
+        source.RetrievedAtUtc,
+        source.CanonicalReference,
+        source.PublishedAtUtc,
+        source.License);
 
     private static WeeklyDvarTorahWeekResponse ToResponse(WeeklyDvarTorahWeek week) => new(
         week.WeekKey,

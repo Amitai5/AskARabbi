@@ -43,4 +43,17 @@ internal static class DvarTorahJobEnvironment
             ? result
             : throw new DvarTorahJobConfigurationException($"The {name} environment variable must be an integer.");
     }
+
+    internal static TEnum GetEnum<TEnum>(string name, TEnum defaultValue) where TEnum : struct, Enum
+    {
+        var value = GetOptional(name);
+        if (value is null)
+        {
+            return defaultValue;
+        }
+
+        return Enum.TryParse<TEnum>(value, true, out var result) && Enum.IsDefined(result)
+            ? result
+            : throw new DvarTorahJobConfigurationException($"The {name} environment variable contains an unsupported value.");
+    }
 }

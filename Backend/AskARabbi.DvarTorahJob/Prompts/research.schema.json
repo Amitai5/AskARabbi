@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "theme": { "type": "string" },
+    "moralQuestion": { "type": "string" },
+    "selectedNewsEvidenceIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "torahSearchQueries": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "suggestedTags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["theme", "moralQuestion", "selectedNewsEvidenceIds", "torahSearchQueries", "suggestedTags"]
+}

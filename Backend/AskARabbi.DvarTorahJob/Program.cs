@@ -21,7 +21,7 @@ if (!OperatingSystem.IsWindows())
 
 try
 {
-    var application = new DvarTorahJobApplication(DvarTorahJobEnvironment.IsGenerationEnabled, JobDependencyFactory.CreateCoordinator, () => Guid.NewGuid().ToString("N"));
+    var application = new DvarTorahJobApplication(DvarTorahJobEnvironment.IsGenerationEnabled, JobDependencyFactory.CreateCoordinatorAsync, () => Guid.NewGuid().ToString("N"));
     var result = await application.RunAsync(shutdown.Token).ConfigureAwait(false);
     if (result is null)
     {

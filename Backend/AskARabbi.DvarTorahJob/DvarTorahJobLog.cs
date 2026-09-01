@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AskARabbiLIB.CurrentEvents;
 using AskARabbiLIB.DvarTorah;
 
 namespace AskARabbi.DvarTorahJob;
@@ -50,6 +51,21 @@ internal static class DvarTorahJobLog
             eventName = "WeeklyDvarTorahGenerationFailed",
             failureCode = exception.GetType().Name,
             configurationError = exception is DvarTorahJobConfigurationException ? exception.Message : null,
+        }));
+    }
+
+    internal static void NewsFeedFailed(FreeNewsFeed feed, Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(feed);
+        ArgumentNullException.ThrowIfNull(exception);
+        Console.Error.WriteLine(JsonSerializer.Serialize(new
+        {
+            timestampUtc = DateTimeOffset.UtcNow,
+            level = "Warning",
+            eventName = "WeeklyDvarTorahNewsFeedFailed",
+            publisher = feed.Publisher,
+            feedHost = feed.FeedUrl.Host,
+            failureCode = exception.GetType().Name,
         }));
     }
 }

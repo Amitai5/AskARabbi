@@ -1,6 +1,6 @@
 # Production readiness checklist
 
-This checklist reflects the deployed Azure resources and the current repository behavior as of August 31, 2026.
+This checklist reflects the deployed Azure resources and the current repository behavior as of September 1, 2026.
 
 ## Completed foundation
 
@@ -19,7 +19,7 @@ This checklist reflects the deployed Azure resources and the current repository 
 
 - [ ] Commit and push the Dockerfile, `.dockerignore`, deployment workflow, backend implementation, and related documentation.
 - [ ] Connect the GitHub `production` environment to Azure through an OIDC federated credential.
-- [ ] Grant that deployment identity `AcrPush` on `askarabbiacrprod` and resource-scoped `Container Apps Contributor` on both `askarabbi-api` and `askarabbi-weekly-dvar-torah`.
+- [x] Grant the deployment identity `AcrPush` on `askarabbiacrprod`, resource-scoped `Container Apps Contributor` on `askarabbi-api`, and resource-scoped `Container Apps Jobs Contributor` on `askarabbi-weekly-dvar-torah`.
 - [ ] Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` to the GitHub `production` environment.
 - [ ] Run the first production workflow and confirm that it deploys the verified commit successfully.
 - [ ] Bind `api.askarabbi.ai` to the Container App, create the required Cloudflare DNS records, and validate HTTPS.
@@ -60,11 +60,12 @@ This checklist reflects the deployed Azure resources and the current repository 
 - [x] Add the shared Hebrew-week contract, current-or-latest service, MongoDB publication collection, deterministic week key, recovery lease, and authenticated read controller.
 - [x] Add the lazy-loaded frontend sidebar destination with loading, pending, fallback, error, desktop, and mobile-compatible states.
 - [x] Add the separate .NET 10 one-shot host, Docker image, disabled generation gate, and Azure deployment workflow for a Sunday Container Apps Job schedule.
-- [ ] Approve the Dvar Torah content structure, licensed sources, prompt, validation policy, model, and generator versioning.
-- [ ] Replace the explicit unconfigured generator and add deterministic tests for its publishable output contract.
-- [ ] Provision `askarabbi-weekly-dvar-torah` in the existing Container Apps environment with cron `5 8 * * 0`, one replica, a 35-minute timeout, two retries, ACR managed-identity pull, and `DvarTorah__GenerationEnabled=false`.
-- [ ] Give the job identity `AcrPull`, configure its MongoDB connection through a job-level secret or Key Vault reference, and confirm the default collection is exactly `WeeklyAIDvarTorahs`.
-- [ ] Run the production deployment workflow once and verify both immutable image digests are applied.
+- [x] Approve and implement the Torah-first content structure, no-subscription RSS/Atom source policy, prompts, deterministic 80% grounding policy, independent neutrality/inclusion/safety review, searchable metadata, and generator versioning.
+- [x] Add deterministic tests for RSS parsing/failure isolation, parashah-range filtering, 80% grounding, exact quotations, repair, violence, racism, protected-group targeting, and fail-closed publication behavior.
+- [x] Provision `askarabbi-weekly-dvar-torah` in the existing Container Apps environment with cron `5 8 * * 0`, one replica, a 35-minute timeout, two retries, ACR managed-identity pull, and `DvarTorah__GenerationEnabled=false`.
+- [x] Configure its MongoDB connection through a verified job-level secret, grant its managed identity resource-scoped access to the existing Azure model/vector store, and confirm the collection is exactly `WeeklyAIDvarTorahs`.
+- [x] Give the job identity `AcrPull` and run the production deployment workflow once to verify both immutable image digests are applied.
+- [x] Run a disabled manual execution and confirm it succeeds with the structured `WeeklyDvarTorahGenerationDisabled` event and no publication attempt.
 - [ ] Validate current, fallback, retry, active-lease, expired-lease, and publication behavior against a non-production MongoDB collection.
 - [ ] Configure Container Apps execution-failure alerts, Log Analytics queries, and an Azure cost budget, then set `DvarTorah__GenerationEnabled=true`.
 

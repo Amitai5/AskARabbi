@@ -45,6 +45,7 @@ public sealed class MongoIndexManager
         await conversations.Indexes.CreateOneAsync(conversationIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await messages.Indexes.CreateOneAsync(messageIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await weeklyDvarTorah.Indexes.CreateOneAsync(MongoWeeklyDvarTorahStore.CreateLatestPublishedIndex(), cancellationToken: cancellationToken).ConfigureAwait(false);
+        await weeklyDvarTorah.Indexes.CreateOneAsync(MongoWeeklyDvarTorahStore.CreateTagIndex(), cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     internal static CreateIndexModel<MongoConversationMessageDocument> CreateMessageIndex()
