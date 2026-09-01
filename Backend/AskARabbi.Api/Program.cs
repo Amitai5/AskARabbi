@@ -12,6 +12,7 @@ using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Retrieval;
 using AskARabbiLIB.Usage;
@@ -73,6 +74,10 @@ builder.Services.AddSingleton<GroundedAnswerTextRenderer>();
 builder.Services.AddSingleton<IHebrewCalendarService, HebrewCalendarService>();
 builder.Services.AddSingleton<CalendarAITools>();
 builder.Services.AddSingleton<IAIToolRegistry>(provider => new AIToolRegistry([provider.GetRequiredService<CalendarAITools>()]));
+var weeklyDvarTorahOptions = builder.Configuration.GetSection(WeeklyDvarTorahOptions.SectionName).Get<WeeklyDvarTorahOptions>() ?? new WeeklyDvarTorahOptions();
+weeklyDvarTorahOptions.Validate();
+builder.Services.AddSingleton(weeklyDvarTorahOptions);
+builder.Services.AddSingleton<WeeklyDvarTorahService>();
 if (groundedChatOptions.IsConfigured)
 {
     var managedManifestPath = Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json");

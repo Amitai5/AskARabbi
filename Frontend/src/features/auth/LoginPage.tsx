@@ -1,13 +1,25 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowRight, Mail } from 'lucide-react'
+import { ArrowRight, LoaderCircle, Mail } from 'lucide-react'
 import manuscriptArtwork from '../../assets/library-manuscript.webp'
 import { Brand } from '../../components/Brand.tsx'
 import { useAuth } from './useAuth.ts'
 
 const EmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const AuthenticationFeedbackDurationMs = 300
 
 interface LoginPageProps {
   isCheckingSession?: boolean
+}
+
+type PendingAuthentication = 'email' | 'google' | null
+
+function AuthenticationSpinner() {
+  return <LoaderCircle aria-hidden="true" className="size-5 shrink-0 animate-spin" strokeWidth={2} />
+}
+
+function showAuthenticationFeedback() {
+  // Authentication replaces the document, so leave enough time for the pending state to paint before navigation.
+  return new Promise<void>((resolve) => window.setTimeout(resolve, AuthenticationFeedbackDurationMs))
 }
 
 function GoogleMark() {
@@ -27,6 +39,10 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false)
   const [resetRequested, setResetRequested] = useState(false)
+  const [pendingAuthentication, setPendingAuthentication] = useState<PendingAuthentication>(null)
+  const isAuthenticationPending = pendingAuthentication !== null || isAuthenticating
+  const isEmailAuthenticationPending = pendingAuthentication === 'email'
+  const isGoogleAuthenticationPending = pendingAuthentication === 'google'
 
   async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -39,28 +55,34 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
 
     setError(null)
     clearAuthenticationError()
-    try {
-      if (isRecoveringPassword) {
+    if (isRecoveringPassword) {
+      try {
         await requestPasswordReset(normalizedEmail)
         setResetRequested(true)
-      } else {
-        await signInWithEmail(normalizedEmail)
-      }
-    } catch {
-      if (isRecoveringPassword) {
+      } catch {
         setError('The password reset request could not be sent. Please try again.')
       }
       return
+    }
+
+    setPendingAuthentication('email')
+    try {
+      await showAuthenticationFeedback()
+      await signInWithEmail(normalizedEmail)
+    } catch {
+      setPendingAuthentication(null)
     }
   }
 
   async function handleGoogleLogin() {
     setError(null)
     clearAuthenticationError()
+    setPendingAuthentication('google')
     try {
+      await showAuthenticationFeedback()
       await signInWithSocialProvider('google')
     } catch {
-      return
+      setPendingAuthentication(null)
     }
   }
 
@@ -75,8 +97,9 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
   }
 
   return (
-    <main className="grid min-h-dvh bg-parchment lg:grid-cols-[minmax(0,1.05fr)_minmax(28rem,0.95fr)]" aria-busy={isCheckingSession}>
+    <main className="grid min-h-dvh bg-parchment lg:grid-cols-[minmax(0,1.05fr)_minmax(28rem,0.95fr)]" aria-busy={isCheckingSession || isAuthenticationPending}>
       {isCheckingSession ? <span className="sr-only" role="status">Checking for an existing session.</span> : null}
+      {pendingAuthentication === null ? null : <span className="sr-only" role="status">{pendingAuthentication === 'email' ? 'Continuing with email.' : 'Continuing with Google.'}</span>}
       <section className="flex min-h-dvh flex-col px-6 py-7 sm:px-10 lg:px-16 lg:py-10 xl:px-20">
         <Brand />
 
@@ -101,6 +124,7 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
                   type="email"
                   autoComplete="email"
                   value={email}
+                  disabled={isAuthenticationPending || resetRequested}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@example.com"
                   aria-describedby={error === null ? undefined : 'email-error'}
@@ -118,20 +142,21 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
 
               <button
                 type="submit"
-                disabled={isAuthenticating || resetRequested}
+                disabled={isAuthenticationPending || resetRequested}
+                aria-busy={isEmailAuthenticationPending}
                 className="group flex h-14 w-full items-center justify-center gap-3 rounded-lg bg-pomegranate px-5 text-[0.95rem] font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60 sm:h-16 sm:text-base"
               >
-                <span>{resetRequested ? 'Reset email requested' : isAuthenticating ? 'Continuing…' : isRecoveringPassword ? 'Send reset link' : 'Continue with email'}</span>
-                <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />
+                <span>{resetRequested ? 'Reset email requested' : isEmailAuthenticationPending ? 'Continuing with email…' : isRecoveringPassword ? 'Send reset link' : 'Continue with email'}</span>
+                {isEmailAuthenticationPending ? <AuthenticationSpinner /> : <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />}
               </button>
             </form>
 
             {isRecoveringPassword ? (
-              <button type="button" onClick={() => { setIsRecoveringPassword(false); setResetRequested(false); setError(null) }} className="mt-5 text-sm font-semibold text-ink-soft transition hover:text-pomegranate">
+              <button type="button" disabled={isAuthenticationPending} onClick={() => { setIsRecoveringPassword(false); setResetRequested(false); setError(null) }} className="mt-5 text-sm font-semibold text-ink-soft transition hover:text-pomegranate disabled:cursor-not-allowed disabled:opacity-60">
                 Back to sign in
               </button>
             ) : (
-              <button type="button" onClick={() => { setIsRecoveringPassword(true); setError(null); clearAuthenticationError() }} className="mt-5 text-sm font-semibold text-pomegranate transition hover:text-pomegranate-dark">
+              <button type="button" disabled={isAuthenticationPending} onClick={() => { setIsRecoveringPassword(true); setError(null); clearAuthenticationError() }} className="mt-5 text-sm font-semibold text-pomegranate transition hover:text-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60">
                 Forgot your password?
               </button>
             )}
@@ -144,18 +169,19 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
 
             <button
               type="button"
-              disabled={isAuthenticating}
+              disabled={isAuthenticationPending}
+              aria-busy={isGoogleAuthenticationPending}
               onClick={() => void handleGoogleLogin()}
-              className="group flex h-14 w-full items-center justify-between rounded-lg border border-ink bg-transparent px-5 text-[0.95rem] font-semibold text-ink transition hover:bg-stone disabled:cursor-not-allowed disabled:opacity-60 sm:h-16 sm:text-base"
+              className="group grid h-14 w-full grid-cols-[1.25rem_1fr_1.25rem] items-center rounded-lg border border-ink bg-transparent px-5 text-[0.95rem] font-semibold text-ink transition hover:bg-stone disabled:cursor-not-allowed disabled:opacity-60 sm:h-16 sm:text-base"
             >
               <GoogleMark />
-              <span>Continue with Google</span>
-              <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />
+              <span>{isGoogleAuthenticationPending ? 'Continuing with Google…' : 'Continue with Google'}</span>
+              {isGoogleAuthenticationPending ? <AuthenticationSpinner /> : <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />}
             </button>
 
             <p className="mt-8 text-[0.95rem] text-ink-soft">
               New to AskRabbi?{' '}
-              <button type="button" disabled={isAuthenticating} onClick={() => void handleSignUp()} className="font-semibold text-pomegranate hover:text-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="button" disabled={isAuthenticationPending} onClick={() => void handleSignUp()} className="font-semibold text-pomegranate hover:text-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60">
                 Create an account
               </button>
             </p></> : null}

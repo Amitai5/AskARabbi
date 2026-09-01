@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import type { ConversationClient, ConversationTurn } from './features/conversations/conversationClient.ts'
 import type { ConversationDetails } from './features/conversations/conversationData.ts'
@@ -46,6 +46,66 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
   })
 
+  it('shows an email loading animation while sign-in is pending', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const authenticatedUser = await clients.authClient.signInWithEmail('reader@example.com')
+    const pendingSignIn = createDeferred<typeof authenticatedUser>()
+    const authClient = {
+      ...clients.authClient,
+      signInWithEmail: () => pendingSignIn.promise,
+    }
+    render(<App authClient={authClient} conversationClient={clients.conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await waitFor(() => expect(screen.queryByText('Checking for an existing session.')).not.toBeInTheDocument())
+    await user.type(screen.getByLabelText('Email address'), 'reader@example.com')
+    await user.click(screen.getByRole('button', { name: 'Continue with email' }))
+
+    const pendingButton = screen.getByRole('button', { name: 'Continuing with email…' })
+    expect(pendingButton).toBeDisabled()
+    expect(pendingButton).toHaveAttribute('aria-busy', 'true')
+    expect(pendingButton.querySelector('.animate-spin')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Continuing with email')
+    expect(screen.getByLabelText('Email address')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeDisabled()
+
+    await act(async () => {
+      pendingSignIn.resolve(authenticatedUser)
+      await pendingSignIn.promise
+    })
+
+    await expectConversationStarter()
+  })
+
+  it('shows a Google loading animation while sign-in is pending', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const authenticatedUser = await clients.authClient.signInWithSocialProvider('google')
+    const pendingSignIn = createDeferred<typeof authenticatedUser>()
+    const authClient = {
+      ...clients.authClient,
+      signInWithSocialProvider: () => pendingSignIn.promise,
+    }
+    render(<App authClient={authClient} conversationClient={clients.conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await waitFor(() => expect(screen.queryByText('Checking for an existing session.')).not.toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+
+    const pendingButton = screen.getByRole('button', { name: 'Continuing with Google…' })
+    expect(pendingButton).toBeDisabled()
+    expect(pendingButton).toHaveAttribute('aria-busy', 'true')
+    expect(pendingButton.querySelector('.animate-spin')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Continuing with Google')
+    expect(screen.getByRole('button', { name: 'Continue with email' })).toBeDisabled()
+
+    await act(async () => {
+      pendingSignIn.resolve(authenticatedUser)
+      await pendingSignIn.promise
+    })
+
+    await expectConversationStarter()
+  })
+
   it('requests password recovery without exposing account existence', async () => {
     const user = userEvent.setup()
     await renderApp()
@@ -63,6 +123,8 @@ describe('App', () => {
     window.history.replaceState({}, '', '/reset-password?token=workos-reset-token')
     render(<App authClient={clients.authClient} conversationClient={clients.conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
 
+    expect(window.location.pathname).toBe('/reset-password')
+    expect(window.location.search).toBe('')
     await user.type(await screen.findByLabelText('New password'), 'LongEnoughPassword!42')
     await user.type(screen.getByLabelText('Confirm new password'), 'LongEnoughPassword!42')
     await user.click(screen.getByRole('button', { name: 'Update password' }))
@@ -84,6 +146,28 @@ describe('App', () => {
 
     await user.click(screen.getByRole('menuitem', { name: 'Log out' }))
     expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  })
+
+  it('contains tablet swipe scrolling within the authenticated dashboard', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    await expectConversationStarter()
+
+    const conversation = screen.getByRole('region', { name: 'Current conversation' })
+    expect(document.documentElement).toHaveClass('conversation-dashboard-scroll-lock')
+    expect(document.body).toHaveClass('conversation-dashboard-scroll-lock')
+    expect(conversation).toHaveClass('overflow-y-auto', 'overscroll-y-contain', 'touch-pan-y')
+    expect(conversation.closest('main')).toHaveClass('min-h-0', 'overflow-hidden')
+    expect(screen.getByRole('navigation', { name: 'Recent conversations' })).toHaveClass('overscroll-y-contain', 'touch-pan-y')
+
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Log out' }))
+
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeVisible()
+    expect(document.documentElement).not.toHaveClass('conversation-dashboard-scroll-lock')
+    expect(document.body).not.toHaveClass('conversation-dashboard-scroll-lock')
   })
 
   it('requires new users to complete personalization before entering chat', async () => {
@@ -209,6 +293,8 @@ describe('App', () => {
     expect(within(screen.getByRole('article')).getByText('Why is chicken treated like meat?')).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('checking the quotations')
     expect(screen.getByTestId('answer-progress-dots').children).toHaveLength(3)
+    expect(screen.getByRole('button', { name: 'Chicken and dairy' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Choose sources:/ })).toBeDisabled()
     await waitFor(() => expect(submittedContent).toBe('Why is chicken treated like meat?'))
     await act(async () => {
       pendingTurn.resolve({
@@ -231,6 +317,7 @@ describe('App', () => {
 
     expect(await screen.findByText('A validated grounded answer.')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Chicken and Dairy Laws', current: 'page' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Chicken and dairy' })).toBeEnabled()
   })
 
   it('merges a compact follow-up response without discarding earlier messages', async () => {
@@ -350,6 +437,63 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Choose sources: Core sources' })).toBeVisible()
   })
 
+  it('persists changed sources before sending an existing conversation message', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const sourceUpdate = createDeferred<void>()
+    const updateSources = vi.fn(() => sourceUpdate.promise)
+    const appendMessage = vi.fn(clients.conversationClient.appendMessage)
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      updateSources,
+      appendMessage,
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    expect(await screen.findByRole('button', { name: 'Chicken and dairy', current: 'page' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /Choose sources:/ }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Sources used for this conversation' })).getByRole('checkbox', { name: 'Rif' }))
+    await user.click(screen.getByRole('button', { name: 'Choose sources: 5 sources' }))
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'How does the Rif approach this question?')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => expect(updateSources).toHaveBeenCalledWith('chicken-dairy', expect.arrayContaining(['work:rif'])))
+    expect(appendMessage).not.toHaveBeenCalled()
+
+    await act(async () => {
+      sourceUpdate.resolve(undefined)
+      await sourceUpdate.promise
+    })
+
+    expect(await screen.findByText(/local demo follow-up remains grounded/)).toBeVisible()
+    expect(appendMessage).toHaveBeenCalledWith('chicken-dairy', expect.any(String), 'How does the Rif approach this question?')
+  })
+
+  it('keeps the message draft when a changed source selection cannot be saved', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const appendMessage = vi.fn(clients.conversationClient.appendMessage)
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      updateSources: () => Promise.reject(new Error('Source persistence unavailable.')),
+      appendMessage,
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    expect(await screen.findByRole('button', { name: 'Chicken and dairy', current: 'page' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /Choose sources:/ }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Sources used for this conversation' })).getByRole('checkbox', { name: 'Rif' }))
+    await user.click(screen.getByRole('button', { name: 'Choose sources: 5 sources' }))
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'Keep this question available for retry.')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The source selection could not be saved')
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('Keep this question available for retry.')
+    expect(appendMessage).not.toHaveBeenCalled()
+  })
+
   it('advances the welcome prompt only when a new conversation starts', async () => {
     const user = userEvent.setup()
     await renderApp()
@@ -462,8 +606,8 @@ async function renderApp() {
 }
 
 async function expectConversationStarter() {
-  const heading = await screen.findByRole('heading', { level: 1 })
-  expect(ConversationStarterHeadings).toContain(heading.textContent)
+  await waitFor(() => expect(ConversationStarterHeadings).toContain(screen.getByRole('heading', { level: 1 }).textContent))
+  const heading = screen.getByRole('heading', { level: 1 })
   expect(heading).toBeVisible()
   return heading
 }

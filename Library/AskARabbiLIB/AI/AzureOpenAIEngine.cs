@@ -91,7 +91,7 @@ public sealed class AzureOpenAIEngine : IAIEngine
             catch (OperationCanceledException)
             {
                 stopwatch.Stop();
-                return AIEngineResult<T>.Failure(AIEngineStatus.TimedOut, $"AI request exceeded the {options.Timeout.TotalSeconds:N0}-second timeout.", CreateDiagnostics(null, stopwatch.Elapsed, attempt + 1));
+                return AIEngineResult<T>.Failure(AIEngineStatus.TimedOut, $"AI request exceeded the {options.Timeout.TotalSeconds:N0}-second timeout.", CreateDiagnostics(null, stopwatch.Elapsed, attempt + 1, AIEngineStatus.TimedOut, "client_timeout"));
             }
 
             if (lastResult.Status == AIEngineStatus.Success)
@@ -117,34 +117,34 @@ public sealed class AzureOpenAIEngine : IAIEngine
             catch (OperationCanceledException)
             {
                 stopwatch.Stop();
-                return AIEngineResult<T>.Failure(AIEngineStatus.TimedOut, $"AI request exceeded the {options.Timeout.TotalSeconds:N0}-second timeout.", CreateDiagnostics(lastResult, stopwatch.Elapsed, attempt + 1));
+                return AIEngineResult<T>.Failure(AIEngineStatus.TimedOut, $"AI request exceeded the {options.Timeout.TotalSeconds:N0}-second timeout.", CreateDiagnostics(lastResult, stopwatch.Elapsed, attempt + 1, AIEngineStatus.TimedOut, "client_timeout"));
             }
         }
 
         stopwatch.Stop();
-        return AIEngineResult<T>.Failure(AIEngineStatus.ProviderFailure, "The AI request ended without a provider result.", CreateDiagnostics(lastResult, stopwatch.Elapsed, options.MaximumRetryCount + 1));
+        return AIEngineResult<T>.Failure(AIEngineStatus.ProviderFailure, "The AI request ended without a provider result.", CreateDiagnostics(lastResult, stopwatch.Elapsed, options.MaximumRetryCount + 1, AIEngineStatus.ProviderFailure, "no_provider_result"));
     }
 
     private AIEngineResult<T> DeserializeResult<T>(AITransportResult result, TimeSpan latency, int attempts)
     {
         if (string.IsNullOrWhiteSpace(result.OutputJson))
         {
-            return AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "The AI provider returned no structured output.", CreateDiagnostics(result, latency, attempts));
+            return AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "The AI provider returned no structured output.", CreateDiagnostics(result, latency, attempts, AIEngineStatus.InvalidResponse, result.CompletionReason ?? "empty_structured_output"));
         }
         try
         {
             var value = JsonSerializer.Deserialize<T>(result.OutputJson, SerializerOptions);
             return value is null
-                ? AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "The AI provider returned a null structured output.", CreateDiagnostics(result, latency, attempts))
+                ? AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "The AI provider returned a null structured output.", CreateDiagnostics(result, latency, attempts, AIEngineStatus.InvalidResponse, "null_structured_output"))
                 : AIEngineResult<T>.Success(value, CreateDiagnostics(result, latency, attempts));
         }
         catch (JsonException exception)
         {
-            return AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, $"The AI provider returned invalid structured JSON: {exception.Message}", CreateDiagnostics(result, latency, attempts));
+            return AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, $"The AI provider returned invalid structured JSON: {exception.Message}", CreateDiagnostics(result, latency, attempts, AIEngineStatus.InvalidResponse, "invalid_structured_json"));
         }
     }
 
-    private AIResponseDiagnostics CreateDiagnostics(AITransportResult? result, TimeSpan latency, int attempts) => new(result?.ResponseId, result?.Model ?? options.ModelName, result?.Usage, latency, attempts);
+    private AIResponseDiagnostics CreateDiagnostics(AITransportResult? result, TimeSpan latency, int attempts, AIEngineStatus? statusOverride = null, string? completionReasonOverride = null) => new(result?.ResponseId, result?.Model ?? options.ModelName, result?.Usage, latency, attempts, statusOverride ?? result?.Status ?? AIEngineStatus.ProviderFailure, completionReasonOverride ?? result?.CompletionReason);
 
     private static void ValidateRequest(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema)
     {

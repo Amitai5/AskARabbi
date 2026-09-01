@@ -45,12 +45,13 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
                 aggregateUsage = CombineUsage(aggregateUsage, responseUsage);
                 var responseId = value.Id;
                 var responseModel = string.IsNullOrWhiteSpace(value.Model) ? request.Model : value.Model;
+                var completionReason = GetCompletionReason(value);
                 var functionCalls = value.OutputItems.OfType<FunctionCallResponseItem>().ToArray();
                 if (functionCalls.Length > 0)
                 {
                     if (request.ToolSession is null)
                     {
-                        return new AITransportResult(AIEngineStatus.InvalidResponse, null, "Azure OpenAI requested a tool when no tool session was configured.", responseId, responseModel, aggregateUsage, false);
+                        return new AITransportResult(AIEngineStatus.InvalidResponse, null, "Azure OpenAI requested a tool when no tool session was configured.", responseId, responseModel, aggregateUsage, false, "unexpected_tool_call");
                     }
 
                     AppendResponseOutputItems(responseOptions, value.OutputItems);
@@ -69,26 +70,26 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
 
                 if (value.Status == ResponseStatus.Completed)
                 {
-                    return new AITransportResult(AIEngineStatus.Success, value.GetOutputText(), null, responseId, responseModel, aggregateUsage, false);
+                    return new AITransportResult(AIEngineStatus.Success, value.GetOutputText(), null, responseId, responseModel, aggregateUsage, false, completionReason);
                 }
 
                 if (value.Status == ResponseStatus.Failed && value.Error?.Code == ResponseErrorCode.RateLimitExceeded)
                 {
-                    return new AITransportResult(AIEngineStatus.RateLimited, null, value.Error.Message, responseId, responseModel, aggregateUsage, true);
+                    return new AITransportResult(AIEngineStatus.RateLimited, null, value.Error.Message, responseId, responseModel, aggregateUsage, true, completionReason);
                 }
 
                 if (value.Status == ResponseStatus.Failed && value.Error?.Code == ResponseErrorCode.ServerError)
                 {
-                    return new AITransportResult(AIEngineStatus.ProviderFailure, null, value.Error.Message, responseId, responseModel, aggregateUsage, true);
+                    return new AITransportResult(AIEngineStatus.ProviderFailure, null, value.Error.Message, responseId, responseModel, aggregateUsage, true, completionReason);
                 }
 
                 var error = value.Error?.Message ?? $"Azure OpenAI returned response status '{value.Status}'.";
-                return new AITransportResult(AIEngineStatus.InvalidResponse, null, error, responseId, responseModel, aggregateUsage, false);
+                return new AITransportResult(AIEngineStatus.InvalidResponse, null, error, responseId, responseModel, aggregateUsage, false, completionReason);
             }
         }
         catch (ClientResultException exception) when (exception.Status == 429)
         {
-            return new AITransportResult(AIEngineStatus.RateLimited, null, exception.Message, null, request.Model, null, true);
+            return new AITransportResult(AIEngineStatus.RateLimited, null, exception.Message, null, request.Model, null, true, "http_429");
         }
         catch (ClientResultException exception) when (exception.Status == 401)
         {
@@ -100,11 +101,11 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         }
         catch (ClientResultException exception) when (exception.Status >= 500)
         {
-            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true);
+            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true, "http_5xx");
         }
         catch (ClientResultException exception)
         {
-            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, false);
+            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, false, $"http_{exception.Status}");
         }
         catch (OperationCanceledException)
         {
@@ -113,7 +114,7 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         catch (AuthenticationFailedException exception)
         {
             var message = $"Azure could not obtain an Entra access token. Refresh the selected local Azure sign-in and try again. Authentication detail: {exception.Message}";
-            return new AITransportResult(AIEngineStatus.Unauthorized, null, message, null, request.Model, null, false);
+            return new AITransportResult(AIEngineStatus.Unauthorized, null, message, null, request.Model, null, false, "authentication_failed");
         }
         catch (Azure.RequestFailedException exception) when (exception.Status == 401)
         {
@@ -125,19 +126,19 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         }
         catch (Azure.RequestFailedException exception) when (exception.Status == 429)
         {
-            return new AITransportResult(AIEngineStatus.RateLimited, null, exception.Message, null, request.Model, null, true);
+            return new AITransportResult(AIEngineStatus.RateLimited, null, exception.Message, null, request.Model, null, true, "http_429");
         }
         catch (Azure.RequestFailedException exception) when (exception.Status >= 500)
         {
-            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true);
+            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true, "http_5xx");
         }
         catch (HttpRequestException exception)
         {
-            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true);
+            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true, "network_error");
         }
         catch (Exception exception)
         {
-            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, false);
+            return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, false, "provider_exception");
         }
     }
 
@@ -213,6 +214,25 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         return new AIUsage(first.InputTokens + second.InputTokens, first.OutputTokens + second.OutputTokens, first.TotalTokens + second.TotalTokens);
     }
 
+    private static string GetCompletionReason(ResponseResult response) => GetCompletionReason(response.Status?.ToString(), response.IncompleteStatusDetails?.Reason.ToString(), response.Error?.Code.ToString());
+
+    internal static string GetCompletionReason(string? status, string? incompleteReason, string? errorCode)
+    {
+        if (string.Equals(status, ResponseStatus.Completed.ToString(), StringComparison.Ordinal))
+        {
+            return "completed";
+        }
+        if (string.Equals(status, ResponseStatus.Incomplete.ToString(), StringComparison.Ordinal))
+        {
+            return incompleteReason ?? "incomplete";
+        }
+        if (string.Equals(status, ResponseStatus.Failed.ToString(), StringComparison.Ordinal))
+        {
+            return errorCode ?? "failed";
+        }
+        return status ?? "unknown";
+    }
+
     private AITransportResult CreateAuthorizationFailure(int status, string model, string providerDetail)
     {
         var guidance = (usesApiKey, status) switch
@@ -223,6 +243,6 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
             _ => "Azure authenticated the identity but denied model inference. Verify that it has Cognitive Services OpenAI User on an Azure OpenAI resource, or Cognitive Services User on a Foundry resource.",
         };
 
-        return new AITransportResult(AIEngineStatus.Unauthorized, null, $"{guidance} Provider detail: {providerDetail}", null, model, null, false);
+        return new AITransportResult(AIEngineStatus.Unauthorized, null, $"{guidance} Provider detail: {providerDetail}", null, model, null, false, $"http_{status}");
     }
 }

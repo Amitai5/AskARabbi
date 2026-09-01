@@ -124,6 +124,10 @@ public sealed class GroundedConversationTurnService
             {
                 logger.LogWarning("Grounded validation rejected the generated answer for conversation {ConversationId}: {ValidationError}", conversation.Id, answerResult.ErrorMessage);
             }
+            if (answerResult.Status is GroundedAnswerStatus.AIUnavailable or GroundedAnswerStatus.AuthenticationFailed)
+            {
+                logger.LogWarning("Grounded model stage failed for conversation {ConversationId}: provider status {ProviderStatus}, completion reason {CompletionReason}, response {ResponseId}.", conversation.Id, answerResult.Trace.ProviderStatus, answerResult.Trace.CompletionReason, answerResult.Trace.ResponseId);
+            }
             return new GroundedConversationTurnResult(ToStatus(answerResult.Status), conversation, CreateClientFailureMessage(answerResult), answerResult.Trace, processingStopwatch.Elapsed);
         }
         var rendered = renderer.Render(answerResult.Answer);
@@ -141,7 +145,7 @@ public sealed class GroundedConversationTurnService
     private void LogTurnMetrics(Guid conversationId, GroundedAnswerResult result, TimeSpan processingLatency, bool wasPersisted)
     {
         logger.LogInformation(
-            "Grounded turn completed for conversation {ConversationId}: status {Status}, persisted {WasPersisted}, total {TotalMilliseconds} ms, retrieval {RetrievalMilliseconds} ms, model {ModelMilliseconds} ms, candidates {CandidateCount}, evidence {EvidenceCount}, evidence characters {EvidenceCharacterCount}, validation {ValidationStatus}, repair {RepairAttempted}.",
+            "Grounded turn completed for conversation {ConversationId}: status {Status}, persisted {WasPersisted}, total {TotalMilliseconds} ms, retrieval {RetrievalMilliseconds} ms, model {ModelMilliseconds} ms, candidates {CandidateCount}, evidence {EvidenceCount}, evidence characters {EvidenceCharacterCount}, validation {ValidationStatus}, repair {RepairAttempted}, provider status {ProviderStatus}, completion reason {CompletionReason}, response {ResponseId}, provider attempts {ProviderAttempts}, input tokens {InputTokens}, output tokens {OutputTokens}, total tokens {TotalTokens}.",
             conversationId,
             result.Status,
             wasPersisted,
@@ -152,7 +156,14 @@ public sealed class GroundedConversationTurnService
             result.Trace.EvidenceCount,
             result.Trace.EvidenceCharacterCount,
             result.Trace.ValidationStatus,
-            result.Trace.RepairAttempted);
+            result.Trace.RepairAttempted,
+            result.Trace.ProviderStatus,
+            result.Trace.CompletionReason,
+            result.Trace.ResponseId,
+            result.Trace.ProviderAttempts,
+            result.Trace.Usage?.InputTokens,
+            result.Trace.Usage?.OutputTokens,
+            result.Trace.Usage?.TotalTokens);
     }
 
     internal static Guid CreateAssistantMessageId(Guid userMessageId)
@@ -245,6 +256,6 @@ public sealed class GroundedConversationTurnService
     };
 
     private static string? CreateClientFailureMessage(GroundedAnswerResult result) => result.Status == GroundedAnswerStatus.ValidationFailed
-        ? "AskARabbi could not verify every quotation against its source, so it did not show the answer. Please try again."
+        ? "AskARabbi could not fully support every statement with the cited sources, so it did not show the answer. Please try again."
         : result.ErrorMessage;
 }

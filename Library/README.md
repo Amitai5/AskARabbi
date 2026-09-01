@@ -1,6 +1,6 @@
 # AskARabbiLIB
 
-`AskARabbiLIB` is the reusable .NET 10 library for manifest search, checksum-verified source access, segment indexing/retrieval, Azure AI access, bounded local AI tools, Hebrew-calendar calculations, optional Key Vault access, fail-closed grounded-answer validation, production account/conversation rules, and Azure Cosmos DB for MongoDB persistence. Its namespace, project, assembly, and solution are all named `AskARabbiLIB`.
+`AskARabbiLIB` is the reusable .NET 10 library for manifest search, checksum-verified source access, segment indexing/retrieval, Azure AI access, bounded local AI tools, Hebrew-calendar calculations, weekly Dvar Torah publication orchestration, optional Key Vault access, fail-closed grounded-answer validation, production account/conversation rules, and Azure Cosmos DB for MongoDB persistence. Its namespace, project, assembly, and solution are all named `AskARabbiLIB`.
 
 The library has no Spectre.Console dependency. `AskARabbiPrototype` is only a host; future APIs, agents, workers, and evaluation tools can reuse these contracts directly.
 
@@ -15,6 +15,7 @@ Library/
 │   ├── Calendar/
 │   ├── Conversations/
 │   ├── ConversationSettings/
+│   ├── DvarTorah/
 │   ├── Files/
 │   ├── Grounding/
 │   ├── Models/
@@ -72,6 +73,7 @@ The host supplies a validated `GroundedPromptSet` to `GroundedAnswerService`. In
 - Secrets: `ISecretStore`, `AzureKeyVaultSecretStore`.
 - Accounts: `ExternalUserIdentity`, `UserAccount`, `IUserAccountStore`.
 - Conversations: `Conversation`, `ConversationMessage`, `ConversationSourceCitation`, `ConversationSummary`, `ConversationService`, `ConversationSourceCatalog`, `IConversationStore`.
+- Weekly Dvar Torah: `WeeklyDvarTorahService`, `WeeklyDvarTorahGenerationCoordinator`, `IWeeklyDvarTorahStore`, `IWeeklyDvarTorahGenerationStore`, `IWeeklyDvarTorahGenerator`, and immutable week, draft, article, and publication models.
 - Personalization and usage: `PersonalizationSettings`, `ConversationSettingsService`, `MonthlyUsageService`, `BillingPeriodUsage`, and their store contracts.
 - Persistence: `MongoDatabaseOptions`, owner-scoped MongoDB store implementations, required-index initialization, invariant temporal serializers, and an explicit unconfigured-store failure.
 
@@ -85,7 +87,7 @@ The library deliberately owns every reusable or safety-critical operation. The p
 
 Production code is organized with one primary type per file and provider-specific dependencies behind narrow internal or public contracts. Public models retain their current namespaces and serialization names; this cleanup did not change the manifest schema or console configuration keys.
 
-The production MongoDB boundary keeps account data, conversation metadata, messages, personalization, and monthly counters in separate collections. Conversation summaries project only navigation fields; loading one conversation joins its owner-scoped metadata with ordered message records. Assistant messages may embed bounded `ConversationSourceCitation` records containing trusted quotations, presented context, canonical and attribution URLs, edition, language, license, and excerpt state; legacy messages without that additive field remain valid. Client-generated message IDs make retries idempotent, and every mutation requires both the immutable local user ID and resource ID. `TimeProvider` drives persisted application timestamps and calendar-month usage boundaries so business tests do not depend on system time.
+The production MongoDB boundary keeps account data, conversation metadata, messages, personalization, monthly counters, and global weekly publications in separate collections. Conversation summaries project only navigation fields; loading one conversation joins its owner-scoped metadata with ordered message records. Assistant messages may embed bounded `ConversationSourceCitation` records containing trusted quotations, presented context, canonical and attribution URLs, edition, language, license, and excerpt state; legacy messages without that additive field remain valid. Client-generated message IDs make retries idempotent, and every user mutation requires both the immutable local user ID and resource ID. Weekly publications instead use deterministic reading-cycle/Shabbat IDs, recoverable generation leases, and an atomic transition to immutable published content. `TimeProvider` drives persisted application timestamps, calendar-month usage boundaries, and testable weekly selection so business tests do not depend on system time.
 
 ## Dependencies
 

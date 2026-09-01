@@ -46,7 +46,7 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
         />
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <div className="flex min-w-0 items-center gap-2">
-            <SourceFilterMenu selectedSourceKeys={selectedSourceKeys} onChange={onSelectedSourceKeysChange} />
+            <SourceFilterMenu key={isSending ? 'source-filter-sending' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending} onChange={onSelectedSourceKeysChange} />
             <span className="hidden truncate text-xs text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
           </div>
           <button type="submit" disabled={isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-10 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">

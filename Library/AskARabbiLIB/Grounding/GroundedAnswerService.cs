@@ -567,7 +567,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
     private static GroundedAnswerTrace CreateTrace(TimeSpan retrievalLatency, int candidateCount, EvidencePacket? packet, GroundedValidationStatus validationStatus, bool repairAttempted, AIResponseDiagnostics? diagnostics)
     {
-        return new GroundedAnswerTrace(retrievalLatency, diagnostics?.Latency ?? TimeSpan.Zero, candidateCount, packet?.Items.Count ?? 0, packet?.CharacterCount ?? 0, diagnostics?.Usage, validationStatus, repairAttempted, diagnostics?.ResponseId, diagnostics?.Model ?? string.Empty);
+        return new GroundedAnswerTrace(retrievalLatency, diagnostics?.Latency ?? TimeSpan.Zero, candidateCount, packet?.Items.Count ?? 0, packet?.CharacterCount ?? 0, diagnostics?.Usage, validationStatus, repairAttempted, diagnostics?.ResponseId, diagnostics?.Model ?? string.Empty)
+        {
+            ProviderStatus = diagnostics?.ProviderStatus ?? AIEngineStatus.Success,
+            CompletionReason = diagnostics?.CompletionReason,
+            ProviderAttempts = diagnostics?.Attempts ?? 0,
+        };
     }
 
     private static GroundedAnswerStatus MapProviderFailure(AIEngineStatus? status) => status == AIEngineStatus.Unauthorized ? GroundedAnswerStatus.AuthenticationFailed : GroundedAnswerStatus.AIUnavailable;
@@ -588,7 +593,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         }
         var responseId = diagnostics.LastOrDefault(diagnostic => !string.IsNullOrWhiteSpace(diagnostic.ResponseId))?.ResponseId;
         var model = diagnostics.LastOrDefault(diagnostic => !string.IsNullOrWhiteSpace(diagnostic.Model))?.Model ?? string.Empty;
-        return new AIResponseDiagnostics(responseId, model, usage, TimeSpan.FromTicks(diagnostics.Sum(diagnostic => diagnostic.Latency.Ticks)), diagnostics.Sum(diagnostic => diagnostic.Attempts));
+        var finalDiagnostic = diagnostics[^1];
+        return new AIResponseDiagnostics(responseId, model, usage, TimeSpan.FromTicks(diagnostics.Sum(diagnostic => diagnostic.Latency.Ticks)), diagnostics.Sum(diagnostic => diagnostic.Attempts), finalDiagnostic.ProviderStatus, finalDiagnostic.CompletionReason);
     }
 
     private static AIUsage? CombineUsage(AIUsage? first, AIUsage? second)

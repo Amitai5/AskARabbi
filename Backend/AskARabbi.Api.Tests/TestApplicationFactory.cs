@@ -2,6 +2,7 @@ using AskARabbi.Api.Authentication;
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Usage;
 using AskARabbiLIB.Grounding;
 using Microsoft.AspNetCore.DataProtection;
@@ -38,6 +39,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     internal InMemoryApplicationStore Store { get; } = new();
 
     internal FakeGroundedAnswerService GroundedAnswers { get; } = new();
+
+    internal InMemoryWeeklyDvarTorahStore WeeklyDvarTorah { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -89,12 +92,14 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.RemoveAll<IConversationStore>();
                 services.RemoveAll<IConversationSettingsStore>();
                 services.RemoveAll<IUsageStore>();
+                services.RemoveAll<IWeeklyDvarTorahStore>();
 
                 services.AddSingleton<IUserAuthenticationService>(Authentication);
                 services.AddSingleton<IUserAccountStore>(Store);
                 services.AddSingleton<IConversationStore>(Store);
                 services.AddSingleton<IConversationSettingsStore>(Store);
                 services.AddSingleton<IUsageStore>(Store);
+                services.AddSingleton<IWeeklyDvarTorahStore>(WeeklyDvarTorah);
             }
 
             services.AddSingleton<TimeProvider>(new FixedTimeProvider(FixedUtcNow));

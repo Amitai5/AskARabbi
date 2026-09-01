@@ -3,7 +3,8 @@ name: Verify
 on:
   push:
     branches:
-      - "**"
+      - staging
+      - production
   pull_request: {}
 
 permissions:
@@ -49,7 +50,7 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm --dir Frontend install --frozen-lockfile
 
-      - name: Verify frontend
+      - name: Lint, test, and build frontend
         run: pnpm --dir Frontend verify
 
       - name: Restore library solution

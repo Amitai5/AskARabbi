@@ -9,8 +9,8 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "text": { "type": "string" },
-          "evidenceIds": { "type": "array", "items": { "type": "string" } },
+          "text": { "type": "string", "description": "One independently verifiable factual or interpretive proposition; split compound propositions into separate claims." },
+          "evidenceIds": { "type": "array", "description": "Existing packet evidence IDs that together directly support the complete proposition.", "items": { "type": "string" } },
           "attribution": { "type": ["string", "null"] },
           "quotations": {
             "type": "array",
@@ -20,7 +20,7 @@
               "properties": {
                 "evidenceId": { "type": "string" },
                 "text": { "type": "string" },
-                "role": { "type": "string" }
+                "role": { "type": "string", "description": "The exact part of this claim that the quotation supports." }
               },
               "required": ["evidenceId", "text", "role"]
             }
@@ -35,8 +35,8 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "text": { "type": "string" },
-          "evidenceIds": { "type": "array", "items": { "type": "string" } },
+          "text": { "type": "string", "description": "One independently verifiable competing factual or interpretive proposition." },
+          "evidenceIds": { "type": "array", "description": "Existing packet evidence IDs that together directly support the complete proposition.", "items": { "type": "string" } },
           "attribution": { "type": ["string", "null"] },
           "quotations": {
             "type": "array",
@@ -46,7 +46,7 @@
               "properties": {
                 "evidenceId": { "type": "string" },
                 "text": { "type": "string" },
-                "role": { "type": "string" }
+                "role": { "type": "string", "description": "The exact part of this disagreement that the quotation supports." }
               },
               "required": ["evidenceId", "text", "role"]
             }

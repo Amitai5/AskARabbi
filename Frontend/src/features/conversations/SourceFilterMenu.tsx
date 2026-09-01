@@ -4,10 +4,11 @@ import { AllSourceKeys, CoreSourceKeys, SourceOptions } from './sourceOptions.ts
 
 interface SourceFilterMenuProps {
   selectedSourceKeys: readonly string[]
+  isDisabled: boolean
   onChange(sourceKeys: string[]): void
 }
 
-export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterMenuProps) {
+export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: SourceFilterMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const selectedSourceKeySet = new Set(selectedSourceKeys)
@@ -16,7 +17,7 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
   const selectionLabel = areAllSourcesSelected ? 'All sources' : areCoreSourcesSelected ? 'Core sources' : selectedSourceKeys.length === 0 ? 'Choose sources' : `${selectedSourceKeys.length} sources`
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isDisabled || !isOpen) {
       return
     }
 
@@ -38,9 +39,13 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isDisabled, isOpen])
 
   function toggleSource(sourceKey: string) {
+    if (isDisabled) {
+      return
+    }
+
     const nextSelectedSourceKeys = selectedSourceKeySet.has(sourceKey)
       ? selectedSourceKeys.filter((key) => key !== sourceKey)
       : SourceOptions.filter((source) => selectedSourceKeySet.has(source.key) || source.key === sourceKey).map((source) => source.key)
@@ -51,6 +56,7 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        disabled={isDisabled}
         aria-expanded={isOpen}
         aria-controls="conversation-source-filter"
         aria-label={`Choose sources: ${selectionLabel}`}
@@ -70,9 +76,9 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
               <p className="mt-1 text-xs leading-5 text-muted">Only enabled sources will ground this conversation.</p>
             </div>
             <div className="flex shrink-0 gap-1">
-              <button type="button" aria-label="Select core sources" onClick={() => onChange([...CoreSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone">Core</button>
-              <button type="button" aria-label="Select all sources" onClick={() => onChange([...AllSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone">All</button>
-              <button type="button" aria-label="Clear all sources" onClick={() => onChange([])} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-soft transition hover:bg-stone">Clear</button>
+              <button type="button" disabled={isDisabled} aria-label="Select core sources" onClick={() => onChange([...CoreSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">Core</button>
+              <button type="button" disabled={isDisabled} aria-label="Select all sources" onClick={() => onChange([...AllSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">All</button>
+              <button type="button" disabled={isDisabled} aria-label="Clear all sources" onClick={() => onChange([])} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-soft transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">Clear</button>
             </div>
           </div>
 
@@ -84,7 +90,7 @@ export function SourceFilterMenu({ selectedSourceKeys, onChange }: SourceFilterM
                   const isSelected = selectedSourceKeySet.has(source.key)
                   return (
                     <label key={source.key} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-stone">
-                      <input type="checkbox" aria-label={source.label} checked={isSelected} onChange={() => toggleSource(source.key)} className="sr-only" />
+                      <input type="checkbox" disabled={isDisabled} aria-label={source.label} checked={isSelected} onChange={() => toggleSource(source.key)} className="sr-only" />
                       <span aria-hidden="true" className={`flex size-5 shrink-0 items-center justify-center rounded border transition ${isSelected ? 'border-pomegranate bg-pomegranate text-white' : 'border-line-strong bg-paper text-transparent'}`}>
                         <Check className="size-3.5" strokeWidth={2.2} />
                       </span>

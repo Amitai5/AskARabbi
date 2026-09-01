@@ -2,6 +2,7 @@ using AskARabbi.Api.Authentication;
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Usage;
 
 namespace AskARabbi.Api.Development;
@@ -19,6 +20,7 @@ internal static class LocalDevelopmentServiceCollectionExtensions
         services.AddSingleton<IConversationStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IConversationSettingsStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IUsageStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
+        services.AddSingleton<IWeeklyDvarTorahStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IUserAuthenticationService, LocalDevelopmentAuthenticationService>();
         return services;
     }

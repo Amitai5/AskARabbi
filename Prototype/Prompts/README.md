@@ -22,7 +22,7 @@ The static portion of the current request. It reinforces direct, concise BLUF ph
 
 ### `validation-repair.txt`
 
-The one-time correction request used when the first structured draft fails deterministic validation or the independent relevance-and-support audit. `{{validationError}}` is replaced with the precise validation failure. The repair must remain concise, reuse the same packet, and cannot introduce new claims or evidence IDs.
+The one-time correction request used when the first structured draft fails deterministic validation or the independent relevance-and-support audit. `{{validationError}}` is replaced with the precise validation failure. The repair must remain concise and reuse the same packet. It may split, merge, add, remove, or rewrite statement objects and reassign existing packet evidence so every proposition is atomic and fully supported, but it can never invent evidence IDs, sources, quotations, attributions, or source relationships.
 
 ### `interpretive-notice.txt`
 
@@ -30,7 +30,7 @@ The editable closing shown in italic grey after every validated answer. The enti
 
 ### `grounded-answer.schema.json`
 
-The strict Structured Outputs contract. It is not prose, but it constrains the model just as importantly as a prompt. Each claim and disagreement contains an optional attribution plus mandatory quotation objects covering every cited evidence ID. Each quotation identifies its explanatory role. The response also contains the optional one-time conversation title, limitations, an optional clarifying question, and the human-guidance flag. The application separately verifies every evidence ID and exact quotation after deserialization, then appends the content of `interpretive-notice.txt` outside model control.
+The strict Structured Outputs contract. It is not prose, but it constrains the model just as importantly as a prompt. Each claim and disagreement represents one independently verifiable proposition and contains an optional attribution plus mandatory quotation objects covering every cited evidence ID. Each quotation identifies which part of the proposition it supports. The response also contains the optional one-time conversation title, limitations, an optional clarifying question, and the human-guidance flag. The application separately verifies every evidence ID and exact quotation after deserialization, then appends the content of `interpretive-notice.txt` outside model control.
 
 ### `grounded-support-validation.txt`
 

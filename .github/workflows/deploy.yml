@@ -22,15 +22,19 @@ env:
   AZURE_RESOURCE_GROUP: AARProduction
   ACR_NAME: askarabbiacrprod
   ACR_LOGIN_SERVER: askarabbiacrprod.azurecr.io
-  IMAGE_REPOSITORY: askarabbi-api
+  API_IMAGE_REPOSITORY: askarabbi-api
+  DVAR_TORAH_IMAGE_REPOSITORY: askarabbi-dvar-torah-job
   CONTAINER_APP_NAME: askarabbi-api
+  DVAR_TORAH_JOB_NAME: askarabbi-weekly-dvar-torah
+  DVAR_TORAH_JOB_CRON: "5 8 * * 0"
+  DVAR_TORAH_JOB_REPLICA_TIMEOUT: "2100"
 
 jobs:
   deploy:
-    name: Build, push, and deploy API
+    name: Build, push, and deploy backend images
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'production'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     environment: production
 
     steps:
@@ -54,7 +58,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push API image
-        id: build
+        id: build-api
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -62,23 +66,52 @@ jobs:
           platforms: linux/amd64
           push: true
           pull: true
-          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.API_IMAGE_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha,scope=askarabbi-api-production
           cache-to: type=gha,mode=max,scope=askarabbi-api-production
 
-      - name: Deploy immutable image to Container Apps
+      - name: Build and push weekly Dvar Torah job image
+        id: build-dvar-torah-job
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Backend/AskARabbi.DvarTorahJob/Dockerfile
+          platforms: linux/amd64
+          push: true
+          pull: true
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.DVAR_TORAH_IMAGE_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=askarabbi-dvar-torah-job-production
+          cache-to: type=gha,mode=max,scope=askarabbi-dvar-torah-job-production
+
+      - name: Enable the Azure Container Apps CLI extension
+        run: az config set extension.use_dynamic_install=yes_without_prompt
+
+      - name: Deploy immutable API image to Container Apps
         env:
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          API_IMAGE_DIGEST: ${{ steps.build-api.outputs.digest }}
         run: |
           set -euo pipefail
-          az config set extension.use_dynamic_install=yes_without_prompt
           az containerapp update \
             --name "$CONTAINER_APP_NAME" \
             --resource-group "$AZURE_RESOURCE_GROUP" \
-            --image "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@$IMAGE_DIGEST" \
+            --image "$ACR_LOGIN_SERVER/$API_IMAGE_REPOSITORY@$API_IMAGE_DIGEST" \
+            --output none
+
+      - name: Deploy immutable weekly Dvar Torah image to Container Apps Job
+        env:
+          DVAR_TORAH_IMAGE_DIGEST: ${{ steps.build-dvar-torah-job.outputs.digest }}
+        run: |
+          set -euo pipefail
+          az containerapp job update \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$ACR_LOGIN_SERVER/$DVAR_TORAH_IMAGE_REPOSITORY@$DVAR_TORAH_IMAGE_DIGEST" \
             --output none
 
       - name: Verify revision and public health endpoint
@@ -137,9 +170,88 @@ jobs:
           echo "revision-name=$revision_name" >> "$GITHUB_OUTPUT"
           echo "api-fqdn=$api_fqdn" >> "$GITHUB_OUTPUT"
 
+      - name: Verify scheduled job configuration
+        id: verify-dvar-torah-job
+        env:
+          DVAR_TORAH_IMAGE_DIGEST: ${{ steps.build-dvar-torah-job.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          expected_image="$ACR_LOGIN_SERVER/$DVAR_TORAH_IMAGE_REPOSITORY@$DVAR_TORAH_IMAGE_DIGEST"
+          configured_image="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query 'properties.template.containers[0].image' \
+            --output tsv)"
+          trigger_type="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.triggerType \
+            --output tsv)"
+          cron_expression="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.scheduleTriggerConfig.cronExpression \
+            --output tsv)"
+          provisioning_state="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.provisioningState \
+            --output tsv)"
+          replica_timeout="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.replicaTimeout \
+            --output tsv)"
+          retry_limit="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.replicaRetryLimit \
+            --output tsv)"
+          parallelism="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.scheduleTriggerConfig.parallelism \
+            --output tsv)"
+          completion_count="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.scheduleTriggerConfig.replicaCompletionCount \
+            --output tsv)"
+
+          if [ "$configured_image" != "$expected_image" ]; then
+            echo "Scheduled job image mismatch. Expected $expected_image but found $configured_image." >&2
+            exit 1
+          fi
+
+          if [ "$trigger_type" != "Schedule" ]; then
+            echo "Scheduled job trigger mismatch. Expected Schedule but found $trigger_type." >&2
+            exit 1
+          fi
+
+          if [ "$cron_expression" != "$DVAR_TORAH_JOB_CRON" ]; then
+            echo "Scheduled job cron mismatch. Expected $DVAR_TORAH_JOB_CRON but found $cron_expression." >&2
+            exit 1
+          fi
+
+          if [ "$provisioning_state" != "Succeeded" ]; then
+            echo "Scheduled job provisioning state is $provisioning_state." >&2
+            exit 1
+          fi
+
+          if [ "$replica_timeout" != "$DVAR_TORAH_JOB_REPLICA_TIMEOUT" ] || [ "$retry_limit" != "2" ] || [ "$parallelism" != "1" ] || [ "$completion_count" != "1" ]; then
+            echo "Scheduled job execution policy mismatch: timeout=$replica_timeout retries=$retry_limit parallelism=$parallelism completions=$completion_count." >&2
+            exit 1
+          fi
+
+          echo "job-image=$configured_image" >> "$GITHUB_OUTPUT"
+          echo "job-cron=$cron_expression" >> "$GITHUB_OUTPUT"
+
       - name: Write deployment summary
         env:
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          API_IMAGE_DIGEST: ${{ steps.build-api.outputs.digest }}
+          DVAR_TORAH_JOB_IMAGE: ${{ steps.verify-dvar-torah-job.outputs.job-image }}
+          DVAR_TORAH_JOB_CRON: ${{ steps.verify-dvar-torah-job.outputs.job-cron }}
           REVISION_NAME: ${{ steps.verify-deployment.outputs.revision-name }}
           API_FQDN: ${{ steps.verify-deployment.outputs.api-fqdn }}
         run: |
@@ -147,7 +259,9 @@ jobs:
             echo "### AskARabbi backend deployment"
             echo
             echo "- Commit: \`${{ github.event.workflow_run.head_sha }}\`"
-            echo "- Image: \`$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@$IMAGE_DIGEST\`"
-            echo "- Revision: \`$REVISION_NAME\`"
-            echo "- Health: https://$API_FQDN/health"
+            echo "- API image: \`$ACR_LOGIN_SERVER/$API_IMAGE_REPOSITORY@$API_IMAGE_DIGEST\`"
+            echo "- API revision: \`$REVISION_NAME\`"
+            echo "- API health: https://$API_FQDN/health"
+            echo "- Weekly job image: \`$DVAR_TORAH_JOB_IMAGE\`"
+            echo "- Weekly job schedule (UTC): \`$DVAR_TORAH_JOB_CRON\`"
           } >> "$GITHUB_STEP_SUMMARY"

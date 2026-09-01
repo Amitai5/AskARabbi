@@ -144,6 +144,7 @@ The behavior contract tells the AI to:
 - Distinguish Torah-level rules, rabbinic rules, later interpretation, custom, and modern application when the evidence supports those distinctions.
 - Preserve a disagreement when it materially changes the answer.
 - Cite every substantive claim.
+- Express each claim as one independently verifiable proposition and split compound statements whose parts need different evidence.
 - Copy at least one exact quotation for every cited evidence record.
 - Cite both an earlier text and a later interpretation when claiming that the later authority relied on that earlier text.
 - Avoid stereotypes, shaming, claims of infallibility, and personalized *psak*.
@@ -181,7 +182,7 @@ A simplified claim looks like this:
 }
 ```
 
-The model supplies prose, evidence IDs, and exact quotation text. It does not get final authority over citation titles, editions, links, licenses, file locations, or the contents of calculated evidence.
+The model supplies prose, evidence IDs, and exact quotation text. Each claim or disagreement must contain one independently verifiable proposition, and its cited IDs and quotations must support that entire proposition. It does not get final authority over citation titles, editions, links, licenses, file locations, or the contents of calculated evidence.
 
 ## 6. Validate every claim, quotation, and inference
 
@@ -212,7 +213,7 @@ An exact quotation is therefore necessary but no longer sufficient. A model cann
 
 ### One repair attempt
 
-If the first draft fails either validation layer, the answer model receives the precise validation error, its original draft, and the exact same evidence packet. It gets one chance to repair relevance, support, citation coverage, JSON structure, or quotation accuracy. The repaired draft must pass both layers again.
+If the first draft fails either validation layer, the answer model receives the precise validation error, its original draft, and the exact same evidence packet. It gets one chance to repair relevance, support, citation coverage, JSON structure, or quotation accuracy. It may split, merge, add, remove, or rewrite statements and reassign IDs that already exist in that packet so every remaining proposition has complete support. It cannot invent an ID, source, quotation, attribution, or relationship. The repaired draft must pass both layers again.
 
 The repair cannot search for different passages, add unsupported sources, or escape the original evidence boundary. If the repaired draft still fails, AskARabbi displays `ValidationFailed` rather than showing the invalid answer.
 

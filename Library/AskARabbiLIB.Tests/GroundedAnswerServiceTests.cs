@@ -684,6 +684,170 @@ public sealed class GroundedAnswerServiceTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_ChickenAndMilkCompoundClaim_ReassignsEvidenceAndSplitsClaimDuringRepair()
+    {
+        // Arrange
+        var practicalRule = CreateSegment() with
+        {
+            SegmentId = "sefaria:chullin:segment:00000001",
+            DocumentId = "sefaria:chullin",
+            CanonicalReference = "Chullin 113a:1",
+            Text = "Fowl in milk is prohibited rabbinically.",
+            Title = "Chullin",
+        };
+        var biblicalLanguage = CreateSegment() with
+        {
+            SegmentId = "sefaria:exodus:segment:00000001",
+            DocumentId = "sefaria:exodus",
+            CanonicalReference = "Exodus 23:19",
+            Text = "The Torah's wording about chicken and milk is: You shall not boil a kid in its mother's milk; it does not name chicken.",
+            Title = "Exodus",
+            Collection = "Torah",
+        };
+        var firstDraft = new GroundedAnswerDraft
+        {
+            Claims =
+            [
+                new GroundedClaimDraft
+                {
+                    Text = "Eating chicken with milk is rabbinically prohibited, while the Torah's wording names a kid rather than chicken.",
+                    EvidenceIds = ["E2"],
+                    Attribution = null,
+                    Quotations =
+                    [
+                        new GroundedQuotationDraft
+                        {
+                            EvidenceId = "E2",
+                            Text = "The Torah's wording about chicken and milk is: You shall not boil a kid in its mother's milk; it does not name chicken.",
+                            Role = "Identifies the Torah's wording",
+                        },
+                    ],
+                },
+            ],
+            Disagreements = [],
+            Limitations = [],
+            ClarifyingQuestion = null,
+            HumanGuidanceRecommended = false,
+        };
+        var repairedDraft = firstDraft with
+        {
+            Claims =
+            [
+                new GroundedClaimDraft
+                {
+                    Text = "The cited rabbinic source prohibits fowl with milk rabbinically.",
+                    EvidenceIds = ["E1"],
+                    Attribution = null,
+                    Quotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = "Fowl in milk is prohibited rabbinically.", Role = "States the practical rabbinic rule" }],
+                },
+                new GroundedClaimDraft
+                {
+                    Text = "The cited Torah wording names a kid and does not name chicken.",
+                    EvidenceIds = ["E2"],
+                    Attribution = null,
+                    Quotations = [new GroundedQuotationDraft { EvidenceId = "E2", Text = "The Torah's wording about chicken and milk is: You shall not boil a kid in its mother's milk; it does not name chicken.", Role = "States the distinct biblical-language proposition" }],
+                },
+            ],
+        };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(practicalRule, 2, false), new SourceRetrievalHit(biblicalLanguage, 1, false)]);
+        var engine = new FakeEngine(Success(firstDraft), Success(repairedDraft));
+        var validator = new FakeClaimEvidenceValidator(
+            ClaimEvidenceValidationResult.Unsupported("Statement 'C1' contains two propositions, but E2 does not support the rabbinic-prohibition proposition."),
+            ClaimEvidenceValidationResult.Supported());
+        var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
+        var question = new GroundedQuestion { Question = "Why is eating chicken with milk prohibited if chickens cannot make milk?" };
+
+        // Act
+        var result = await service.AnswerAsync(question, []);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Answer);
+        Assert.HasCount(2, result.Answer.Claims);
+        CollectionAssert.AreEqual(new[] { "Chullin 113a:1", "Exodus 23:19" }, result.Answer.Claims.SelectMany(claim => claim.Citations).Select(citation => citation.CanonicalReference).ToArray());
+        Assert.AreEqual(GroundedValidationStatus.Repaired, result.Trace.ValidationStatus);
+        Assert.AreEqual(2, validator.CallCount);
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[^1].Content, "add, remove, or reassign evidence IDs");
+        StringAssert.Contains(engine.LastMessages[^1].Content, "Never invent");
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_VayigashMissingInformationClaim_RemovesTangentialEvidenceDuringRepair()
+    {
+        // Arrange
+        var vayigash = CreateSegment() with
+        {
+            SegmentId = "sefaria:vayigash:segment:00000001",
+            DocumentId = "sefaria:vayigash",
+            CanonicalReference = "Genesis 44:18",
+            Text = "Vayigash opens when Judah approaches Joseph and pleads for Benjamin.",
+            Title = "Genesis",
+            Collection = "Torah",
+        };
+        var unrelated = CreateSegment() with
+        {
+            SegmentId = "sefaria:talmud:segment:00000002",
+            DocumentId = "sefaria:talmud",
+            CanonicalReference = "Sanhedrin 34a:2",
+            Text = "A rabbinic passage discusses how interpretive traditions are transmitted.",
+            Title = "Sanhedrin",
+        };
+        var supportedClaim = new GroundedClaimDraft
+        {
+            Text = "Vayigash begins with Judah approaching Joseph to plead for Benjamin.",
+            EvidenceIds = ["E1"],
+            Attribution = null,
+            Quotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = "Vayigash opens when Judah approaches Joseph and pleads for Benjamin.", Role = "Provides the supported summary" }],
+        };
+        var firstDraft = new GroundedAnswerDraft
+        {
+            Claims =
+            [
+                supportedClaim,
+                new GroundedClaimDraft
+                {
+                    Text = "The supplied material contains no summary of Vayigash's aliyot, haftarah, or calendar result.",
+                    EvidenceIds = ["E2"],
+                    Attribution = null,
+                    Quotations = [new GroundedQuotationDraft { EvidenceId = "E2", Text = "A rabbinic passage discusses how interpretive traditions are transmitted.", Role = "Purports to establish what the packet omits" }],
+                },
+            ],
+            Disagreements = [],
+            Limitations = [],
+            ClarifyingQuestion = null,
+            HumanGuidanceRecommended = false,
+        };
+        var repairedDraft = firstDraft with
+        {
+            Claims = [supportedClaim],
+            Limitations = ["The available sources do not establish Vayigash's aliyot, haftarah, or a calendar result."],
+        };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(vayigash, 2, false), new SourceRetrievalHit(unrelated, 1, false)]);
+        var engine = new FakeEngine(Success(firstDraft), Success(repairedDraft));
+        var validator = new FakeClaimEvidenceValidator(
+            ClaimEvidenceValidationResult.Unsupported("Statement 'C2' cites an unrelated Talmudic excerpt that cannot establish the absence of Vayigash details."),
+            ClaimEvidenceValidationResult.Supported());
+        var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
+        var question = new GroundedQuestion { Question = "What does Vayigash say?" };
+
+        // Act
+        var result = await service.AnswerAsync(question, []);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Answer);
+        Assert.HasCount(1, result.Answer.Claims);
+        Assert.HasCount(1, result.Answer.Limitations);
+        Assert.HasCount(1, result.Answer.Citations);
+        Assert.AreEqual("Genesis 44:18", result.Answer.Citations[0].CanonicalReference);
+        Assert.AreEqual(GroundedValidationStatus.Repaired, result.Trace.ValidationStatus);
+        Assert.AreEqual(2, validator.CallCount);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task AnswerAsync_UnsupportedClaimAuditAfterRepair_ReturnsValidationFailure()
     {
@@ -712,8 +876,8 @@ public sealed class GroundedAnswerServiceTests
         var segment = CreateSegment();
         var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
         var engine = new FakeEngine(Success(CreateValidDraft()));
-        var diagnostics = new AIResponseDiagnostics(null, "test-model", null, TimeSpan.FromMilliseconds(5), 1);
-        var validator = new FakeClaimEvidenceValidator(ClaimEvidenceValidationResult.ProviderFailure(AIEngineStatus.ProviderFailure, "Audit unavailable.", diagnostics));
+        var diagnostics = new AIResponseDiagnostics("audit-response", "test-model", new AIUsage(100, 1_600, 1_700), TimeSpan.FromMilliseconds(5), 1, AIEngineStatus.InvalidResponse, "MaxOutputTokens");
+        var validator = new FakeClaimEvidenceValidator(ClaimEvidenceValidationResult.ProviderFailure(AIEngineStatus.InvalidResponse, "Audit unavailable.", diagnostics));
         var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
 
         // Act
@@ -724,6 +888,11 @@ public sealed class GroundedAnswerServiceTests
         Assert.AreEqual(1, engine.CallCount);
         Assert.AreEqual(1, validator.CallCount);
         Assert.IsFalse(result.Trace.RepairAttempted);
+        Assert.AreEqual(AIEngineStatus.InvalidResponse, result.Trace.ProviderStatus);
+        Assert.AreEqual("MaxOutputTokens", result.Trace.CompletionReason);
+        Assert.AreEqual("audit-response", result.Trace.ResponseId);
+        Assert.AreEqual(2, result.Trace.ProviderAttempts);
+        Assert.AreEqual(1_730, result.Trace.Usage?.TotalTokens);
     }
 
     [TestMethod]
@@ -862,7 +1031,7 @@ public sealed class GroundedAnswerServiceTests
         CurrentQuestionInstruction = "Answer only from the delimited evidence.",
         EvidenceStartMarker = "BEGIN_UNTRUSTED_EVIDENCE",
         EvidenceEndMarker = "END_UNTRUSTED_EVIDENCE",
-        ValidationRepairPrompt = $"Validation failed: {GroundedPromptSet.ValidationErrorPlaceholder} Repair once using the same evidence.",
+        ValidationRepairPrompt = $"Validation failed: {GroundedPromptSet.ValidationErrorPlaceholder} Repair once using the same evidence. You may add, remove, merge, split, or rewrite statements and add, remove, or reassign evidence IDs already in the packet. Never invent an evidence ID or source.",
         InterpretiveNotice = "Keep the question open. This is one tested interpretation.",
         ResponseJsonSchema = "{\"type\":\"object\",\"additionalProperties\": false,\"required\":[]}",
         SupportValidationPrompt = "Audit relevance and evidentiary support.",

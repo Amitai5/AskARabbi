@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="AskARabbi.Api/AskARabbi.Api.csproj" />
   <Project Path="AskARabbi.Api.Tests/AskARabbi.Api.Tests.csproj" />
+  <Project Path="AskARabbi.DvarTorahJob/AskARabbi.DvarTorahJob.csproj" />
+  <Project Path="AskARabbi.DvarTorahJob.Tests/AskARabbi.DvarTorahJob.Tests.csproj" />
 </Solution>

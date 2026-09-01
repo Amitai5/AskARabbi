@@ -1,12 +1,13 @@
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Usage;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
 /// <summary>Fails persistence operations explicitly when MongoDB has not been configured.</summary>
-public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore
+public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore
 {
     /// <inheritdoc/>
     public Task<UserAccount> UpsertAsync(ExternalUserIdentity identity, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException<UserAccount>(CreateException());
@@ -52,6 +53,12 @@ public sealed class UnavailableApplicationStore : IUserAccountStore, IConversati
 
     /// <inheritdoc/>
     public Task<int> IncrementAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => Task.FromException<int>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArticle?>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArticle?> GetLatestPublishedAsync(bool inIsrael, DateOnly notAfter, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArticle?>(CreateException());
 
     private static PersistenceUnavailableException CreateException() => new();
 }

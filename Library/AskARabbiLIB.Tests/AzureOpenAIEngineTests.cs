@@ -93,7 +93,7 @@ public sealed class AzureOpenAIEngineTests
     public async Task GenerateStructuredAsync_Success_ReportsUsageAndPropagatesModel()
     {
         // Arrange
-        var transport = new QueueTransport(new AITransportResult(AIEngineStatus.Success, "{\"answer\":\"grounded\"}", null, "resp-1", "returned-model", new AIUsage(10, 4, 14), false));
+        var transport = new QueueTransport(new AITransportResult(AIEngineStatus.Success, "{\"answer\":\"grounded\"}", null, "resp-1", "returned-model", new AIUsage(10, 4, 14), false, "completed"));
         var engine = new AzureOpenAIEngine(CreateOptions(), transport, static (_, _) => Task.CompletedTask);
 
         // Act
@@ -106,6 +106,8 @@ public sealed class AzureOpenAIEngineTests
         Assert.AreEqual("resp-1", result.Diagnostics.ResponseId);
         Assert.AreEqual("returned-model", result.Diagnostics.Model);
         Assert.AreEqual(14, result.Diagnostics.Usage?.TotalTokens);
+        Assert.AreEqual(AIEngineStatus.Success, result.Diagnostics.ProviderStatus);
+        Assert.AreEqual("completed", result.Diagnostics.CompletionReason);
         Assert.IsNotNull(transport.LastRequest);
         Assert.AreEqual("test-deployment", transport.LastRequest.Model);
     }
@@ -197,6 +199,8 @@ public sealed class AzureOpenAIEngineTests
         Assert.AreEqual(AIEngineStatus.InvalidResponse, result.Status);
         Assert.IsNull(result.Value);
         StringAssert.Contains(result.ErrorMessage, "invalid structured JSON");
+        Assert.AreEqual(AIEngineStatus.InvalidResponse, result.Diagnostics.ProviderStatus);
+        Assert.AreEqual("invalid_structured_json", result.Diagnostics.CompletionReason);
     }
 
     [TestMethod]
@@ -204,7 +208,7 @@ public sealed class AzureOpenAIEngineTests
     public async Task GenerateStructuredAsync_NonRetryableProviderFailure_ReturnsTypedFailure()
     {
         // Arrange
-        var transport = new QueueTransport(new AITransportResult(AIEngineStatus.ProviderFailure, null, "provider unavailable", null, "test-deployment", null, false));
+        var transport = new QueueTransport(new AITransportResult(AIEngineStatus.ProviderFailure, null, "provider unavailable", "provider-response", "test-deployment", new AIUsage(12, 3, 15), false, "ServerError"));
         var engine = new AzureOpenAIEngine(CreateOptions(), transport, static (_, _) => Task.CompletedTask);
 
         // Act
@@ -214,6 +218,10 @@ public sealed class AzureOpenAIEngineTests
         Assert.AreEqual(AIEngineStatus.ProviderFailure, result.Status);
         Assert.AreEqual(1, transport.CallCount);
         Assert.AreEqual(1, result.Diagnostics.Attempts);
+        Assert.AreEqual(AIEngineStatus.ProviderFailure, result.Diagnostics.ProviderStatus);
+        Assert.AreEqual("ServerError", result.Diagnostics.CompletionReason);
+        Assert.AreEqual("provider-response", result.Diagnostics.ResponseId);
+        Assert.AreEqual(15, result.Diagnostics.Usage?.TotalTokens);
     }
 
     [TestMethod]
@@ -395,6 +403,25 @@ public sealed class AzureOpenAIEngineTests
         Assert.HasCount(2, options.InputItems);
         Assert.AreSame(reasoningState, options.InputItems[0]);
         Assert.AreSame(functionCall, options.InputItems[1]);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void GetCompletionReason_AllProviderStates_ReturnsSafeDiagnosticCategory()
+    {
+        // Arrange
+        var completed = ResponseStatus.Completed.ToString();
+        var incomplete = ResponseStatus.Incomplete.ToString();
+        var failed = ResponseStatus.Failed.ToString();
+
+        // Act and assert
+        Assert.AreEqual("completed", AzureResponsesTransport.GetCompletionReason(completed, null, null));
+        Assert.AreEqual("MaxOutputTokens", AzureResponsesTransport.GetCompletionReason(incomplete, "MaxOutputTokens", null));
+        Assert.AreEqual("incomplete", AzureResponsesTransport.GetCompletionReason(incomplete, null, null));
+        Assert.AreEqual("ServerError", AzureResponsesTransport.GetCompletionReason(failed, null, "ServerError"));
+        Assert.AreEqual("failed", AzureResponsesTransport.GetCompletionReason(failed, null, null));
+        Assert.AreEqual("queued", AzureResponsesTransport.GetCompletionReason("queued", null, null));
+        Assert.AreEqual("unknown", AzureResponsesTransport.GetCompletionReason(null, null, null));
     }
 
     [TestMethod]

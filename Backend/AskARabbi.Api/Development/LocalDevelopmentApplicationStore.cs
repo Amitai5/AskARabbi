@@ -1,12 +1,13 @@
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Usage;
 
 namespace AskARabbi.Api.Development;
 
 /// <summary>Stores local development data in process memory without replacing production persistence.</summary>
-public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore
+public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore
 {
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly object synchronization = new();
@@ -227,5 +228,20 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
             answerCounts[key] = value;
             return Task.FromResult(value);
         }
+    }
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(week);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<WeeklyDvarTorahArticle?>(null);
+    }
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArticle?> GetLatestPublishedAsync(bool inIsrael, DateOnly notAfter, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<WeeklyDvarTorahArticle?>(null);
     }
 }

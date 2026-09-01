@@ -1,6 +1,6 @@
 # Production readiness checklist
 
-This checklist reflects the deployed Azure resources and the current repository behavior as of August 29, 2026.
+This checklist reflects the deployed Azure resources and the current repository behavior as of August 31, 2026.
 
 ## Completed foundation
 
@@ -13,13 +13,13 @@ This checklist reflects the deployed Azure resources and the current repository 
 - [x] ASP.NET Core Data Protection is shared by the Container Apps platform so authentication cookies can survive scaling and revisions.
 - [x] The provider health endpoint returns `Healthy`.
 - [x] Backend, library, prototype, and frontend verification run on every branch.
-- [x] A production-only backend deployment workflow builds the API image, pushes it to ACR, deploys it by digest, and checks the new revision and `/health` endpoint.
+- [x] A production-only backend deployment workflow builds the API and weekly-job images, pushes both to ACR, deploys both by digest, and verifies the API revision/health plus the scheduled-job image and cron configuration.
 
 ## Blockers before a production user can sign in
 
 - [ ] Commit and push the Dockerfile, `.dockerignore`, deployment workflow, backend implementation, and related documentation.
 - [ ] Connect the GitHub `production` environment to Azure through an OIDC federated credential.
-- [ ] Grant that deployment identity `AcrPush` on `askarabbiacrprod` and `Container Apps Contributor` on `askarabbi-api`.
+- [ ] Grant that deployment identity `AcrPush` on `askarabbiacrprod` and resource-scoped `Container Apps Contributor` on both `askarabbi-api` and `askarabbi-weekly-dvar-torah`.
 - [ ] Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` to the GitHub `production` environment.
 - [ ] Run the first production workflow and confirm that it deploys the verified commit successfully.
 - [ ] Bind `api.askarabbi.ai` to the Container App, create the required Cloudflare DNS records, and validate HTTPS.
@@ -54,6 +54,19 @@ This checklist reflects the deployed Azure resources and the current repository 
 - [ ] Verify source selections alter managed retrieval and an unavailable preferred quotation language never causes an invented translation.
 - [ ] Restart and scale the Container App and confirm existing authentication sessions remain valid.
 - [ ] Confirm failed retrieval or failed citation validation never falls back to unsupported model knowledge.
+
+## Weekly Dvar Torah activation
+
+- [x] Add the shared Hebrew-week contract, current-or-latest service, MongoDB publication collection, deterministic week key, recovery lease, and authenticated read controller.
+- [x] Add the lazy-loaded frontend sidebar destination with loading, pending, fallback, error, desktop, and mobile-compatible states.
+- [x] Add the separate .NET 10 one-shot host, Docker image, disabled generation gate, and Azure deployment workflow for a Sunday Container Apps Job schedule.
+- [ ] Approve the Dvar Torah content structure, licensed sources, prompt, validation policy, model, and generator versioning.
+- [ ] Replace the explicit unconfigured generator and add deterministic tests for its publishable output contract.
+- [ ] Provision `askarabbi-weekly-dvar-torah` in the existing Container Apps environment with cron `5 8 * * 0`, one replica, a 35-minute timeout, two retries, ACR managed-identity pull, and `DvarTorah__GenerationEnabled=false`.
+- [ ] Give the job identity `AcrPull`, configure its MongoDB connection through a job-level secret or Key Vault reference, and confirm the default collection is exactly `WeeklyAIDvarTorahs`.
+- [ ] Run the production deployment workflow once and verify both immutable image digests are applied.
+- [ ] Validate current, fallback, retry, active-lease, expired-lease, and publication behavior against a non-production MongoDB collection.
+- [ ] Configure Container Apps execution-failure alerts, Log Analytics queries, and an Azure cost budget, then set `DvarTorah__GenerationEnabled=true`.
 
 ## Security and operational hardening
 

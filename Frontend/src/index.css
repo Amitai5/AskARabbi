@@ -49,6 +49,21 @@ body {
   margin: 0;
 }
 
+html.conversation-dashboard-scroll-lock {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.conversation-dashboard-scroll-lock body,
+html.conversation-dashboard-scroll-lock #root {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 button,
 input,
 textarea {

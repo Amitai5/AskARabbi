@@ -1,6 +1,7 @@
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Persistence.Mongo;
 using AskARabbiLIB.Usage;
 using MongoDB.Driver;
@@ -21,6 +22,7 @@ internal static class PersistenceServiceCollectionExtensions
             services.AddSingleton<IConversationStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             services.AddSingleton<IConversationSettingsStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             services.AddSingleton<IUsageStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
+            services.AddSingleton<IWeeklyDvarTorahStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             return services;
         }
 
@@ -31,6 +33,8 @@ internal static class PersistenceServiceCollectionExtensions
         services.AddSingleton<IConversationStore, MongoConversationStore>();
         services.AddSingleton<IConversationSettingsStore, MongoConversationSettingsStore>();
         services.AddSingleton<IUsageStore, MongoUsageStore>();
+        services.AddSingleton<MongoWeeklyDvarTorahStore>();
+        services.AddSingleton<IWeeklyDvarTorahStore>(provider => provider.GetRequiredService<MongoWeeklyDvarTorahStore>());
         services.AddSingleton<MongoIndexManager>();
         services.AddHostedService<MongoIndexInitializer>();
         return services;

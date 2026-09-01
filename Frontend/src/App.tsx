@@ -9,6 +9,7 @@ import type { AuthClient, AuthenticatedUser } from './features/auth/authTypes.ts
 import { useAuth } from './features/auth/useAuth.ts'
 import { ConversationDashboard } from './features/conversations/ConversationDashboard.tsx'
 import { createBackendConversationClient, type ConversationClient } from './features/conversations/conversationClient.ts'
+import { createBackendDvarTorahClient, type DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow.tsx'
 import { createBackendConversationSettingsClient, type ConversationSettingsClient } from './features/personalization/conversationSettingsClient.ts'
 import { createDefaultPersonalizationProfile, type PersonalizationProfile } from './features/personalization/personalizationTypes.ts'
@@ -18,17 +19,19 @@ const DefaultApiClient = createApiClient()
 const DefaultAuthClient = createBackendAuthClient({ apiClient: DefaultApiClient })
 const DefaultConversationClient = createBackendConversationClient(DefaultApiClient)
 const DefaultConversationSettingsClient = createBackendConversationSettingsClient(DefaultApiClient)
+const DefaultDvarTorahClient = createBackendDvarTorahClient(DefaultApiClient)
 
 interface AppProps {
   authClient?: AuthClient
   conversationClient?: ConversationClient
   conversationSettingsClient?: ConversationSettingsClient
+  dvarTorahClient?: DvarTorahClient
 }
 
-export function App({ authClient = DefaultAuthClient, conversationClient = DefaultConversationClient, conversationSettingsClient = DefaultConversationSettingsClient }: AppProps) {
+export function App({ authClient = DefaultAuthClient, conversationClient = DefaultConversationClient, conversationSettingsClient = DefaultConversationSettingsClient, dvarTorahClient = DefaultDvarTorahClient }: AppProps) {
   return (
     <AuthProvider client={authClient}>
-      <AuthenticatedApplication conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} />
+      <AuthenticatedApplication conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} />
     </AuthProvider>
   )
 }
@@ -36,11 +39,12 @@ export function App({ authClient = DefaultAuthClient, conversationClient = Defau
 interface AuthenticatedApplicationProps {
   conversationClient: ConversationClient
   conversationSettingsClient: ConversationSettingsClient
+  dvarTorahClient: DvarTorahClient
 }
 
-function AuthenticatedApplication({ conversationClient, conversationSettingsClient }: AuthenticatedApplicationProps) {
+function AuthenticatedApplication({ conversationClient, conversationSettingsClient, dvarTorahClient }: AuthenticatedApplicationProps) {
   const { isInitializing, signOut, user } = useAuth()
-  const resetToken = getPasswordResetToken()
+  const [resetToken] = useState(readAndRemovePasswordResetToken)
 
   if (resetToken !== null) {
     return <PasswordResetPage token={resetToken} onReturnToLogin={returnToLogin} />
@@ -49,14 +53,20 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
     return <LoginPage isCheckingSession={isInitializing} />
   }
 
-  return <SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} onLogout={signOut} />
+  return <SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} onLogout={signOut} />
 }
 
-function getPasswordResetToken() {
+function readAndRemovePasswordResetToken() {
   if (window.location.pathname !== '/reset-password') {
     return null
   }
-  const token = new URLSearchParams(window.location.search).get('token')?.trim()
+
+  const searchParameters = new URLSearchParams(window.location.search)
+  const token = searchParameters.get('token')?.trim()
+  if (searchParameters.has('token')) {
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.hash}`)
+  }
+
   return token && token.length > 0 ? token : null
 }
 
@@ -68,10 +78,11 @@ interface SignedInApplicationProps {
   user: AuthenticatedUser
   conversationClient: ConversationClient
   conversationSettingsClient: ConversationSettingsClient
+  dvarTorahClient: DvarTorahClient
   onLogout(): Promise<void>
 }
 
-function SignedInApplication({ user, conversationClient, conversationSettingsClient, onLogout }: SignedInApplicationProps) {
+function SignedInApplication({ user, conversationClient, conversationSettingsClient, dvarTorahClient, onLogout }: SignedInApplicationProps) {
   const [profile, setProfile] = useState<PersonalizationProfile | null>(null)
   const [isConfigured, setIsConfigured] = useState(false)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
@@ -137,7 +148,7 @@ function SignedInApplication({ user, conversationClient, conversationSettingsCli
     return <OnboardingFlow profile={profile} onComplete={savePersonalization} onLogout={onLogout} />
   }
 
-  return <ConversationDashboard user={user} initialPersonalizationProfile={profile} initialUserSettings={userSettings} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} onSavePersonalization={savePersonalization} onSaveSettings={saveUserSettings} />
+  return <ConversationDashboard user={user} initialPersonalizationProfile={profile} initialUserSettings={userSettings} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} onSavePersonalization={savePersonalization} onSaveSettings={saveUserSettings} />
 }
 
 function LoadingScreen({ message }: { message: string }) {

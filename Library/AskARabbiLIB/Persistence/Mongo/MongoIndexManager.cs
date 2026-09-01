@@ -8,6 +8,7 @@ public sealed class MongoIndexManager
     private readonly IMongoCollection<MongoUserAccountDocument> users;
     private readonly IMongoCollection<MongoConversationDocument> conversations;
     private readonly IMongoCollection<MongoConversationMessageDocument> messages;
+    private readonly IMongoCollection<MongoWeeklyDvarTorahDocument> weeklyDvarTorah;
 
     /// <summary>Initializes a MongoDB index manager.</summary>
     /// <param name="database">MongoDB database.</param>
@@ -19,6 +20,7 @@ public sealed class MongoIndexManager
         users = database.GetCollection<MongoUserAccountDocument>(options.UsersCollectionName);
         conversations = database.GetCollection<MongoConversationDocument>(options.ConversationsCollectionName);
         messages = database.GetCollection<MongoConversationMessageDocument>(options.ConversationMessagesCollectionName);
+        weeklyDvarTorah = database.GetCollection<MongoWeeklyDvarTorahDocument>(options.DvarTorahCollectionName);
     }
 
     /// <summary>Creates required indexes if they do not already exist.</summary>
@@ -42,6 +44,7 @@ public sealed class MongoIndexManager
         await users.Indexes.CreateOneAsync(userIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await conversations.Indexes.CreateOneAsync(conversationIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await messages.Indexes.CreateOneAsync(messageIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await weeklyDvarTorah.Indexes.CreateOneAsync(MongoWeeklyDvarTorahStore.CreateLatestPublishedIndex(), cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     internal static CreateIndexModel<MongoConversationMessageDocument> CreateMessageIndex()

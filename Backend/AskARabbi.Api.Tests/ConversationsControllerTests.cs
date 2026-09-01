@@ -109,7 +109,7 @@ public sealed class ConversationsControllerTests
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         Assert.IsNotNull(result);
         Assert.AreEqual("validation_failed", result.Status);
-        Assert.AreEqual("AskARabbi could not verify every quotation against its source, so it did not show the answer. Please try again.", result.Message);
+        Assert.AreEqual("AskARabbi could not fully support every statement with the cited sources, so it did not show the answer. Please try again.", result.Message);
         Assert.IsNotNull(result.Message);
         Assert.IsFalse(result.Message.Contains("E5", StringComparison.Ordinal));
         Assert.AreEqual(Conversation.DefaultTitle, result.Conversation.Title);

@@ -27,6 +27,9 @@ public sealed class MongoDatabaseOptions
     /// <summary>Gets the monthly usage collection name.</summary>
     public string UsageCollectionName { get; init; } = "usage";
 
+    /// <summary>Gets the weekly Dvar Torah collection name.</summary>
+    public string DvarTorahCollectionName { get; init; } = "WeeklyAIDvarTorahs";
+
     /// <summary>Gets whether the minimum MongoDB connection configuration is present.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ConnectionString) && !string.IsNullOrWhiteSpace(DatabaseName);
 
@@ -44,6 +47,7 @@ public sealed class MongoDatabaseOptions
         ValidateName(ConversationMessagesCollectionName, nameof(ConversationMessagesCollectionName));
         ValidateName(ConversationSettingsCollectionName, nameof(ConversationSettingsCollectionName));
         ValidateName(UsageCollectionName, nameof(UsageCollectionName));
+        ValidateName(DvarTorahCollectionName, nameof(DvarTorahCollectionName));
     }
 
     private static void ValidateName(string value, string propertyName)
