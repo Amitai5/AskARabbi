@@ -59,6 +59,19 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         StringAssert.Contains(exception.Message, "violence");
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_DraftProviderReturnsInvalidResponse_ReportsSafeTypedDiagnostic()
+    {
+        var generationEngine = new ResearchThenDraftFailureEngine(CreateResearchDraft());
+        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("DraftProviderFailed.InvalidResponse.invalid_structured_json", exception.FailureCode);
+        Assert.IsFalse(exception.FailureCode.Contains("Sensitive", StringComparison.Ordinal));
+    }
+
     private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine)
     {
         var prompts = new WeeklyDvarTorahPromptSet
@@ -178,6 +191,24 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             var value = responses.Dequeue();
             Assert.IsInstanceOfType<T>(value);
             return Task.FromResult(AIEngineResult<T>.Success((T)value, new AIResponseDiagnostics($"response-{Calls}", "test-model", null, TimeSpan.Zero, 1)));
+        }
+    }
+
+    private sealed class ResearchThenDraftFailureEngine(WeeklyDvarTorahResearchDraft research) : IAIEngine
+    {
+        private int calls;
+
+        public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            calls++;
+            if (calls == 1)
+            {
+                Assert.IsInstanceOfType<WeeklyDvarTorahResearchDraft>(research);
+                return Task.FromResult(AIEngineResult<T>.Success((T)(object)research, new AIResponseDiagnostics("research-response", "test-model", null, TimeSpan.Zero, 1)));
+            }
+
+            return Task.FromResult(AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "Sensitive provider response detail", new AIResponseDiagnostics("draft-response", "test-model", null, TimeSpan.FromSeconds(1), 1, AIEngineStatus.InvalidResponse, "invalid_structured_json")));
         }
     }
 

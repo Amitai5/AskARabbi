@@ -114,7 +114,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             var draftResult = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahArticleDraft>(messages, prompts.DraftSchemaName, draftSchema, cancellationToken).ConfigureAwait(false);
             if (!draftResult.IsSuccess || draftResult.Value is not { } draft)
             {
-                throw new WeeklyDvarTorahGenerationException("DraftProviderFailed", $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
+                throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
             }
 
             previousDraft = draft;
@@ -190,7 +190,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var result = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahResearchDraft>(messages, prompts.ResearchSchemaName, researchSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } research)
         {
-            throw new WeeklyDvarTorahGenerationException("ResearchProviderFailed", $"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+            throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("ResearchProviderFailed", result), $"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.");
         }
 
         return research;
@@ -312,7 +312,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var result = await reviewEngine.GenerateStructuredAsync<WeeklyDvarTorahReviewDraft>(messages, prompts.ReviewSchemaName, reviewSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } review)
         {
-            throw new WeeklyDvarTorahGenerationException("IndependentReviewFailed", $"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+            throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("IndependentReviewFailed", result), $"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.");
         }
 
         return review;
@@ -392,6 +392,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     }
 
     private static string Bound(string value, int maximumCharacters) => value.Length <= maximumCharacters ? value : value[..maximumCharacters].TrimEnd();
+
+    private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
 
     private sealed record NewsCandidate(string EvidenceId, CurrentEventItem Item);
 }
