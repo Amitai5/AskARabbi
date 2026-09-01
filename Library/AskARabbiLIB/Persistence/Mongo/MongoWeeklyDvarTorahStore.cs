@@ -206,7 +206,7 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
         return result.MatchedCount == 1;
     }
 
-    private static WeeklyDvarTorahArticle ToDomain(MongoWeeklyDvarTorahDocument document)
+    internal static WeeklyDvarTorahArticle ToDomain(MongoWeeklyDvarTorahDocument document)
     {
         if (document.Status != PublishedStatus || document.Title is null || document.Body is null || document.GeneratorVersion is null || document.GeneratedAtUtc is null || document.PublishedAtUtc is null)
         {

@@ -45,5 +45,59 @@ public sealed class FestivalTorahRangeCatalogTests
         Assert.IsFalse(FestivalTorahRangeCatalog.IsSupported(week));
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    [DataRow("2026-09-26", "Sukkot", false, "Leviticus 23:44")]
+    [DataRow("1990-10-06", "Chol Hamoed Sukkot", false, "Exodus 34:26")]
+    [DataRow("2026-10-03", "Shemini Atzeret", false, "Deuteronomy 16:17")]
+    [DataRow("2026-10-03", "Shemini Atzeret", true, "Genesis 2:3")]
+    [DataRow("2026-10-03", "Simchas Torah", false, "Deuteronomy 33:1")]
+    [DataRow("2026-10-03", "Simchat Torah", false, "Genesis 1:1")]
+    [DataRow("1996-04-06", "Chol Hamoed Pesach", true, "Exodus 33:12")]
+    [DataRow("2001-04-14", "Pesach", true, "Exodus 13:17")]
+    [DataRow("2000-06-10", "Shavuot", false, "Deuteronomy 16:17")]
+    public void Contains_SupportedFestivalAliasesAndDiasporaVariants_AcceptsCanonicalReading(string date, string holiday, bool inIsrael, string reference)
+    {
+        var week = CreateWeek(date, holiday, inIsrael);
+
+        Assert.IsTrue(FestivalTorahRangeCatalog.IsSupported(week));
+        Assert.IsTrue(FestivalTorahRangeCatalog.Contains(week, reference));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    [DataRow("2012-04-14", "Pesach", true)]
+    [DataRow("2000-06-10", "Shavuot", true)]
+    [DataRow("2026-09-19", "Rosh Hashana", false)]
+    public void IsSupported_UnsupportedLocationOrFestivalDay_FailsClosed(string date, string holiday, bool inIsrael)
+    {
+        Assert.IsFalse(FestivalTorahRangeCatalog.IsSupported(CreateWeek(date, holiday, inIsrael)));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void IsSupported_NoFestival_FailsClosed()
+    {
+        var week = new WeeklyDvarTorahWeek(new DateOnly(2026, 9, 5), "Test Hebrew date", "Nitzavim", null, false);
+
+        Assert.IsFalse(FestivalTorahRangeCatalog.IsSupported(week));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    [DataRow("Exodus 21:1")]
+    [DataRow("Genesis 21")]
+    [DataRow("Genesis :1")]
+    [DataRow("Genesis x:1")]
+    [DataRow("Genesis 21:x")]
+    [DataRow("Genesis 20:34")]
+    [DataRow("Genesis 22:1")]
+    [DataRow("Genesis 21:0")]
+    [DataRow("Genesis 21:35")]
+    public void Contains_MalformedOrOutOfRangeReference_Rejects(string reference)
+    {
+        Assert.IsFalse(FestivalTorahRangeCatalog.Contains(CreateWeek("2026-09-12", "Rosh Hashana", false), reference));
+    }
+
     private static WeeklyDvarTorahWeek CreateWeek(string shabbatDate, string holiday, bool inIsrael) => new(DateOnly.ParseExact(shabbatDate, "yyyy-MM-dd"), "Test Hebrew date", null, holiday, inIsrael);
 }
