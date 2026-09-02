@@ -113,16 +113,24 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         string? validationError = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            IReadOnlyList<AIMessage> messages = attempt == 0
-                ? draftMessages
-                : draftMessages.Concat(
+            IReadOnlyList<AIMessage> messages = attempt switch
+            {
+                0 => draftMessages,
+                _ when previousDraft is null => draftMessages.Concat([new AIMessage(AIMessageRole.User, prompts.FormatRepair(validationError ?? "The prior completion was blocked."))]).ToArray(),
+                _ => draftMessages.Concat(
                 [
                     new AIMessage(AIMessageRole.Assistant, JsonSerializer.Serialize(previousDraft, PromptJsonOptions)),
                     new AIMessage(AIMessageRole.User, prompts.FormatRepair(validationError ?? "The prior draft did not pass validation.")),
-                ]).ToArray();
+                ]).ToArray(),
+            };
             var draftResult = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahArticleDraft>(messages, prompts.DraftSchemaName, draftSchema, cancellationToken).ConfigureAwait(false);
             if (!draftResult.IsSuccess || draftResult.Value is not { } draft)
             {
+                if (attempt == 0 && IsCompletionContentFilterFailure(draftResult))
+                {
+                    validationError = "The prior completion was blocked by the provider. Produce a fresh, peaceful article using paraphrase in the body and only the bounded proof phrases required by the quotation fields.";
+                    continue;
+                }
                 throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
             }
 
@@ -418,6 +426,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private static string Bound(string value, int maximumCharacters) => value.Length <= maximumCharacters ? value : value[..maximumCharacters].TrimEnd();
 
     private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
+
+    private static bool IsCompletionContentFilterFailure<T>(AIEngineResult<T> result) => result.Status == AIEngineStatus.InvalidResponse && result.Diagnostics.CompletionReason?.StartsWith("content_filter", StringComparison.Ordinal) == true;
 
     private static bool ContainsHighRiskNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", HighRiskNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 

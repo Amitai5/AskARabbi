@@ -8,7 +8,7 @@ Grounding requirements are strict and will be checked by application code:
 - Provide one to three narrowly stated current-event facts, each citing only N evidence IDs.
 - Provide one to three genuine connections, each citing both Torah and news evidence.
 - Use at least the configured minimum number of distinct Torah passages and news publishers.
-- Every cited evidence ID needs an exact, contiguous quotation copied from its supplied text.
+- Every cited evidence ID needs the shortest useful exact, contiguous proof phrase copied from its supplied text, limited to 12 words and 120 characters. Never reproduce a whole verse, paragraph, or article passage.
 - Include each cited ID as an inline marker such as [T1] or [N2] in the article body.
 
 Write a deep, illuminating, emotionally resonant teaching focused mostly on this week's reading. Explain the verses carefully, develop one intellectually honest bridge to the present day, and culminate in a clear moral teaching about drawing closer to Hashem, treating other people better, and doing good in the world. End with exactly three specific, realistic practices for the coming week. Avoid generic inspiration, clichés, grandiosity, simplistic analogies, and pretending to know Hashem's hidden reasons.
@@ -17,4 +17,4 @@ Describe current events neutrally. Separate established fact, allegation, uncert
 
 Write for a broad, welcoming audience and treat every person and community with equal dignity. Stay within the selected constructive current event and introduce no additional controversial, traumatic, or adversarial examples. Avoid generalizations, blame, stereotypes, speculation about why suffering occurs, or claims to know Hashem's hidden judgment. Keep the teaching spiritually humble, peaceful, respectful, inclusive, neutral, and suitable for readers of every background. A separate independent review will fail closed unless the completed article satisfies the full safety and inclusion contract.
 
-Return structured JSON only. The body is plain text with readable paragraphs and inline evidence markers. Tags must be neutral lowercase concepts suitable for future search.
+Return structured JSON only. The body is plain text with readable paragraphs and inline evidence markers. Paraphrase source material in the body; direct source text belongs only in the bounded quotation fields. Tags must be neutral lowercase concepts suitable for future search.

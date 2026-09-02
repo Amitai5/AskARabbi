@@ -4,6 +4,9 @@ namespace AskARabbiLIB.DvarTorah;
 
 internal static class WeeklyDvarTorahCandidateValidator
 {
+    private const int MaximumQuotationCharacters = 120;
+    private const int MaximumQuotationWords = 12;
+
     internal static WeeklyDvarTorahCandidateValidation Validate(WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, WeeklyDvarTorahContentOptions options)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -124,7 +127,18 @@ internal static class WeeklyDvarTorahCandidateValidator
         }
         foreach (var quotation in quotations)
         {
-            if (quotation is null || string.IsNullOrWhiteSpace(quotation.EvidenceId) || !ids.Contains(quotation.EvidenceId, StringComparer.Ordinal) || !evidence.TryGetValue(quotation.EvidenceId, out var item) || string.IsNullOrWhiteSpace(quotation.Text) || quotation.Text.Length > 800 || !item.PresentedText.Contains(quotation.Text.Trim(), StringComparison.Ordinal))
+            if (quotation is null || string.IsNullOrWhiteSpace(quotation.EvidenceId) || !ids.Contains(quotation.EvidenceId, StringComparer.Ordinal) || !evidence.TryGetValue(quotation.EvidenceId, out var item) || string.IsNullOrWhiteSpace(quotation.Text))
+            {
+                errors.Add($"A {label} contains a quotation that does not exactly match its cited evidence.");
+                continue;
+            }
+
+            var quotationText = quotation.Text.Trim();
+            if (quotationText.Length > MaximumQuotationCharacters || Regex.Matches(quotationText, @"\S+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Count > MaximumQuotationWords)
+            {
+                errors.Add($"A {label} quotation must contain at most {MaximumQuotationWords} words and {MaximumQuotationCharacters} characters.");
+            }
+            if (!item.PresentedText.Contains(quotationText, StringComparison.Ordinal))
             {
                 errors.Add($"A {label} contains a quotation that does not exactly match its cited evidence.");
             }

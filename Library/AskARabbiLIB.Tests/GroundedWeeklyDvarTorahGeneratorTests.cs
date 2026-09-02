@@ -74,6 +74,20 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task GenerateAsync_FirstDraftCompletionFiltered_RetriesWithFreshSafeDraft()
+    {
+        var generationEngine = new ContentFilterThenSuccessEngine(CreateResearchDraft(), CreateArticleDraft("Fresh safe draft"));
+        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.AreEqual("Fresh safe draft", result.Title);
+        Assert.AreEqual(3, generationEngine.Calls);
+        Assert.IsTrue(generationEngine.RetryExcludedBlockedAssistantOutput);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task GenerateAsync_FirstResearchSelectionInvalid_RepairsBeforeDrafting()
     {
         var invalidResearch = CreateResearchDraft() with { SelectedNewsEvidenceIds = ["N1"] };
@@ -318,6 +332,30 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             }
 
             return Task.FromResult(AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "Sensitive provider response detail", new AIResponseDiagnostics("draft-response", "test-model", null, TimeSpan.FromSeconds(1), 1, AIEngineStatus.InvalidResponse, "invalid_structured_json")));
+        }
+    }
+
+    private sealed class ContentFilterThenSuccessEngine(WeeklyDvarTorahResearchDraft research, WeeklyDvarTorahArticleDraft draft) : IAIEngine
+    {
+        internal int Calls { get; private set; }
+
+        internal bool RetryExcludedBlockedAssistantOutput { get; private set; }
+
+        public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Calls++;
+            if (Calls == 1)
+            {
+                return Task.FromResult(AIEngineResult<T>.Success((T)(object)research, new AIResponseDiagnostics("research-response", "test-model", null, TimeSpan.Zero, 1)));
+            }
+            if (Calls == 2)
+            {
+                return Task.FromResult(AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "The completion was filtered.", new AIResponseDiagnostics("blocked-draft", "test-model", null, TimeSpan.Zero, 1, AIEngineStatus.InvalidResponse, "content_filter.completion")));
+            }
+
+            RetryExcludedBlockedAssistantOutput = messages.All(message => message.Role != AIMessageRole.Assistant);
+            return Task.FromResult(AIEngineResult<T>.Success((T)(object)draft, new AIResponseDiagnostics("safe-draft", "test-model", null, TimeSpan.Zero, 1)));
         }
     }
 

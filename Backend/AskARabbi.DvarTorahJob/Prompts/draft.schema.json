@@ -33,7 +33,7 @@
       "additionalProperties": false,
       "properties": {
         "evidenceId": { "type": "string" },
-        "text": { "type": "string" }
+        "text": { "type": "string", "minLength": 1, "maxLength": 120 }
       },
       "required": ["evidenceId", "text"]
     },

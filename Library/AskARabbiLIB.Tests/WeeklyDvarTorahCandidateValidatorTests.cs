@@ -63,6 +63,21 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public void Validate_QuotationExceedsProofPhraseBounds_Fails()
+    {
+        var evidence = CreateEvidence().ToArray();
+        var longQuotation = string.Join(' ', Enumerable.Repeat("word", 13));
+        evidence[0] = evidence[0] with { PresentedText = longQuotation };
+        var draft = CreateDraft(evidence);
+
+        var result = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions());
+
+        Assert.IsFalse(result.IsValid);
+        Assert.IsTrue(result.Errors.Any(error => error.Contains("at most 12 words and 120 characters", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public void Validate_InvalidTopLevelDraftFields_FailClosed()
     {
         var evidence = CreateEvidence();
@@ -162,7 +177,7 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
             first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = " ", Text = "Text" }, first.Quotations[1]] },
             first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T3", Text = evidence[2].PresentedText }, first.Quotations[1]] },
             first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = " " }, first.Quotations[1]] },
-            first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = new string('q', 801) }, first.Quotations[1]] },
+            first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = new string('q', 121) }, first.Quotations[1]] },
             first with { Quotations = [first.Quotations[0], first.Quotations[0]] },
         ];
 
