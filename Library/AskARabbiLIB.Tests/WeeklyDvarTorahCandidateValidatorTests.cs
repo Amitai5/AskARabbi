@@ -225,6 +225,29 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public void Validate_SensitivePersonalDataOrDirectUrl_FailsClosed()
+    {
+        var evidence = CreateEvidence();
+        var valid = CreateDraft(evidence);
+        WeeklyDvarTorahArticleDraft[] invalidDrafts =
+        [
+            valid with { Title = "Contact editor@example.test" },
+            valid with { CentralTeaching = "Call 202-555-0123 for more information about this otherwise sufficiently long central teaching." },
+            valid with { PracticalActions = ["Visit https://example.test/private", "Perform one private act of kindness.", "Study one passage again this week."] },
+            valid with { Tags = ["responsibility", "community", "nitzavim", "technology", "192.0.2.10"] },
+        ];
+
+        foreach (var draft in invalidDrafts)
+        {
+            var result = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions());
+
+            Assert.IsFalse(result.IsValid);
+            Assert.IsTrue(result.Errors.Any(error => error.Contains("contact details, IP addresses, or direct URLs", StringComparison.Ordinal)));
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public void Validate_NullInputs_Throw()
     {
         var evidence = CreateEvidence();

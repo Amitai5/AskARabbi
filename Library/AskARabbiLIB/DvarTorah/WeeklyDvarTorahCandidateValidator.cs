@@ -6,6 +6,8 @@ internal static class WeeklyDvarTorahCandidateValidator
 {
     private const int MaximumQuotationCharacters = 120;
     private const int MaximumQuotationWords = 12;
+    private const string DirectUrlPattern = @"\b(?:https?://|www\.)\S+";
+    private const string SensitivePersonalDataPattern = @"(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?<!\d)(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}(?!\d)|\b(?:\d{1,3}\.){3}\d{1,3}\b)";
 
     internal static WeeklyDvarTorahCandidateValidation Validate(WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, WeeklyDvarTorahContentOptions options)
     {
@@ -19,6 +21,7 @@ internal static class WeeklyDvarTorahCandidateValidator
         ValidateText(draft.CentralTeaching, 40, 1_200, "The central teaching", errors);
         ValidateTags(draft.Tags, errors);
         ValidatePracticalActions(draft.PracticalActions, errors);
+        ValidateNoSensitivePersonalData(draft, errors);
 
         var torahStatements = draft.TorahTeachings ?? [];
         var newsStatements = draft.CurrentEventFacts ?? [];
@@ -192,6 +195,23 @@ internal static class WeeklyDvarTorahCandidateValidator
         if (actions is null || actions.Count != 3 || actions.Any(action => string.IsNullOrWhiteSpace(action) || action.Length > 500))
         {
             errors.Add("The draft must provide exactly three concrete, non-blank practical actions of at most five hundred characters each.");
+        }
+    }
+
+    private static void ValidateNoSensitivePersonalData(WeeklyDvarTorahArticleDraft draft, ICollection<string> errors)
+    {
+        var values = new List<string?> { draft.Title, draft.Body, draft.CentralTeaching };
+        values.AddRange(draft.Tags ?? []);
+        values.AddRange(draft.PracticalActions ?? []);
+        foreach (var statement in (draft.TorahTeachings ?? []).Concat(draft.CurrentEventFacts ?? []).Concat(draft.Connections ?? []))
+        {
+            values.Add(statement?.Text);
+            values.AddRange(statement?.Quotations?.Select(quotation => quotation?.Text) ?? []);
+        }
+
+        if (values.Any(value => !string.IsNullOrWhiteSpace(value) && (Regex.IsMatch(value, SensitivePersonalDataPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)) || Regex.IsMatch(value, DirectUrlPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))))
+        {
+            errors.Add("The draft must not contain contact details, IP addresses, or direct URLs.");
         }
     }
 
