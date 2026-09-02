@@ -128,6 +128,19 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task GenerateAsync_OnlyNewsWithSensitivePersonalDataRemains_FailsBeforeCallingModel()
+    {
+        var generationEngine = new QueueEngine(CreateResearchDraft());
+        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()), new SensitivePersonalDataCurrentEvents());
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("CurrentEventsInsufficientPublishers", exception.FailureCode);
+        Assert.AreEqual(0, generationEngine.Calls);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task GenerateAsync_HighRiskTorahPassageRetrieved_ExcludesPassageBeforeDrafting()
     {
         var hits = CreateTorahHits().Prepend(CreateHighRiskTorahHit()).ToArray();
@@ -380,6 +393,20 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             [
                 new("Publisher One", "General", "Report follows violent attack", "Officials report people were wounded.", "https://one.example.test/story", CurrentUtc.AddHours(-3), CurrentUtc),
                 new("Publisher Two", "General", "War and weapons update", "The report concerns military conflict.", "https://two.example.test/story", CurrentUtc.AddHours(-2), CurrentUtc),
+            ];
+            return Task.FromResult(items);
+        }
+    }
+
+    private sealed class SensitivePersonalDataCurrentEvents : ICurrentEventsSource
+    {
+        public Task<IReadOnlyList<CurrentEventItem>> GetRecentAsync(DateTimeOffset fromUtc, DateTimeOffset throughUtc, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<CurrentEventItem> items =
+            [
+                new("Publisher One", "Technology", "Public technology initiative", "Press inquiries may be sent to newsroom@example.test.", "https://one.example.test/story", CurrentUtc.AddHours(-3), CurrentUtc),
+                new("Publisher Two", "Technology", "Public technology initiative confirmed", "Call 202-555-0123 for the media office.", "https://two.example.test/story", CurrentUtc.AddHours(-2), CurrentUtc),
+                new("Publisher Three", "Technology", "Public technology service", "The legacy service is available at 192.0.2.10.", "https://three.example.test/story", CurrentUtc.AddHours(-1), CurrentUtc),
             ];
             return Task.FromResult(items);
         }

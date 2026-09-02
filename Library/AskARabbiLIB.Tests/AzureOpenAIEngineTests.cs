@@ -445,6 +445,9 @@ public sealed class AzureOpenAIEngineTests
                   "content_filter_results": {
                     "violence": { "filtered": true, "severity": "high" },
                     "protected_material_text": { "detected": true, "filtered": true },
+                    "Phone Number Protection": { "detected": true, "filtered": true },
+                    "email_protection": { "detected": true, "filtered": true },
+                    "ip-address": { "detected": true, "filtered": true },
                     "untrusted_custom_category": { "filtered": true, "details": "must not appear" }
                   }
                 }
@@ -456,7 +459,7 @@ public sealed class AzureOpenAIEngineTests
         var reason = AzureResponsesTransport.GetContentFilterCompletionReason(response);
 
         // Assert
-        Assert.AreEqual("content_filter.completion.protected_material_text.violence_high", reason);
+        Assert.AreEqual("content_filter.completion.email_address.ip_address.phone_number.protected_material_text.violence_high", reason);
         Assert.IsFalse(reason.Contains("untrusted", StringComparison.Ordinal));
     }
 

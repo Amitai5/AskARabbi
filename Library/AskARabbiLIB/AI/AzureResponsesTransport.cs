@@ -300,19 +300,39 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         var categories = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var result in results.EnumerateObject())
         {
-            if (!IsKnownFilterCategory(result.Name) || result.Value.ValueKind != JsonValueKind.Object || !IsFiltered(result.Value))
+            var category = GetKnownFilterCategory(result.Name);
+            if (category is null || result.Value.ValueKind != JsonValueKind.Object || !IsFiltered(result.Value))
             {
                 continue;
             }
 
             var severity = GetKnownSeverity(result.Value);
-            categories.Add(severity is null ? result.Name : $"{result.Name}_{severity}");
+            categories.Add(severity is null ? category : $"{category}_{severity}");
         }
 
         return categories.ToArray();
     }
 
-    private static bool IsKnownFilterCategory(string value) => value is "hate" or "sexual" or "violence" or "self_harm" or "jailbreak" or "indirect_attack" or "protected_material_text" or "protected_material_code";
+    private static string? GetKnownFilterCategory(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant().Replace('-', '_').Replace(' ', '_');
+        return normalized switch
+        {
+            "hate" => "hate",
+            "sexual" => "sexual",
+            "violence" => "violence",
+            "self_harm" => "self_harm",
+            "jailbreak" => "jailbreak",
+            "indirect_attack" => "indirect_attack",
+            "protected_material_text" => "protected_material_text",
+            "protected_material_code" => "protected_material_code",
+            "phone" or "phone_number" or "phone_number_protection" or "telephone_number" => "phone_number",
+            "email" or "email_address" or "email_protection" => "email_address",
+            "ip" or "ip_address" or "ip_address_protection" => "ip_address",
+            "pii" or "personal_data" or "personally_identifiable_information" => "personal_data",
+            _ => null,
+        };
+    }
 
     private static bool IsFiltered(JsonElement result) => IsTrue(result, "filtered") || IsTrue(result, "detected");
 

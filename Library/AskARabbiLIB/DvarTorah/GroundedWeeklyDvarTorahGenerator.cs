@@ -13,6 +13,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 {
     private const string HighRiskNewsPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|dead|death|deaths|genocide|gunfire|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|rape|raped|shooting|shootings|slur|terror|terrorism|violent|violence|war|weapon|weapons|wounded)\b";
     private const string HighRiskTorahPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|burn|burned|burning|burnt|curse|cursed|curses|destroy|destroyed|destruction|fury|genocide|gunfire|harm|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|plague|plagues|punish|punished|punishment|rape|raped|shooting|shootings|slaughter|slay|slur|smite|smitten|smote|sulfur|terror|terrorism|vengeance|vengeful|violent|violence|war|warfare|weapon|weapons|wounded|wrath)\b";
+    private const string SensitivePersonalDataPattern = @"(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?<!\d)(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}(?!\d)|\b(?:\d{1,3}\.){3}\d{1,3}\b)";
     private static readonly JsonSerializerOptions PromptJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -355,6 +356,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var groups = items
             .Where(item => item is not null)
             .Where(item => !ContainsHighRiskNewsContent(item))
+            .Where(item => !ContainsSensitivePersonalData(item))
             .GroupBy(item => item.Publisher, StringComparer.OrdinalIgnoreCase)
             .Select(group => new Queue<CurrentEventItem>(group.OrderByDescending(item => item.PublishedAtUtc)))
             .ToArray();
@@ -430,6 +432,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private static bool IsCompletionContentFilterFailure<T>(AIEngineResult<T> result) => result.Status == AIEngineStatus.InvalidResponse && result.Diagnostics.CompletionReason?.StartsWith("content_filter", StringComparison.Ordinal) == true;
 
     private static bool ContainsHighRiskNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", HighRiskNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static bool ContainsSensitivePersonalData(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", SensitivePersonalDataPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     private static bool HasUnrestrictedQuotationLicense(SourceRetrievalHit hit) => hit.Segment.LicenseCategory is SourceLicenseCategory.PublicDomain or SourceLicenseCategory.Cc0;
 
