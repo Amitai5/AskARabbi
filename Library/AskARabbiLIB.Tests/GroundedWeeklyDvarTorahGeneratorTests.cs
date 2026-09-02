@@ -91,7 +91,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     [TestCategory("Unit")]
     public async Task GenerateAsync_FirstResearchSelectionInvalid_RepairsBeforeDrafting()
     {
-        var invalidResearch = CreateResearchDraft() with { SelectedNewsEvidenceIds = ["N1"] };
+        var invalidResearch = CreateResearchDraft() with { SelectedNewsEvidenceIds = ["NA"] };
         var generationEngine = new QueueEngine(invalidResearch, CreateResearchDraft(), CreateArticleDraft("Repaired research title"));
         var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
 
@@ -192,16 +192,16 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     {
         Theme = "Shared responsibility",
         MoralQuestion = "How do people accept responsibility for one another without erasing difference?",
-        SelectedNewsEvidenceIds = ["N1", "N2"],
+        SelectedNewsEvidenceIds = ["NA", "NB"],
         TorahSearchQueries = ["Nitzavim standing together", "Nitzavim choosing life and responsibility"],
         SuggestedTags = ["responsibility", "community", "technology"],
     };
 
     private static WeeklyDvarTorahArticleDraft CreateArticleDraft(string title)
     {
-        var evidenceTexts = Enumerable.Range(1, 8).ToDictionary(index => $"T{index}", index => $"Torah passage {index} teaches shared covenantal responsibility.", StringComparer.Ordinal);
-        evidenceTexts["N1"] = "Publisher one reports a new public technology initiative.";
-        evidenceTexts["N2"] = "Publisher two independently confirms the same public technology initiative.";
+        var evidenceTexts = Enumerable.Range(0, 8).ToDictionary(index => $"T{(char)('A' + index)}", index => $"Torah passage {index + 1} teaches shared covenantal responsibility.", StringComparer.Ordinal);
+        evidenceTexts["NA"] = "Publisher one reports a new public technology initiative.";
+        evidenceTexts["NB"] = "Publisher two independently confirms the same public technology initiative.";
         WeeklyDvarTorahSourcedStatementDraft Statement(string text, params string[] ids) => new()
         {
             Text = text,
@@ -218,13 +218,13 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             PracticalActions = ["Listen fully to one person.", "Perform one private act of kindness.", "Study one passage again this week."],
             TorahTeachings =
             [
-                Statement("Teaching one.", "T1", "T2"),
-                Statement("Teaching two.", "T3", "T4"),
-                Statement("Teaching three.", "T5", "T6"),
-                Statement("Teaching four.", "T7", "T8"),
+                Statement("Teaching one.", "TA", "TB"),
+                Statement("Teaching two.", "TC", "TD"),
+                Statement("Teaching three.", "TE", "TF"),
+                Statement("Teaching four.", "TG", "TH"),
             ],
-            CurrentEventFacts = [Statement("The initiative was reported by two publishers.", "N1", "N2")],
-            Connections = [Statement("Shared responsibility connects the Torah teaching to this development.", "T1", "N1")],
+            CurrentEventFacts = [Statement("The initiative was reported by two publishers.", "NA", "NB")],
+            Connections = [Statement("Shared responsibility connects the Torah teaching to this development.", "TA", "NA")],
         };
     }
 

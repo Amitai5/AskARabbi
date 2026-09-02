@@ -163,7 +163,7 @@ internal static class WeeklyDvarTorahCandidateValidator
             }
         }
 
-        foreach (Match match in Regex.Matches(body, @"\[(?<id>[TNO]\d{1,2})\]", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+        foreach (Match match in Regex.Matches(body, @"\[(?<id>[TNO](?:\d{1,2}|[A-Z]{1,2}))\]", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
         {
             var id = match.Groups["id"].Value;
             if (!evidence.ContainsKey(id))

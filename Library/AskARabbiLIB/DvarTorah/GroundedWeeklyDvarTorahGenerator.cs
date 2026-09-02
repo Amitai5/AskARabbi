@@ -129,7 +129,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             {
                 if (attempt == 0 && IsCompletionContentFilterFailure(draftResult))
                 {
-                    validationError = "The prior completion was blocked by the provider. Produce a fresh, peaceful article using paraphrase in the body and only the bounded proof phrases required by the quotation fields. Do not output URLs, contact details, email addresses, telephone numbers, IP addresses, timestamps, chapter-and-verse numbers, or digits outside required evidence markers such as [T1] and [N2].";
+                    validationError = "The prior completion was blocked by the provider. Produce a fresh, peaceful article using paraphrase in the body and only the bounded proof phrases required by the quotation fields. Do not output URLs, contact details, email addresses, telephone numbers, IP addresses, timestamps, chapter-and-verse numbers, or any digits.";
                     continue;
                 }
                 throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
@@ -276,7 +276,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 
         var retrievedAtUtc = timeProvider.GetUtcNow();
         return selected.Select((hit, index) => new WeeklyDvarTorahEvidence(
-            $"T{index + 1}",
+            CreateEvidenceId('T', index),
             WeeklyDvarTorahSourceKind.Torah,
             hit.Segment.Title,
             hit.Segment.Version,
@@ -370,7 +370,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             }
         }
 
-        return selected.Select((item, index) => new NewsCandidate($"N{index + 1}", item)).ToArray();
+        return selected.Select((item, index) => new NewsCandidate(CreateEvidenceId('N', index), item)).ToArray();
     }
 
     private IReadOnlyList<string> ValidateResearch(WeeklyDvarTorahResearchDraft research, IReadOnlyList<NewsCandidate> candidates)
@@ -424,6 +424,18 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     }
 
     private static string Bound(string value, int maximumCharacters) => value.Length <= maximumCharacters ? value : value[..maximumCharacters].TrimEnd();
+
+    private static string CreateEvidenceId(char prefix, int zeroBasedIndex)
+    {
+        if (zeroBasedIndex is < 0 or >= 676)
+        {
+            throw new ArgumentOutOfRangeException(nameof(zeroBasedIndex));
+        }
+
+        return zeroBasedIndex < 26
+            ? $"{prefix}{(char)('A' + zeroBasedIndex)}"
+            : $"{prefix}{(char)('A' + zeroBasedIndex / 26 - 1)}{(char)('A' + zeroBasedIndex % 26)}";
+    }
 
     private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
 
