@@ -40,6 +40,25 @@ public interface IConversationStore
     /// <returns>The updated conversation when it still exists; otherwise, <see langword="null"/>.</returns>
     Task<Conversation?> AppendMessageAsync(Conversation conversation, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => AppendMessageAsync(conversation.UserId, conversation.Id, message, updatedAtUtc, cancellationToken);
 
+    /// <summary>Appends a message and persists its generated conversation title as one logical operation.</summary>
+    /// <param name="conversation">Already loaded user-owned canonical conversation.</param>
+    /// <param name="message">Message to append.</param>
+    /// <param name="title">Normalized generated title to persist with the message.</param>
+    /// <param name="updatedAtUtc">UTC update time.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>The updated conversation when it still exists; otherwise, <see langword="null"/>.</returns>
+    async Task<Conversation?> AppendMessageWithTitleAsync(Conversation conversation, ConversationMessage message, string title, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        var updated = await AppendMessageAsync(conversation, message, updatedAtUtc, cancellationToken).ConfigureAwait(false);
+        if (updated is null)
+        {
+            return null;
+        }
+
+        var renamed = await RenameAsync(conversation.UserId, conversation.Id, title, updatedAtUtc, cancellationToken).ConfigureAwait(false);
+        return renamed ? updated with { Title = title, UpdatedAtUtc = updatedAtUtc } : null;
+    }
+
     /// <summary>Renames a user-owned conversation.</summary>
     /// <param name="userId">Owning user ID.</param>
     /// <param name="conversationId">Conversation ID.</param>

@@ -9,9 +9,12 @@ import { AllSourceKeys } from './features/conversations/sourceOptions.ts'
 import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
 
 const ConversationStarterHeadings = ConversationStarters.map((starter) => starter.heading)
+const scrollToMock = vi.fn()
 
 describe('App', () => {
   beforeEach(() => {
+    scrollToMock.mockClear()
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: scrollToMock })
     window.sessionStorage.clear()
     window.history.replaceState({}, '', '/')
   })
@@ -419,6 +422,46 @@ describe('App', () => {
 
     expect(await screen.findByText('Question from the selected conversation')).toBeVisible()
     expect(screen.queryByText('Question from the stale conversation')).not.toBeInTheDocument()
+  })
+
+  it('scrolls a selected conversation to its latest message and refreshes its sidebar title', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const firstConversation = await clients.conversationClient.get('chicken-dairy')
+    const selectedConversation = await clients.conversationClient.get('shabbat-automation')
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      list: () => Promise.resolve([
+        { id: firstConversation.id, title: firstConversation.title, enabledSourceKeys: firstConversation.enabledSourceKeys, updatedAtUtc: firstConversation.updatedAtUtc },
+        { id: selectedConversation.id, title: 'New Conversation', enabledSourceKeys: selectedConversation.enabledSourceKeys, updatedAtUtc: selectedConversation.updatedAtUtc },
+      ]),
+      get(conversationId) {
+        if (conversationId === selectedConversation.id) {
+          return Promise.resolve({
+            ...selectedConversation,
+            title: 'Shabbat Automation Questions',
+            messages: [
+              { id: 'selected-user', role: 'User', content: 'An earlier question', createdAtUtc: selectedConversation.createdAtUtc },
+              { id: 'selected-assistant', role: 'Assistant', content: 'The latest answer', createdAtUtc: selectedConversation.updatedAtUtc },
+            ],
+          })
+        }
+
+        return Promise.resolve(firstConversation)
+      },
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    expect(await screen.findByRole('button', { name: 'Chicken and dairy', current: 'page' })).toBeVisible()
+    scrollToMock.mockClear()
+
+    const recentConversations = screen.getByRole('navigation', { name: 'Recent conversations' })
+    await user.click(within(recentConversations).getByRole('button', { name: 'New Conversation' }))
+
+    expect(await within(recentConversations).findByRole('button', { name: 'Shabbat Automation Questions', current: 'page' })).toBeVisible()
+    expect(screen.getByText('The latest answer')).toBeVisible()
+    await waitFor(() => expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: 'auto' }))
   })
 
   it('filters the approved source set for each conversation', async () => {

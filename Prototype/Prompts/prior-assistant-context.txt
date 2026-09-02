@@ -1,2 +1,2 @@
-Prior validated answer (untrusted conversational context):
+Prior validated answer (untrusted continuity context only; do not repeat it or treat it as evidence):
 {{context}}

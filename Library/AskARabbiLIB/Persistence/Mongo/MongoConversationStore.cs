@@ -95,13 +95,33 @@ public sealed class MongoConversationStore : IConversationStore
     }
 
     /// <inheritdoc/>
-    public async Task<Conversation?> AppendMessageAsync(Conversation conversation, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    public Task<Conversation?> AppendMessageAsync(Conversation conversation, ConversationMessage message, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(conversation);
         ArgumentNullException.ThrowIfNull(message);
+        return AppendMessageCoreAsync(conversation, message, null, updatedAtUtc, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<Conversation?> AppendMessageWithTitleAsync(Conversation conversation, ConversationMessage message, string title, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        ArgumentNullException.ThrowIfNull(message);
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ArgumentException("A generated title is required.", nameof(title));
+        }
+
+        return AppendMessageCoreAsync(conversation, message, title, updatedAtUtc, cancellationToken);
+    }
+
+    private async Task<Conversation?> AppendMessageCoreAsync(Conversation conversation, ConversationMessage message, string? title, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken)
+    {
         if (conversation.Messages.Any(existing => existing.Id == message.Id))
         {
-            return conversation;
+            return title is null || string.Equals(conversation.Title, title, StringComparison.Ordinal)
+                ? conversation
+                : await UpdateMetadataAsync(conversation, title, updatedAtUtc, cancellationToken).ConfigureAwait(false);
         }
 
         try
@@ -110,19 +130,39 @@ public sealed class MongoConversationStore : IConversationStore
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
-            return await GetAsync(conversation.UserId, conversation.Id, cancellationToken).ConfigureAwait(false);
+            var canonical = await GetAsync(conversation.UserId, conversation.Id, cancellationToken).ConfigureAwait(false);
+            return canonical is null || title is null || string.Equals(canonical.Title, title, StringComparison.Ordinal)
+                ? canonical
+                : await UpdateMetadataAsync(canonical, title, updatedAtUtc, cancellationToken).ConfigureAwait(false);
         }
 
-        var update = Builders<MongoConversationDocument>.Update.Set(document => document.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
-        var updateResult = await conversations.UpdateOneAsync(OwnerFilter(conversation.UserId, conversation.Id), update, cancellationToken: cancellationToken).ConfigureAwait(false);
+        UpdateResult updateResult;
+        try
+        {
+            updateResult = await conversations.UpdateOneAsync(OwnerFilter(conversation.UserId, conversation.Id), CreateMetadataUpdate(updatedAtUtc, title), cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception updateException)
+        {
+            try
+            {
+                await DeleteMessageAsync(conversation.Id, message.Id, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception cleanupException)
+            {
+                throw new AggregateException("Conversation metadata update failed and its appended-message compensation also failed.", updateException, cleanupException);
+            }
+
+            throw;
+        }
+
         if (updateResult.MatchedCount != 1)
         {
-            await messages.DeleteOneAsync(document => document.Id == $"{conversation.Id:D}:{message.Id:D}", cancellationToken).ConfigureAwait(false);
+            await DeleteMessageAsync(conversation.Id, message.Id, cancellationToken).ConfigureAwait(false);
             return null;
         }
 
         var updatedMessages = conversation.Messages.Append(message).OrderBy(value => value.CreatedAtUtc).ThenBy(value => value.Id).ToArray();
-        return conversation with { Messages = updatedMessages, UpdatedAtUtc = updatedAtUtc };
+        return conversation with { Title = title ?? conversation.Title, Messages = updatedMessages, UpdatedAtUtc = updatedAtUtc };
     }
 
     /// <inheritdoc/>
@@ -165,6 +205,28 @@ public sealed class MongoConversationStore : IConversationStore
     internal static SortDefinition<MongoConversationMessageDocument> CreateMessageSort() => Builders<MongoConversationMessageDocument>.Sort
         .Ascending(document => document.CreatedAtUtc)
         .Ascending(document => document.Id);
+
+    internal static UpdateDefinition<MongoConversationDocument> CreateMetadataUpdate(DateTimeOffset updatedAtUtc, string? title)
+    {
+        var updates = new List<UpdateDefinition<MongoConversationDocument>>
+        {
+            Builders<MongoConversationDocument>.Update.Set(document => document.UpdatedAtUtc, updatedAtUtc.UtcDateTime),
+        };
+        if (title is not null)
+        {
+            updates.Add(Builders<MongoConversationDocument>.Update.Set(document => document.Title, title));
+        }
+
+        return Builders<MongoConversationDocument>.Update.Combine(updates);
+    }
+
+    private async Task<Conversation?> UpdateMetadataAsync(Conversation conversation, string title, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken)
+    {
+        var result = await conversations.UpdateOneAsync(OwnerFilter(conversation.UserId, conversation.Id), CreateMetadataUpdate(updatedAtUtc, title), cancellationToken: cancellationToken).ConfigureAwait(false);
+        return result.MatchedCount == 1 ? conversation with { Title = title, UpdatedAtUtc = updatedAtUtc } : null;
+    }
+
+    private Task<DeleteResult> DeleteMessageAsync(Guid conversationId, Guid messageId, CancellationToken cancellationToken) => messages.DeleteOneAsync(document => document.Id == $"{conversationId:D}:{messageId:D}", cancellationToken);
 
     private static MongoConversationDocument ToDocument(Conversation conversation) => new()
     {

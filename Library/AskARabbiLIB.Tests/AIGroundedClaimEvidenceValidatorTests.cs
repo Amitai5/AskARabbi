@@ -16,6 +16,8 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
         // Arrange
         var output = new GroundedSupportValidationDraft
         {
+            IsResponsive = true,
+            OverallExplanation = "The claim directly answers the current lamp-lighting question.",
             Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "The cited passage directly states the timing rule." }],
         };
         var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
@@ -26,7 +28,7 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
 
         // Assert
         Assert.AreEqual(ClaimEvidenceValidationStatus.Supported, result.Status);
-        Assert.AreEqual("grounded_support_validation_v1", engine.LastSchemaName);
+        Assert.AreEqual("grounded_support_validation_v2", engine.LastSchemaName);
         Assert.IsNotNull(engine.LastMessages);
         StringAssert.Contains(engine.LastMessages[^1].Content, "A lamp may not be kindled.");
         StringAssert.Contains(engine.LastMessages[0].Content, "Independently");
@@ -39,6 +41,8 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
         // Arrange
         var output = new GroundedSupportValidationDraft
         {
+            IsResponsive = true,
+            OverallExplanation = "The draft attempts to answer the current question.",
             Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = false, Explanation = "The quotation exists, but it does not establish the broader claim." }],
         };
         var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
@@ -53,11 +57,56 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task ValidateAsync_RuleRestatementDoesNotAnswerWhy_ReturnsUnsupported()
+    {
+        // Arrange
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = false,
+            OverallExplanation = "The draft repeats that the rule is rabbinic but never gives the requested rationale.",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "The passage supports the rule classification." }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+        var validator = new AIGroundedClaimEvidenceValidator(engine, CreatePrompts());
+
+        // Act
+        var result = await validator.ValidateAsync("CURRENT QUESTION TO ANSWER:\nWhy did the rabbis choose that?", CreateDraft(), CreatePacket());
+
+        // Assert
+        Assert.AreEqual(ClaimEvidenceValidationStatus.Unsupported, result.Status);
+        StringAssert.Contains(result.ErrorMessage, "did not directly answer");
+        StringAssert.Contains(result.ErrorMessage, "never gives the requested rationale");
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task ValidateAsync_BlankOverallExplanation_ReturnsUnsupported()
+    {
+        // Arrange
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = true,
+            OverallExplanation = " ",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "The passage supports the statement." }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+        var validator = new AIGroundedClaimEvidenceValidator(engine, CreatePrompts());
+
+        // Act
+        var result = await validator.ValidateAsync("Question", CreateDraft(), CreatePacket());
+
+        // Assert
+        Assert.AreEqual(ClaimEvidenceValidationStatus.Unsupported, result.Status);
+        StringAssert.Contains(result.ErrorMessage, "overall responsiveness explanation");
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task ValidateAsync_MissingStatementEvaluation_ReturnsUnsupported()
     {
         // Arrange
-        var output = new GroundedSupportValidationDraft { Evaluations = [] };
+        var output = new GroundedSupportValidationDraft { IsResponsive = true, OverallExplanation = "The draft attempts to answer the question.", Evaluations = [] };
         var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
         var validator = new AIGroundedClaimEvidenceValidator(engine, CreatePrompts());
 

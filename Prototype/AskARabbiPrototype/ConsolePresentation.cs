@@ -138,8 +138,7 @@ internal static class ConsolePresentation
 
         if (result.Answer.ClarifyingQuestion is not null)
         {
-            AnsiConsole.MarkupLine($"[bold cyan]A useful next question:[/] {Escape(result.Answer.ClarifyingQuestion)}");
-            AnsiConsole.MarkupLine("[grey]Ask me that next if you want to keep digging.[/]");
+            AnsiConsole.MarkupLine($"[bold cyan]If you'd like to keep exploring:[/] {Escape(result.Answer.ClarifyingQuestion)}");
             AnsiConsole.WriteLine();
         }
 

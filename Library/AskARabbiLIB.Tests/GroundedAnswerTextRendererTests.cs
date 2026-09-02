@@ -29,7 +29,8 @@ public sealed class GroundedAnswerTextRendererTests
         StringAssert.StartsWith(rendered, "The short answer is grounded. [1]");
         StringAssert.Contains(rendered, "Another perspective:");
         StringAssert.Contains(rendered, "What these sources do not fully answer:");
-        StringAssert.Contains(rendered, "A useful next question:");
+        StringAssert.Contains(rendered, "If you'd like to keep exploring:");
+        Assert.IsFalse(rendered.Contains("Ask me that next", StringComparison.Ordinal));
         StringAssert.Contains(rendered, "qualified rabbi");
         StringAssert.Contains(rendered, "This is source-based learning, not personal psak.");
         Assert.IsFalse(rendered.Contains("A tested quotation.", StringComparison.Ordinal));

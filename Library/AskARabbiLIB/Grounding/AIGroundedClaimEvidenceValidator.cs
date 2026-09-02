@@ -77,6 +77,14 @@ internal sealed class AIGroundedClaimEvidenceValidator : IGroundedClaimEvidenceV
         {
             return ClaimEvidenceValidationResult.Unsupported("The claim-support audit returned missing, duplicate, or unknown statement IDs.", result.Diagnostics);
         }
+        if (string.IsNullOrWhiteSpace(result.Value.OverallExplanation) || result.Value.OverallExplanation.Length > 1_000)
+        {
+            return ClaimEvidenceValidationResult.Unsupported("The claim-support audit returned an invalid overall responsiveness explanation.", result.Diagnostics);
+        }
+        if (!result.Value.IsResponsive)
+        {
+            return ClaimEvidenceValidationResult.Unsupported($"The draft did not directly answer the current question: {result.Value.OverallExplanation.Trim()}", result.Diagnostics);
+        }
 
         foreach (var evaluation in evaluations)
         {

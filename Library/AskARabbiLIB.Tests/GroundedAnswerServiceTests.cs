@@ -634,6 +634,119 @@ public sealed class GroundedAnswerServiceTests
 
     [TestMethod]
     [TestCategory("Regression")]
+    public async Task AnswerAsync_WhyFollowUp_PrioritizesRationaleAndAuditsCurrentQuestionAsSoleTarget()
+    {
+        // Arrange
+        var segment = CreateSegment() with
+        {
+            SegmentId = "sefaria:chullin:reason:00000001",
+            DocumentId = "sefaria:chullin:reason",
+            CanonicalReference = "Chullin 104b:1",
+            Text = "The sages prohibited fowl with milk as a rabbinic safeguard to prevent confusion with meat and milk.",
+            Title = "Chullin",
+        };
+        var draft = new GroundedAnswerDraft
+        {
+            Claims =
+            [
+                new GroundedClaimDraft
+                {
+                    Text = "The cited source gives a safeguard against confusion as the reason for the rabbinic restriction.",
+                    EvidenceIds = ["E1"],
+                    Quotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = segment.Text, Role = "Directly states the requested rationale and its scope." }],
+                },
+            ],
+            Disagreements = [],
+            Limitations = [],
+            ClarifyingQuestion = null,
+            HumanGuidanceRecommended = false,
+        };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(draft));
+        var validator = new FakeClaimEvidenceValidator();
+        var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
+        var conversation = new[]
+        {
+            new GroundedConversationTurn("If chickens do not make milk, why can I not eat chicken with milk?", "The earlier answer classified the restriction as rabbinic."),
+        };
+        var question = new GroundedQuestion { Question = "Why did the rabbis choose that?" };
+
+        // Act
+        var result = await service.AnswerAsync(question, conversation);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(retriever.LastKeywordQuery);
+        StringAssert.Contains(retriever.LastKeywordQuery.QueryText, "Search focus: explicit rabbinic rationale safeguard fence");
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[^1].Content, "\"answerFocus\":\"Explain the reason or rationale");
+        StringAssert.Contains(engine.LastMessages[^1].Content, "Do not substitute a restatement of the rule");
+        Assert.HasCount(1, validator.QuestionContexts);
+        StringAssert.StartsWith(validator.QuestionContexts[0], "CURRENT QUESTION TO ANSWER:");
+        StringAssert.Contains(validator.QuestionContexts[0], "Why did the rabbis choose that?");
+        StringAssert.Contains(validator.QuestionContexts[0], "EARLIER QUESTIONS FOR REFERENCE RESOLUTION ONLY; DO NOT ANSWER THEM AGAIN:");
+        StringAssert.Contains(validator.QuestionContexts[0], "If chickens do not make milk");
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_WhoFollowUp_PrioritizesNamedAuthoritiesAndDirectAttribution()
+    {
+        // Arrange
+        var segment = CreateSegment() with
+        {
+            SegmentId = "sefaria:chullin:authority:00000001",
+            DocumentId = "sefaria:chullin:authority",
+            CanonicalReference = "Mishnah Chullin 8:1",
+            Text = "Rabbi Yose said that Beit Shammai permits fowl and cheese on the same table, while Beit Hillel prohibits placing them together.",
+            Title = "Mishnah Chullin",
+            Collection = "Mishnah",
+        };
+        var draft = new GroundedAnswerDraft
+        {
+            Claims =
+            [
+                new GroundedClaimDraft
+                {
+                    Text = "Rabbi Yose records Beit Shammai and Beit Hillel as the named schools in this dispute.",
+                    EvidenceIds = ["E1"],
+                    Quotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = segment.Text, Role = "Names the reporting rabbi and the two schools with their positions." }],
+                },
+            ],
+            Disagreements = [],
+            Limitations = [],
+            ClarifyingQuestion = null,
+            HumanGuidanceRecommended = false,
+        };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(draft));
+        var validator = new FakeClaimEvidenceValidator();
+        var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
+        var conversation = new[]
+        {
+            new GroundedConversationTurn("Why can I not eat chicken with milk?", "The earlier answer described a rabbinic restriction."),
+            new GroundedConversationTurn("Why did the rabbis choose that?", "The earlier answer discussed a safeguard."),
+        };
+        var question = new GroundedQuestion { Question = "Which rabbis decided on this though?" };
+
+        // Act
+        var result = await service.AnswerAsync(question, conversation);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(retriever.LastKeywordQuery);
+        StringAssert.Contains(retriever.LastKeywordQuery.QueryText, "Search focus: named rabbis sages authorities schools opinions dispute ruling attribution");
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[^1].Content, "\"answerFocus\":\"Identify only the named authorities or schools requested");
+        StringAssert.Contains(engine.LastMessages[^1].Content, "quote context that supports each attribution");
+        Assert.HasCount(1, validator.QuestionContexts);
+        StringAssert.StartsWith(validator.QuestionContexts[0], "CURRENT QUESTION TO ANSWER:");
+        StringAssert.Contains(validator.QuestionContexts[0], "Which rabbis decided on this though?");
+        StringAssert.Contains(validator.QuestionContexts[0], "Why did the rabbis choose that?");
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
     public async Task AnswerAsync_ShabbatAutomationQuestionWithTangentialBusinessHit_ReturnsInsufficientWithoutCallingModel()
     {
         // Arrange
@@ -1233,10 +1346,13 @@ public sealed class GroundedAnswerServiceTests
 
         internal int CallCount { get; private set; }
 
+        internal List<string> QuestionContexts { get; } = [];
+
         public Task<ClaimEvidenceValidationResult> ValidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
+            QuestionContexts.Add(questionContext);
             var result = results.Count == 0 ? ClaimEvidenceValidationResult.Supported() : results.Dequeue();
             return Task.FromResult(result);
         }

@@ -15,7 +15,7 @@ public sealed record GroundedPromptSet
     public string ResponseSchemaName { get; init; } = "grounded_answer_v1";
 
     /// <summary>Gets the structured-output schema name used by the independent claim-support audit.</summary>
-    public string SupportValidationSchemaName { get; init; } = "grounded_support_validation_v1";
+    public string SupportValidationSchemaName { get; init; } = "grounded_support_validation_v2";
 
     /// <summary>Gets the behavior and safety contract sent as the system message.</summary>
     public required string SystemBehaviorPrompt { get; init; }

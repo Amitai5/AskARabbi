@@ -67,7 +67,7 @@ The retrieval query contains:
 
 It does not contain earlier AI prose or profile fields. That prevents generated text or identity labels from displacing the actual subject of the question.
 
-For local retrieval, AskARabbi normalizes Unicode, case, diacritics, and separators. It removes common question words that add little meaning and expands a small reviewed vocabulary map. For example, a question about chicken and milk can also search concepts such as `fowl`, `poultry`, `dairy`, and `cheese`. The planner also recognizes high-value relationships needed for modern questions: `Saturday`, `Sabbath`, and `Shabbos` map to a `Shabbat` topic anchor, while terms such as `automatically`, `server`, and `business` remain separate supporting concepts. Reviewed concepts are prioritized before leftover words, so a long conversational opening cannot push the real topic out of the search limit.
+For local retrieval, AskARabbi normalizes Unicode, case, diacritics, and separators. It removes common question words that add little meaning and expands a small reviewed vocabulary map. For example, a question about chicken and milk can also search concepts such as `fowl`, `poultry`, `dairy`, and `cheese`. The workflow separately recognizes whether the current question asks for a rationale or named authorities. It adds a bounded retrieval hint for explicit safeguards, decrees, concerns, attribution, disputes, or named positions so a follow-up does not simply retrieve another copy of the rule. The planner also recognizes high-value relationships needed for modern questions: `Saturday`, `Sabbath`, and `Shabbos` map to a `Shabbat` topic anchor, while terms such as `automatically`, `server`, and `business` remain separate supporting concepts. Reviewed concepts are prioritized before leftover words, so a long conversational opening cannot push the real topic out of the search limit.
 
 When a reviewed topic anchor is present, the local text index is searched in anchored tiers:
 
@@ -115,11 +115,14 @@ An unusually long segment is marked as an explicit excerpt centered near the rel
 Once corpus evidence exists—or a recognized calendar request is allowed to obtain calculated evidence—AskARabbi constructs the writing request from:
 
 1. The trusted behavior contract in [`system-behavior.txt`](../Prototype/Prompts/system-behavior.txt).
-2. Up to three recent validated question-and-answer turns.
+2. Up to two recent validated question-and-answer turns under the current production default.
 3. The current question.
-4. The minimized user profile.
-5. The bounded evidence packet.
-6. The strict response shape in [`grounded-answer.schema.json`](../Prototype/Prompts/grounded-answer.schema.json).
+4. An application-generated answer focus describing whether the user asked for a rationale, named authorities, or a general direct answer.
+5. The minimized user profile.
+6. The bounded evidence packet.
+7. The strict response shape in [`grounded-answer.schema.json`](../Prototype/Prompts/grounded-answer.schema.json).
+
+The production answer model uses medium reasoning. Earlier turns are explicitly labeled as continuity context rather than evidence or additional questions to answer.
 
 For a recognized calendar question, the request also exposes a small function schema catalog. The server registers the providers explicitly, rejects unknown functions and arguments, disables parallel calls, and allows at most four executions in one request. No service locator, broad assembly scan, web access, or arbitrary code tool is available.
 
@@ -138,6 +141,8 @@ Successful output becomes an application-owned `EvidenceItem` with an opaque ID,
 The behavior contract tells the AI to:
 
 - Begin with a direct bottom-line answer in one or two natural sentences.
+- Answer the dimension the user actually requested: an evidenced reason for “why” and evidenced names and positions for “who.”
+- Treat prior turns only as reference-resolution context and avoid repeating the previous conclusion in place of the new answer.
 - Sound like a warm study companion rather than a report or legal brief.
 - Usually write two or three connected claims and roughly 180–325 words of explanatory prose.
 - Use only the supplied evidence for factual and interpretive claims.
@@ -202,7 +207,7 @@ The exact-substring check means the model cannot clean up grammar, silently tran
 
 The source-chain rule is equally important. If the AI says, “Rabbi X reached this conclusion because of verse Y,” it must cite and quote evidence for Rabbi X’s interpretation and verse Y. If only one half was retrieved, the AI must narrow the claim or state the limitation.
 
-The second layer is an independent structured claim-support audit. It receives the question context, each drafted claim or disagreement, and only the trusted passages cited by those statements. For every statement it must separately decide:
+The second layer is an independent structured claim-support audit. Its question context labels one current question as the sole answer target and keeps earlier user questions in a separate reference-resolution section. It receives each drafted claim or disagreement and only the trusted passages cited by those statements. It first decides whether the complete draft actually answers the requested dimension. A draft fails this gate when, for example, it repeats “the rule is rabbinic” after the user asks why the rule was adopted, or gives an anonymous summary after the user asks which rabbis held a view. For every statement it must then separately decide:
 
 - Whether the statement materially answers the user’s question.
 - Whether the cited text directly states the claim or supports a clear, limited inference.
@@ -244,7 +249,7 @@ The host turns the validated structured answer into a readable conversation. The
 - Bounded surrounding evidence appears under an expandable `Source context` disclosure inside the reader. It starts closed unless the account preference is explicitly enabled, including for legacy account records created before the closed-context default.
 - The web UI does not render a separate edition-attribution footer. Trusted attribution metadata remains attached to the persisted source snapshot for licensing and provenance.
 - Genuine disagreement and evidence limitations appear only when needed.
-- A useful next question becomes a conversational invitation to continue.
+- An optional tightly related next question becomes one short conversational invitation without a repeated “ask me next” instruction.
 - The editable application-controlled notice appears last.
 
 The model does not write the closing notice. The application appends [`interpretive-notice.txt`](../Prototype/Prompts/interpretive-notice.txt) only after the answer passes validation.
@@ -256,12 +261,14 @@ Prototype readers can use `/evidence` to inspect the complete packet. Production
 Only successfully validated answers enter conversation history: process memory in the prototype and the user-owned conversation store in production. On a follow-up:
 
 - Retrieval uses the new question plus up to two recent user questions.
-- The writing request includes up to three recent validated question-and-answer turns.
+- The current question is classified for answer focus; rationale and authority follow-ups receive focused retrieval terms.
+- The writing request includes up to two recent validated question-and-answer turns under the current production default.
 - The selected profile remains available for respectful personalization.
 - Source retrieval runs again.
 - Relevant local calendar tools are made available again with a fresh request-local execution limit and current-time snapshot.
 - A new evidence packet is built.
 - The new draft must pass the full citation and quotation validation again.
+- The independent audit receives the new question as the sole answer target and can reject a fully cited answer that merely repeats an earlier conclusion.
 
 AskARabbi never treats an earlier AI answer as sufficient evidence for a later answer. Conversation history helps the model understand what “that,” “it,” or “what about this case?” means, but every new substantive answer must return to the approved corpus.
 
@@ -282,6 +289,8 @@ The following illustrates the intended flow; the exact retrieved passages depend
 | Final answer | The user sees a short conversational explanation, inline citation numbers, exact quotations, source references, and the non-*psak* notice. |
 
 If the retrieved texts establish the rule but do not explain why the rabbis selected poultry while treating fish differently, the answer should say that the available evidence leaves that question open. It should not invent a rationale merely to make the response feel complete.
+
+If the user then asks “Why did the rabbis choose that?”, the system searches again with explicit rationale and safeguard terms, and the BLUF must state the supported reason rather than repeat that the rule is rabbinic. If the user asks “Which rabbis decided this?”, retrieval shifts toward named authorities, schools, disputes, and attributions. The response must name only people or schools present in the evidence and quote the context showing their positions; otherwise it must say that the available sources do not identify the decision-makers.
 
 ## What this workflow guarantees—and what it does not
 

@@ -3,7 +3,7 @@ namespace AskARabbiLIB.Conversations;
 /// <summary>Defines source selectors supported by production conversations.</summary>
 public static class ConversationSourceCatalog
 {
-    /// <summary>Gets the core source selectors enabled for new conversations by default.</summary>
+    /// <summary>Gets the core source selectors available as a narrower quick selection.</summary>
     public static IReadOnlyList<string> Core { get; } = Array.AsReadOnly<string>(
     [
         "collection:Torah",

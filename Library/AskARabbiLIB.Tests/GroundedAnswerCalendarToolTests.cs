@@ -106,6 +106,8 @@ public sealed class GroundedAnswerCalendarToolTests
         {
             var draft = new GroundedSupportValidationDraft
             {
+                IsResponsive = true,
+                OverallExplanation = "The draft directly answers the requested calendar question.",
                 Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "The calculation directly supports the claim." }],
             };
             return Task.FromResult(AIEngineResult<T>.Success((T)(object)draft, new AIResponseDiagnostics("audit", "test", new AIUsage(1, 1, 2), TimeSpan.FromMilliseconds(1), 1)));

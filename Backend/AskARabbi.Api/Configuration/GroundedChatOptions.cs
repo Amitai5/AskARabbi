@@ -35,7 +35,7 @@ public sealed record GroundedChatOptions
     public int ValidationMaximumOutputTokens { get; init; } = 1_600;
 
     /// <summary>Gets the reasoning effort used for answer generation.</summary>
-    public AIReasoningEffort ReasoningEffort { get; init; } = AIReasoningEffort.Low;
+    public AIReasoningEffort ReasoningEffort { get; init; } = AIReasoningEffort.Medium;
 
     /// <summary>Gets the maximum retries after an initial answer or audit request.</summary>
     public int MaximumRetryCount { get; init; } = 1;

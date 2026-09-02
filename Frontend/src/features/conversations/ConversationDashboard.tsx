@@ -1,4 +1,4 @@
-import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
@@ -72,6 +72,8 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const selectionRequestId = useRef(0)
   const sourceUpdateQueues = useRef(new Map<string, Promise<boolean>>())
   const sourceReaderTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const conversationScrollRef = useRef<HTMLElement | null>(null)
+  const shouldScrollToLatestRef = useRef(true)
 
   useEffect(() => {
     document.documentElement.classList.add(DashboardScrollLockClass)
@@ -117,10 +119,12 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         }
 
         const first = values[0]
+        shouldScrollToLatestRef.current = true
         setSelectedId(first.id)
         const details = await conversationClient.get(first.id)
         if (isCurrent && selectionRequestId.current === requestId) {
           setSelectedConversation(details)
+          setConversations((current) => reconcileConversationSummary(current, details))
         }
       })
       .catch((error: unknown) => {
@@ -148,7 +152,33 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const selectedSourceKeys = selectedConversation?.enabledSourceKeys ?? unsavedSourceKeys
   const messages = selectedConversation?.messages ?? []
   const displayedMessages = pendingQuestion === null || messages.some((message) => message.id === pendingQuestion.id) ? messages : [...messages, pendingQuestion]
+  const latestDisplayedMessageId = displayedMessages.at(-1)?.id ?? null
   const activeSourceReader = resolveActiveSourceReader(displayedMessages, sourceReaderSelection)
+
+  useLayoutEffect(() => {
+    if (!shouldScrollToLatestRef.current || activeView !== 'conversation' || isLoadingConversations || isLoadingConversation) {
+      return
+    }
+
+    const scrollContainer = conversationScrollRef.current
+    if (scrollContainer === null) {
+      return
+    }
+
+    shouldScrollToLatestRef.current = false
+    const scrollToLatest = () => scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' })
+    scrollToLatest()
+
+    let finalFrame = 0
+    const layoutFrame = window.requestAnimationFrame(() => {
+      scrollToLatest()
+      finalFrame = window.requestAnimationFrame(scrollToLatest)
+    })
+    return () => {
+      window.cancelAnimationFrame(layoutFrame)
+      window.cancelAnimationFrame(finalFrame)
+    }
+  }, [activeView, isLoadingConversation, isLoadingConversations, latestDisplayedMessageId, selectedId])
 
   function handleNewConversation() {
     if (isSending || isLoadingConversation || isLoadingConversations) {
@@ -156,6 +186,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     }
 
     selectionRequestId.current += 1
+    shouldScrollToLatestRef.current = true
     setConversationError(null)
     setSelectedId(null)
     setSelectedConversation(null)
@@ -174,6 +205,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
 
     const requestId = selectionRequestId.current + 1
     selectionRequestId.current = requestId
+    shouldScrollToLatestRef.current = true
     setSelectedId(id)
     setSelectedConversation(null)
     setSourceReaderSelection(null)
@@ -186,6 +218,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
       const details = await conversationClient.get(id)
       if (selectionRequestId.current === requestId) {
         setSelectedConversation(details)
+        setConversations((current) => reconcileConversationSummary(current, details))
       }
     } catch (error) {
       if (selectionRequestId.current === requestId) {
@@ -290,6 +323,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     }
 
     const messageId = crypto.randomUUID()
+    shouldScrollToLatestRef.current = true
     setIsSending(true)
     setPendingQuestion({ id: messageId, role: 'User', content: question, createdAtUtc: new Date().toISOString() })
     setDraft('')
@@ -306,6 +340,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         : await conversationClient.appendMessage(selectedConversation.id, messageId, question)
       const conversation = mergeConversationTurn(selectedConversation, turn)
 
+      shouldScrollToLatestRef.current = true
       setSelectedId(conversation.id)
       setSelectedConversation(conversation)
       startTransition(() => {
@@ -421,7 +456,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         ) : (
           <div className="flex min-h-0 flex-1 overflow-hidden overscroll-none">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <section className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6" aria-label="Current conversation">
+              <section ref={conversationScrollRef} className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6" aria-label="Current conversation">
                 <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
                   {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
                   {isLoadingConversations || isLoadingConversation ? (
@@ -513,6 +548,21 @@ function toSummary(conversation: ConversationDetails): ConversationSummary {
     enabledSourceKeys: conversation.enabledSourceKeys,
     updatedAtUtc: conversation.updatedAtUtc,
   }
+}
+
+function reconcileConversationSummary(current: readonly ConversationSummary[], conversation: ConversationDetails): ConversationSummary[] {
+  const summary = toSummary(conversation)
+  let didFindConversation = false
+  const reconciled = current.map((value) => {
+    if (value.id !== conversation.id) {
+      return value
+    }
+
+    didFindConversation = true
+    return summary
+  })
+
+  return didFindConversation ? reconciled : [summary, ...reconciled]
 }
 
 function getInitials(name: string) {

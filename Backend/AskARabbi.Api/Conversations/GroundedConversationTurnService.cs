@@ -132,11 +132,15 @@ public sealed class GroundedConversationTurnService
         }
         var rendered = renderer.Render(answerResult.Answer);
         var sources = ConversationSourceMaterializer.Materialize(answerResult.Answer, answerResult.Evidence ?? throw new InvalidOperationException("A successful grounded answer must retain its trusted evidence packet."));
-        var updated = await conversations.AppendAssistantMessageAsync(conversation, assistantMessageId, rendered, sources, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
-        var titleTask = ApplyInitialTitleAsync(userId, updated, answerResult.Answer.SuggestedConversationTitle, shouldGenerateConversationTitle, cancellationToken);
-        var usageTask = usage.RecordAnswerAsync(userId, cancellationToken);
-        await Task.WhenAll(titleTask, usageTask).ConfigureAwait(false);
-        updated = await titleTask.ConfigureAwait(false);
+        var suggestedTitle = answerResult.Answer.SuggestedConversationTitle;
+        var updated = shouldGenerateConversationTitle && !string.IsNullOrWhiteSpace(suggestedTitle)
+            ? await conversations.AppendAssistantMessageWithTitleAsync(conversation, assistantMessageId, rendered, sources, suggestedTitle, cancellationToken).ConfigureAwait(false)
+            : await conversations.AppendAssistantMessageAsync(conversation, assistantMessageId, rendered, sources, cancellationToken).ConfigureAwait(false);
+        if (updated is null)
+        {
+            throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
+        }
+        await usage.RecordAnswerAsync(userId, cancellationToken).ConfigureAwait(false);
         processingStopwatch.Stop();
         LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, true);
         return new GroundedConversationTurnResult("answered", updated, null, answerResult.Trace, processingStopwatch.Elapsed);
@@ -174,29 +178,6 @@ public sealed class GroundedConversationTurnService
         }
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"AskARabbi:assistant:{userMessageId:D}"));
         return Guid.ParseExact(Convert.ToHexString(hash.AsSpan(0, 16)), "N");
-    }
-
-    private async Task<Conversation> ApplyInitialTitleAsync(Guid userId, Conversation conversation, string? suggestedTitle, bool shouldGenerateConversationTitle, CancellationToken cancellationToken)
-    {
-        if (!shouldGenerateConversationTitle || string.IsNullOrWhiteSpace(suggestedTitle))
-        {
-            return conversation;
-        }
-
-        try
-        {
-            var renamed = await conversations.RenameAsync(userId, conversation.Id, suggestedTitle, cancellationToken).ConfigureAwait(false);
-            return renamed ? conversation with { Title = suggestedTitle } : conversation;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "The first validated response was saved, but its generated title could not be applied to conversation {ConversationId}.", conversation.Id);
-            return conversation;
-        }
     }
 
     private static GroundedQuestion CreateQuestion(string content, IReadOnlyList<string> sourceKeys, PersonalizationSettings? personalization, bool shouldGenerateConversationTitle)

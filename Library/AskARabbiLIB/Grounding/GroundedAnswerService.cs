@@ -6,6 +6,7 @@ using AskARabbiLIB.AI;
 using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.Profiles;
 using AskARabbiLIB.Retrieval;
+using AskARabbiLIB.Search;
 
 namespace AskARabbiLIB.Grounding;
 
@@ -17,6 +18,10 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
+    private static readonly string[] RationaleQuestionTokens = ["why", "reason", "reasons", "rationale", "purpose", "למה", "מדוע", "چرا", "почему", "pourquoi", "warum", "perche", "dlaczego", "פארוואס"];
+    private static readonly string[] AuthorityInterrogativeTokens = ["who", "whom", "מי", "кто", "quien", "qui", "wer", "chi", "kto", "ווער"];
+    private static readonly string[] AuthorityQualifierTokens = ["which", "what", "איזה", "какие", "cuales", "quels", "welche", "quali", "ktorzy"];
+    private static readonly string[] AuthorityNounTokens = ["rabbi", "rabbis", "sage", "sages", "authority", "authorities", "school", "schools", "decisor", "decisors", "posek", "poskim", "רב", "רבנים", "раввин", "раввины", "rabino", "rabinos", "rabbin", "rabbins", "rabbiner", "rabbini", "rabin", "rabini"];
 
     private readonly ISourceRetriever retriever;
     private readonly IAIEngine engine;
@@ -77,8 +82,10 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var currentDate = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
         ValidateQuestion(question, recentConversation, currentDate);
         var mayUseTools = toolRegistry?.MayApply(question.Question) == true;
+        var questionFocus = CreateQuestionFocus(question.Question);
         var retrievalStopwatch = Stopwatch.StartNew();
-        var retrievalText = BuildRetrievalText(question.Question, recentConversation);
+        var retrievalText = BuildRetrievalText(question.Question, recentConversation, questionFocus.RetrievalHint);
+        var validationQuestionContext = BuildValidationQuestionContext(question.Question, recentConversation, questionFocus.Instruction);
         var hits = await retriever.SearchAsync(new SourceRetrievalQuery
         {
             QueryText = retrievalText,
@@ -110,7 +117,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var toolSession = mayUseTools && toolRegistry is not null
             ? new AIToolExecutionSession(toolRegistry, new AIToolExecutionContext(question.UserProfile, currentUtc), packet.Items.Count)
             : null;
-        var messages = BuildMessages(question, recentConversation, packet, currentDate);
+        var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);
         var firstResult = await GenerateDraftAsync(messages, toolSession, cancellationToken).ConfigureAwait(false);
         packet = MergeToolEvidence(packet, toolSession);
         diagnostics.Add(firstResult.Diagnostics);
@@ -120,7 +127,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(failureStatus, firstResult.ErrorMessage ?? "The AI provider did not return a structured answer.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, CombineDiagnostics(diagnostics));
         }
 
-        var firstValidation = await ValidateCandidateAsync(retrievalText, firstDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
+        var firstValidation = await ValidateCandidateAsync(validationQuestionContext, firstDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
         if (firstValidation.Diagnostics is not null)
         {
             diagnostics.Add(firstValidation.Diagnostics);
@@ -134,7 +141,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(MapProviderFailure(firstValidation.EngineStatus), firstValidation.ErrorMessage ?? "The independent claim-support audit failed.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Failed, false, CombineDiagnostics(diagnostics));
         }
 
-        var repairMessages = BuildMessages(question, recentConversation, packet, currentDate).Concat(
+        var repairMessages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction).Concat(
         [
             new AIMessage(AIMessageRole.Assistant, JsonSerializer.Serialize(firstDraft, PromptJsonOptions)),
             new AIMessage(AIMessageRole.User, prompts.FormatValidationRepair(firstValidation.ErrorMessage ?? "The draft did not satisfy the grounded-answer contract.")),
@@ -148,7 +155,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(MapProviderFailure(repairResult.Status), message, packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Failed, true, CombineDiagnostics(diagnostics));
         }
 
-        var repairValidation = await ValidateCandidateAsync(retrievalText, repairDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
+        var repairValidation = await ValidateCandidateAsync(validationQuestionContext, repairDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
         if (repairValidation.Diagnostics is not null)
         {
             diagnostics.Add(repairValidation.Diagnostics);
@@ -207,7 +214,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         };
     }
 
-    private IReadOnlyList<AIMessage> BuildMessages(GroundedQuestion question, IReadOnlyList<GroundedConversationTurn> conversation, EvidencePacket packet, DateOnly currentDate)
+    private IReadOnlyList<AIMessage> BuildMessages(GroundedQuestion question, IReadOnlyList<GroundedConversationTurn> conversation, EvidencePacket packet, DateOnly currentDate, string answerFocus)
     {
         var builder = new AIPromptBuilder().AddSystem(prompts.SystemBehaviorPrompt);
         foreach (var turn in conversation.TakeLast(options.RecentConversationTurns))
@@ -219,6 +226,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             instruction = prompts.CurrentQuestionInstruction,
             currentQuestion = question.Question,
+            answerFocus,
             shouldGenerateConversationTitle = question.ShouldGenerateConversationTitle,
             responseLanguage = NormalizeOptionalContext(question.ConversationLanguage),
             preferredQuotationLanguage = NormalizeOptionalContext(question.QuotationLanguage),
@@ -267,14 +275,64 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
     private static string? NormalizeOptionalContext(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string BuildRetrievalText(string currentQuestion, IReadOnlyList<GroundedConversationTurn> conversation)
+    private static string BuildRetrievalText(string currentQuestion, IReadOnlyList<GroundedConversationTurn> conversation, string? retrievalHint)
     {
         var builder = new StringBuilder(currentQuestion.Trim());
+        if (!string.IsNullOrWhiteSpace(retrievalHint))
+        {
+            builder.Append("\nSearch focus: ").Append(retrievalHint);
+        }
         foreach (var turn in conversation.TakeLast(2))
         {
-            builder.Append('\n').Append(BoundContext(turn.Question, 750));
+            builder.Append("\nEarlier topic context: ").Append(BoundContext(turn.Question, 750));
         }
         return BoundContext(builder.ToString(), 4_000);
+    }
+
+    private static string BuildValidationQuestionContext(string currentQuestion, IReadOnlyList<GroundedConversationTurn> conversation, string answerFocus)
+    {
+        var builder = new StringBuilder()
+            .AppendLine("CURRENT QUESTION TO ANSWER:")
+            .AppendLine(currentQuestion.Trim())
+            .AppendLine("REQUIRED ANSWER FOCUS:")
+            .Append(answerFocus);
+        var earlierQuestions = conversation.TakeLast(2).Select(turn => BoundContext(turn.Question, 750)).ToArray();
+        if (earlierQuestions.Length > 0)
+        {
+            builder.AppendLine()
+                .AppendLine("EARLIER QUESTIONS FOR REFERENCE RESOLUTION ONLY; DO NOT ANSWER THEM AGAIN:");
+            foreach (var earlierQuestion in earlierQuestions)
+            {
+                builder.AppendLine(earlierQuestion);
+            }
+        }
+        return BoundContext(builder.ToString().Trim(), 4_000);
+    }
+
+    private static QuestionFocus CreateQuestionFocus(string currentQuestion)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(currentQuestion).ToHashSet(StringComparer.Ordinal);
+        var requestsRationale = tokens.Overlaps(RationaleQuestionTokens) || (tokens.Contains("por") && tokens.Contains("que"));
+        var requestsAuthorities = tokens.Overlaps(AuthorityInterrogativeTokens) || (tokens.Overlaps(AuthorityQualifierTokens) && tokens.Overlaps(AuthorityNounTokens));
+        if (requestsRationale && requestsAuthorities)
+        {
+            return new QuestionFocus(
+                "Explain the reason the cited authorities give and identify only the authorities or schools named in the evidence. Do not substitute a restatement of the rule, its Torah-versus-rabbinic classification, or an unrelated workaround. Quote context that directly supports both the rationale and attribution; if either is missing, say so directly.",
+                "explicit rabbinic rationale safeguard fence decree concern confusion appearance named rabbis sages authorities opinions dispute attribution");
+        }
+        if (requestsRationale)
+        {
+            return new QuestionFocus(
+                "Explain the reason or rationale the cited authorities give. Do not substitute a restatement of the rule, its Torah-versus-rabbinic classification, or an unrelated workaround. Quote context that directly states or clearly supports the reason; if the evidence establishes the rule but not why it was adopted, say that directly.",
+                "explicit rabbinic rationale safeguard fence decree concern confusion appearance mistake");
+        }
+        if (requestsAuthorities)
+        {
+            return new QuestionFocus(
+                "Identify only the named authorities or schools requested, state what each actually says or decides, and quote context that supports each attribution. Do not substitute an anonymous summary of the rule or a later practical workaround; if the evidence does not name who adopted the position, say that directly.",
+                "named rabbis sages authorities schools opinions dispute ruling attribution");
+        }
+        return new QuestionFocus("Answer the current question directly. Use earlier turns only to resolve references and maintain continuity, never as additional questions to answer or as source evidence.", null);
     }
 
     private static string BoundContext(string value, int maximumCharacters)
@@ -625,4 +683,6 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         internal static CandidateValidationResult ProviderFailure(AIEngineStatus? engineStatus, string errorMessage, AIResponseDiagnostics? diagnostics) => new(CandidateValidationStatus.ProviderFailure, null, errorMessage, engineStatus, diagnostics);
     }
+
+    private sealed record QuestionFocus(string Instruction, string? RetrievalHint);
 }

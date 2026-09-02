@@ -35,7 +35,7 @@ public sealed class ProductionConfigurationTests
         Assert.AreEqual("https://askarabbi.ai/", workOs.FrontendUri);
         Assert.AreEqual(2_400, groundedChat.MaximumOutputTokens);
         Assert.AreEqual(1_600, groundedChat.ValidationMaximumOutputTokens);
-        Assert.AreEqual(AIReasoningEffort.Low, groundedChat.ReasoningEffort);
+        Assert.AreEqual(AIReasoningEffort.Medium, groundedChat.ReasoningEffort);
         Assert.AreEqual(20, groundedChat.MaximumCandidates);
         Assert.AreEqual(10, groundedChat.MaximumEvidenceSegments);
         Assert.AreEqual(0, groundedChat.MaximumEnrichmentHits);
@@ -44,9 +44,13 @@ public sealed class ProductionConfigurationTests
         Assert.AreEqual("https://askarabbi.ai", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.IsTrue(response.Headers.GetValues("Access-Control-Allow-Credentials").Single().Equals("true", StringComparison.OrdinalIgnoreCase));
         StringAssert.StartsWith(groundedPrompts.CurrentQuestionInstruction, "Write one flowing, human answer.");
+        StringAssert.Contains(groundedPrompts.CurrentQuestionInstruction, "Follow answerFocus as a required task definition");
+        StringAssert.Contains(groundedPrompts.CurrentQuestionInstruction, "A why-question must explain the evidenced rationale");
         StringAssert.Contains(groundedPrompts.CurrentQuestionInstruction, "independently verifiable proposition");
         StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "add, remove, or reassign evidence IDs");
         StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "Never invent an evidence ID");
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "separate support obligation");
+        StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "isResponsive");
+        StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "stating that a rule is rabbinic does not answer why");
     }
 }

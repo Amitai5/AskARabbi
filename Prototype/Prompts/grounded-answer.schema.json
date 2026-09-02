@@ -9,7 +9,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "text": { "type": "string", "description": "One independently verifiable factual or interpretive proposition; split compound propositions into separate claims." },
+          "text": { "type": "string", "description": "One independently verifiable factual or interpretive proposition. The first claim must directly fulfill the current answerFocus; split compound propositions into separate claims." },
           "evidenceIds": { "type": "array", "description": "Existing packet evidence IDs that together directly support the complete proposition.", "items": { "type": "string" } },
           "attribution": { "type": ["string", "null"] },
           "quotations": {
@@ -20,7 +20,7 @@
               "properties": {
                 "evidenceId": { "type": "string" },
                 "text": { "type": "string" },
-                "role": { "type": "string", "description": "The exact part of this claim that the quotation supports." }
+                "role": { "type": "string", "description": "The exact part of this claim that the quotation supports, including how it addresses the current answerFocus when applicable." }
               },
               "required": ["evidenceId", "text", "role"]
             }
@@ -55,9 +55,9 @@
         "required": ["text", "evidenceIds", "attribution", "quotations"]
       }
     },
-    "limitations": { "type": "array", "items": { "type": "string" } },
-    "clarifyingQuestion": { "type": ["string", "null"] },
-    "humanGuidanceRecommended": { "type": "boolean" }
+    "limitations": { "type": "array", "description": "Specific evidence gaps only, including a missing requested rationale or authority when applicable.", "items": { "type": "string" } },
+    "clarifyingQuestion": { "type": ["string", "null"], "description": "Null unless clarification is needed or one tightly related continuation follows naturally." },
+    "humanGuidanceRecommended": { "type": "boolean", "description": "False for ordinary explanatory, historical, textual, and source-identification questions." }
   },
   "required": ["conversationTitle", "claims", "disagreements", "limitations", "clarifyingQuestion", "humanGuidanceRecommended"]
 }

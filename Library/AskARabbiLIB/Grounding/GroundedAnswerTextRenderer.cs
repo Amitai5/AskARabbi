@@ -30,7 +30,7 @@ public sealed class GroundedAnswerTextRenderer
         }
         if (!string.IsNullOrWhiteSpace(answer.ClarifyingQuestion))
         {
-            AppendParagraph(builder, $"A useful next question: {answer.ClarifyingQuestion} Ask me that next if you want to keep digging.");
+            AppendParagraph(builder, $"If you'd like to keep exploring: {answer.ClarifyingQuestion}");
         }
         if (answer.HumanGuidanceRecommended)
         {

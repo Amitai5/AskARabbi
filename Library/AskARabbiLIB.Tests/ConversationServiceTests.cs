@@ -19,7 +19,7 @@ public sealed class ConversationServiceTests
         var result = await service.CreateAsync(UserId, null, null);
 
         Assert.AreEqual(Conversation.DefaultTitle, result.Title);
-        CollectionAssert.AreEqual(ConversationSourceCatalog.Core.ToArray(), result.EnabledSourceKeys.ToArray());
+        CollectionAssert.AreEqual(ConversationSourceCatalog.All.ToArray(), result.EnabledSourceKeys.ToArray());
         Assert.AreEqual(Now, result.CreatedAtUtc);
         Assert.AreSame(result, store.Created);
     }
@@ -165,6 +165,23 @@ public sealed class ConversationServiceTests
         Assert.HasCount(1, store.Appended.Sources);
         Assert.AreEqual("Exact quotation.", store.Appended.Sources[0].Quotations[0]);
         Assert.AreEqual("Surrounding source context.", store.Appended.Sources[0].Context);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AppendAssistantMessageWithTitleAsync_ValidTitle_PersistsNormalizedTitleWithMessage()
+    {
+        var store = new FakeConversationStore { AppendResult = CreateConversation(), MutationResult = true };
+        var service = new ConversationService(store, new FixedTimeProvider(Now));
+
+        var result = await service.AppendAssistantMessageWithTitleAsync(store.AppendResult, Guid.NewGuid(), "Grounded answer. [1]", [CreateSource()], "  Generated title  ");
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("Generated title", result.Title);
+        Assert.AreEqual("Generated title", store.RenamedTitle);
+        Assert.IsNotNull(store.Appended);
+        Assert.AreEqual(ConversationMessageRole.Assistant, store.Appended.Role);
+        Assert.AreEqual(Now, store.MutationTime);
     }
 
     [TestMethod]

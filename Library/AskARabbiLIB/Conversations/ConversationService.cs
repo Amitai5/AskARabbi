@@ -53,7 +53,7 @@ public sealed class ConversationService
     /// <summary>Creates a new saved conversation.</summary>
     /// <param name="userId">Owning user ID.</param>
     /// <param name="title">Optional initial title.</param>
-    /// <param name="sourceKeys">Optional source selection; core collections are used when omitted.</param>
+    /// <param name="sourceKeys">Optional source selection; every approved source is used when omitted.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The created conversation.</returns>
     public async Task<Conversation> CreateAsync(Guid userId, string? title, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default)
@@ -79,7 +79,7 @@ public sealed class ConversationService
     /// <param name="userId">Owning user ID.</param>
     /// <param name="messageId">Client-generated idempotency ID for the first message.</param>
     /// <param name="content">First user message content.</param>
-    /// <param name="sourceKeys">Optional source selection; core collections are used when omitted.</param>
+    /// <param name="sourceKeys">Optional source selection; every approved source is used when omitted.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The created conversation containing the normalized first message.</returns>
     public async Task<Conversation> CreateWithUserMessageAsync(Guid userId, Guid messageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default)
@@ -162,6 +162,24 @@ public sealed class ConversationService
     {
         ArgumentNullException.ThrowIfNull(sources);
         return AppendMessageAsync(conversation, messageId, content, ConversationMessageRole.Assistant, MaximumAssistantMessageLength, sources, cancellationToken);
+    }
+
+    /// <summary>Appends the first validated assistant message together with its generated conversation title.</summary>
+    /// <param name="conversation">Already loaded canonical conversation.</param>
+    /// <param name="messageId">Server-generated idempotency ID.</param>
+    /// <param name="content">Validated grounded answer text.</param>
+    /// <param name="sources">Trusted quotations, context, and provenance materialized from validated evidence.</param>
+    /// <param name="title">Generated title to persist with the first assistant message.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>The updated conversation when it still exists; otherwise, <see langword="null"/>.</returns>
+    public Task<Conversation?> AppendAssistantMessageWithTitleAsync(Conversation conversation, Guid messageId, string content, IReadOnlyCollection<ConversationSourceCitation> sources, string title, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        ArgumentNullException.ThrowIfNull(sources);
+        ValidateIds(conversation.UserId, conversation.Id);
+        var now = timeProvider.GetUtcNow();
+        var message = CreateMessage(messageId, content, ConversationMessageRole.Assistant, MaximumAssistantMessageLength, now, sources);
+        return NormalizeConversationAsync(store.AppendMessageWithTitleAsync(conversation, message, NormalizeTitle(title, false), now, cancellationToken));
     }
 
     /// <summary>Renames one user-owned conversation.</summary>
@@ -352,7 +370,7 @@ public sealed class ConversationService
     private static IReadOnlyList<string> NormalizeSourceKeys(IReadOnlyCollection<string>? sourceKeys)
     {
         var normalized = sourceKeys is null
-            ? ConversationSourceCatalog.Core.ToArray()
+            ? ConversationSourceCatalog.All.ToArray()
             : sourceKeys.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()).Distinct(StringComparer.Ordinal).ToArray();
 
         if (normalized.Length == 0)

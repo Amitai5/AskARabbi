@@ -2,6 +2,8 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "isResponsive": { "type": "boolean" },
+    "overallExplanation": { "type": "string" },
     "evaluations": {
       "type": "array",
       "items": {
@@ -17,5 +19,5 @@
       }
     }
   },
-  "required": ["evaluations"]
+  "required": ["isResponsive", "overallExplanation", "evaluations"]
 }
