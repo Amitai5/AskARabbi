@@ -167,6 +167,20 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsTrue(result.Metadata.Sources.Where(source => source.Kind == WeeklyDvarTorahSourceKind.Torah).All(source => string.Equals(source.License, "CC0", StringComparison.Ordinal)));
     }
 
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_InsecureTorahSourceUrlRetrieved_ExcludesSourceBeforeDrafting()
+    {
+        var hits = CreateTorahHits().Prepend(CreateInsecureTorahSourceHit()).ToArray();
+        var generator = CreateGenerator(hits, new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Persistable Torah evidence")), new QueueEngine(CreatePassingReview()));
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.IsNotNull(result.Metadata);
+        Assert.IsFalse(result.Metadata.Sources.Any(source => string.Equals(source.Publisher, "HTTP-only test edition", StringComparison.Ordinal)));
+        Assert.IsTrue(result.Metadata.Sources.All(source => source.SourceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)));
+    }
+
     private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null)
     {
         var prompts = new WeeklyDvarTorahPromptSet
@@ -309,6 +323,27 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         SourceUrl = "https://www.sefaria.org/Deuteronomy.29.14",
         FilePath = "test.json",
         OriginalCharacterCount = 60,
+    }, 2d, false);
+
+    private static SourceRetrievalHit CreateInsecureTorahSourceHit() => new(new SourceSegment
+    {
+        SegmentId = "http-source-segment",
+        DocumentId = "deuteronomy-http-source",
+        CanonicalReference = "Deuteronomy 29:15",
+        DocumentOrdinal = 15,
+        Text = "A benign passage whose source metadata cannot satisfy the HTTPS publication contract.",
+        Title = "Deuteronomy",
+        HebrewTitle = "דברים",
+        Language = "English",
+        LanguageCode = "en",
+        Collection = "Torah",
+        Categories = ["Tanakh", "Torah"],
+        Version = "HTTP-only test edition",
+        License = "Public Domain",
+        LicenseCategory = SourceLicenseCategory.PublicDomain,
+        SourceUrl = "http://example.test/deuteronomy",
+        FilePath = "test.json",
+        OriginalCharacterCount = 82,
     }, 2d, false);
 
     private sealed class QueueEngine(params object[] queuedResponses) : IAIEngine

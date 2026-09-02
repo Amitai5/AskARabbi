@@ -108,6 +108,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             null,
             candidate.Item.PublishedAtUtc,
             "Public RSS/Atom metadata; linked article remains with its publisher.")));
+        var materializedSources = MaterializeSources(evidence);
 
         var draftMessages = BuildDraftMessages(week, research, evidence);
         WeeklyDvarTorahArticleDraft? previousDraft = null;
@@ -151,19 +152,25 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 continue;
             }
 
-            var evidenceById = evidence.ToDictionary(item => item.EvidenceId, StringComparer.Ordinal);
-            var sources = validation.UsedEvidenceIds.Select(id => evidenceById[id].ToSource()).ToArray();
+            var sources = validation.UsedEvidenceIds.Select(id => materializedSources[id]).ToArray();
             var tags = CreateTags(draft.Tags, research.SuggestedTags, week);
-            var metadata = new WeeklyDvarTorahContentMetadata(
-                draft.CentralTeaching,
-                tags,
-                sources,
-                validation.TorahGroundingPercent,
-                prompts.ReviewSchemaName,
-                draftResult.Diagnostics.Model,
-                newsWindowStartedAtUtc,
-                newsWindowEndedAtUtc);
-            return new WeeklyDvarTorahDraft(draft.Title, draft.Body, options.GeneratorVersion, metadata);
+            try
+            {
+                var metadata = new WeeklyDvarTorahContentMetadata(
+                    draft.CentralTeaching,
+                    tags,
+                    sources,
+                    validation.TorahGroundingPercent,
+                    prompts.ReviewSchemaName,
+                    draftResult.Diagnostics.Model,
+                    newsWindowStartedAtUtc,
+                    newsWindowEndedAtUtc);
+                return new WeeklyDvarTorahDraft(draft.Title, draft.Body, options.GeneratorVersion, metadata);
+            }
+            catch (ArgumentException)
+            {
+                throw new WeeklyDvarTorahGenerationException("PublicationMetadataInvalid", "The validated weekly Dvar Torah could not be materialized into the publication contract.");
+            }
         }
 
         throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}");
@@ -250,6 +257,10 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                     continue;
                 }
                 if (!HasUnrestrictedQuotationLicense(hit))
+                {
+                    continue;
+                }
+                if (!CanPersistTorahEvidence(hit))
                 {
                     continue;
                 }
@@ -355,6 +366,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             .Where(item => item is not null)
             .Where(item => !ContainsHighRiskNewsContent(item))
             .Where(item => !ContainsSensitivePersonalData(item))
+            .Where(CanPersistNewsEvidence)
             .GroupBy(item => item.Publisher, StringComparer.OrdinalIgnoreCase)
             .Select(group => new Queue<CurrentEventItem>(group.OrderByDescending(item => item.PublishedAtUtc)))
             .ToArray();
@@ -371,6 +383,55 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         }
 
         return selected.Select((item, index) => new NewsCandidate(CreateEvidenceId('N', index), item)).ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, WeeklyDvarTorahSource> MaterializeSources(IReadOnlyList<WeeklyDvarTorahEvidence> evidence)
+    {
+        try
+        {
+            return evidence.ToDictionary(item => item.EvidenceId, item => item.ToSource(), StringComparer.Ordinal);
+        }
+        catch (ArgumentException)
+        {
+            throw new WeeklyDvarTorahGenerationException("EvidenceMetadataInvalid", "Selected weekly evidence did not satisfy the persisted source contract.");
+        }
+    }
+
+    private static bool CanPersistNewsEvidence(CurrentEventItem item) => CanPersistEvidence(new WeeklyDvarTorahEvidence(
+        "N",
+        WeeklyDvarTorahSourceKind.News,
+        item.Title,
+        item.Publisher,
+        item.SourceUrl,
+        item.Summary,
+        item.RetrievedAtUtc,
+        null,
+        item.PublishedAtUtc,
+        "Public RSS/Atom metadata; linked article remains with its publisher."));
+
+    private static bool CanPersistTorahEvidence(SourceRetrievalHit hit) => CanPersistEvidence(new WeeklyDvarTorahEvidence(
+        "T",
+        WeeklyDvarTorahSourceKind.Torah,
+        hit.Segment.Title,
+        hit.Segment.Version,
+        hit.Segment.SourceUrl,
+        Bound(hit.Segment.Text, 2_000),
+        DateTimeOffset.UnixEpoch,
+        hit.Segment.CanonicalReference,
+        null,
+        hit.Segment.License));
+
+    private static bool CanPersistEvidence(WeeklyDvarTorahEvidence evidence)
+    {
+        try
+        {
+            _ = evidence.ToSource();
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     private IReadOnlyList<string> ValidateResearch(WeeklyDvarTorahResearchDraft research, IReadOnlyList<NewsCandidate> candidates)
