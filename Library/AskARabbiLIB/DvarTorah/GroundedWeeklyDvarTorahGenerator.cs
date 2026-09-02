@@ -113,6 +113,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var draftMessages = BuildDraftMessages(week, research, evidence);
         WeeklyDvarTorahArticleDraft? previousDraft = null;
         string? validationError = null;
+        string? diagnosticCategory = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
             IReadOnlyList<AIMessage> messages = attempt switch
@@ -136,11 +137,13 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
             }
 
+            draft = AddMissingBodyEvidenceMarkers(draft, evidence, options.MaximumBodyCharacters);
             previousDraft = draft;
             var validation = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, options);
             if (!validation.IsValid)
             {
                 validationError = string.Join(" ", validation.Errors);
+                diagnosticCategory = ClassifyCandidateValidationErrors(validation.Errors);
                 continue;
             }
 
@@ -149,6 +152,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             if (reviewErrors.Count > 0)
             {
                 validationError = string.Join(" ", reviewErrors);
+                diagnosticCategory = "IndependentReview";
                 continue;
             }
 
@@ -173,7 +177,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             }
         }
 
-        throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}");
+        throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}", diagnosticCategory);
     }
 
     private async Task<WeeklyDvarTorahResearchDraft> ResearchAsync(WeeklyDvarTorahWeek week, DateTimeOffset windowStart, DateTimeOffset windowEnd, IReadOnlyList<NewsCandidate> candidates, CancellationToken cancellationToken, WeeklyDvarTorahResearchDraft? previousResearch = null, string? validationError = null)
@@ -311,6 +315,14 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 minimumTorahSources = options.MinimumTorahEvidenceItems,
                 minimumNewsPublishers = options.MinimumNewsPublishers,
                 bodyCharacters = new { minimum = options.MinimumBodyCharacters, maximum = options.MaximumBodyCharacters },
+                compositionTargets = new
+                {
+                    torahTeachingStatements = 8,
+                    currentEventFactStatements = 1,
+                    connectionStatements = 1,
+                    distinctTorahEvidenceIds = options.MinimumTorahEvidenceItems,
+                    distinctNewsEvidenceIds = options.MinimumNewsPublishers,
+                },
             },
             evidence = evidence.Select(item => new
             {
@@ -325,6 +337,66 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             .AddSystem(prompts.DraftSystemPrompt)
             .AddUser($"<UNTRUSTED_EVIDENCE_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_EVIDENCE_JSON>")
             .Build();
+    }
+
+    private static WeeklyDvarTorahArticleDraft AddMissingBodyEvidenceMarkers(WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, int maximumBodyCharacters)
+    {
+        var knownIds = evidence.Select(item => item.EvidenceId).ToHashSet(StringComparer.Ordinal);
+        var citedIds = (draft.TorahTeachings ?? [])
+            .Concat(draft.CurrentEventFacts ?? [])
+            .Concat(draft.Connections ?? [])
+            .Where(statement => statement is not null)
+            .SelectMany(statement => statement.EvidenceIds ?? [])
+            .Where(knownIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .Where(id => !draft.Body.Contains($"[{id}]", StringComparison.Ordinal))
+            .ToArray();
+        if (citedIds.Length == 0)
+        {
+            return draft;
+        }
+
+        var suffix = $"\n\nSources: {string.Join(' ', citedIds.Select(id => $"[{id}]"))}";
+        var body = draft.Body.TrimEnd();
+        return body.Length + suffix.Length <= maximumBodyCharacters ? draft with { Body = body + suffix } : draft;
+    }
+
+    private static string ClassifyCandidateValidationErrors(IReadOnlyList<string> errors)
+    {
+        if (errors.Any(error => error.Contains("Torah grounding", StringComparison.Ordinal)))
+        {
+            return "TorahGrounding";
+        }
+        if (errors.Any(error => error.Contains("inline marker", StringComparison.Ordinal) || error.Contains("evidence marker", StringComparison.Ordinal)))
+        {
+            return "BodyCitations";
+        }
+        if (errors.Any(error => error.Contains("evidence ID", StringComparison.Ordinal)))
+        {
+            return "EvidenceIds";
+        }
+        if (errors.Any(error => error.Contains("news publisher", StringComparison.Ordinal) || error.Contains("current event", StringComparison.Ordinal)))
+        {
+            return "CurrentEvents";
+        }
+        if (errors.Any(error => error.Contains("Torah teaching", StringComparison.Ordinal) || error.Contains("Torah passage", StringComparison.Ordinal)))
+        {
+            return "TorahTeachings";
+        }
+        if (errors.Any(error => error.Contains("tag", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "Tags";
+        }
+        if (errors.Any(error => error.Contains("practical action", StringComparison.Ordinal)))
+        {
+            return "PracticalActions";
+        }
+        if (errors.Any(error => error.Contains("contact details", StringComparison.Ordinal)))
+        {
+            return "SensitiveData";
+        }
+
+        return "ContentShape";
     }
 
     private async Task<WeeklyDvarTorahReviewDraft> ReviewAsync(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, WeeklyDvarTorahCandidateValidation validation, CancellationToken cancellationToken)

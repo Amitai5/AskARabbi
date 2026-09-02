@@ -44,12 +44,14 @@ internal static class DvarTorahJobLog
     internal static void GenerationFailed(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        var generationException = exception as WeeklyDvarTorahGenerationException;
         Console.Error.WriteLine(JsonSerializer.Serialize(new
         {
             timestampUtc = DateTimeOffset.UtcNow,
             level = "Error",
             eventName = "WeeklyDvarTorahGenerationFailed",
-            failureCode = exception is WeeklyDvarTorahGenerationException generationException ? generationException.FailureCode : exception.GetType().Name,
+            failureCode = generationException?.FailureCode ?? exception.GetType().Name,
+            diagnosticCategory = generationException?.DiagnosticCategory,
             configurationError = exception is DvarTorahJobConfigurationException ? exception.Message : null,
         }));
     }

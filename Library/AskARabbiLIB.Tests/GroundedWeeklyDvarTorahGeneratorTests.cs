@@ -55,8 +55,44 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
 
         Assert.AreEqual("CandidateValidationFailed", exception.FailureCode);
+        Assert.AreEqual("IndependentReview", exception.DiagnosticCategory);
         StringAssert.Contains(exception.Message, "repair attempt");
         StringAssert.Contains(exception.Message, "violence");
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_DraftGroundingFailsBothAttempts_ReportsSafeDiagnosticCategory()
+    {
+        var invalidDraft = CreateArticleDraft("Insufficient Torah claim ratio") with
+        {
+            CurrentEventFacts =
+            [
+                new WeeklyDvarTorahSourcedStatementDraft { Text = "First fact.", EvidenceIds = ["NA"] },
+                new WeeklyDvarTorahSourcedStatementDraft { Text = "Second fact.", EvidenceIds = ["NB"] },
+            ],
+        };
+        var generator = CreateGenerator(CreateTorahHits(), new QueueEngine(CreateResearchDraft(), invalidDraft, invalidDraft), new QueueEngine(CreatePassingReview()));
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("CandidateValidationFailed", exception.FailureCode);
+        Assert.AreEqual("TorahGrounding", exception.DiagnosticCategory);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_DraftOmitsInlineMarkers_AppendsKnownMarkersAndSendsExactCompositionTargets()
+    {
+        var draft = CreateArticleDraft("Complete citation markers") with { Body = new string('a', 1_200) };
+        var generationEngine = new QueueEngine(CreateResearchDraft(), draft);
+        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
+
+        var result = await generator.GenerateAsync(Week);
+
+        StringAssert.Contains(result.Body, "Sources: [TA] [TB] [TC] [TD] [TE] [TF] [TG] [TH] [NA] [NB]");
+        StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"torahTeachingStatements\":8");
+        StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"distinctNewsEvidenceIds\":2");
     }
 
     [TestMethod]
@@ -352,10 +388,13 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
         internal int Calls { get; private set; }
 
+        internal List<IReadOnlyList<AIMessage>> Requests { get; } = [];
+
         public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
+            Requests.Add(messages.ToArray());
             var value = responses.Dequeue();
             Assert.IsInstanceOfType<T>(value);
             return Task.FromResult(AIEngineResult<T>.Success((T)value, new AIResponseDiagnostics($"response-{Calls}", "test-model", null, TimeSpan.Zero, 1)));
