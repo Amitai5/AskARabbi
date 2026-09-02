@@ -425,6 +425,55 @@ public sealed class AzureOpenAIEngineTests
     }
 
     [TestMethod]
+    [TestCategory("Unit")]
+    public void GetContentFilterCompletionReason_BlockedCompletion_ReturnsOnlySafeCategoryMetadata()
+    {
+        // Arrange
+        var response = BinaryData.FromString("""
+            {
+              "content_filters": [
+                {
+                  "blocked": false,
+                  "source_type": "prompt",
+                  "content_filter_results": {
+                    "violence": { "filtered": false, "severity": "safe" }
+                  }
+                },
+                {
+                  "blocked": true,
+                  "source_type": "completion",
+                  "content_filter_results": {
+                    "violence": { "filtered": true, "severity": "high" },
+                    "protected_material_text": { "detected": true, "filtered": true },
+                    "untrusted_custom_category": { "filtered": true, "details": "must not appear" }
+                  }
+                }
+              ]
+            }
+            """);
+
+        // Act
+        var reason = AzureResponsesTransport.GetContentFilterCompletionReason(response);
+
+        // Assert
+        Assert.AreEqual("content_filter.completion.protected_material_text.violence_high", reason);
+        Assert.IsFalse(reason.Contains("untrusted", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void GetContentFilterCompletionReason_MalformedOrMissingMetadata_ReturnsFallback()
+    {
+        // Act
+        var malformed = AzureResponsesTransport.GetContentFilterCompletionReason(BinaryData.FromString("not-json"), "content_filter");
+        var missing = AzureResponsesTransport.GetContentFilterCompletionReason(BinaryData.FromString("{}"), "content_filter");
+
+        // Assert
+        Assert.AreEqual("content_filter", malformed);
+        Assert.AreEqual("content_filter", missing);
+    }
+
+    [TestMethod]
     [DataRow(AIReasoningEffort.Low)]
     [DataRow(AIReasoningEffort.Medium)]
     [DataRow(AIReasoningEffort.High)]

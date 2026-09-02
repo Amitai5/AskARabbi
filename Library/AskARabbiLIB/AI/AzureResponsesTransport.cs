@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Core;
 using Azure.Identity;
@@ -46,6 +47,10 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
                 var responseId = value.Id;
                 var responseModel = string.IsNullOrWhiteSpace(value.Model) ? request.Model : value.Model;
                 var completionReason = GetCompletionReason(value);
+                if (string.Equals(completionReason, "content_filter", StringComparison.OrdinalIgnoreCase))
+                {
+                    completionReason = GetContentFilterCompletionReason(response.GetRawResponse().Content, completionReason);
+                }
                 var functionCalls = value.OutputItems.OfType<FunctionCallResponseItem>().ToArray();
                 if (functionCalls.Length > 0)
                 {
@@ -231,6 +236,103 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
             return errorCode ?? "failed";
         }
         return status ?? "unknown";
+    }
+
+    internal static string GetContentFilterCompletionReason(BinaryData responseContent, string fallback = "content_filter")
+    {
+        if (responseContent is null || string.IsNullOrWhiteSpace(fallback))
+        {
+            return "content_filter";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(responseContent);
+            if (!document.RootElement.TryGetProperty("content_filters", out var filters) || filters.ValueKind != JsonValueKind.Array)
+            {
+                return fallback;
+            }
+
+            foreach (var filter in filters.EnumerateArray())
+            {
+                if (filter.ValueKind != JsonValueKind.Object || !filter.TryGetProperty("blocked", out var blocked) || blocked.ValueKind != JsonValueKind.True)
+                {
+                    continue;
+                }
+
+                var source = GetKnownFilterSource(filter);
+                var categories = GetBlockedFilterCategories(filter);
+                return categories.Count == 0
+                    ? $"content_filter.{source}"
+                    : $"content_filter.{source}.{string.Join('.', categories)}";
+            }
+        }
+        catch (JsonException)
+        {
+            return fallback;
+        }
+
+        return fallback;
+    }
+
+    private static string GetKnownFilterSource(JsonElement filter)
+    {
+        if (filter.TryGetProperty("source_type", out var source) && source.ValueKind == JsonValueKind.String)
+        {
+            return source.GetString() switch
+            {
+                "prompt" => "prompt",
+                "completion" => "completion",
+                _ => "unknown",
+            };
+        }
+
+        return "unknown";
+    }
+
+    private static IReadOnlyList<string> GetBlockedFilterCategories(JsonElement filter)
+    {
+        if (!filter.TryGetProperty("content_filter_results", out var results) || results.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        var categories = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var result in results.EnumerateObject())
+        {
+            if (!IsKnownFilterCategory(result.Name) || result.Value.ValueKind != JsonValueKind.Object || !IsFiltered(result.Value))
+            {
+                continue;
+            }
+
+            var severity = GetKnownSeverity(result.Value);
+            categories.Add(severity is null ? result.Name : $"{result.Name}_{severity}");
+        }
+
+        return categories.ToArray();
+    }
+
+    private static bool IsKnownFilterCategory(string value) => value is "hate" or "sexual" or "violence" or "self_harm" or "jailbreak" or "indirect_attack" or "protected_material_text" or "protected_material_code";
+
+    private static bool IsFiltered(JsonElement result) => IsTrue(result, "filtered") || IsTrue(result, "detected");
+
+    private static bool IsTrue(JsonElement result, string propertyName) => result.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.True;
+
+    private static string? GetKnownSeverity(JsonElement result)
+    {
+        if (!result.TryGetProperty("severity", out var severity) || severity.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return severity.GetString() switch
+        {
+            "safe" => "safe",
+            "low" => "low",
+            "medium" => "medium",
+            "high" => "high",
+            _ => null,
+        };
     }
 
     private AITransportResult CreateAuthorizationFailure(int status, string model, string providerDetail)

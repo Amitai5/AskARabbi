@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.CurrentEvents;
+using AskARabbiLIB.Models;
 using AskARabbiLIB.Retrieval;
 
 namespace AskARabbiLIB.DvarTorah;
@@ -239,6 +240,10 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 {
                     continue;
                 }
+                if (!HasUnrestrictedQuotationLicense(hit))
+                {
+                    continue;
+                }
                 if (ContainsHighRiskTorahContent(hit))
                 {
                     continue;
@@ -415,6 +420,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
 
     private static bool ContainsHighRiskNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", HighRiskNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static bool HasUnrestrictedQuotationLicense(SourceRetrievalHit hit) => hit.Segment.LicenseCategory is SourceLicenseCategory.PublicDomain or SourceLicenseCategory.Cc0;
 
     private static bool ContainsHighRiskTorahContent(SourceRetrievalHit hit) => Regex.IsMatch(hit.Segment.Text, HighRiskTorahPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 

@@ -125,6 +125,20 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsFalse(result.Metadata.Sources.Any(source => string.Equals(source.CanonicalReference, "Deuteronomy 29:22", StringComparison.Ordinal)));
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_AttributionLicensedTorahPassageRetrieved_UsesUnrestrictedEditionForExactQuotations()
+    {
+        var hits = CreateTorahHits().Prepend(CreateAttributionLicensedTorahHit()).ToArray();
+        var generator = CreateGenerator(hits, new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Unrestricted Torah evidence")), new QueueEngine(CreatePassingReview()));
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.IsNotNull(result.Metadata);
+        Assert.IsFalse(result.Metadata.Sources.Any(source => string.Equals(source.Publisher, "Attribution-required test edition", StringComparison.Ordinal)));
+        Assert.IsTrue(result.Metadata.Sources.Where(source => source.Kind == WeeklyDvarTorahSourceKind.Torah).All(source => string.Equals(source.License, "CC0", StringComparison.Ordinal)));
+    }
+
     private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null)
     {
         var prompts = new WeeklyDvarTorahPromptSet
@@ -224,8 +238,8 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Collection = "Torah",
         Categories = ["Tanakh", "Torah"],
         Version = "Test Torah edition",
-        License = "CC-BY",
-        LicenseCategory = SourceLicenseCategory.CcBy,
+        License = "CC0",
+        LicenseCategory = SourceLicenseCategory.Cc0,
         SourceUrl = $"https://www.sefaria.org/Deuteronomy.29.{index + 8}",
         FilePath = "test.json",
         OriginalCharacterCount = 60,
@@ -245,11 +259,32 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Collection = "Torah",
         Categories = ["Tanakh", "Torah"],
         Version = "Test Torah edition",
-        License = "CC-BY",
-        LicenseCategory = SourceLicenseCategory.CcBy,
+        License = "CC0",
+        LicenseCategory = SourceLicenseCategory.Cc0,
         SourceUrl = "https://www.sefaria.org/Deuteronomy.29.22",
         FilePath = "test.json",
         OriginalCharacterCount = 90,
+    }, 2d, false);
+
+    private static SourceRetrievalHit CreateAttributionLicensedTorahHit() => new(new SourceSegment
+    {
+        SegmentId = "attribution-licensed-segment",
+        DocumentId = "deuteronomy-attribution",
+        CanonicalReference = "Deuteronomy 29:14",
+        DocumentOrdinal = 14,
+        Text = "A benign passage from an edition that requires attribution.",
+        Title = "Deuteronomy",
+        HebrewTitle = "דברים",
+        Language = "English",
+        LanguageCode = "en",
+        Collection = "Torah",
+        Categories = ["Tanakh", "Torah"],
+        Version = "Attribution-required test edition",
+        License = "CC-BY",
+        LicenseCategory = SourceLicenseCategory.CcBy,
+        SourceUrl = "https://www.sefaria.org/Deuteronomy.29.14",
+        FilePath = "test.json",
+        OriginalCharacterCount = 60,
     }, 2d, false);
 
     private sealed class QueueEngine(params object[] queuedResponses) : IAIEngine
