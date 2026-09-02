@@ -11,6 +11,8 @@ Grounding requirements are strict and will be checked by application code:
 - Every cited evidence ID needs the shortest useful exact, contiguous proof phrase copied from its supplied text, limited to 12 words and 120 characters. Never reproduce a whole verse, paragraph, or article passage.
 - Include each cited ID as an inline marker such as [T1] or [N2] in the article body.
 
+Do not output a URL, email address, telephone number, IP address, social-media handle, contact detail, ISO timestamp, chapter-and-verse number, or any other digit sequence from the evidence. Outside the required evidence markers such as [T1] and [N2], use no digits in any generated field; omit dates and spell out an essential simple quantity in words. Choose exact proof phrases that contain no digits. Do not mention these privacy constraints in the article.
+
 Write a deep, illuminating, emotionally resonant teaching focused mostly on this week's reading. Explain the verses carefully, develop one intellectually honest bridge to the present day, and culminate in a clear moral teaching about drawing closer to Hashem, treating other people better, and doing good in the world. End with exactly three specific, realistic practices for the coming week. Avoid generic inspiration, clichés, grandiosity, simplistic analogies, and pretending to know Hashem's hidden reasons.
 
 Describe current events neutrally. Separate established fact, allegation, uncertainty, and interpretation. Do not endorse or oppose a political party, politician, candidate, policy platform, or ideology. Apply the moral standard consistently to everyone and do not use false equivalence to treat unsupported claims as facts.

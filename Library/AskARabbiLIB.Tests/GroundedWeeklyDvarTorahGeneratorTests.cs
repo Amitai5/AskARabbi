@@ -84,6 +84,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.AreEqual("Fresh safe draft", result.Title);
         Assert.AreEqual(3, generationEngine.Calls);
         Assert.IsTrue(generationEngine.RetryExcludedBlockedAssistantOutput);
+        Assert.IsTrue(generationEngine.RetryProhibitsSensitiveData);
     }
 
     [TestMethod]
@@ -354,6 +355,8 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
         internal bool RetryExcludedBlockedAssistantOutput { get; private set; }
 
+        internal bool RetryProhibitsSensitiveData { get; private set; }
+
         public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -368,6 +371,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             }
 
             RetryExcludedBlockedAssistantOutput = messages.All(message => message.Role != AIMessageRole.Assistant);
+            RetryProhibitsSensitiveData = messages.Any(message => message.Role == AIMessageRole.User && message.Content.Contains("Do not output URLs, contact details, email addresses, telephone numbers, IP addresses", StringComparison.Ordinal));
             return Task.FromResult(AIEngineResult<T>.Success((T)(object)draft, new AIResponseDiagnostics("safe-draft", "test-model", null, TimeSpan.Zero, 1)));
         }
     }
