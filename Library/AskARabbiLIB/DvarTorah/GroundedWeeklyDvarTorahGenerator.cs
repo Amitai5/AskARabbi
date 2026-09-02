@@ -129,7 +129,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             {
                 if (attempt == 0 && IsCompletionContentFilterFailure(draftResult))
                 {
-                    validationError = "The prior completion was blocked by the provider. Produce a fresh, peaceful article using paraphrase in the body and only the bounded proof phrases required by the quotation fields. Do not output URLs, contact details, email addresses, telephone numbers, IP addresses, timestamps, chapter-and-verse numbers, or any digits.";
+                    validationError = "The prior completion was blocked by the provider. Produce a fresh, peaceful article using original paraphrase in every field and no direct quotations or substantial contiguous source wording. Do not output URLs, contact details, email addresses, telephone numbers, IP addresses, timestamps, chapter-and-verse numbers, or any digits.";
                     continue;
                 }
                 throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");

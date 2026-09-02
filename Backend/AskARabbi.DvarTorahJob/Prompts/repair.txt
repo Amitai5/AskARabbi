@@ -1,6 +1,6 @@
 The prior structured weekly Dvar Torah pipeline output was rejected by deterministic or independent validation.
 
-Correct every listed defect while preserving only supported claims, evidence IDs, and exact quotations when the requested schema includes them. Do not weaken, evade, reinterpret, or argue with the requirements. Return a complete replacement that matches the currently requested structured schema.
+Correct every listed defect while preserving only supported claims and evidence IDs. Do not weaken, evade, reinterpret, or argue with the requirements. Return a complete replacement that matches the currently requested structured schema.
 
 Validation errors:
 {{validationErrors}}

@@ -45,39 +45,6 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
 
     [TestMethod]
     [TestCategory("Unit")]
-    public void Validate_QuotationDoesNotMatchEvidence_Fails()
-    {
-        var evidence = CreateEvidence();
-        var draft = CreateDraft(evidence);
-        var first = draft.TorahTeachings[0] with
-        {
-            Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = "Invented quotation." }, new WeeklyDvarTorahQuotationDraft { EvidenceId = "T2", Text = evidence[1].PresentedText }],
-        };
-        draft = draft with { TorahTeachings = [first, .. draft.TorahTeachings.Skip(1)] };
-
-        var result = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions());
-
-        Assert.IsFalse(result.IsValid);
-        Assert.IsTrue(result.Errors.Any(error => error.Contains("does not exactly match", StringComparison.Ordinal)));
-    }
-
-    [TestMethod]
-    [TestCategory("Unit")]
-    public void Validate_QuotationExceedsProofPhraseBounds_Fails()
-    {
-        var evidence = CreateEvidence().ToArray();
-        var longQuotation = string.Join(' ', Enumerable.Repeat("word", 13));
-        evidence[0] = evidence[0] with { PresentedText = longQuotation };
-        var draft = CreateDraft(evidence);
-
-        var result = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions());
-
-        Assert.IsFalse(result.IsValid);
-        Assert.IsTrue(result.Errors.Any(error => error.Contains("at most 12 words and 120 characters", StringComparison.Ordinal)));
-    }
-
-    [TestMethod]
-    [TestCategory("Unit")]
     public void Validate_InvalidTopLevelDraftFields_FailClosed()
     {
         var evidence = CreateEvidence();
@@ -144,8 +111,8 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
             first with { EvidenceIds = Enumerable.Range(1, 9).Select(index => $"T{index}").ToArray() },
             first with { EvidenceIds = ["T1", " "] },
             first with { EvidenceIds = ["T1", "T1"] },
-            first with { EvidenceIds = ["UNKNOWN"], Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "UNKNOWN", Text = "Unknown" }] },
-            first with { EvidenceIds = ["N1"], Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "N1", Text = evidence[8].PresentedText }] },
+            first with { EvidenceIds = ["UNKNOWN"] },
+            first with { EvidenceIds = ["N1"] },
         ];
 
         foreach (var statement in malformedStatements)
@@ -154,46 +121,12 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
             Assert.IsFalse(WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions()).IsValid);
         }
 
-        var wrongKindNews = valid with { CurrentEventFacts = [news with { EvidenceIds = ["T1"], Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = evidence[0].PresentedText }] }] };
+        var wrongKindNews = valid with { CurrentEventFacts = [news with { EvidenceIds = ["T1"] }] };
         var torahOnlyConnection = valid with { Connections = [CreateStatement("Connection", evidence[0])] };
         var newsOnlyConnection = valid with { Connections = [CreateStatement("Connection", evidence[8])] };
         Assert.IsFalse(WeeklyDvarTorahCandidateValidator.Validate(wrongKindNews, evidence, CreateOptions()).IsValid);
         Assert.IsFalse(WeeklyDvarTorahCandidateValidator.Validate(torahOnlyConnection, evidence, CreateOptions()).IsValid);
         Assert.IsFalse(WeeklyDvarTorahCandidateValidator.Validate(newsOnlyConnection, evidence, CreateOptions()).IsValid);
-    }
-
-    [TestMethod]
-    [TestCategory("Unit")]
-    public void Validate_IncompleteOrUnverifiableQuotations_FailClosed()
-    {
-        var evidence = CreateEvidence();
-        var valid = CreateDraft(evidence);
-        var first = valid.TorahTeachings[0];
-        WeeklyDvarTorahSourcedStatementDraft[] malformedStatements =
-        [
-            first with { Quotations = [] },
-            first with { Quotations = Enumerable.Repeat(first.Quotations[0], 13).ToArray() },
-            first with { Quotations = [null!, first.Quotations[1]] },
-            first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = " ", Text = "Text" }, first.Quotations[1]] },
-            first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T3", Text = evidence[2].PresentedText }, first.Quotations[1]] },
-            first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = " " }, first.Quotations[1]] },
-            first with { Quotations = [new WeeklyDvarTorahQuotationDraft { EvidenceId = "T1", Text = new string('q', 121) }, first.Quotations[1]] },
-            first with { Quotations = [first.Quotations[0], first.Quotations[0]] },
-        ];
-
-        foreach (var statement in malformedStatements)
-        {
-            var draft = valid with { TorahTeachings = [statement, .. valid.TorahTeachings.Skip(1)] };
-            Assert.IsFalse(WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions()).IsValid);
-        }
-
-        var unknownIdStatement = first with
-        {
-            EvidenceIds = ["T1", "UNKNOWN"],
-            Quotations = [first.Quotations[0], new WeeklyDvarTorahQuotationDraft { EvidenceId = "UNKNOWN", Text = "Unknown" }],
-        };
-        var unknownIdDraft = valid with { TorahTeachings = [unknownIdStatement, .. valid.TorahTeachings.Skip(1)] };
-        Assert.IsFalse(WeeklyDvarTorahCandidateValidator.Validate(unknownIdDraft, evidence, CreateOptions()).IsValid);
     }
 
     [TestMethod]
@@ -284,7 +217,6 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
     {
         Text = text,
         EvidenceIds = evidence.Select(item => item.EvidenceId).ToArray(),
-        Quotations = evidence.Select(item => new WeeklyDvarTorahQuotationDraft { EvidenceId = item.EvidenceId, Text = item.PresentedText }).ToArray(),
     };
 
     private static IReadOnlyList<WeeklyDvarTorahEvidence> CreateEvidence()

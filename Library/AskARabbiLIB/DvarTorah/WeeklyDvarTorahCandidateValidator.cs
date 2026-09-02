@@ -4,8 +4,6 @@ namespace AskARabbiLIB.DvarTorah;
 
 internal static class WeeklyDvarTorahCandidateValidator
 {
-    private const int MaximumQuotationCharacters = 120;
-    private const int MaximumQuotationWords = 12;
     private const string DirectUrlPattern = @"\b(?:https?://|www\.)\S+";
     private const string SensitivePersonalDataPattern = @"(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?<!\d)(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}(?!\d)|\b(?:\d{1,3}\.){3}\d{1,3}\b)";
 
@@ -122,34 +120,6 @@ internal static class WeeklyDvarTorahCandidateValidator
             usedIds.Add(id);
         }
 
-        var quotations = statement.Quotations ?? [];
-        if (quotations.Count < ids.Count || quotations.Count > 12)
-        {
-            errors.Add($"Every cited source in a {label} must have an exact quotation.");
-            return;
-        }
-        foreach (var quotation in quotations)
-        {
-            if (quotation is null || string.IsNullOrWhiteSpace(quotation.EvidenceId) || !ids.Contains(quotation.EvidenceId, StringComparer.Ordinal) || !evidence.TryGetValue(quotation.EvidenceId, out var item) || string.IsNullOrWhiteSpace(quotation.Text))
-            {
-                errors.Add($"A {label} contains a quotation that does not exactly match its cited evidence.");
-                continue;
-            }
-
-            var quotationText = quotation.Text.Trim();
-            if (quotationText.Length > MaximumQuotationCharacters || Regex.Matches(quotationText, @"\S+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Count > MaximumQuotationWords)
-            {
-                errors.Add($"A {label} quotation must contain at most {MaximumQuotationWords} words and {MaximumQuotationCharacters} characters.");
-            }
-            if (!item.PresentedText.Contains(quotationText, StringComparison.Ordinal))
-            {
-                errors.Add($"A {label} contains a quotation that does not exactly match its cited evidence.");
-            }
-        }
-        if (!ids.All(id => quotations.Any(quotation => quotation is not null && string.Equals(quotation.EvidenceId, id, StringComparison.Ordinal))))
-        {
-            errors.Add($"Every cited source in a {label} must have at least one matching quotation.");
-        }
     }
 
     private static void ValidateBodyCitations(string? body, IReadOnlyList<string> usedIds, IReadOnlyDictionary<string, WeeklyDvarTorahEvidence> evidence, ICollection<string> errors)
@@ -206,7 +176,6 @@ internal static class WeeklyDvarTorahCandidateValidator
         foreach (var statement in (draft.TorahTeachings ?? []).Concat(draft.CurrentEventFacts ?? []).Concat(draft.Connections ?? []))
         {
             values.Add(statement?.Text);
-            values.AddRange(statement?.Quotations?.Select(quotation => quotation?.Text) ?? []);
         }
 
         if (values.Any(value => !string.IsNullOrWhiteSpace(value) && (Regex.IsMatch(value, SensitivePersonalDataPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)) || Regex.IsMatch(value, DirectUrlPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))))

@@ -28,15 +28,6 @@
   },
   "required": ["title", "body", "centralTeaching", "tags", "practicalActions", "torahTeachings", "currentEventFacts", "connections"],
   "$defs": {
-    "quotation": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "evidenceId": { "type": "string" },
-        "text": { "type": "string", "minLength": 1, "maxLength": 120 }
-      },
-      "required": ["evidenceId", "text"]
-    },
     "sourcedStatement": {
       "type": "object",
       "additionalProperties": false,
@@ -45,13 +36,9 @@
         "evidenceIds": {
           "type": "array",
           "items": { "type": "string" }
-        },
-        "quotations": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/quotation" }
         }
       },
-      "required": ["text", "evidenceIds", "quotations"]
+      "required": ["text", "evidenceIds"]
     }
   }
 }

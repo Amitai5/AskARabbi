@@ -54,18 +54,6 @@ internal sealed record WeeklyDvarTorahSourcedStatementDraft
 
     [JsonPropertyName("evidenceIds")]
     public required IReadOnlyList<string> EvidenceIds { get; init; }
-
-    [JsonPropertyName("quotations")]
-    public required IReadOnlyList<WeeklyDvarTorahQuotationDraft> Quotations { get; init; }
-}
-
-internal sealed record WeeklyDvarTorahQuotationDraft
-{
-    [JsonPropertyName("evidenceId")]
-    public required string EvidenceId { get; init; }
-
-    [JsonPropertyName("text")]
-    public required string Text { get; init; }
 }
 
 internal sealed record WeeklyDvarTorahReviewDraft

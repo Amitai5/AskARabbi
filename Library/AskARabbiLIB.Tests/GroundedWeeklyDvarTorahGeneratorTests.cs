@@ -155,7 +155,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
     [TestMethod]
     [TestCategory("Unit")]
-    public async Task GenerateAsync_AttributionLicensedTorahPassageRetrieved_UsesUnrestrictedEditionForExactQuotations()
+    public async Task GenerateAsync_AttributionLicensedTorahPassageRetrieved_UsesUnrestrictedEditionForGrounding()
     {
         var hits = CreateTorahHits().Prepend(CreateAttributionLicensedTorahHit()).ToArray();
         var generator = CreateGenerator(hits, new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Unrestricted Torah evidence")), new QueueEngine(CreatePassingReview()));
@@ -199,16 +199,12 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
     private static WeeklyDvarTorahArticleDraft CreateArticleDraft(string title)
     {
-        var evidenceTexts = Enumerable.Range(0, 8).ToDictionary(index => $"T{(char)('A' + index)}", index => $"Torah passage {index + 1} teaches shared covenantal responsibility.", StringComparer.Ordinal);
-        evidenceTexts["NA"] = "Publisher one reports a new public technology initiative.";
-        evidenceTexts["NB"] = "Publisher two independently confirms the same public technology initiative.";
         WeeklyDvarTorahSourcedStatementDraft Statement(string text, params string[] ids) => new()
         {
             Text = text,
             EvidenceIds = ids,
-            Quotations = ids.Select(id => new WeeklyDvarTorahQuotationDraft { EvidenceId = id, Text = evidenceTexts[id] }).ToArray(),
         };
-        var markers = string.Join(' ', evidenceTexts.Keys.Select(id => $"[{id}]"));
+        var markers = string.Join(' ', Enumerable.Range(0, 8).Select(index => $"[T{(char)('A' + index)}]").Concat(["[NA]", "[NB]"]));
         return new WeeklyDvarTorahArticleDraft
         {
             Title = title,
