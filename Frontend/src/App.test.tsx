@@ -5,6 +5,7 @@ import App from './App.tsx'
 import type { ConversationClient, ConversationTurn } from './features/conversations/conversationClient.ts'
 import type { ConversationDetails } from './features/conversations/conversationData.ts'
 import { ConversationStarters } from './features/conversations/conversationStarters.ts'
+import { AllSourceKeys } from './features/conversations/sourceOptions.ts'
 import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
 
 const ConversationStarterHeadings = ConversationStarters.map((starter) => starter.heading)
@@ -156,10 +157,18 @@ describe('App', () => {
     await expectConversationStarter()
 
     const conversation = screen.getByRole('region', { name: 'Current conversation' })
+    const composer = screen.getByLabelText('Message AskRabbi')
+    const composerDock = composer.closest('[data-chat-composer]')
     expect(document.documentElement).toHaveClass('conversation-dashboard-scroll-lock')
     expect(document.body).toHaveClass('conversation-dashboard-scroll-lock')
     expect(conversation).toHaveClass('overflow-y-auto', 'overscroll-y-contain', 'touch-pan-y')
     expect(conversation.closest('main')).toHaveClass('min-h-0', 'overflow-hidden')
+    expect(composer).toHaveAttribute('rows', '1')
+    expect(composer).toHaveClass('message-composer-input', 'field-sizing-content', 'min-h-10', 'max-h-40')
+    expect(composer.parentElement?.parentElement).toHaveClass('max-w-[50rem]')
+    expect(composerDock).toHaveClass('shrink-0', 'bg-parchment', 'pb-2', 'pt-2')
+    expect(conversation.contains(composerDock)).toBe(false)
+    expect(conversation.parentElement).toContainElement(composerDock as HTMLElement)
     expect(screen.getByRole('navigation', { name: 'Recent conversations' })).toHaveClass('overscroll-y-contain', 'touch-pan-y')
 
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
@@ -220,10 +229,12 @@ describe('App', () => {
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     let creationCount = 0
+    let submittedSourceKeys: readonly string[] = []
     const conversationClient: ConversationClient = {
       ...clients.conversationClient,
       createWithMessage(messageId, content, enabledSourceKeys) {
         creationCount++
+        submittedSourceKeys = enabledSourceKeys
         return clients.conversationClient.createWithMessage(messageId, content, enabledSourceKeys)
       },
     }
@@ -242,8 +253,14 @@ describe('App', () => {
     expect(within(screen.getByRole('article')).getByText('Why do Jewish customs differ?')).toBeVisible()
     expect(await screen.findByText(/local demo represents a validated grounded response/)).toBeVisible()
     expect(creationCount).toBe(1)
+    expect(submittedSourceKeys).toEqual(AllSourceKeys)
     expect(await screen.findByRole('button', { name: 'Why do Jewish customs differ', current: 'page' })).toBeVisible()
     expect(screen.queryByText('Sources and quotations')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+    expect(await navigator.clipboard.readText()).toBe('The short answer is that this local demo represents a validated grounded response. [1] A second source preserves the surrounding discussion. [2]')
+    expect(screen.getByRole('button', { name: 'Answer copied' })).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent('Answer copied to clipboard.')
 
     const citation = screen.getByRole('button', { name: 'View source 1' })
     await user.click(citation)
@@ -434,7 +451,7 @@ describe('App', () => {
     expect(await screen.findByText(/local demo follow-up remains grounded/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Choose sources: 2 sources' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'New conversation' }))
-    expect(screen.getByRole('button', { name: 'Choose sources: Core sources' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Choose sources: All sources' })).toBeVisible()
   })
 
   it('persists changed sources before sending an existing conversation message', async () => {

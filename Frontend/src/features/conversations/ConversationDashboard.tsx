@@ -16,8 +16,9 @@ import { AssistantMessage } from './AssistantMessage.tsx'
 import { ConversationSidebar } from './ConversationSidebar.tsx'
 import { advanceConversationStarterIndex, ConversationStarters, getInitialConversationStarterIndex } from './conversationStarters.ts'
 import { MessageComposer } from './MessageComposer.tsx'
-import { CoreSourceKeys, formatSourceSelection } from './sourceOptions.ts'
+import { AllSourceKeys, formatSourceSelection } from './sourceOptions.ts'
 import { SourceReader } from './SourceReader.tsx'
+import { UserMessage } from './UserMessage.tsx'
 
 const WeeklyDvarTorahPage = lazy(() => import('../dvarTorah/WeeklyDvarTorahPage.tsx').then((module) => ({ default: module.WeeklyDvarTorahPage })))
 const DashboardScrollLockClass = 'conversation-dashboard-scroll-lock'
@@ -60,7 +61,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const [usage, setUsage] = useState<UsageSummary | null>(null)
   const [usageError, setUsageError] = useState<string | null>(null)
   const [conversationStarterIndex, setConversationStarterIndex] = useState(getInitialConversationStarterIndex)
-  const [unsavedSourceKeys, setUnsavedSourceKeys] = useState<string[]>(() => [...CoreSourceKeys])
+  const [unsavedSourceKeys, setUnsavedSourceKeys] = useState<string[]>(() => [...AllSourceKeys])
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -159,7 +160,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     setSelectedId(null)
     setSelectedConversation(null)
     setSourceReaderSelection(null)
-    setUnsavedSourceKeys([...CoreSourceKeys])
+    setUnsavedSourceKeys([...AllSourceKeys])
     setDraft('')
     setIsMobileSidebarOpen(false)
     setActiveView('conversation')
@@ -419,34 +420,38 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
           <PersonalizationPage profile={personalizationProfile} onBack={() => setActiveView('conversation')} onSave={handleSavePersonalization} />
         ) : (
           <div className="flex min-h-0 flex-1 overflow-hidden overscroll-none">
-            <section className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 sm:px-8" aria-label="Current conversation">
-              <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
-                {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
-                {isLoadingConversations || isLoadingConversation ? (
-                  <div className="flex flex-1 items-center justify-center"><p className="text-sm text-muted" role="status">Loading conversation…</p></div>
-                ) : displayedMessages.length === 0 ? (
-                  <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
-                    <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
-                    <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{conversationStarter.supportingText}</p>
-                  </div>
-                ) : (
-                  <div className="flex-1 py-10 sm:py-14">
-                    <article className="mx-auto max-w-[46rem] space-y-9">
-                      {displayedMessages.map((message) => (
-                        message.role === 'Assistant'
-                          ? <AssistantMessage key={message.id} message={message} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} />
-                          : <div key={message.id} className="conversation-message"><p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">You</p><p className="whitespace-pre-wrap text-base leading-7 text-ink sm:text-lg">{message.content}</p></div>
-                      ))}
-                      {isSending ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
-                    </article>
-                  </div>
-                )}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <section className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6" aria-label="Current conversation">
+                <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
+                  {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
+                  {isLoadingConversations || isLoadingConversation ? (
+                    <div className="flex flex-1 items-center justify-center"><p className="text-sm text-muted" role="status">Loading conversation…</p></div>
+                  ) : displayedMessages.length === 0 ? (
+                    <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
+                      <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
+                      <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{conversationStarter.supportingText}</p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 py-10 sm:py-14">
+                      <article className="mx-auto max-w-[46rem] space-y-7 sm:space-y-9">
+                        {displayedMessages.map((message) => (
+                          message.role === 'Assistant'
+                            ? <AssistantMessage key={message.id} message={message} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} />
+                            : <UserMessage key={message.id} message={message} />
+                        ))}
+                        {isSending ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
+                      </article>
+                    </div>
+                  )}
+                </div>
+              </section>
 
-                <div className="flex justify-center pb-5 sm:pb-7">
+              <div className="relative z-10 shrink-0 border-t border-line/60 bg-parchment px-4 pb-2 pt-2 sm:px-8 sm:pb-3" data-chat-composer>
+                <div className="mx-auto flex w-full max-w-[62rem] justify-center">
                   <MessageComposer draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} isSending={isSending || isLoadingConversation || isLoadingConversations} onDraftChange={setDraft} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
                 </div>
               </div>
-            </section>
+            </div>
             {activeSourceReader === null ? null : <SourceReader messageId={activeSourceReader.messageId} sources={activeSourceReader.sources} selectedIndex={activeSourceReader.selectedIndex} showSourceContextByDefault={userSettings.showSourceContextByDefault} onSelectSourceNumber={handleSelectReaderSource} onClose={handleCloseSourceReader} />}
           </div>
         )}

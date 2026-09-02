@@ -1,4 +1,5 @@
-import { memo, useMemo } from 'react'
+import { Check, Copy } from 'lucide-react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import type { ConversationMessage, ConversationSource } from './conversationData.ts'
 
 interface AssistantMessageProps {
@@ -8,19 +9,50 @@ interface AssistantMessageProps {
 }
 
 const EmptySources: readonly ConversationSource[] = []
+type CopyStatus = 'idle' | 'copied' | 'failed'
 
 export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource }: AssistantMessageProps) {
   const sources = message.sources ?? EmptySources
   const sourceNumbers = useMemo(() => new Set(sources.map((source) => source.number)), [sources])
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
+
+  useEffect(() => {
+    if (copyStatus === 'idle') {
+      return
+    }
+
+    const resetTimeout = window.setTimeout(() => setCopyStatus('idle'), 2_000)
+    return () => window.clearTimeout(resetTimeout)
+  }, [copyStatus])
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(message.content)
+      setCopyStatus('copied')
+    } catch {
+      setCopyStatus('failed')
+    }
+  }
+
+  const copyLabel = copyStatus === 'copied' ? 'Answer copied' : copyStatus === 'failed' ? 'Copy failed. Try again' : 'Copy answer'
+  const copyVisibilityClass = copyStatus === 'idle'
+    ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100'
+    : 'opacity-100'
 
   return (
-    <div className="conversation-message border-l-2 border-pomegranate pl-5">
+    <div className="conversation-message group border-l-2 border-pomegranate pl-5" data-message-role="assistant">
       <p className="mb-3 font-display text-xl text-ink">AskRabbi</p>
       <div className="space-y-4 text-base leading-7 text-ink sm:text-lg">
         {message.content.split(/\n\n+/).map((paragraph, index) => (
           <p key={`${message.id}-paragraph-${index}`}>{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}
       </div>
+      <div className="mt-3 flex min-h-10 items-start justify-end pb-2 pr-2">
+        <button type="button" aria-label={copyLabel} title={copyLabel} onClick={() => void handleCopy()} className={`inline-flex size-8 items-center justify-center rounded-md border border-line bg-paper text-muted shadow-sm transition hover:border-line-strong hover:bg-stone hover:text-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pomegranate/55 motion-reduce:transition-none ${copyVisibilityClass}`}>
+          {copyStatus === 'copied' ? <Check aria-hidden="true" className="size-4 text-pomegranate" strokeWidth={1.8} /> : <Copy aria-hidden="true" className="size-4" strokeWidth={1.8} />}
+        </button>
+      </div>
+      <span className="sr-only" role="status" aria-live="polite">{copyStatus === 'copied' ? 'Answer copied to clipboard.' : copyStatus === 'failed' ? 'The answer could not be copied. Try again.' : ''}</span>
     </div>
   )
 })

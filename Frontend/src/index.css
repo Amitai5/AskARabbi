@@ -90,6 +90,10 @@ a {
   outline-offset: 3px;
 }
 
+.message-composer-input:focus-visible {
+  outline: none;
+}
+
 @keyframes enter-softly {
   from {
     opacity: 0;

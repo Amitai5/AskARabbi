@@ -36,6 +36,7 @@ export interface ConversationSource {
   quotations: string[]
   context: string
   isExcerpt: boolean
+  externalLinkLabel?: string
 }
 
 export interface ConversationDetails extends ConversationSummary {

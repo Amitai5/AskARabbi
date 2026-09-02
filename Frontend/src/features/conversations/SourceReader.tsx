@@ -169,7 +169,7 @@ function SourceReaderContent({ idPrefix, messageId, source, showSourceContextByD
           <a href={source.sourceUrl} target="_blank" rel="noreferrer" className="group inline-flex items-start gap-2 font-semibold text-ink decoration-pomegranate/45 underline-offset-4 hover:text-pomegranate hover:underline">
             <span className="font-display text-[1.35rem] leading-7 sm:text-2xl">{source.canonicalReference}</span>
             <ExternalLink aria-hidden="true" className="mt-1 size-4 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" strokeWidth={1.8} />
-            <span className="sr-only">Open source on Sefaria</span>
+            <span className="sr-only">{source.externalLinkLabel ?? 'Open source on Sefaria'}</span>
           </a>
           <p className="mt-2 text-sm leading-6 text-muted">{source.title} · {source.edition} · {source.language} · {source.license}</p>
         </div>
