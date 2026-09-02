@@ -112,6 +112,19 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.AreEqual(0, generationEngine.Calls);
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_HighRiskTorahPassageRetrieved_ExcludesPassageBeforeDrafting()
+    {
+        var hits = CreateTorahHits().Prepend(CreateHighRiskTorahHit()).ToArray();
+        var generator = CreateGenerator(hits, new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Safe Torah evidence")), new QueueEngine(CreatePassingReview()));
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.IsNotNull(result.Metadata);
+        Assert.IsFalse(result.Metadata.Sources.Any(source => string.Equals(source.CanonicalReference, "Deuteronomy 29:22", StringComparison.Ordinal)));
+    }
+
     private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null)
     {
         var prompts = new WeeklyDvarTorahPromptSet
@@ -217,6 +230,27 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         FilePath = "test.json",
         OriginalCharacterCount = 60,
     }, 1d - index / 100d, false)).ToArray();
+
+    private static SourceRetrievalHit CreateHighRiskTorahHit() => new(new SourceSegment
+    {
+        SegmentId = "high-risk-segment",
+        DocumentId = "deuteronomy",
+        CanonicalReference = "Deuteronomy 29:22",
+        DocumentOrdinal = 22,
+        Text = "A passage with wrath, sulfur, and destruction that should not be supplied to the drafting model.",
+        Title = "Deuteronomy",
+        HebrewTitle = "דברים",
+        Language = "English",
+        LanguageCode = "en",
+        Collection = "Torah",
+        Categories = ["Tanakh", "Torah"],
+        Version = "Test Torah edition",
+        License = "CC-BY",
+        LicenseCategory = SourceLicenseCategory.CcBy,
+        SourceUrl = "https://www.sefaria.org/Deuteronomy.29.22",
+        FilePath = "test.json",
+        OriginalCharacterCount = 90,
+    }, 2d, false);
 
     private sealed class QueueEngine(params object[] queuedResponses) : IAIEngine
     {

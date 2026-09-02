@@ -11,6 +11,7 @@ namespace AskARabbiLIB.DvarTorah;
 public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 {
     private const string HighRiskNewsPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|dead|death|deaths|genocide|gunfire|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|rape|raped|shooting|shootings|slur|terror|terrorism|violent|violence|war|weapon|weapons|wounded)\b";
+    private const string HighRiskTorahPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|burn|burned|burning|burnt|curse|cursed|curses|destroy|destroyed|destruction|fury|genocide|gunfire|harm|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|plague|plagues|punish|punished|punishment|rape|raped|shooting|shootings|slaughter|slay|slur|smite|smitten|smote|sulfur|terror|terrorism|vengeance|vengeful|violent|violence|war|warfare|weapon|weapons|wounded|wrath)\b";
     private static readonly JsonSerializerOptions PromptJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -238,6 +239,10 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 {
                     continue;
                 }
+                if (ContainsHighRiskTorahContent(hit))
+                {
+                    continue;
+                }
                 if (!hits.TryGetValue(hit.Segment.SegmentId, out var existing) || hit.Score > existing.Score)
                 {
                     hits[hit.Segment.SegmentId] = hit;
@@ -410,6 +415,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
 
     private static bool ContainsHighRiskNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", HighRiskNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static bool ContainsHighRiskTorahContent(SourceRetrievalHit hit) => Regex.IsMatch(hit.Segment.Text, HighRiskTorahPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     private sealed record NewsCandidate(string EvidenceId, CurrentEventItem Item);
 }
