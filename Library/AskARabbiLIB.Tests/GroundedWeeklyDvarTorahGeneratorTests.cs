@@ -169,7 +169,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
     [TestMethod]
     [TestCategory("Regression")]
-    public async Task GenerateAsync_InsecureTorahSourceUrlRetrieved_ExcludesSourceBeforeDrafting()
+    public async Task GenerateAsync_InsecureTorahSourceUrlRetrieved_UpgradesSourceUrlBeforeDrafting()
     {
         var hits = CreateTorahHits().Prepend(CreateInsecureTorahSourceHit()).ToArray();
         var generator = CreateGenerator(hits, new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Persistable Torah evidence")), new QueueEngine(CreatePassingReview()));
@@ -177,7 +177,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         var result = await generator.GenerateAsync(Week);
 
         Assert.IsNotNull(result.Metadata);
-        Assert.IsFalse(result.Metadata.Sources.Any(source => string.Equals(source.Publisher, "HTTP-only test edition", StringComparison.Ordinal)));
+        Assert.IsTrue(result.Metadata.Sources.Any(source => string.Equals(source.Publisher, "HTTP-only test edition", StringComparison.Ordinal)));
         Assert.IsTrue(result.Metadata.Sources.All(source => source.SourceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)));
     }
 

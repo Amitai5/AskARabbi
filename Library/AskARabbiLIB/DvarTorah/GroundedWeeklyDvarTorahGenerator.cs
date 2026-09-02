@@ -291,7 +291,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             WeeklyDvarTorahSourceKind.Torah,
             hit.Segment.Title,
             hit.Segment.Version,
-            hit.Segment.SourceUrl,
+            CreateHttpsSourceUrl(hit.Segment.SourceUrl),
             Bound(hit.Segment.Text, 2_000),
             retrievedAtUtc,
             hit.Segment.CanonicalReference,
@@ -414,7 +414,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         WeeklyDvarTorahSourceKind.Torah,
         hit.Segment.Title,
         hit.Segment.Version,
-        hit.Segment.SourceUrl,
+        CreateHttpsSourceUrl(hit.Segment.SourceUrl),
         Bound(hit.Segment.Text, 2_000),
         DateTimeOffset.UnixEpoch,
         hit.Segment.CanonicalReference,
@@ -432,6 +432,16 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         {
             return false;
         }
+    }
+
+    private static string CreateHttpsSourceUrl(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        return new UriBuilder(uri) { Scheme = Uri.UriSchemeHttps, Port = -1 }.Uri.AbsoluteUri;
     }
 
     private IReadOnlyList<string> ValidateResearch(WeeklyDvarTorahResearchDraft research, IReadOnlyList<NewsCandidate> candidates)
