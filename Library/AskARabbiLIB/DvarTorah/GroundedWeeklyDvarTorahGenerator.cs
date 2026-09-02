@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.CurrentEvents;
 using AskARabbiLIB.Retrieval;
@@ -9,6 +10,7 @@ namespace AskARabbiLIB.DvarTorah;
 /// <summary>Researches, drafts, audits, and materializes a Torah-centered weekly Dvar Torah.</summary>
 public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 {
+    private const string HighRiskNewsPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|dead|death|deaths|genocide|gunfire|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|rape|raped|shooting|shootings|slur|terror|terrorism|violent|violence|war|weapon|weapons|wounded)\b";
     private static readonly JsonSerializerOptions PromptJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -334,6 +336,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         ArgumentNullException.ThrowIfNull(items);
         var groups = items
             .Where(item => item is not null)
+            .Where(item => !ContainsHighRiskNewsContent(item))
             .GroupBy(item => item.Publisher, StringComparer.OrdinalIgnoreCase)
             .Select(group => new Queue<CurrentEventItem>(group.OrderByDescending(item => item.PublishedAtUtc)))
             .ToArray();
@@ -405,6 +408,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private static string Bound(string value, int maximumCharacters) => value.Length <= maximumCharacters ? value : value[..maximumCharacters].TrimEnd();
 
     private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
+
+    private static bool ContainsHighRiskNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", HighRiskNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     private sealed record NewsCandidate(string EvidenceId, CurrentEventItem Item);
 }

@@ -99,7 +99,20 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         StringAssert.Contains(exception.Message, "repair attempt");
     }
 
-    private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine)
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GenerateAsync_OnlyHighRiskNewsRemains_FailsBeforeCallingModel()
+    {
+        var generationEngine = new QueueEngine(CreateResearchDraft());
+        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()), new HighRiskCurrentEvents());
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("CurrentEventsInsufficientPublishers", exception.FailureCode);
+        Assert.AreEqual(0, generationEngine.Calls);
+    }
+
+    private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null)
     {
         var prompts = new WeeklyDvarTorahPromptSet
         {
@@ -117,7 +130,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             MaximumBodyCharacters = 5_000,
             OverallTimeout = TimeSpan.FromMinutes(2),
         };
-        return new GroundedWeeklyDvarTorahGenerator(new StubCurrentEvents(), new StubRetriever(hits), generationEngine, reviewEngine, prompts, options, new FixedTimeProvider(CurrentUtc));
+        return new GroundedWeeklyDvarTorahGenerator(currentEvents ?? new StubCurrentEvents(), new StubRetriever(hits), generationEngine, reviewEngine, prompts, options, new FixedTimeProvider(CurrentUtc));
     }
 
     private static WeeklyDvarTorahResearchDraft CreateResearchDraft() => new()
@@ -247,6 +260,19 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             [
                 new("Publisher One", "Technology", "Public technology initiative", "Publisher one reports a new public technology initiative.", "https://one.example.test/story", CurrentUtc.AddHours(-3), CurrentUtc),
                 new("Publisher Two", "Technology", "Public technology initiative confirmed", "Publisher two independently confirms the same public technology initiative.", "https://two.example.test/story", CurrentUtc.AddHours(-2), CurrentUtc),
+            ];
+            return Task.FromResult(items);
+        }
+    }
+
+    private sealed class HighRiskCurrentEvents : ICurrentEventsSource
+    {
+        public Task<IReadOnlyList<CurrentEventItem>> GetRecentAsync(DateTimeOffset fromUtc, DateTimeOffset throughUtc, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<CurrentEventItem> items =
+            [
+                new("Publisher One", "General", "Report follows violent attack", "Officials report people were wounded.", "https://one.example.test/story", CurrentUtc.AddHours(-3), CurrentUtc),
+                new("Publisher Two", "General", "War and weapons update", "The report concerns military conflict.", "https://two.example.test/story", CurrentUtc.AddHours(-2), CurrentUtc),
             ];
             return Task.FromResult(items);
         }
