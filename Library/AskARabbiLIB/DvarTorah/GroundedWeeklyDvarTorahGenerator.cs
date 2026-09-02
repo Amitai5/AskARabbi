@@ -137,9 +137,11 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
             }
 
-            draft = AddMissingBodyEvidenceMarkers(draft, evidence, options.MaximumBodyCharacters);
-            previousDraft = draft;
-            var validation = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, options);
+            var generatedDraft = draft;
+            var completedDraft = AddMissingBodyEvidenceMarkers(generatedDraft, evidence, options.MaximumBodyCharacters);
+            completedDraft = WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(completedDraft, evidence, options.MaximumBodyCharacters);
+            previousDraft = generatedDraft;
+            var validation = WeeklyDvarTorahCandidateValidator.Validate(completedDraft, evidence, options);
             if (!validation.IsValid)
             {
                 validationError = string.Join(" ", validation.Errors);
@@ -147,7 +149,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 continue;
             }
 
-            var review = await ReviewAsync(week, research, draft, evidence, validation, cancellationToken).ConfigureAwait(false);
+            var review = await ReviewAsync(week, research, completedDraft, evidence, validation, cancellationToken).ConfigureAwait(false);
             var reviewErrors = WeeklyDvarTorahReviewValidator.Validate(review);
             if (reviewErrors.Count > 0)
             {
@@ -157,11 +159,11 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             }
 
             var sources = validation.UsedEvidenceIds.Select(id => materializedSources[id]).ToArray();
-            var tags = CreateTags(draft.Tags, research.SuggestedTags, week);
+            var tags = CreateTags(completedDraft.Tags, research.SuggestedTags, week);
             try
             {
                 var metadata = new WeeklyDvarTorahContentMetadata(
-                    draft.CentralTeaching,
+                    completedDraft.CentralTeaching,
                     tags,
                     sources,
                     validation.TorahGroundingPercent,
@@ -169,7 +171,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                     draftResult.Diagnostics.Model,
                     newsWindowStartedAtUtc,
                     newsWindowEndedAtUtc);
-                return new WeeklyDvarTorahDraft(draft.Title, draft.Body, options.GeneratorVersion, metadata);
+                return new WeeklyDvarTorahDraft(completedDraft.Title, completedDraft.Body, options.GeneratorVersion, metadata);
             }
             catch (ArgumentException)
             {
@@ -314,7 +316,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 minimumTorahGroundingPercent = options.MinimumTorahGroundingPercent,
                 minimumTorahSources = options.MinimumTorahEvidenceItems,
                 minimumNewsPublishers = options.MinimumNewsPublishers,
-                bodyCharacters = new { minimum = options.MinimumBodyCharacters, maximum = options.MaximumBodyCharacters },
+                bodyCharacters = new { minimum = options.MinimumBodyCharacters, maximum = WeeklyDvarTorahQuotationRenderer.GetMaximumGeneratedBodyCharacters(options) },
                 compositionTargets = new
                 {
                     torahTeachingStatements = 8,
@@ -322,6 +324,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                     connectionStatements = 1,
                     distinctTorahEvidenceIds = options.MinimumTorahEvidenceItems,
                     distinctNewsEvidenceIds = options.MinimumNewsPublishers,
+                    featuredTorahQuotationCount = WeeklyDvarTorahQuotationRenderer.RequiredQuotationCount,
                 },
             },
             evidence = evidence.Select(item => new
@@ -363,6 +366,10 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 
     private static string ClassifyCandidateValidationErrors(IReadOnlyList<string> errors)
     {
+        if (errors.Any(error => error.Contains("Torah quotation", StringComparison.Ordinal)))
+        {
+            return "TorahQuotations";
+        }
         if (errors.Any(error => error.Contains("Torah grounding", StringComparison.Ordinal)))
         {
             return "TorahGrounding";

@@ -34,7 +34,7 @@ public sealed record WeeklyDvarTorahContentOptions
     public TimeSpan OverallTimeout { get; init; } = TimeSpan.FromMinutes(25);
 
     /// <summary>Gets the auditable generator and prompt contract version.</summary>
-    public string GeneratorVersion { get; init; } = "weekly-dvar-torah-v1";
+    public string GeneratorVersion { get; init; } = "weekly-dvar-torah-v2";
 
     /// <summary>Validates research and generation bounds.</summary>
     public void Validate()

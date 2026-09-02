@@ -9,6 +9,7 @@ The job calculates the upcoming Shabbat with the same pinned calendar service as
 - Current events come only from curated public-service, government, or institutional RSS/Atom endpoints that require no API key or paid publisher subscription: PBS News, NPR, MIT News, NIST, NASA, and Federal Reserve releases. Commercial subscription publishers are excluded. Individual feed failures are logged and tolerated when enough independent publishers remain.
 - Only bounded feed metadata is retained: publisher, headline, short summary, public URL, publication time, and retrieval time. The job does not scrape or republish article bodies.
 - Torah passages come from the same fingerprint-verified managed Sefaria corpus used by grounded conversations. Retrieved passages are deterministically restricted to the regular parashah or exact festival reading for that Hebrew date and Israel/Diaspora cycle. An unknown festival range fails closed without publishing.
+- Each article features exactly three impactful passages in the body. The model selects only their evidence IDs; application code inserts the exact bounded wording and canonical references from public-domain or CC0 Torah evidence, then rejects any missing or altered quotation. News evidence is never quoted.
 - At least 80% of both substantive source weight and sourced teaching claims must be Torah. The article must cite at least eight distinct Torah passages and at least two independent current-events publishers by default.
 - A separate model pass blocks unsupported claims, irresponsible Torah interpretation, political persuasion, violence advocacy or glorification, graphic violence, hate or dehumanization, racism, sexism, targeting or alienation of protected/minority groups, exploitation of suffering, and claims that tragedy is divine punishment.
 - One repair is allowed. A second grounding, neutrality, or safety failure leaves the week unpublished and records a safe failure code.
@@ -40,7 +41,7 @@ The generator is implemented, but activation remains fail-closed. Before setting
 | `DvarTorah__MinimumTorahGroundingPercent` | No | `80` (cannot be configured lower) |
 | `DvarTorah__MinimumBodyCharacters` | No | `2500` |
 | `DvarTorah__MaximumBodyCharacters` | No | `15000` |
-| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v1` |
+| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v2` |
 | `AI__ProjectEndpoint` | When generation is enabled | None |
 | `AI__ModelName` | When generation is enabled | None |
 | `AI__VectorStoreId` | When generation is enabled | None |

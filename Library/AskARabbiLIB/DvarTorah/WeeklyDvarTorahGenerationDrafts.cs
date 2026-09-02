@@ -28,6 +28,9 @@ internal sealed record WeeklyDvarTorahArticleDraft
     [JsonPropertyName("body")]
     public required string Body { get; init; }
 
+    [JsonPropertyName("featuredTorahEvidenceIds")]
+    public required IReadOnlyList<string> FeaturedTorahEvidenceIds { get; init; }
+
     [JsonPropertyName("centralTeaching")]
     public required string CentralTeaching { get; init; }
 

@@ -56,6 +56,8 @@ internal static class WeeklyDvarTorahCandidateValidator
             }
         }
 
+        ValidateFeaturedTorahQuotations(draft, evidenceById, torahStatements, errors);
+
         var uniqueIds = usedIds.Distinct(StringComparer.Ordinal).ToArray();
         var torahSourceCount = uniqueIds.Count(id => evidenceById.TryGetValue(id, out var item) && item.Kind == WeeklyDvarTorahSourceKind.Torah);
         var newsSourceCount = uniqueIds.Count(id => evidenceById.TryGetValue(id, out var item) && item.Kind == WeeklyDvarTorahSourceKind.News);
@@ -142,6 +144,43 @@ internal static class WeeklyDvarTorahCandidateValidator
             if (!evidence.ContainsKey(id))
             {
                 errors.Add($"The article body contains unknown evidence marker '{id}'.");
+            }
+        }
+    }
+
+    private static void ValidateFeaturedTorahQuotations(WeeklyDvarTorahArticleDraft draft, IReadOnlyDictionary<string, WeeklyDvarTorahEvidence> evidence, IReadOnlyList<WeeklyDvarTorahSourcedStatementDraft> torahStatements, ICollection<string> errors)
+    {
+        var ids = draft.FeaturedTorahEvidenceIds ?? [];
+        if (ids.Count != WeeklyDvarTorahQuotationRenderer.RequiredQuotationCount || ids.Any(string.IsNullOrWhiteSpace) || ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)
+        {
+            errors.Add($"The draft must select exactly {WeeklyDvarTorahQuotationRenderer.RequiredQuotationCount} distinct featured Torah quotation IDs.");
+        }
+
+        var teachingIds = torahStatements
+            .Where(statement => statement is not null)
+            .SelectMany(statement => statement.EvidenceIds ?? [])
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var id in ids.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal))
+        {
+            if (!evidence.TryGetValue(id, out var item))
+            {
+                errors.Add($"A featured Torah quotation cites unknown evidence ID '{id}'.");
+                continue;
+            }
+            if (item.Kind != WeeklyDvarTorahSourceKind.Torah)
+            {
+                errors.Add($"A featured Torah quotation cites non-Torah evidence '{id}'.");
+                continue;
+            }
+            if (!teachingIds.Contains(id))
+            {
+                errors.Add($"Featured Torah quotation '{id}' must also support a Torah teaching.");
+            }
+
+            var quotationLine = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(item);
+            if (quotationLine is null || !(draft.Body ?? string.Empty).Contains(quotationLine, StringComparison.Ordinal))
+            {
+                errors.Add($"The article body is missing the exact trusted Torah quotation for evidence '{id}'.");
             }
         }
     }

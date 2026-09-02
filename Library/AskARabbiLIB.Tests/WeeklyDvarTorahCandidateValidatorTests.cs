@@ -144,6 +144,46 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public void Validate_InvalidFeaturedTorahQuotationSelection_FailsClosed()
+    {
+        var evidence = CreateEvidence();
+        var valid = CreateDraft(evidence);
+        WeeklyDvarTorahArticleDraft[] invalidDrafts =
+        [
+            valid with { FeaturedTorahEvidenceIds = null! },
+            valid with { FeaturedTorahEvidenceIds = ["T1", "T3"] },
+            valid with { FeaturedTorahEvidenceIds = ["T1", "T1", "T3"] },
+            valid with { FeaturedTorahEvidenceIds = ["T1", "T3", "UNKNOWN"] },
+            valid with { FeaturedTorahEvidenceIds = ["T1", "T3", "N1"] },
+        ];
+
+        foreach (var draft in invalidDrafts)
+        {
+            var result = WeeklyDvarTorahCandidateValidator.Validate(draft, evidence, CreateOptions());
+
+            Assert.IsFalse(result.IsValid);
+            Assert.IsTrue(result.Errors.Any(error => error.Contains("Torah quotation", StringComparison.Ordinal)));
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void Validate_FeaturedTorahQuotationDoesNotMatchTrustedEvidence_FailsClosed()
+    {
+        var evidence = CreateEvidence();
+        var valid = CreateDraft(evidence);
+        var exactQuotation = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(evidence[0]);
+        Assert.IsNotNull(exactQuotation);
+        var altered = valid with { Body = valid.Body.Replace(exactQuotation, "Torah text — altered wording [T1]", StringComparison.Ordinal) };
+
+        var result = WeeklyDvarTorahCandidateValidator.Validate(altered, evidence, CreateOptions());
+
+        Assert.IsFalse(result.IsValid);
+        Assert.IsTrue(result.Errors.Any(error => error.Contains("exact trusted Torah quotation", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public void Validate_NewsFromOnePublisher_FailsIndependentCorroboration()
     {
         var evidence = CreateEvidence().ToArray();
@@ -194,10 +234,11 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
     private static WeeklyDvarTorahArticleDraft CreateDraft(IReadOnlyList<WeeklyDvarTorahEvidence> evidence)
     {
         var citations = string.Join(' ', evidence.Select(item => $"[{item.EvidenceId}]"));
-        return new WeeklyDvarTorahArticleDraft
+        var draft = new WeeklyDvarTorahArticleDraft
         {
             Title = "Standing Together With Responsibility",
             Body = $"{citations}\n\n{new string('a', 1_200)}",
+            FeaturedTorahEvidenceIds = ["T1", "T3", "T5"],
             CentralTeaching = "Covenantal responsibility asks us to see one another and turn shared awareness into patient, concrete good.",
             Tags = ["responsibility", "community", "nitzavim", "technology", "current events"],
             PracticalActions = ["Listen carefully to one person.", "Perform one private act of kindness.", "Set aside time for Torah study."],
@@ -211,6 +252,7 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
             CurrentEventFacts = [CreateStatement("A narrowly bounded current-event fact.", evidence[8], evidence[9])],
             Connections = [CreateStatement("The Torah teaching illuminates the present responsibility.", evidence[0], evidence[8])],
         };
+        return WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(draft, evidence, 5_000);
     }
 
     private static WeeklyDvarTorahSourcedStatementDraft CreateStatement(string text, params WeeklyDvarTorahEvidence[] evidence) => new()

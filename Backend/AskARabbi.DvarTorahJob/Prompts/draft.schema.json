@@ -4,6 +4,10 @@
   "properties": {
     "title": { "type": "string" },
     "body": { "type": "string" },
+    "featuredTorahEvidenceIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "centralTeaching": { "type": "string" },
     "tags": {
       "type": "array",
@@ -26,7 +30,7 @@
       "items": { "$ref": "#/$defs/sourcedStatement" }
     }
   },
-  "required": ["title", "body", "centralTeaching", "tags", "practicalActions", "torahTeachings", "currentEventFacts", "connections"],
+  "required": ["title", "body", "featuredTorahEvidenceIds", "centralTeaching", "tags", "practicalActions", "torahTeachings", "currentEventFacts", "connections"],
   "$defs": {
     "sourcedStatement": {
       "type": "object",
