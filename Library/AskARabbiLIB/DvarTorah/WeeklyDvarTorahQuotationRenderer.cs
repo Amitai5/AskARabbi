@@ -72,9 +72,7 @@ internal static class WeeklyDvarTorahQuotationRenderer
 
         var quotation = BoundQuotation(CollapseWhitespace(evidence.PresentedText));
         var canonicalReference = CollapseWhitespace(evidence.CanonicalReference);
-        return string.IsNullOrWhiteSpace(quotation) || string.IsNullOrWhiteSpace(canonicalReference)
-            ? null
-            : $"Torah text — {canonicalReference}: “{quotation}” [{evidence.EvidenceId}]";
+        return $"Torah text — {canonicalReference}: “{quotation}” [{evidence.EvidenceId}]";
     }
 
     internal static int GetMaximumGeneratedBodyCharacters(WeeklyDvarTorahContentOptions options)
