@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.AI.Tools;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Profiles;
 using AskARabbiLIB.Retrieval;
 using AskARabbiLIB.Search;
@@ -13,6 +14,7 @@ namespace AskARabbiLIB.Grounding;
 /// <summary>Implements fail-closed retrieval, structured generation, citation validation, and one repair attempt.</summary>
 public sealed class GroundedAnswerService : IGroundedAnswerService
 {
+    private const string FindParashahToolName = "find_parashah_for_week";
     private static readonly JsonSerializerOptions PromptJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -22,6 +24,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     private static readonly string[] AuthorityInterrogativeTokens = ["who", "whom", "מי", "кто", "quien", "qui", "wer", "chi", "kto", "ווער"];
     private static readonly string[] AuthorityQualifierTokens = ["which", "what", "איזה", "какие", "cuales", "quels", "welche", "quali", "ktorzy"];
     private static readonly string[] AuthorityNounTokens = ["rabbi", "rabbis", "sage", "sages", "authority", "authorities", "school", "schools", "decisor", "decisors", "posek", "poskim", "רב", "רבנים", "раввин", "раввины", "rabino", "rabinos", "rabbin", "rabbins", "rabbiner", "rabbini", "rabin", "rabini"];
+    private static readonly string[] ParashahTokens = ["parasha", "parashah", "parashat", "parsha", "portion", "sedra"];
+    private static readonly string[] ContentRequestTokens = ["about", "content", "describe", "description", "explain", "happen", "happened", "happens", "meaning", "means", "story", "stories", "summarize", "summary", "teach", "teaches", "theme", "themes"];
 
     private readonly ISourceRetriever retriever;
     private readonly IAIEngine engine;
@@ -82,31 +86,52 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var currentDate = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
         ValidateQuestion(question, recentConversation, currentDate);
         var mayUseTools = toolRegistry?.MayApply(question.Question) == true;
-        var questionFocus = CreateQuestionFocus(question.Question);
+        var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc);
+        var prefetchedParashah = await TryPrefetchParashahAsync(question.Question, toolContext, cancellationToken).ConfigureAwait(false);
+        var questionFocus = prefetchedParashah is null ? CreateQuestionFocus(question.Question) : CreateParashahQuestionFocus(prefetchedParashah.Parashah);
         var retrievalStopwatch = Stopwatch.StartNew();
-        var retrievalText = BuildRetrievalText(question.Question, recentConversation, questionFocus.RetrievalHint);
+        var retrievalText = prefetchedParashah?.Parashah is { } parashah
+            ? BuildParashahRetrievalText(question.Question, parashah)
+            : BuildRetrievalText(question.Question, recentConversation, questionFocus.RetrievalHint);
         var validationQuestionContext = BuildValidationQuestionContext(question.Question, recentConversation, questionFocus.Instruction);
-        var hits = await retriever.SearchAsync(new SourceRetrievalQuery
+        IReadOnlyList<SourceRetrievalHit> hits;
+        EvidencePacket packet;
+        if (prefetchedParashah is not null)
         {
-            QueryText = retrievalText,
-            Languages = question.Languages,
-            Collections = question.Collections,
-            Categories = question.Categories,
-            WorkKeys = question.WorkKeys,
-            SourceKeys = question.SourceKeys,
-            CandidateLimit = options.MaximumCandidates,
-        }, cancellationToken).ConfigureAwait(false);
-
-        var adequacy = SourceEvidenceAdequacyEvaluator.Evaluate(retrievalText, hits);
-        if (!adequacy.IsAdequate && !mayUseTools)
-        {
-            retrievalStopwatch.Stop();
-            return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, adequacy.ErrorMessage ?? "The retrieved passages were not adequate to ground an answer. The model was not called.", null, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
+            hits = await RetrieveParashahPassagesAsync(question, prefetchedParashah.Parashah, retrievalText, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<SourceRetrievalHit> rangeHits = prefetchedParashah.Parashah is null
+                ? []
+                : hits.Where(hit => ParashahTorahRangeCatalog.Contains(prefetchedParashah.Parashah, hit.Segment.CanonicalReference)).ToArray();
+            var evidenceQuestion = question with { Question = retrievalText, Collections = ["Torah"], WorkKeys = [], SourceKeys = ["collection:Torah"] };
+            packet = rangeHits.Count == 0
+                ? new EvidencePacket([], 0)
+                : await packetBuilder.BuildAsync(rangeHits, evidenceQuestion, cancellationToken).ConfigureAwait(false);
+            packet = AppendPrefetchedToolEvidence(packet, prefetchedParashah.ToolResult);
         }
+        else
+        {
+            hits = await retriever.SearchAsync(new SourceRetrievalQuery
+            {
+                QueryText = retrievalText,
+                Languages = question.Languages,
+                Collections = question.Collections,
+                Categories = question.Categories,
+                WorkKeys = question.WorkKeys,
+                SourceKeys = question.SourceKeys,
+                CandidateLimit = options.MaximumCandidates,
+            }, cancellationToken).ConfigureAwait(false);
 
-        var packet = adequacy.IsAdequate
-            ? await packetBuilder.BuildAsync(adequacy.OrderedHits, question, cancellationToken).ConfigureAwait(false)
-            : new EvidencePacket([], 0);
+            var adequacy = SourceEvidenceAdequacyEvaluator.Evaluate(retrievalText, hits);
+            if (!adequacy.IsAdequate && !mayUseTools)
+            {
+                retrievalStopwatch.Stop();
+                return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, adequacy.ErrorMessage ?? "The retrieved passages were not adequate to ground an answer. The model was not called.", null, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
+            }
+
+            packet = adequacy.IsAdequate
+                ? await packetBuilder.BuildAsync(adequacy.OrderedHits, question, cancellationToken).ConfigureAwait(false)
+                : new EvidencePacket([], 0);
+        }
         retrievalStopwatch.Stop();
         if (packet.Items.Count == 0 && !mayUseTools)
         {
@@ -114,8 +139,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         }
 
         var diagnostics = new List<AIResponseDiagnostics>();
-        var toolSession = mayUseTools && toolRegistry is not null
-            ? new AIToolExecutionSession(toolRegistry, new AIToolExecutionContext(question.UserProfile, currentUtc), packet.Items.Count)
+        var toolSession = prefetchedParashah is null && mayUseTools && toolRegistry is not null
+            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count)
             : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);
         var firstResult = await GenerateDraftAsync(messages, toolSession, cancellationToken).ConfigureAwait(false);
@@ -190,6 +215,100 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return additions.Length == 0
             ? packet
             : new EvidencePacket(packet.Items.Concat(additions).ToArray(), packet.CharacterCount + additions.Sum(item => item.PresentedText.Length));
+    }
+
+    private async Task<PrefetchedParashahResult?> TryPrefetchParashahAsync(string question, AIToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        if (toolRegistry is null || !TryGetMitzvahAnniversaryAge(question, out var anniversaryAge) || !RequestsParashahContent(question))
+        {
+            return null;
+        }
+
+        var arguments = BinaryData.FromString(JsonSerializer.Serialize(new { hebrewAnniversaryAge = anniversaryAge }, PromptJsonOptions));
+        var result = await toolRegistry.ExecuteAsync(FindParashahToolName, arguments, context, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Evidence is null)
+        {
+            return null;
+        }
+
+        var data = JsonSerializer.SerializeToElement(result.Data, PromptJsonOptions);
+        var parashah = data.TryGetProperty("parashah", out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+        return new PrefetchedParashahResult(parashah, result);
+    }
+
+    private async Task<IReadOnlyList<SourceRetrievalHit>> RetrieveParashahPassagesAsync(GroundedQuestion question, string? parashah, string retrievalText, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(parashah) || !AllowsTorahSource(question) || !ParashahTorahRangeCatalog.TryGetRetrievalReferences(parashah, out var references))
+        {
+            return [];
+        }
+
+        return await retriever.SearchAsync(new SourceRetrievalQuery
+        {
+            QueryText = retrievalText,
+            ExactCanonicalReference = references[0],
+            Languages = question.Languages,
+            Collections = ["Torah"],
+            Categories = question.Categories,
+            WorkKeys = [],
+            SourceKeys = ["collection:Torah"],
+            CandidateLimit = options.MaximumCandidates,
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static EvidencePacket AppendPrefetchedToolEvidence(EvidencePacket packet, AIToolExecutionResult result)
+    {
+        var evidence = result.Evidence ?? throw new InvalidOperationException("A successful prefetched calendar result must contain evidence.");
+        var item = AIToolExecutionSession.CreateEvidence($"E{packet.Items.Count + 1}", FindParashahToolName, evidence);
+        return new EvidencePacket(packet.Items.Append(item).ToArray(), packet.CharacterCount + item.PresentedText.Length);
+    }
+
+    private static bool TryGetMitzvahAnniversaryAge(string question, out int anniversaryAge)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(question).ToHashSet(StringComparer.Ordinal);
+        var mentionsMitzvah = tokens.Contains("mitzvah") && tokens.Overlaps(ParashahTokens);
+        var mentionsBar = tokens.Contains("bar");
+        var mentionsBat = tokens.Contains("bat");
+        if (!mentionsMitzvah || mentionsBar == mentionsBat)
+        {
+            anniversaryAge = 0;
+            return false;
+        }
+
+        anniversaryAge = mentionsBar ? 13 : 12;
+        return true;
+    }
+
+    private static bool RequestsParashahContent(string question)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(question).ToHashSet(StringComparer.Ordinal);
+        return tokens.Overlaps(ContentRequestTokens);
+    }
+
+    private static bool AllowsTorahSource(GroundedQuestion question)
+    {
+        var sourceKeysAllowTorah = question.SourceKeys.Count == 0 || question.SourceKeys.Contains("collection:Torah", StringComparer.Ordinal);
+        var collectionsAllowTorah = question.Collections.Count == 0 || question.Collections.Contains("Torah", StringComparer.OrdinalIgnoreCase);
+        return sourceKeysAllowTorah && collectionsAllowTorah && question.WorkKeys.Count == 0;
+    }
+
+    private static QuestionFocus CreateParashahQuestionFocus(string? parashah)
+    {
+        var resolvedReading = string.IsNullOrWhiteSpace(parashah) ? "the calculated festival-displaced reading" : parashah;
+        return new QuestionFocus(
+            $"Answer both parts of the current question. First identify {resolvedReading} from the calendar-calculation evidence and state its assumptions. Then explain what the reading is about using only Torah-text evidence from its canonical range. Never use the calendar calculation as evidence for narrative content. If no Torah-text evidence is present, answer the calculation and state that the selected sources did not provide enough text to explain the content.",
+            null);
+    }
+
+    private static string BuildParashahRetrievalText(string currentQuestion, string parashah)
+    {
+        var references = ParashahTorahRangeCatalog.TryGetRetrievalReferences(parashah, out var values)
+            ? string.Join(", ", values)
+            : "canonical range unavailable";
+        var text = $"{parashah} weekly Torah portion primary Torah narrative main events story what the portion is about. Canonical reference anchors: {references}.\nUser request: {currentQuestion.Trim()}";
+        return BoundContext(text, 4_000);
     }
 
     private async Task<CandidateValidationResult> ValidateCandidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, CancellationToken cancellationToken)
@@ -685,4 +804,6 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     }
 
     private sealed record QuestionFocus(string Instruction, string? RetrievalHint);
+
+    private sealed record PrefetchedParashahResult(string? Parashah, AIToolExecutionResult ToolResult);
 }

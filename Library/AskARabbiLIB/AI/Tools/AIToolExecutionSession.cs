@@ -85,7 +85,7 @@ public sealed class AIToolExecutionSession
         });
     }
 
-    private static EvidenceItem CreateEvidence(string evidenceId, string toolName, AIToolEvidence evidence)
+    internal static EvidenceItem CreateEvidence(string evidenceId, string toolName, AIToolEvidence evidence)
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{toolName}\n{evidence.CanonicalReference}\n{evidence.ExactText}"))).ToLowerInvariant();
         var source = new SourceSegment

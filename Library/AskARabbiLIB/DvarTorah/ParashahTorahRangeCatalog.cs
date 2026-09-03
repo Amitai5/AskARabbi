@@ -19,6 +19,19 @@ internal static class ParashahTorahRangeCatalog
         return Ranges.ContainsKey(Normalize(parashah));
     }
 
+    internal static bool TryGetRetrievalReferences(string parashah, out IReadOnlyList<string> references)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(parashah);
+        if (Ranges.TryGetValue(Normalize(parashah), out var range))
+        {
+            references = range.GetRetrievalReferences();
+            return true;
+        }
+
+        references = [];
+        return false;
+    }
+
     private static IReadOnlyDictionary<string, TorahRange> CreateRanges()
     {
         var values = new Dictionary<string, TorahRange>(StringComparer.Ordinal);
@@ -98,6 +111,25 @@ internal static class ParashahTorahRangeCatalog
 
     private sealed record TorahRange(string Book, int StartChapter, int StartVerse, int EndChapter, int EndVerse)
     {
+        internal IReadOnlyList<string> GetRetrievalReferences()
+        {
+            var references = new List<string>(EndChapter - StartChapter + 2)
+            {
+                $"{Book} {StartChapter}:{StartVerse}",
+            };
+            for (var chapter = StartChapter + 1; chapter <= EndChapter; chapter++)
+            {
+                references.Add($"{Book} {chapter}:1");
+            }
+
+            var endReference = $"{Book} {EndChapter}:{EndVerse}";
+            if (!string.Equals(references[^1], endReference, StringComparison.Ordinal))
+            {
+                references.Add(endReference);
+            }
+            return references;
+        }
+
         internal bool Contains(string reference)
         {
             if (!reference.StartsWith($"{Book} ", StringComparison.OrdinalIgnoreCase))

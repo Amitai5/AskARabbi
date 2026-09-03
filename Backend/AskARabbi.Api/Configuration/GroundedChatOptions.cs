@@ -29,7 +29,7 @@ public sealed record GroundedChatOptions
     public int TimeoutSeconds { get; init; } = 120;
 
     /// <summary>Gets the maximum combined reasoning and structured-output token count.</summary>
-    public int MaximumOutputTokens { get; init; } = 2_400;
+    public int MaximumOutputTokens { get; init; } = 8_000;
 
     /// <summary>Gets the smaller output budget used by the independent claim-support audit.</summary>
     public int ValidationMaximumOutputTokens { get; init; } = 1_600;

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AskARabbi.Api.Contracts.Conversations;
+using AskARabbiLIB.AI;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.Grounding;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -113,6 +114,46 @@ public sealed class ConversationsControllerTests
         Assert.IsNotNull(result.Message);
         Assert.IsFalse(result.Message.Contains("E5", StringComparison.Ordinal));
         Assert.AreEqual(Conversation.DefaultTitle, result.Conversation.Title);
+        Assert.HasCount(1, result.Conversation.Messages);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task Create_ModelOutputLimitFails_ReturnsSafeMessageWithoutProviderOrAuditDetails()
+    {
+        // Arrange
+        await using var application = new TestApplicationFactory();
+        application.GroundedAnswers.NextResult = new GroundedAnswerResult
+        {
+            Status = GroundedAnswerStatus.AIUnavailable,
+            ErrorMessage = "The first draft failed validation (internal audit detail) and Azure OpenAI returned response status 'Incomplete'.",
+            Trace = new GroundedAnswerTrace(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(45), 20, 7, 2_446, new AIUsage(11_246, 5_344, 16_590), GroundedValidationStatus.Failed, true, "provider-response", "test-model")
+            {
+                ProviderStatus = AIEngineStatus.InvalidResponse,
+                CompletionReason = "max_output_tokens",
+                ProviderAttempts = 3,
+            },
+        };
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        // Act
+        using var response = await client.PostAsJsonAsync("/api/conversations", new
+        {
+            messageId = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            content = "What is my Torah portion for my bar mitzvah and what is it about?",
+            enabledSourceKeys = new[] { "collection:Torah" },
+        });
+        var result = await response.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
+
+        // Assert
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        Assert.IsNotNull(result);
+        Assert.AreEqual("ai_unavailable", result.Status);
+        Assert.AreEqual("AskARabbi could not complete the grounded answer right now. Please try again.", result.Message);
+        var message = result.Message;
+        Assert.IsNotNull(message);
+        Assert.IsFalse(message.Contains("Incomplete", StringComparison.Ordinal));
+        Assert.IsFalse(message.Contains("audit", StringComparison.OrdinalIgnoreCase));
         Assert.HasCount(1, result.Conversation.Messages);
     }
 

@@ -236,7 +236,11 @@ public sealed class GroundedConversationTurnService
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown grounded-answer status."),
     };
 
-    private static string? CreateClientFailureMessage(GroundedAnswerResult result) => result.Status == GroundedAnswerStatus.ValidationFailed
-        ? "AskARabbi could not fully support every statement with the cited sources, so it did not show the answer. Please try again."
-        : result.ErrorMessage;
+    private static string? CreateClientFailureMessage(GroundedAnswerResult result) => result.Status switch
+    {
+        GroundedAnswerStatus.ValidationFailed => "AskARabbi could not fully support every statement with the cited sources, so it did not show the answer. Please try again.",
+        GroundedAnswerStatus.AIUnavailable => "AskARabbi could not complete the grounded answer right now. Please try again.",
+        GroundedAnswerStatus.AuthenticationFailed => "AskARabbi could not connect to its AI provider right now. Please try again shortly.",
+        _ => result.ErrorMessage,
+    };
 }

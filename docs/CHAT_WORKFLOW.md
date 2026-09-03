@@ -9,7 +9,11 @@ For the editable writing instructions themselves, see the [prompt catalog](../Pr
 ```mermaid
 flowchart LR
     Question[Question + optional source filters] --> Plan[Identify topic anchor + supporting concepts]
-    Plan --> Search[Search the approved corpus]
+    Plan --> Compound{Saved-birthday portion plus content?}
+    Compound -->|Yes| Resolve[Calculate the portion locally]
+    Resolve --> ResolvedSearch[Search Torah for the resolved portion]
+    ResolvedSearch --> Evidence
+    Compound -->|No| Search[Search the approved corpus]
     Profile[User profile] --> Prompt[Build the writing request]
     History[Recent validated conversation] --> Search
     History --> Prompt
@@ -137,6 +141,8 @@ Three functions are available:
 The caller must explicitly state whether the relevant event or current time is after local sunset. If that fact is unknown, the tool uses the civil date without advancing it and returns a sunset caveat. The parashah function defaults to the Diaspora reading cycle unless the user specifies Israel, and it identifies festival weeks where no regular weekly portion is assigned.
 
 Successful output becomes an application-owned `EvidenceItem` with an opaque ID, exact result text, calculation method, and assumptions. That output is a calculated fact, not a religious text or *psak*. The model must cite its ID and quote the exact contiguous result; failed calculations create no evidence.
+
+One compound request needs a different order of operations. When a person explicitly asks both for their bar- or bat-mitzvah portion and what that portion is about, the server privately runs `find_parashah_for_week` before corpus retrieval. It then seeds a search of the enabled Torah collection with canonical reference anchors for the resolved reading, keeps only passages whose canonical references fall inside that parashah, and sends the calculation plus those Torah passages to one answer request. The calculation supports which reading applies; the Torah passages support the description. If Torah is not enabled or no in-range passage is found, the answer must state that content gap instead of asking a repair call to invent missing evidence.
 
 The behavior contract tells the AI to:
 
