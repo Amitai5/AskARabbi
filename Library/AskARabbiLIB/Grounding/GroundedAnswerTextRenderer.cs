@@ -5,7 +5,7 @@ namespace AskARabbiLIB.Grounding;
 /// <summary>Renders a validated grounded answer as readable conversation text with numbered source references.</summary>
 public sealed class GroundedAnswerTextRenderer
 {
-    /// <summary>Renders claims, source references, disagreements, limits, guidance, and the application-owned notice.</summary>
+    /// <summary>Renders claims, source references, disagreements, an optional continuation, and practical guidance.</summary>
     /// <param name="answer">Validated grounded answer.</param>
     /// <returns>Plain conversation text suitable for persistence and presentation.</returns>
     public string Render(GroundedAnswer answer)
@@ -24,10 +24,6 @@ public sealed class GroundedAnswerTextRenderer
                 AppendStatement(builder, disagreement.Text, disagreement.Citations);
             }
         }
-        if (answer.Limitations.Count > 0)
-        {
-            AppendParagraph(builder, $"What these sources do not fully answer: {string.Join(' ', answer.Limitations)}");
-        }
         if (!string.IsNullOrWhiteSpace(answer.ClarifyingQuestion))
         {
             AppendParagraph(builder, $"If you'd like to keep exploring: {answer.ClarifyingQuestion}");
@@ -36,7 +32,6 @@ public sealed class GroundedAnswerTextRenderer
         {
             AppendParagraph(builder, "Because the practical answer may depend on your circumstances, talk it through with a qualified rabbi who knows your situation.");
         }
-        AppendParagraph(builder, answer.InterpretiveNotice.Trim());
         return builder.ToString().Trim();
     }
 

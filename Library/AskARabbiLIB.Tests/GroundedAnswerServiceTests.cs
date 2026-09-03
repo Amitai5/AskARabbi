@@ -197,6 +197,28 @@ public sealed class GroundedAnswerServiceTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_DraftExposesInternalTool_FailsClosedBeforeSupportAudit()
+    {
+        // Arrange
+        var segment = CreateSegment();
+        var valid = CreateValidDraft();
+        var invalid = valid with { Claims = [valid.Claims[0] with { Text = "The calendar tool selected this answer." }] };
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
+        var engine = new FakeEngine(Success(invalid), Success(invalid));
+        var validator = new FakeClaimEvidenceValidator();
+        var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
+
+        // Act
+        var result = await service.AnswerAsync(CreateQuestion(), []);
+
+        // Assert
+        Assert.AreEqual(GroundedAnswerStatus.ValidationFailed, result.Status);
+        StringAssert.Contains(result.ErrorMessage, "internal answer-generation mechanisms");
+        Assert.AreEqual(0, validator.CallCount);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task AnswerAsync_MultiSourceReasoningChain_MaterializesEveryQuotation()
     {
@@ -1192,7 +1214,7 @@ public sealed class GroundedAnswerServiceTests
             },
         ],
         Disagreements = [],
-        Limitations = new[] { "This packet contains only the retrieved passage." },
+        Limitations = new[] { "Only one textual source addresses this question." },
         ClarifyingQuestion = null,
         HumanGuidanceRecommended = false,
     };

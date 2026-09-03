@@ -53,9 +53,9 @@ AskARabbi keeps three kinds of context separate:
 - **Recent user questions** help resolve a natural follow-up such as “What about turkey?”
 - **The user profile** helps the AI choose appropriate wording and recognize when a community distinction may matter.
 
-The profile can contain the person’s name, calculated age, optional bio, optional self-described religious background, and self-described Jewish heritage. The exact date and time of birth and birth time zone are omitted from the normal model prompt. When a birthday calculation is requested, a trusted local function can use those saved fields on the server and return only the derived calendar result and its assumptions.
+The profile can contain the person’s name, calculated age, optional bio, optional self-described religious background, and self-described Jewish heritage. The exact date and time of birth and birth time zone are omitted from the normal model prompt. When a birthday calculation is requested, trusted server code can use those saved fields and return only the derived calendar result and its assumptions. The answer states that result naturally and never exposes how the application produced it.
 
-Profile information does not count as evidence. It is not added to the source-search query, and it cannot establish that a rule is Sephardi, Mizrahi, Ashkenazi, Reform, Conservative, Orthodox, or anything else. A community-specific distinction must still be supported by retrieved text. The prompts also prohibit stereotyping, assumed observance, and repeating personal details when they are irrelevant.
+Profile information does not count as evidence. It is not added to the source-search query, and it cannot establish that a rule is Sephardi, Mizrahi, Ashkenazi, Reform, Conservative, Orthodox, or anything else. A community-specific distinction must still be supported by retrieved text. The profile may guide harmless presentation choices—such as `Tevet` for Sephardi or Mizrahi readers and `Teves` for Ashkenazi readers—without being used to infer observance or law. The prompts also prohibit stereotyping, assumed observance, and repeating personal details when they are irrelevant.
 
 ## 2. Search the approved religious-text corpus
 
@@ -142,7 +142,7 @@ The caller must explicitly state whether the relevant event or current time is a
 
 Successful output becomes an application-owned `EvidenceItem` with an opaque ID, exact result text, calculation method, and assumptions. That output is a calculated fact, not a religious text or *psak*. The model must cite its ID and quote the exact contiguous result; failed calculations create no evidence.
 
-One compound request needs a different order of operations. When a person explicitly asks both for their bar- or bat-mitzvah portion and what that portion is about, the server privately runs `find_parashah_for_week` before corpus retrieval. It then seeds a search of the enabled Torah collection with canonical reference anchors for the resolved reading, keeps only passages whose canonical references fall inside that parashah, and sends the calculation plus those Torah passages to one answer request. The calculation supports which reading applies; the Torah passages support the description. If Torah is not enabled or no in-range passage is found, the answer must state that content gap instead of asking a repair call to invent missing evidence.
+One compound request needs a different order of operations. When a person explicitly asks both for their bar- or bat-mitzvah portion and what that portion is about, the server resolves the weekly reading before corpus retrieval. It then searches every canonical chapter anchor and a whole-story semantic query in parallel, keeps only Torah passages inside that parashah, and requires representative coverage across at least three distinct references. The derived date supports which reading applies; the Torah passages support the description. The writing contract then requires one direct opening sentence followed by exactly two substantive paragraphs covering the beginning, middle, and end of the story. If Torah is disabled or that coverage cannot be loaded, the service fails before generation instead of producing a shallow summary or a paragraph about missing sources.
 
 The behavior contract tells the AI to:
 
@@ -151,6 +151,7 @@ The behavior contract tells the AI to:
 - Treat prior turns only as reference-resolution context and avoid repeating the previous conclusion in place of the new answer.
 - Sound like a warm study companion rather than a report or legal brief.
 - Usually write two or three connected claims and roughly 180–325 words of explanatory prose.
+- Never mention functions, tools, calls, searches, prompts, evidence containers, validation, models, providers, or other answer-generation mechanics.
 - Use only the supplied evidence for factual and interpretive claims.
 - Distinguish Torah-level rules, rabbinic rules, later interpretation, custom, and modern application when the evidence supports those distinctions.
 - Preserve a disagreement when it materially changes the answer.
@@ -172,7 +173,7 @@ The first model response is not yet the final chat message. It is a structured d
 - Optional supported attribution.
 - Exact quotations and a short explanation of what each quotation proves.
 - Material disagreements.
-- Specific limitations in the available evidence.
+- Internal evidence limitations used by validation but not displayed as a stock paragraph.
 - An optional follow-up question.
 - Whether human guidance is recommended.
 
@@ -208,6 +209,8 @@ The deterministic layer checks that:
 - Every quotation is a character-for-character substring of both the text shown to the model and the trusted complete source segment or local calculation result.
 - Quotation roles are present and source relationships are complete.
 - Claims, attributions, limitations, and follow-up questions stay within their allowed sizes.
+- Conversation titles, claims, disagreements, attributions, quotation roles, and follow-up questions do not expose internal answer-generation mechanisms.
+- A combined portion-and-summary answer has the exact direct-answer prefix and required three-paragraph shape.
 
 The exact-substring check means the model cannot clean up grammar, silently translate, combine separated phrases, insert ellipses, or alter punctuation while presenting text as a direct quotation.
 
@@ -254,11 +257,10 @@ The host turns the validated structured answer into a readable conversation. The
 - The source reader provides previous/next navigation, displays every exact quotation, and opens the canonical passage on Sefaria in a new tab.
 - Bounded surrounding evidence appears under an expandable `Source context` disclosure inside the reader. It starts closed unless the account preference is explicitly enabled, including for legacy account records created before the closed-context default.
 - The web UI does not render a separate edition-attribution footer. Trusted attribution metadata remains attached to the persisted source snapshot for licensing and provenance.
-- Genuine disagreement and evidence limitations appear only when needed.
+- Genuine disagreement appears only when it materially changes the answer.
 - An optional tightly related next question becomes one short conversational invitation without a repeated “ask me next” instruction.
-- The editable application-controlled notice appears last.
-
-The model does not write the closing notice. The application appends [`interpretive-notice.txt`](../Prototype/Prompts/interpretive-notice.txt) only after the answer passes validation.
+- Internal limitation fields and the legacy interpretive-notice property are not rendered.
+- Practical guidance to consult a qualified person appears only when the validated answer marks the question as personal or high consequence; no generic disclaimer is appended to every response.
 
 Prototype readers can use `/evidence` to inspect the complete packet. Production saves the bounded source records with each validated assistant message so a resumed conversation retains the exact quotation, displayed context, reference, edition, license, and links used for that answer. It does not parse those details from model prose.
 
@@ -292,7 +294,7 @@ The following illustrates the intended flow; the exact retrieved passages depend
 | Explanation | The AI uses the cited texts to explain the safeguard and any relevant disagreement, without adding an unsupported historical reason. |
 | Quotations | Each claim includes exact copied language from every evidence ID it cites. |
 | Validation | The application verifies that those words really occur in the identified passages and that any claimed interpretive chain has both links. |
-| Final answer | The user sees a short conversational explanation, inline citation numbers, exact quotations, source references, and the non-*psak* notice. |
+| Final answer | The user sees a short conversational explanation, inline citation numbers, exact quotations, and trusted source references without implementation details or a stock closing disclaimer. |
 
 If the retrieved texts establish the rule but do not explain why the rabbis selected poultry while treating fish differently, the answer should say that the available evidence leaves that question open. It should not invent a rationale merely to make the response feel complete.
 
@@ -310,7 +312,7 @@ It does not guarantee that:
 - A source-grounded educational answer is binding *psak*.
 - The model has resolved every historical, textual, or denominational disagreement.
 
-Grounding makes an answer traceable and harder to fabricate. It does not turn an AI into an infallible interpreter, which is why AskARabbi keeps quotations visible, names uncertainty, invites further questions, and refers personal religious decisions to a qualified rabbi.
+Grounding makes an answer traceable and harder to fabricate. It does not turn an AI into an infallible interpreter, which is why AskARabbi keeps quotations visible, names material uncertainty when useful, invites further questions, and reserves qualified-human guidance for personal or high-consequence decisions.
 
 ## Where the answer workflow lives
 

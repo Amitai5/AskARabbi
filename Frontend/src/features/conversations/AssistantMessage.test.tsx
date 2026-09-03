@@ -44,4 +44,22 @@ describe('AssistantMessage', () => {
     expect(screen.getByRole('button', { name: 'Copy failed. Try again' })).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('The answer could not be copied. Try again.')
   })
+
+  it('repairs malformed typography when displaying and copying an answer', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValueOnce(undefined)
+    const malformedMessage = {
+      ...Message,
+      content: 'Joseph\u0019s identity\u0014and his family\u0092s move are discussed. [1]',
+    }
+    render(<AssistantMessage message={malformedMessage} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
+
+    expect(screen.getByText('Joseph’s identity—and his family’s move are discussed. [1]')).toBeVisible()
+    expect(document.body).not.toHaveTextContent('\u0019')
+    expect(document.body).not.toHaveTextContent('\u0092')
+
+    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+
+    expect(writeText).toHaveBeenCalledWith('Joseph’s identity—and his family’s move are discussed. [1]')
+  })
 })

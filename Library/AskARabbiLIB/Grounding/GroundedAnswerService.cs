@@ -35,6 +35,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     private readonly GroundedAnswerOptions options;
     private readonly TimeProvider timeProvider;
     private readonly EvidencePacketBuilder packetBuilder;
+    private readonly EvidencePacketBuilder parashahPacketBuilder;
     private readonly IAIToolRegistry? toolRegistry;
 
     /// <summary>Creates a provider-neutral grounded-answer orchestrator.</summary>
@@ -76,6 +77,15 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         this.timeProvider = timeProvider ?? TimeProvider.System;
         this.toolRegistry = toolRegistry;
         packetBuilder = new EvidencePacketBuilder(retriever, this.options);
+        var parashahEvidenceLimit = Math.Max(1, this.options.MaximumEvidenceSegments - 1);
+        parashahPacketBuilder = new EvidencePacketBuilder(retriever, this.options with
+        {
+            MaximumEvidenceSegments = parashahEvidenceLimit,
+            MaximumEvidenceCharacters = Math.Max(200, this.options.MaximumEvidenceCharacters - 1_000),
+            MaximumCharactersPerSegment = Math.Min(this.options.MaximumCharactersPerSegment, Math.Max(200, this.options.MaximumEvidenceCharacters - 1_000)),
+            MaximumSegmentsPerDocument = parashahEvidenceLimit,
+            MaximumEnrichmentHits = 0,
+        });
         responseJsonSchema = BinaryData.FromString(prompts.ResponseJsonSchema);
     }
 
@@ -88,7 +98,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var mayUseTools = toolRegistry?.MayApply(question.Question) == true;
         var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc);
         var prefetchedParashah = await TryPrefetchParashahAsync(question.Question, toolContext, cancellationToken).ConfigureAwait(false);
-        var questionFocus = prefetchedParashah is null ? CreateQuestionFocus(question.Question) : CreateParashahQuestionFocus(prefetchedParashah.Parashah);
+        var questionFocus = prefetchedParashah is null ? CreateQuestionFocus(question.Question) : CreateParashahQuestionFocus(prefetchedParashah);
         var retrievalStopwatch = Stopwatch.StartNew();
         var retrievalText = prefetchedParashah?.Parashah is { } parashah
             ? BuildParashahRetrievalText(question.Question, parashah)
@@ -102,10 +112,15 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             IReadOnlyList<SourceRetrievalHit> rangeHits = prefetchedParashah.Parashah is null
                 ? []
                 : hits.Where(hit => ParashahTorahRangeCatalog.Contains(prefetchedParashah.Parashah, hit.Segment.CanonicalReference)).ToArray();
+            if (prefetchedParashah.Parashah is not null && (!HasAdequateParashahCoverage(prefetchedParashah.Parashah, rangeHits) || options.MaximumEvidenceSegments < 2))
+            {
+                retrievalStopwatch.Stop();
+                return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, "AskARabbi could not load enough of this Torah portion to explain its story reliably. Please try again.", null, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
+            }
             var evidenceQuestion = question with { Question = retrievalText, Collections = ["Torah"], WorkKeys = [], SourceKeys = ["collection:Torah"] };
             packet = rangeHits.Count == 0
                 ? new EvidencePacket([], 0)
-                : await packetBuilder.BuildAsync(rangeHits, evidenceQuestion, cancellationToken).ConfigureAwait(false);
+                : await parashahPacketBuilder.BuildAsync(rangeHits, evidenceQuestion, cancellationToken).ConfigureAwait(false);
             packet = AppendPrefetchedToolEvidence(packet, prefetchedParashah.ToolResult);
         }
         else
@@ -152,7 +167,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(failureStatus, firstResult.ErrorMessage ?? "The AI provider did not return a structured answer.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, CombineDiagnostics(diagnostics));
         }
 
-        var firstValidation = await ValidateCandidateAsync(validationQuestionContext, firstDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
+        var firstValidation = await ValidateCandidateAsync(validationQuestionContext, firstDraft, packet, question.ShouldGenerateConversationTitle, questionFocus.Requirements, cancellationToken).ConfigureAwait(false);
         if (firstValidation.Diagnostics is not null)
         {
             diagnostics.Add(firstValidation.Diagnostics);
@@ -180,7 +195,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return CreateFailure(MapProviderFailure(repairResult.Status), message, packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.Failed, true, CombineDiagnostics(diagnostics));
         }
 
-        var repairValidation = await ValidateCandidateAsync(validationQuestionContext, repairDraft, packet, question.ShouldGenerateConversationTitle, cancellationToken).ConfigureAwait(false);
+        var repairValidation = await ValidateCandidateAsync(validationQuestionContext, repairDraft, packet, question.ShouldGenerateConversationTitle, questionFocus.Requirements, cancellationToken).ConfigureAwait(false);
         if (repairValidation.Diagnostics is not null)
         {
             diagnostics.Add(repairValidation.Diagnostics);
@@ -235,7 +250,10 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var parashah = data.TryGetProperty("parashah", out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
-        return new PrefetchedParashahResult(parashah, result);
+        var holiday = data.TryGetProperty("holiday", out var holidayValue) && holidayValue.ValueKind == JsonValueKind.String
+            ? holidayValue.GetString()
+            : null;
+        return new PrefetchedParashahResult(parashah, holiday, anniversaryAge, result);
     }
 
     private async Task<IReadOnlyList<SourceRetrievalHit>> RetrieveParashahPassagesAsync(GroundedQuestion question, string? parashah, string retrievalText, CancellationToken cancellationToken)
@@ -245,17 +263,80 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return [];
         }
 
-        return await retriever.SearchAsync(new SourceRetrievalQuery
+        var exactSearches = references.Select(reference => retriever.SearchAsync(CreateParashahQuery(question, null, reference, Math.Min(4, options.MaximumCandidates)), cancellationToken)).ToArray();
+        var semanticSearch = retriever.SearchAsync(CreateParashahQuery(question, retrievalText, null, options.MaximumCandidates), cancellationToken);
+        await Task.WhenAll(exactSearches.Append(semanticSearch)).ConfigureAwait(false);
+
+        var selected = new List<SourceRetrievalHit>(options.MaximumCandidates);
+        var seenReferences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var exactSearch in exactSearches)
         {
-            QueryText = retrievalText,
-            ExactCanonicalReference = references[0],
-            Languages = question.Languages,
-            Collections = ["Torah"],
-            Categories = question.Categories,
-            WorkKeys = [],
-            SourceKeys = ["collection:Torah"],
-            CandidateLimit = options.MaximumCandidates,
-        }, cancellationToken).ConfigureAwait(false);
+            var best = (await exactSearch.ConfigureAwait(false))
+                .Where(hit => ParashahTorahRangeCatalog.Contains(parashah, hit.Segment.CanonicalReference))
+                .OrderBy(hit => GetLanguagePreference(hit.Segment, question))
+                .ThenByDescending(hit => hit.Score)
+                .FirstOrDefault();
+            if (best is not null && seenReferences.Add(best.Segment.CanonicalReference))
+            {
+                selected.Add(best);
+            }
+        }
+
+        foreach (var hit in await semanticSearch.ConfigureAwait(false))
+        {
+            if (selected.Count >= options.MaximumCandidates)
+            {
+                break;
+            }
+            if (ParashahTorahRangeCatalog.Contains(parashah, hit.Segment.CanonicalReference) && seenReferences.Add(hit.Segment.CanonicalReference))
+            {
+                selected.Add(hit);
+            }
+        }
+        return selected;
+    }
+
+    private SourceRetrievalQuery CreateParashahQuery(GroundedQuestion question, string? queryText, string? exactCanonicalReference, int candidateLimit) => new()
+    {
+        QueryText = queryText,
+        ExactCanonicalReference = exactCanonicalReference,
+        Languages = question.Languages,
+        Collections = ["Torah"],
+        Categories = question.Categories,
+        WorkKeys = [],
+        SourceKeys = ["collection:Torah"],
+        CandidateLimit = candidateLimit,
+    };
+
+    private static int GetLanguagePreference(SourceSegment segment, GroundedQuestion question)
+    {
+        if (MatchesLanguage(segment, question.QuotationLanguage))
+        {
+            return 0;
+        }
+        if (MatchesLanguage(segment, question.ConversationLanguage))
+        {
+            return 1;
+        }
+        if (MatchesLanguage(segment, "English"))
+        {
+            return 2;
+        }
+        return 3;
+    }
+
+    private static bool MatchesLanguage(SourceSegment segment, string? language) => !string.IsNullOrWhiteSpace(language)
+        && (string.Equals(segment.Language, language.Trim(), StringComparison.OrdinalIgnoreCase) || string.Equals(segment.LanguageCode, language.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasAdequateParashahCoverage(string parashah, IReadOnlyCollection<SourceRetrievalHit> hits)
+    {
+        if (!ParashahTorahRangeCatalog.TryGetRetrievalReferences(parashah, out var references))
+        {
+            return false;
+        }
+
+        var requiredReferences = Math.Min(3, references.Count);
+        return hits.Select(hit => hit.Segment.CanonicalReference).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= requiredReferences;
     }
 
     private static EvidencePacket AppendPrefetchedToolEvidence(EvidencePacket packet, AIToolExecutionResult result)
@@ -294,12 +375,23 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return sourceKeysAllowTorah && collectionsAllowTorah && question.WorkKeys.Count == 0;
     }
 
-    private static QuestionFocus CreateParashahQuestionFocus(string? parashah)
+    private static QuestionFocus CreateParashahQuestionFocus(PrefetchedParashahResult result)
     {
-        var resolvedReading = string.IsNullOrWhiteSpace(parashah) ? "the calculated festival-displaced reading" : parashah;
+        if (string.IsNullOrWhiteSpace(result.Parashah))
+        {
+            var displacement = string.IsNullOrWhiteSpace(result.Holiday) ? "a festival reading" : result.Holiday;
+            var festivalDirectAnswer = $"The short answer is: there is no regular weekly parashah for the Shabbat on or after your {result.AnniversaryAge}th Hebrew birthday because {displacement} replaces it.";
+            return new QuestionFocus(
+                $"Claim 1 must be exactly: \"{festivalDirectAnswer}\" Explain only the reading information supported by the calendar evidence. Do not expose any internal function, calculation mechanism, retrieval process, evidence container, model, or provider. Return no disagreements, limitations, follow-up question, or practical-ruling disclaimer.",
+                null,
+                new AnswerRequirements(1, festivalDirectAnswer, true));
+        }
+
+        var directAnswer = $"The short answer is: the parashah for the Shabbat on or after your {result.AnniversaryAge}th Hebrew birthday is {result.Parashah}.";
         return new QuestionFocus(
-            $"Answer both parts of the current question. First identify {resolvedReading} from the calendar-calculation evidence and state its assumptions. Then explain what the reading is about using only Torah-text evidence from its canonical range. Never use the calendar calculation as evidence for narrative content. If no Torah-text evidence is present, answer the calculation and state that the selected sources did not provide enough text to explain the content.",
-            null);
+            $"Return exactly three connected claims. Claim 1 must be exactly: \"{directAnswer}\" Cite the weekly-reading result, but do not explain the implementation or calculation process. Claims 2 and 3 must be two concise, substantive paragraphs explaining the Torah portion's story across its beginning, middle, and end, using only the supplied Torah passages and citing every event they describe. Do not use weekly-reading evidence for story content. Do not expose any internal function, calculation mechanism, retrieval process, evidence container, model, or provider. Return no disagreements, limitations, follow-up question, or practical-ruling disclaimer. Use the profile only to choose respectful terminology and community-appropriate transliteration, such as Tevet or Teves; never infer a legal rule from identity.",
+            null,
+            new AnswerRequirements(3, directAnswer, true));
     }
 
     private static string BuildParashahRetrievalText(string currentQuestion, string parashah)
@@ -311,9 +403,9 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return BoundContext(text, 4_000);
     }
 
-    private async Task<CandidateValidationResult> ValidateCandidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, CancellationToken cancellationToken)
+    private async Task<CandidateValidationResult> ValidateCandidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, AnswerRequirements? requirements, CancellationToken cancellationToken)
     {
-        if (!TryValidateDraft(draft, packet, shouldGenerateConversationTitle, out var answer, out var deterministicError))
+        if (!TryValidateDraft(draft, packet, shouldGenerateConversationTitle, requirements, out var answer, out var deterministicError))
         {
             return CandidateValidationResult.Unsupported(deterministicError ?? "The draft failed deterministic grounding validation.");
         }
@@ -463,7 +555,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return $"[Explicit context excerpt: first {maximumCharacters} of {value.Length} characters]\n{value[..maximumCharacters]}";
     }
 
-    private bool TryValidateDraft(GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, out GroundedAnswer? answer, out string? error)
+    private bool TryValidateDraft(GroundedAnswerDraft draft, EvidencePacket packet, bool shouldGenerateConversationTitle, AnswerRequirements? requirements, out GroundedAnswer? answer, out string? error)
     {
         answer = null;
         error = null;
@@ -471,6 +563,11 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         if (shouldGenerateConversationTitle && suggestedConversationTitle is null)
         {
             error = "The first grounded response must include a nonempty conversation title.";
+            return false;
+        }
+        if (suggestedConversationTitle is not null && ContainsInternalMechanismReference(suggestedConversationTitle))
+        {
+            error = "The conversation title must not expose internal answer-generation mechanisms.";
             return false;
         }
         if (draft.Claims is null || draft.Claims.Count is < 1 or > 12 || draft.Claims.Any(claim => claim is null))
@@ -496,6 +593,31 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         if (draft.ClarifyingQuestion is not null && (string.IsNullOrWhiteSpace(draft.ClarifyingQuestion) || draft.ClarifyingQuestion.Length > 1_000))
         {
             error = "Clarifying question must be null or contain at most 1,000 characters.";
+            return false;
+        }
+        if (draft.ClarifyingQuestion is not null && ContainsInternalMechanismReference(draft.ClarifyingQuestion))
+        {
+            error = "The follow-up question must not expose internal answer-generation mechanisms.";
+            return false;
+        }
+        if (draft.Limitations.Any(ContainsInternalMechanismReference))
+        {
+            error = "Limitations must not expose internal answer-generation mechanisms.";
+            return false;
+        }
+        if (requirements?.ClaimCount is { } requiredClaimCount && draft.Claims.Count != requiredClaimCount)
+        {
+            error = $"This answer requires exactly {requiredClaimCount} sourced claims.";
+            return false;
+        }
+        if (requirements?.ExactFirstClaimText is { } requiredText && !string.Equals(draft.Claims[0].Text.Trim(), requiredText, StringComparison.Ordinal))
+        {
+            error = $"The first claim must be exactly: {requiredText}";
+            return false;
+        }
+        if (requirements?.RequiresPlainAnswerShape == true && (draft.Disagreements.Count > 0 || draft.Limitations.Count > 0 || draft.ClarifyingQuestion is not null || draft.HumanGuidanceRecommended))
+        {
+            error = "This answer must contain only the requested direct answer and explanation paragraphs.";
             return false;
         }
 
@@ -570,6 +692,11 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             error = "Attribution must be null or contain at most 300 characters.";
             return false;
         }
+        if (attribution is not null && ContainsInternalMechanismReference(attribution))
+        {
+            error = "Attribution must not expose internal answer-generation mechanisms.";
+            return false;
+        }
         error = null;
         return true;
     }
@@ -601,6 +728,11 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             if (string.IsNullOrWhiteSpace(quotation.Role) || quotation.Role.Length > 300)
             {
                 error = "Every quotation must explain its role in at most 300 characters.";
+                return false;
+            }
+            if (ContainsInternalMechanismReference(quotation.Role))
+            {
+                error = "Quotation roles must not expose internal answer-generation mechanisms.";
                 return false;
             }
             if (!GroundedQuotationResolver.TryResolve(quotationItem, quotation.Text, out var exactText) || exactText.Length > 1_200)
@@ -649,6 +781,11 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             error = $"Every claim and disagreement must contain nonempty text of at most {maximumTextLength:N0} characters.";
             return false;
         }
+        if (ContainsInternalMechanismReference(text))
+        {
+            error = "Claims and disagreements must not expose internal answer-generation mechanisms.";
+            return false;
+        }
         if (evidenceIds is null || evidenceIds.Count is < 1 or > 12)
         {
             error = $"The statement '{BoundContext(text, 80)}' must have between one and twelve supporting evidence IDs.";
@@ -673,6 +810,26 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         }
         error = null;
         return true;
+    }
+
+    private static bool ContainsInternalMechanismReference(string value)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(value);
+        if (tokens.Contains("tool", StringComparer.Ordinal) || tokens.Contains("tools", StringComparer.Ordinal))
+        {
+            return true;
+        }
+
+        var normalized = string.Join(' ', tokens);
+        return normalized.Contains("evidence packet", StringComparison.Ordinal)
+            || normalized.Contains("retrieved source", StringComparison.Ordinal)
+            || normalized.Contains("retrieved passage", StringComparison.Ordinal)
+            || normalized.Contains("retrieval system", StringComparison.Ordinal)
+            || normalized.Contains("calendar function", StringComparison.Ordinal)
+            || normalized.Contains("function call", StringComparison.Ordinal)
+            || normalized.Contains("language model", StringComparison.Ordinal)
+            || normalized.Contains("ai model", StringComparison.Ordinal)
+            || normalized.Contains("provider response", StringComparison.Ordinal);
     }
 
     private static SourceCitation CreateCitation(int number, EvidenceItem item) => new(number, item.EvidenceId, item.Source.SegmentId, item.Source.Title, item.Source.HebrewTitle, item.Source.CanonicalReference, item.Source.Version, item.Source.Language, item.Source.LanguageCode, item.Source.Collection, item.Source.Categories.ToArray(), item.Source.License, item.Source.LicenseCategory, item.Source.SourceUrl, item.Source.FilePath, item.IsExcerpt);
@@ -803,7 +960,9 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         internal static CandidateValidationResult ProviderFailure(AIEngineStatus? engineStatus, string errorMessage, AIResponseDiagnostics? diagnostics) => new(CandidateValidationStatus.ProviderFailure, null, errorMessage, engineStatus, diagnostics);
     }
 
-    private sealed record QuestionFocus(string Instruction, string? RetrievalHint);
+    private sealed record QuestionFocus(string Instruction, string? RetrievalHint, AnswerRequirements? Requirements = null);
 
-    private sealed record PrefetchedParashahResult(string? Parashah, AIToolExecutionResult ToolResult);
+    private sealed record AnswerRequirements(int ClaimCount, string ExactFirstClaimText, bool RequiresPlainAnswerShape);
+
+    private sealed record PrefetchedParashahResult(string? Parashah, string? Holiday, int AnniversaryAge, AIToolExecutionResult ToolResult);
 }

@@ -9,7 +9,7 @@ public sealed class GroundedAnswerTextRendererTests
 {
     [TestMethod]
     [TestCategory("Unit")]
-    public void Render_CompleteValidatedAnswer_ProducesConversationalTextWithSourceReferences()
+    public void Render_CompleteValidatedAnswer_ProducesConversationWithoutInternalLimitationsOrStockNotice()
     {
         var citation = CreateCitation();
         var quotation = new GroundedQuotation("A tested quotation.", "Supports the explanation.", citation);
@@ -28,11 +28,11 @@ public sealed class GroundedAnswerTextRendererTests
 
         StringAssert.StartsWith(rendered, "The short answer is grounded. [1]");
         StringAssert.Contains(rendered, "Another perspective:");
-        StringAssert.Contains(rendered, "What these sources do not fully answer:");
+        Assert.IsFalse(rendered.Contains("What these sources do not fully answer:", StringComparison.Ordinal));
         StringAssert.Contains(rendered, "If you'd like to keep exploring:");
         Assert.IsFalse(rendered.Contains("Ask me that next", StringComparison.Ordinal));
         StringAssert.Contains(rendered, "qualified rabbi");
-        StringAssert.Contains(rendered, "This is source-based learning, not personal psak.");
+        Assert.IsFalse(rendered.Contains("This is source-based learning, not personal psak.", StringComparison.Ordinal));
         Assert.IsFalse(rendered.Contains("A tested quotation.", StringComparison.Ordinal));
         Assert.IsFalse(rendered.Contains("https://www.sefaria.org", StringComparison.Ordinal));
     }
@@ -48,7 +48,7 @@ public sealed class GroundedAnswerTextRendererTests
 
         var rendered = new GroundedAnswerTextRenderer().Render(answer);
 
-        Assert.AreEqual("Direct answer.\n\nKeep asking questions.", rendered);
+        Assert.AreEqual("Direct answer.", rendered);
         Assert.IsFalse(rendered.Contains("Another perspective", StringComparison.Ordinal));
         Assert.IsFalse(rendered.Contains("qualified rabbi", StringComparison.Ordinal));
     }

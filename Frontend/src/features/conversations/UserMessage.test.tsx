@@ -21,4 +21,12 @@ describe('UserMessage', () => {
     expect(bubble).toHaveClass('rounded-2xl', 'bg-stone')
     expect(screen.getByText('You')).toBeVisible()
   })
+
+  it('repairs malformed typography in stored user messages', () => {
+    render(<UserMessage message={{ ...Message, content: 'What is Judah\u0019s role\u0014and Joseph\u0092s response?' }} />)
+
+    expect(screen.getByText('What is Judah’s role—and Joseph’s response?')).toBeVisible()
+    expect(document.body).not.toHaveTextContent('\u0019')
+    expect(document.body).not.toHaveTextContent('\u0092')
+  })
 })

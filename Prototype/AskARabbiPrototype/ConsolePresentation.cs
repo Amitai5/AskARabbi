@@ -130,12 +130,6 @@ internal static class ConsolePresentation
             }
         }
 
-        if (result.Answer.Limitations.Count > 0)
-        {
-            AnsiConsole.MarkupLine($"[grey]What these sources do not fully answer:[/] {Escape(string.Join(' ', result.Answer.Limitations))}");
-            AnsiConsole.WriteLine();
-        }
-
         if (result.Answer.ClarifyingQuestion is not null)
         {
             AnsiConsole.MarkupLine($"[bold cyan]If you'd like to keep exploring:[/] {Escape(result.Answer.ClarifyingQuestion)}");
@@ -148,7 +142,6 @@ internal static class ConsolePresentation
             AnsiConsole.WriteLine();
         }
 
-        PrintInterpretiveNotice(result.Answer.InterpretiveNotice);
     }
 
     internal static void PrintEvidence(EvidencePacket packet)
@@ -440,12 +433,6 @@ internal static class ConsolePresentation
         var sourceLabel = $"{citation.CanonicalReference} — {citation.Edition}";
         var attribution = citation.RequiresAttribution ? $" [grey]({Escape(citation.License)})[/]" : string.Empty;
         return $"[bold cyan][[{citation.Number}]][/] [link={EscapeLinkTarget(citation.SourceUrl)}]{Escape(sourceLabel)}[/]{attribution}";
-    }
-
-    private static void PrintInterpretiveNotice(string notice)
-    {
-        var normalized = notice.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
-        AnsiConsole.MarkupLine($"[italic grey]{Escape(normalized)}[/]");
     }
 
     private static void AddFacetRows(Table table, string facetName, IReadOnlyDictionary<string, int> values)

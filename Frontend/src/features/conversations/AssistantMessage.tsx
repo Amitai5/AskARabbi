@@ -1,5 +1,6 @@
 import { Check, Copy } from 'lucide-react'
 import { memo, useEffect, useMemo, useState } from 'react'
+import { normalizeDisplayText } from '../../displayText.ts'
 import type { ConversationMessage, ConversationSource } from './conversationData.ts'
 
 interface AssistantMessageProps {
@@ -14,6 +15,7 @@ type CopyStatus = 'idle' | 'copied' | 'failed'
 export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource }: AssistantMessageProps) {
   const sources = message.sources ?? EmptySources
   const sourceNumbers = useMemo(() => new Set(sources.map((source) => source.number)), [sources])
+  const normalizedContent = useMemo(() => normalizeDisplayText(message.content), [message.content])
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(message.content)
+      await navigator.clipboard.writeText(normalizedContent)
       setCopyStatus('copied')
     } catch {
       setCopyStatus('failed')
@@ -43,7 +45,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
     <div className="conversation-message group border-l-2 border-pomegranate pl-5" data-message-role="assistant">
       <p className="mb-3 font-display text-xl text-ink">AskRabbi</p>
       <div className="space-y-4 text-base leading-7 text-ink sm:text-lg">
-        {message.content.split(/\n\n+/).map((paragraph, index) => (
+        {normalizedContent.split(/\n\n+/).map((paragraph, index) => (
           <p key={`${message.id}-paragraph-${index}`}>{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}
       </div>

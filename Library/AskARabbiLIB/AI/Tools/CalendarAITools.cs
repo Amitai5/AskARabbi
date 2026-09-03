@@ -31,11 +31,12 @@ public sealed class CalendarAITools
         }
 
         var converted = calendar.ConvertToHebrew(effectiveBirthDateTime.Value, occurredAfterSunset);
+        var englishText = HebrewDateDisplayFormatter.Format(converted.EnglishText, context.UserProfile?.JewishHeritage);
         var subject = usesPrivateProfile ? "The saved profile's" : "The supplied";
-        var exactText = $"{subject} calculated Hebrew birth date is {converted.EnglishText} ({converted.HebrewText}). The conversion treated the birth as {(occurredAfterSunset ? "after" : "not known to be after")} local sunset. Hebrew dates begin at local sunset, so the result can move by one Hebrew day if that assumption is wrong.";
+        var exactText = $"{subject} Hebrew birth date is {englishText} ({converted.HebrewText}). The birth is treated as {(occurredAfterSunset ? "after" : "before")} local sunset. Hebrew dates begin at sunset, so the result may move by one Hebrew day if that assumption is wrong.";
         var data = new
         {
-            converted.EnglishText,
+            EnglishText = englishText,
             converted.HebrewText,
             converted.HebrewYear,
             converted.HebrewMonth,
@@ -43,7 +44,7 @@ public sealed class CalendarAITools
             usedPrivateProfile = usesPrivateProfile,
             occurredAfterSunset,
         };
-        return AIToolExecutionResult.Success(data, new AIToolEvidence("Calculated Hebrew birth date", exactText));
+        return AIToolExecutionResult.Success(data, new AIToolEvidence("Hebrew birth date", exactText));
     }
 
     /// <summary>Finds the weekly parashah for a date or for a saved profile's Hebrew birthday anniversary.</summary>
@@ -81,22 +82,23 @@ public sealed class CalendarAITools
         }
 
         var cycle = inIsrael ? "Israel" : "Diaspora";
+        var hebrewDate = HebrewDateDisplayFormatter.Format(reading.HebrewDate, context.UserProfile?.JewishHeritage);
         var readingText = reading.Parashah is not null
-            ? $"The calculated regular parashah for {basis} is {reading.Parashah}."
+            ? $"The regular parashah for {basis} is {reading.Parashah}."
             : $"There is no regular weekly parashah for {basis}; the regular cycle is displaced{(reading.Holiday is null ? " by a festival reading" : $" by {reading.Holiday}")}.";
-        var exactText = $"{readingText} The selected Shabbat is {reading.ShabbatDate:MMMM d, yyyy}, corresponding to {reading.HebrewDate}, using the {cycle} reading cycle. {reading.CalculationNote}";
+        var exactText = $"{readingText} The selected Shabbat is {reading.ShabbatDate:MMMM d, yyyy}, corresponding to {hebrewDate}, using the {cycle} reading cycle. {reading.CalculationNote}";
         var data = new
         {
             reading.RequestedDate,
             reading.ShabbatDate,
             reading.Parashah,
             reading.Holiday,
-            reading.HebrewDate,
+            HebrewDate = hebrewDate,
             reading.InIsrael,
             reading.CalculationNote,
             hebrewAnniversaryAge,
         };
-        return AIToolExecutionResult.Success(data, new AIToolEvidence("Calculated weekly Torah reading", exactText));
+        return AIToolExecutionResult.Success(data, new AIToolEvidence("Weekly Torah reading", exactText));
     }
 
     /// <summary>Gets today's Gregorian and Hebrew dates in the authenticated profile's configured time zone.</summary>
@@ -108,12 +110,13 @@ public sealed class CalendarAITools
     {
         var localDateTime = GetCurrentLocalDateTime(context);
         var converted = calendar.ConvertToHebrew(localDateTime, occurredAfterSunset);
+        var englishText = HebrewDateDisplayFormatter.Format(converted.EnglishText, context.UserProfile?.JewishHeritage);
         var timeZoneId = NormalizeTimeZoneId(context.UserProfile?.BirthTimeZone);
-        var exactText = $"Today is {converted.GregorianDate:MMMM d, yyyy} in time zone {timeZoneId}. Its calculated Hebrew date is {converted.EnglishText} ({converted.HebrewText}) when the current time is treated as {(occurredAfterSunset ? "after" : "not known to be after")} local sunset. Hebrew dates begin at local sunset, so the Hebrew date can advance before the Gregorian date changes.";
+        var exactText = $"Today is {converted.GregorianDate:MMMM d, yyyy} in time zone {timeZoneId}. Its Hebrew date is {englishText} ({converted.HebrewText}) when the current time is treated as {(occurredAfterSunset ? "after" : "before")} local sunset. Hebrew dates begin at sunset, so the Hebrew date can advance before the Gregorian date changes.";
         var data = new
         {
             converted.GregorianDate,
-            converted.EnglishText,
+            EnglishText = englishText,
             converted.HebrewText,
             converted.HebrewYear,
             converted.HebrewMonth,
@@ -121,7 +124,7 @@ public sealed class CalendarAITools
             timeZoneId,
             occurredAfterSunset,
         };
-        return AIToolExecutionResult.Success(data, new AIToolEvidence("Calculated current Gregorian and Hebrew date", exactText));
+        return AIToolExecutionResult.Success(data, new AIToolEvidence("Current Gregorian and Hebrew date", exactText));
     }
 
     private static DateTime? GetProfileBirthDateTime(UserProfile? profile)

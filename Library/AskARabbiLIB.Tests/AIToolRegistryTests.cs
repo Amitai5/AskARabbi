@@ -52,8 +52,27 @@ public sealed class AIToolRegistryTests
         // Assert
         Assert.IsTrue(result.IsSuccess);
         Assert.IsNotNull(result.Evidence);
-        StringAssert.Contains(result.Evidence.ExactText, "2 Teves, 5762");
+        StringAssert.Contains(result.Evidence.ExactText, "2 Tevet, 5762");
         Assert.IsFalse(result.Evidence.ExactText.Contains("2001", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("Mizrahi", "2 Tevet, 5762")]
+    [DataRow("Sephardi", "2 Tevet, 5762")]
+    [DataRow("Ashkenazi", "2 Teves, 5762")]
+    [TestCategory("Regression")]
+    public async Task ExecuteAsync_ProfileHeritage_UsesCommunityAwareHebrewMonthTransliteration(string jewishHeritage, string expectedDate)
+    {
+        // Arrange
+        var registry = CreateRegistry();
+
+        // Act
+        var result = await registry.ExecuteAsync("convert_birthdate_to_hebrew", BinaryData.FromString("{}"), CreateContext(jewishHeritage));
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Evidence);
+        StringAssert.Contains(result.Evidence.ExactText, expectedDate);
     }
 
     [TestMethod]
@@ -86,6 +105,8 @@ public sealed class AIToolRegistryTests
         Assert.HasCount(1, session.EvidenceItems);
         Assert.AreEqual("E3", session.EvidenceItems[0].EvidenceId);
         StringAssert.Contains(session.EvidenceItems[0].PresentedText, "Vayigash");
+        Assert.IsFalse(session.EvidenceItems[0].Source.Title.Contains("tool", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(session.EvidenceItems[0].Source.Version.Contains("tool", StringComparison.OrdinalIgnoreCase));
         using var firstJson = JsonDocument.Parse(first);
         Assert.IsTrue(firstJson.RootElement.GetProperty("isSuccess").GetBoolean());
         Assert.AreEqual("E3", firstJson.RootElement.GetProperty("evidence").GetProperty("evidenceId").GetString());
@@ -215,14 +236,14 @@ public sealed class AIToolRegistryTests
 
     private static AIToolRegistry CreateRegistry() => new([new CalendarAITools(new HebrewCalendarService())]);
 
-    private static AIToolExecutionContext CreateContext() => new(
+    private static AIToolExecutionContext CreateContext(string jewishHeritage = "Mizrahi") => new(
         new UserProfile
         {
             Name = "Test User",
             DateOfBirth = new DateOnly(2001, 12, 17),
             TimeOfBirth = new TimeOnly(9, 30),
             BirthTimeZone = "America/Los_Angeles",
-            JewishHeritage = "Mizrahi",
+            JewishHeritage = jewishHeritage,
         },
         new DateTimeOffset(2026, 8, 31, 18, 0, 0, TimeSpan.Zero));
 

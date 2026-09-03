@@ -8,7 +8,6 @@ namespace AskARabbiLIB.Calendar;
 /// <summary>Calculates Hebrew dates and weekly Torah readings with the pinned Zmanim calendar tables.</summary>
 public sealed class HebrewCalendarService : IHebrewCalendarService
 {
-    private const string SunsetQualification = "A Hebrew date begins at local sunset. This calculation changes the civil date only when occurredAfterSunset is explicitly true.";
     private static readonly FieldInfo ParshaListField = typeof(ZmanimCalendar).GetField("ParshaList", BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Zmanim 1.5.0 no longer exposes the expected pinned parashah table.");
     private readonly HebrewCalendar calendar = new();
 
@@ -39,7 +38,7 @@ public sealed class HebrewCalendarService : IHebrewCalendarService
         var daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)requestedDate.DayOfWeek + 7) % 7;
         var shabbat = requestedDate.AddDays(daysUntilSaturday);
         ValidateSupportedDate(shabbat, nameof(dateTime));
-        return CreateParashahInfo(requestedDate, shabbat, inIsrael, $"The Shabbat on or after the requested civil date was used. {SunsetQualification}");
+        return CreateParashahInfo(requestedDate, shabbat, inIsrael, "The Shabbat on or after the requested civil date was used.");
     }
 
     /// <inheritdoc/>
@@ -61,7 +60,10 @@ public sealed class HebrewCalendarService : IHebrewCalendarService
         var anniversaryDate = calendar.ToDateTime(anniversaryYear, anniversaryMonth, anniversaryDay, 12, 0, 0, 0);
         var daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)anniversaryDate.DayOfWeek + 7) % 7;
         var shabbat = anniversaryDate.AddDays(daysUntilSaturday);
-        var note = $"The Shabbat on or after the {anniversaryAge}th Hebrew birthday was used. Communities may choose a different celebration or reading date. {SunsetQualification}";
+        var sunsetNote = occurredAfterSunset
+            ? "The birth was treated as occurring after local sunset."
+            : "The birth was treated as occurring before local sunset; if it occurred after sunset, the anniversary may shift.";
+        var note = $"The Shabbat on or after the {anniversaryAge}th Hebrew birthday was used. {sunsetNote} Communities may choose a different celebration or reading date.";
         if (anniversaryDay != birthDay)
         {
             note = $"The Hebrew birthday day was clamped to the final day of its anniversary month. {note}";
