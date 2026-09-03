@@ -114,9 +114,10 @@ describe('WeeklyDvarTorahPage', () => {
   it('renders normalized typography, the holiday, and chat-style source references', async () => {
     const user = userEvent.setup()
     const client = createClient(Publication)
-    render(<WeeklyDvarTorahPage client={client} onBack={vi.fn()} />)
+    render(<WeeklyDvarTorahPage client={client} />)
 
     expect(await screen.findByRole('heading', { name: 'Nitzavim—Choosing Life' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Back to conversation' })).not.toBeInTheDocument()
     expect(screen.getByText(/God’s domain/)).toBeVisible()
     expect(screen.getByText(/“clear guidance”—and acted/)).toBeVisible()
     expect(screen.getByText('Rosh Hashanah')).toBeVisible()
@@ -145,6 +146,11 @@ describe('WeeklyDvarTorahPage', () => {
     const user = userEvent.setup()
     const speech = {
       cancel: vi.fn(),
+      getVoices: vi.fn(() => [
+        createVoice('Microsoft Zira - English (United States)', 'en-US'),
+        createVoice('Microsoft David - English (United States)', 'en-US'),
+        createVoice('Microsoft Guy Online (Natural) - English (United States)', 'en-US'),
+      ]),
       pause: vi.fn(),
       resume: vi.fn(),
       speak: vi.fn(),
@@ -153,6 +159,7 @@ describe('WeeklyDvarTorahPage', () => {
       readonly text: string
       lang = ''
       rate = 1
+      voice: SpeechSynthesisVoice | null = null
       onend: (() => void) | null = null
       onerror: ((event: { error: string }) => void) | null = null
 
@@ -162,7 +169,7 @@ describe('WeeklyDvarTorahPage', () => {
     }
     vi.stubGlobal('speechSynthesis', speech)
     vi.stubGlobal('SpeechSynthesisUtterance', TestUtterance)
-    render(<WeeklyDvarTorahPage client={createClient(Publication)} onBack={vi.fn()} />)
+    render(<WeeklyDvarTorahPage client={createClient(Publication)} />)
 
     await user.click(await screen.findByRole('button', { name: 'Read this Dvar Torah aloud' }))
 
@@ -172,6 +179,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(utterance.text).toContain('Experts called it “clear guidance”—and acted')
     expect(utterance.text).not.toContain('[TA]')
     expect(utterance.lang).toBe('en-US')
+    expect(utterance.voice?.name).toBe('Microsoft Guy Online (Natural) - English (United States)')
 
     await user.click(screen.getByRole('button', { name: 'Pause reading' }))
     expect(speech.pause).toHaveBeenCalledTimes(1)
@@ -200,7 +208,7 @@ describe('WeeklyDvarTorahPage', () => {
       getArchive,
       getArchived: vi.fn().mockResolvedValue(ArchivedArticle),
     }
-    render(<WeeklyDvarTorahPage client={client} onBack={vi.fn()} />)
+    render(<WeeklyDvarTorahPage client={client} />)
 
     await screen.findByRole('heading', { name: 'Nitzavim—Choosing Life' })
     expect(getArchive).toHaveBeenCalledWith({ page: 1, pageSize: 10, search: undefined })
@@ -233,7 +241,7 @@ describe('WeeklyDvarTorahPage', () => {
       getArchive: vi.fn().mockResolvedValue(Archive),
       getArchived: vi.fn().mockResolvedValue(ArchivedArticle),
     }
-    render(<WeeklyDvarTorahPage client={client} onBack={vi.fn()} />)
+    render(<WeeklyDvarTorahPage client={client} />)
 
     await user.click(await screen.findByRole('button', { name: 'Past teachings' }))
     await user.click(await screen.findByRole('button', { name: 'Open Responsibility in the Camp' }))
@@ -245,6 +253,16 @@ describe('WeeklyDvarTorahPage', () => {
     expect(await screen.findByRole('heading', { name: 'Explore past Dvar Torahs.' })).toBeVisible()
   })
 })
+
+function createVoice(name: string, lang: string) {
+  return {
+    default: false,
+    lang,
+    localService: true,
+    name,
+    voiceURI: name,
+  } satisfies SpeechSynthesisVoice
+}
 
 function createClient(response: WeeklyDvarTorahResponse, archive: WeeklyDvarTorahArchiveResponse = EmptyArchive): DvarTorahClient {
   return {

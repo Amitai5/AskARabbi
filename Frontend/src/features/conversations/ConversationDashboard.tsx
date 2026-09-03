@@ -447,7 +447,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
 
         {activeView === 'dvarTorah' ? (
           <Suspense fallback={<DvarTorahLoading />}>
-            <WeeklyDvarTorahPage client={dvarTorahClient} onBack={() => setActiveView('conversation')} />
+            <WeeklyDvarTorahPage client={dvarTorahClient} />
           </Suspense>
         ) : activeView === 'settings' ? (
           <SettingsPage user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} onRetryUsage={() => void loadUsage()} onBack={() => setActiveView('conversation')} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />

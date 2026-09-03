@@ -9,6 +9,25 @@ interface DvarTorahReadAloudProps {
 
 type PlaybackState = 'idle' | 'playing' | 'paused'
 
+const PreferredMaleVoiceNames = [
+  'Guy',
+  'Christopher',
+  'Andrew',
+  'Brian',
+  'Eric',
+  'Roger',
+  'Davis',
+  'David',
+  'Mark',
+  'Alex',
+  'Daniel',
+  'Aaron',
+  'Arthur',
+  'Reed',
+  'Fred',
+  'Ralph',
+] as const
+
 export function DvarTorahReadAloud({ title, body }: DvarTorahReadAloudProps) {
   const speechChunks = useMemo(() => createSpeechChunks(title, body), [body, title])
   const [playbackState, setPlaybackState] = useState<PlaybackState>('idle')
@@ -74,6 +93,7 @@ export function DvarTorahReadAloud({ title, body }: DvarTorahReadAloudProps) {
     const utterance = new SpeechSynthesisUtterance(speechChunks[chunkIndex])
     utterance.lang = 'en-US'
     utterance.rate = 0.95
+    utterance.voice = selectPreferredMaleVoice(speechSynthesis)
     utterance.onend = () => {
       utteranceRef.current = null
       speakChunk(playbackId, chunkIndex + 1)
@@ -134,6 +154,33 @@ export function DvarTorahReadAloud({ title, body }: DvarTorahReadAloudProps) {
       {speechError === null ? null : <p className="mt-2 text-sm text-pomegranate" role="alert">{speechError}</p>}
     </div>
   )
+}
+
+function selectPreferredMaleVoice(speechSynthesis: SpeechSynthesis) {
+  if (typeof speechSynthesis.getVoices !== 'function') {
+    return null
+  }
+
+  const englishVoices = speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith('en'))
+  const enhancedVoices = englishVoices.filter((voice) => /\b(natural|neural|premium|enhanced)\b/i.test(voice.name))
+  const enhancedMaleVoice = findKnownMaleVoice(enhancedVoices) ?? enhancedVoices.find((voice) => /\bmale\b/i.test(voice.name))
+  if (enhancedMaleVoice !== undefined) {
+    return enhancedMaleVoice
+  }
+
+  return findKnownMaleVoice(englishVoices) ?? englishVoices.find((voice) => /\bmale\b/i.test(voice.name)) ?? null
+}
+
+function findKnownMaleVoice(voices: readonly SpeechSynthesisVoice[]) {
+  for (const preferredName of PreferredMaleVoiceNames) {
+    const namePattern = new RegExp(`(^|\\W)${preferredName}(\\W|$)`, 'i')
+    const matchingVoice = voices.find((voice) => namePattern.test(voice.name))
+    if (matchingVoice !== undefined) {
+      return matchingVoice
+    }
+  }
+
+  return undefined
 }
 
 function detachUtterance(utterance: SpeechSynthesisUtterance | null) {

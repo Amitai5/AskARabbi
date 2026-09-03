@@ -9,7 +9,6 @@ import type { DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArti
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
-  onBack(): void
 }
 
 const ShabbatDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -31,7 +30,7 @@ const ArchivePageSize = 10
 
 type WeeklyLearningView = 'current' | 'archive' | 'archivedArticle'
 
-export function WeeklyDvarTorahPage({ client, onBack }: WeeklyDvarTorahPageProps) {
+export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
   const [publication, setPublication] = useState<WeeklyDvarTorahResponse | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -202,12 +201,7 @@ export function WeeklyDvarTorahPage({ client, onBack }: WeeklyDvarTorahPageProps
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <section ref={scrollAreaRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-labelledby="weekly-dvar-torah-title">
         <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 sm:pt-9">
-          <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-ink-soft transition hover:text-pomegranate">
-            <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
-            Back to conversation
-          </button>
-
-          <div className="mt-3 max-w-[46rem]">
+          <div className="max-w-[46rem]">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pomegranate">Weekly Dvar Torah</p>
             <h1 id="weekly-dvar-torah-title" className="mt-2 font-display text-[clamp(2.15rem,4vw,3.1rem)] leading-[1.04] tracking-[-0.04em] text-ink">
               A teaching for the week.
