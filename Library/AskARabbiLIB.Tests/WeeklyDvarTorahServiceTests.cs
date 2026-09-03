@@ -56,6 +56,57 @@ public sealed class WeeklyDvarTorahServiceTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public async Task SearchArchive_ValidQuery_NormalizesAndForwardsPastWeekBounds()
+    {
+        var archive = new WeeklyDvarTorahArchiveResult([], 12);
+        var store = new RecordingStore { Archive = archive };
+        var service = CreateService(store);
+
+        var result = await service.SearchArchiveAsync("  responsibility  ", 2, 10);
+
+        Assert.AreEqual(archive, result);
+        Assert.IsFalse(store.ArchiveInIsrael);
+        Assert.AreEqual(CurrentWeek.ShabbatDate, store.ArchiveBefore);
+        Assert.AreEqual("responsibility", store.ArchiveSearch);
+        Assert.AreEqual(10, store.ArchiveSkip);
+        Assert.AreEqual(10, store.ArchiveLimit);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void SearchArchive_InvalidQuery_ThrowsBeforeStoreCall()
+    {
+        var store = new RecordingStore();
+        var service = CreateService(store);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => service.SearchArchiveAsync(null, 0, 10));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => service.SearchArchiveAsync(null, 1, 51));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => service.SearchArchiveAsync(null, int.MaxValue, 10));
+        Assert.ThrowsExactly<ArgumentException>(() => service.SearchArchiveAsync(new string('x', WeeklyDvarTorahService.MaximumArchiveSearchCharacters + 1)));
+        Assert.AreEqual(0, store.ArchiveCalls);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GetArchived_PastConfiguredCycle_LoadsArticleWhileInvalidKeysDoNotQueryStore()
+    {
+        var previous = CreateArticle(CreatePreviousWeek());
+        var store = new RecordingStore { Archived = previous };
+        var service = CreateService(store);
+
+        var result = await service.GetArchivedAsync(previous.Week.WeekKey);
+        var currentResult = await service.GetArchivedAsync(CurrentWeek.WeekKey);
+        var otherCycleResult = await service.GetArchivedAsync("israel:2026-08-29");
+
+        Assert.AreEqual(previous, result);
+        Assert.IsNull(currentResult);
+        Assert.IsNull(otherCycleResult);
+        Assert.AreEqual(1, store.ArchivedCalls);
+        Assert.AreEqual(previous.Week.WeekKey, store.ArchivedWeekKey);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public void GetCurrentWeek_ConfiguredIsraelCycle_UsesUtcCivilDateAndIsraelReading()
     {
         var calendar = new RecordingCalendar(new WeeklyParashahInfo(CurrentWeek.ShabbatDate, CurrentWeek.ShabbatDate, "Nitzavim", null, CurrentWeek.HebrewDate, true, "Test"));
@@ -171,11 +222,31 @@ public sealed class WeeklyDvarTorahServiceTests
 
         internal WeeklyDvarTorahArticle? Latest { get; init; }
 
+        internal WeeklyDvarTorahArticle? Archived { get; init; }
+
+        internal WeeklyDvarTorahArchiveResult Archive { get; init; } = new([], 0);
+
         internal int CurrentCalls { get; private set; }
 
         internal int LatestCalls { get; private set; }
 
         internal DateOnly LatestNotAfter { get; private set; }
+
+        internal int ArchivedCalls { get; private set; }
+
+        internal string? ArchivedWeekKey { get; private set; }
+
+        internal int ArchiveCalls { get; private set; }
+
+        internal bool ArchiveInIsrael { get; private set; }
+
+        internal DateOnly ArchiveBefore { get; private set; }
+
+        internal string? ArchiveSearch { get; private set; }
+
+        internal int ArchiveSkip { get; private set; }
+
+        internal int ArchiveLimit { get; private set; }
 
         public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default)
         {
@@ -188,6 +259,24 @@ public sealed class WeeklyDvarTorahServiceTests
             LatestCalls++;
             LatestNotAfter = notAfter;
             return Task.FromResult(Latest);
+        }
+
+        public Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default)
+        {
+            ArchivedCalls++;
+            ArchivedWeekKey = weekKey;
+            return Task.FromResult(Archived?.Week.WeekKey == weekKey ? Archived : null);
+        }
+
+        public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+        {
+            ArchiveCalls++;
+            ArchiveInIsrael = inIsrael;
+            ArchiveBefore = before;
+            ArchiveSearch = search;
+            ArchiveSkip = skip;
+            ArchiveLimit = limit;
+            return Task.FromResult(Archive);
         }
     }
 

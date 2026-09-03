@@ -106,6 +106,62 @@ public sealed class MongoWeeklyDvarTorahTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public void CreateArchiveFilter_SearchInput_IsEscapedAndRestrictedToPastPublishedCycle()
+    {
+        var registry = BsonSerializer.SerializerRegistry;
+        var serializer = registry.GetSerializer<MongoWeeklyDvarTorahDocument>();
+
+        var filter = MongoWeeklyDvarTorahStore.CreateArchiveFilter(false, new DateOnly(2026, 9, 5), "care.*");
+        var serialized = filter.Render(new RenderArgs<MongoWeeklyDvarTorahDocument>(serializer, registry)).ToJson();
+
+        StringAssert.Contains(serialized, "\"inIsrael\" : false");
+        StringAssert.Contains(serialized, MongoWeeklyDvarTorahStore.PublishedStatus);
+        StringAssert.Contains(serialized, "\"shabbatDate\" : { \"$lt\"");
+        StringAssert.Contains(serialized, "care\\\\.\\\\*");
+        StringAssert.Contains(serialized, "\"tags\"");
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void CreateArchiveProjection_ExcludesArticleBodyAndSources()
+    {
+        var registry = BsonSerializer.SerializerRegistry;
+        var serializer = registry.GetSerializer<MongoWeeklyDvarTorahDocument>();
+
+        var rendered = MongoWeeklyDvarTorahStore.CreateArchiveProjection().Render(new RenderArgs<MongoWeeklyDvarTorahDocument>(serializer, registry)).Document;
+
+        CollectionAssert.AreEquivalent(new[] { "_id", "shabbatDate", "hebrewDate", "parashah", "holiday", "inIsrael", "title", "tags", "publishedAtUtc" }, rendered.Names.ToArray());
+        Assert.IsFalse(rendered.Contains("body"));
+        Assert.IsFalse(rendered.Contains("sources"));
+        Assert.IsFalse(rendered.Contains("centralTeaching"));
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public void ToArchiveItem_CompleteMetadata_ReturnsOnlyTopThreeTags()
+    {
+        var document = new MongoWeeklyDvarTorahArchiveDocument
+        {
+            Id = "diaspora:2026-09-05",
+            ShabbatDate = new DateOnly(2026, 9, 5),
+            HebrewDate = "23 Elul, 5786",
+            Parashah = "Nitzavim",
+            InIsrael = false,
+            Title = "A weekly teaching",
+            Tags = ["responsibility", "community", "dignity", "fourth"],
+            PublishedAtUtc = new DateTime(2026, 8, 31, 18, 0, 0, DateTimeKind.Utc),
+        };
+
+        var result = MongoWeeklyDvarTorahStore.ToArchiveItem(document);
+
+        Assert.AreEqual(document.Id, result.Week.WeekKey);
+        Assert.AreEqual(document.Title, result.Title);
+        CollectionAssert.AreEqual(new[] { "responsibility", "community", "dignity" }, result.Tags.ToArray());
+        Assert.AreEqual(TimeSpan.Zero, result.PublishedAtUtc.Offset);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public void CreateActiveOwnedLeaseFilter_RequiresExactUnexpiredLease()
     {
         var registry = BsonSerializer.SerializerRegistry;

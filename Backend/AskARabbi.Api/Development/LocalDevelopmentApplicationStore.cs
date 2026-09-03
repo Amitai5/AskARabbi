@@ -15,6 +15,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
     private readonly Dictionary<(Guid UserId, DateTimeOffset PeriodStartUtc), int> answerCounts = [];
+    private readonly IReadOnlyList<WeeklyDvarTorahArticle> weeklyDvarTorahs = CreateWeeklyDvarTorahs();
     private UserAccount? account;
 
     /// <inheritdoc/>
@@ -235,13 +236,77 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     {
         ArgumentNullException.ThrowIfNull(week);
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<WeeklyDvarTorahArticle?>(null);
+        return Task.FromResult(weeklyDvarTorahs.FirstOrDefault(article => article.Week.WeekKey == week.WeekKey));
     }
 
     /// <inheritdoc/>
     public Task<WeeklyDvarTorahArticle?> GetLatestPublishedAsync(bool inIsrael, DateOnly notAfter, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<WeeklyDvarTorahArticle?>(null);
+        var article = weeklyDvarTorahs.Where(candidate => candidate.Week.InIsrael == inIsrael && candidate.Week.ShabbatDate <= notAfter).OrderByDescending(candidate => candidate.Week.ShabbatDate).FirstOrDefault();
+        return Task.FromResult(article);
+    }
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(weeklyDvarTorahs.FirstOrDefault(article => article.Week.WeekKey == weekKey));
+    }
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var candidates = weeklyDvarTorahs
+            .Where(article => article.Week.InIsrael == inIsrael && article.Week.ShabbatDate < before)
+            .Where(article => MatchesWeeklyDvarTorahSearch(article, search))
+            .OrderByDescending(article => article.Week.ShabbatDate)
+            .ToArray();
+        var items = candidates.Skip(skip).Take(limit).Select(article => new WeeklyDvarTorahArchiveItem(article.Week, article.Title, article.Metadata?.Tags.Take(3).ToArray() ?? [], article.PublishedAtUtc)).ToArray();
+        return Task.FromResult(new WeeklyDvarTorahArchiveResult(items, candidates.LongLength));
+    }
+
+    private static bool MatchesWeeklyDvarTorahSearch(WeeklyDvarTorahArticle article, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return true;
+        }
+
+        var values = new[] { article.Title, article.Week.HebrewDate, article.Week.Parashah, article.Week.Holiday, article.Week.ShabbatDate.ToString("yyyy-MM-dd") }
+            .Concat(article.Metadata?.Tags ?? []);
+        return values.Any(value => value?.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private static IReadOnlyList<WeeklyDvarTorahArticle> CreateWeeklyDvarTorahs()
+    {
+        (DateOnly Date, string HebrewDate, string Parashah, string Title, string[] Tags)[] publications =
+        [
+            (new DateOnly(2026, 9, 5), "23 Elul, 5786", "Nitzavim", "Standing Together at the Threshold", ["responsibility", "community", "renewal"]),
+            (new DateOnly(2026, 8, 29), "16 Elul, 5786", "Ki Tavo", "Gratitude That Becomes Responsibility", ["gratitude", "responsibility", "community"]),
+            (new DateOnly(2026, 8, 22), "9 Elul, 5786", "Ki Teitzei", "The Dignity Hidden in Daily Choices", ["dignity", "ethics", "daily life"]),
+            (new DateOnly(2026, 8, 15), "2 Elul, 5786", "Shoftim", "Justice Begins Close to Home", ["justice", "leadership", "community"]),
+            (new DateOnly(2026, 8, 8), "25 Av, 5786", "Re'eh", "Learning to See the Choice Before Us", ["choice", "blessing", "attention"]),
+            (new DateOnly(2026, 8, 1), "18 Av, 5786", "Eikev", "The Quiet Work of Listening", ["listening", "covenant", "practice"]),
+            (new DateOnly(2026, 7, 25), "11 Av, 5786", "Va'etchanan", "Love Expressed Through Practice", ["love", "prayer", "practice"]),
+            (new DateOnly(2026, 7, 18), "4 Av, 5786", "Devarim", "The Courage to Retell Our Story", ["memory", "leadership", "truth"]),
+            (new DateOnly(2026, 7, 11), "26 Tammuz, 5786", "Matot-Masei", "Promises, Journeys, and Responsibility", ["promises", "journey", "responsibility"]),
+            (new DateOnly(2026, 7, 4), "19 Tammuz, 5786", "Pinchas", "Zeal Tempered by Covenant", ["covenant", "leadership", "peace"]),
+            (new DateOnly(2026, 6, 27), "12 Tammuz, 5786", "Balak", "Blessing Beyond Our Control", ["blessing", "speech", "humility"]),
+            (new DateOnly(2026, 6, 20), "5 Tammuz, 5786", "Chukat", "Living with Questions We Cannot Resolve", ["mystery", "faith", "grief"]),
+        ];
+
+        return publications.Select(publication => CreateWeeklyDvarTorah(publication.Date, publication.HebrewDate, publication.Parashah, publication.Title, publication.Tags)).ToArray();
+    }
+
+    private static WeeklyDvarTorahArticle CreateWeeklyDvarTorah(DateOnly shabbatDate, string hebrewDate, string parashah, string title, IReadOnlyList<string> tags)
+    {
+        var publishedAtUtc = new DateTimeOffset(shabbatDate.ToDateTime(new TimeOnly(12, 0), DateTimeKind.Utc)).AddDays(-4);
+        var week = new WeeklyDvarTorahWeek(shabbatDate, hebrewDate, parashah, null, false);
+        var source = new WeeklyDvarTorahSource("T1", WeeklyDvarTorahSourceKind.Torah, "Deuteronomy", "Demo study edition", "https://www.sefaria.org/texts/Tanakh/Torah/Deuteronomy", "This local demonstration excerpt represents the weekly Torah reading.", publishedAtUtc.AddDays(-1), $"Parashat {parashah}", license: "CC-BY-NC");
+        var metadata = new WeeklyDvarTorahContentMetadata($"Parashat {parashah} invites deliberate, compassionate responsibility.", tags, [source], 100, "local-demo-v1", "local-demo", publishedAtUtc.AddDays(-7), publishedAtUtc);
+        var body = $"Parashat {parashah} asks us to notice how enduring values become daily actions [T1].\n\n{title} is an invitation to carry study beyond the page: to listen carefully, act with dignity, and strengthen the communities that depend on us.";
+        return new WeeklyDvarTorahArticle(week, title, body, "local-demo-v1", publishedAtUtc, publishedAtUtc, metadata);
     }
 }

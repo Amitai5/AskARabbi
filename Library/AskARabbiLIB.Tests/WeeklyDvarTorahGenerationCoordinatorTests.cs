@@ -219,6 +219,10 @@ public sealed class WeeklyDvarTorahGenerationCoordinatorTests
 
         public Task<WeeklyDvarTorahArticle?> GetLatestPublishedAsync(bool inIsrael, DateOnly notAfter, CancellationToken cancellationToken = default) => Task.FromResult(Published);
 
+        public Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default) => Task.FromResult(Published?.Week.WeekKey == weekKey ? Published : null);
+
+        public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default) => Task.FromResult(new WeeklyDvarTorahArchiveResult([], 0));
+
         public Task<WeeklyDvarTorahGenerationLease?> TryAcquireGenerationLeaseAsync(WeeklyDvarTorahWeek week, string leaseId, DateTimeOffset acquiredAtUtc, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default)
         {
             AcquireCalls++;

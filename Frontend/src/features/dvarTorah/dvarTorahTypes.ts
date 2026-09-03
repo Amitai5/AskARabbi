@@ -39,3 +39,24 @@ export interface WeeklyDvarTorahResponse {
   dvarTorah: WeeklyDvarTorahArticle | null
   isCurrentWeek: boolean
 }
+
+export interface WeeklyDvarTorahArchiveItem {
+  week: DvarTorahWeek
+  title: string
+  tags: string[]
+  publishedAtUtc: string
+}
+
+export interface WeeklyDvarTorahArchiveResponse {
+  items: WeeklyDvarTorahArchiveItem[]
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+}
+
+export interface WeeklyDvarTorahArchiveQuery {
+  search?: string
+  page?: number
+  pageSize?: number
+}

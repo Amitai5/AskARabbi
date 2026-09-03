@@ -60,5 +60,11 @@ public sealed class UnavailableApplicationStore : IUserAccountStore, IConversati
     /// <inheritdoc/>
     public Task<WeeklyDvarTorahArticle?> GetLatestPublishedAsync(bool inIsrael, DateOnly notAfter, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArticle?>(CreateException());
 
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArticle?>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArchiveResult>(CreateException());
+
     private static PersistenceUnavailableException CreateException() => new();
 }

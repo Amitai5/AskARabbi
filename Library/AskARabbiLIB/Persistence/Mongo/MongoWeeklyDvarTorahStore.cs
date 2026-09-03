@@ -1,5 +1,7 @@
 using AskARabbiLIB.DvarTorah;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
@@ -39,6 +41,53 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
             & Builders<MongoWeeklyDvarTorahDocument>.Filter.Lte(document => document.ShabbatDate, notAfter);
         var document = await collection.Find(filter).Sort(CreateLatestPublishedSort()).Limit(1).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         return document is null ? null : ToDomain(document);
+    }
+
+    /// <inheritdoc/>
+    public async Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(weekKey) || weekKey.Length > 64)
+        {
+            throw new ArgumentException("A valid weekly publication key is required.", nameof(weekKey));
+        }
+
+        var filter = Builders<MongoWeeklyDvarTorahDocument>.Filter.Eq(document => document.Id, weekKey.Trim())
+            & Builders<MongoWeeklyDvarTorahDocument>.Filter.Eq(document => document.Status, PublishedStatus);
+        var document = await collection.Find(filter).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return document is null ? null : ToDomain(document);
+    }
+
+    /// <inheritdoc/>
+    public async Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+    {
+        if (skip < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(skip), "The archive offset cannot be negative.");
+        }
+        if (limit is < 1 or > WeeklyDvarTorahService.MaximumArchivePageSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), $"The archive limit must be between one and {WeeklyDvarTorahService.MaximumArchivePageSize}.");
+        }
+
+        var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        if (normalizedSearch?.Length > WeeklyDvarTorahService.MaximumArchiveSearchCharacters)
+        {
+            throw new ArgumentException($"Archive search cannot exceed {WeeklyDvarTorahService.MaximumArchiveSearchCharacters} characters.", nameof(search));
+        }
+
+        var filter = CreateArchiveFilter(inIsrael, before, normalizedSearch);
+        var documentsTask = collection.Find(filter)
+            .Sort(CreateLatestPublishedSort())
+            .Skip(skip)
+            .Limit(limit)
+            .Project(CreateArchiveProjection())
+            .ToListAsync(cancellationToken);
+        var countTask = collection.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+        await Task.WhenAll(documentsTask, countTask).ConfigureAwait(false);
+
+        var documents = await documentsTask.ConfigureAwait(false);
+        var totalCount = await countTask.ConfigureAwait(false);
+        return new WeeklyDvarTorahArchiveResult(documents.Select(ToArchiveItem).ToArray(), totalCount);
     }
 
     /// <inheritdoc/>
@@ -168,6 +217,43 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
 
     internal static SortDefinition<MongoWeeklyDvarTorahDocument> CreateLatestPublishedSort() => Builders<MongoWeeklyDvarTorahDocument>.Sort.Descending(document => document.ShabbatDate);
 
+    internal static FilterDefinition<MongoWeeklyDvarTorahDocument> CreateArchiveFilter(bool inIsrael, DateOnly before, string? search)
+    {
+        var builder = Builders<MongoWeeklyDvarTorahDocument>.Filter;
+        var filter = builder.Eq(document => document.InIsrael, inIsrael)
+            & builder.Eq(document => document.Status, PublishedStatus)
+            & builder.Lt(document => document.ShabbatDate, before);
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return filter;
+        }
+
+        var expression = new BsonRegularExpression(Regex.Escape(search.Trim()), "i");
+        return filter & builder.Or(
+            builder.Regex("title", expression),
+            builder.Regex("parashah", expression),
+            builder.Regex("holiday", expression),
+            builder.Regex("hebrewDate", expression),
+            builder.Regex("shabbatDate", expression),
+            builder.Regex("tags", expression));
+    }
+
+    internal static ProjectionDefinition<MongoWeeklyDvarTorahDocument, MongoWeeklyDvarTorahArchiveDocument> CreateArchiveProjection()
+    {
+        return Builders<MongoWeeklyDvarTorahDocument>.Projection.Expression(document => new MongoWeeklyDvarTorahArchiveDocument
+        {
+            Id = document.Id,
+            ShabbatDate = document.ShabbatDate,
+            HebrewDate = document.HebrewDate,
+            Parashah = document.Parashah,
+            Holiday = document.Holiday,
+            InIsrael = document.InIsrael,
+            Title = document.Title,
+            Tags = document.Tags,
+            PublishedAtUtc = document.PublishedAtUtc,
+        });
+    }
+
     internal static FilterDefinition<MongoWeeklyDvarTorahDocument> CreateOwnedLeaseFilter(WeeklyDvarTorahGenerationLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
@@ -221,6 +307,22 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
 
         var metadata = ToMetadata(document);
         return new WeeklyDvarTorahArticle(week, document.Title, document.Body, document.GeneratorVersion, AsUtc(document.GeneratedAtUtc.Value), AsUtc(document.PublishedAtUtc.Value), metadata);
+    }
+
+    internal static WeeklyDvarTorahArchiveItem ToArchiveItem(MongoWeeklyDvarTorahArchiveDocument document)
+    {
+        if (document.Id is null || document.HebrewDate is null || document.Title is null || document.PublishedAtUtc is null)
+        {
+            throw new InvalidOperationException($"Weekly Dvar Torah archive document '{document.Id ?? "unknown"}' is incomplete.");
+        }
+
+        var week = new WeeklyDvarTorahWeek(document.ShabbatDate, document.HebrewDate, document.Parashah, document.Holiday, document.InIsrael);
+        if (!string.Equals(document.Id, week.WeekKey, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Weekly Dvar Torah archive document '{document.Id}' does not match its reading week.");
+        }
+
+        return new WeeklyDvarTorahArchiveItem(week, document.Title, document.Tags?.Take(3).ToArray() ?? [], AsUtc(document.PublishedAtUtc.Value));
     }
 
     private static MongoWeeklyDvarTorahSourceDocument ToDocument(WeeklyDvarTorahSource source) => new()
