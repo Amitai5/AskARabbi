@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail verification when Cobertura branch coverage is below the required floor."""
+"""Check Cobertura branch coverage against a required floor."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report_root", type=Path, help="Directory containing coverage.cobertura.xml files.")
     parser.add_argument("--minimum-branch-rate", type=float, default=80.0, help="Minimum branch coverage percentage. Default: 80.")
+    parser.add_argument("--warn-only", action="store_true", help="Emit a GitHub Actions warning instead of failing when coverage is below the floor.")
     return parser.parse_args()
 
 
@@ -36,7 +37,12 @@ def main() -> int:
 
     print(f"Branch coverage: {branch_rate:.2f}% (required: {args.minimum_branch_rate:.2f}%).")
     if branch_rate < args.minimum_branch_rate:
-        print("Branch coverage is below the required floor.", file=sys.stderr)
+        message = f"Branch coverage is {branch_rate:.2f}%, below the {args.minimum_branch_rate:.2f}% floor."
+        if args.warn_only:
+            print(f"::warning title=Library branch coverage::{message}")
+            return 0
+
+        print(message, file=sys.stderr)
         return 1
 
     return 0

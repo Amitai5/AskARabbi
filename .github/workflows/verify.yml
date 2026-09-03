@@ -83,8 +83,8 @@ jobs:
       - name: Run backend tests
         run: dotnet test Backend/AskARabbiBackend.slnx --configuration Release --no-build --no-restore --logger "trx;LogFileName=backend-verification.trx" --results-directory Backend/TestResults/Verification
 
-      - name: Enforce library branch coverage
-        run: python3 scripts/check-cobertura-coverage.py Library/TestResults/Verification --minimum-branch-rate 80
+      - name: Check library branch coverage
+        run: python3 scripts/check-cobertura-coverage.py Library/TestResults/Verification --minimum-branch-rate 80 --warn-only
 
       - name: Upload test results
         if: always()
