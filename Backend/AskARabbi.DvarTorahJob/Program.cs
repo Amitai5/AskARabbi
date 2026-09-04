@@ -21,7 +21,13 @@ if (!OperatingSystem.IsWindows())
 
 try
 {
-    var application = new DvarTorahJobApplication(DvarTorahJobEnvironment.IsGenerationEnabled, JobDependencyFactory.CreateCoordinatorAsync, () => Guid.NewGuid().ToString("N"));
+    var application = new DvarTorahJobApplication(
+        DvarTorahJobEnvironment.IsGenerationEnabled,
+        JobDependencyFactory.GenerateAsync,
+        () => Guid.NewGuid().ToString("N"),
+        () => DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__BackfillWeekKey"),
+        JobDependencyFactory.LoadPublishedAsync,
+        JobDependencyFactory.GenerateAudioAsync);
     var result = await application.RunAsync(shutdown.Token).ConfigureAwait(false);
     if (result is null)
     {
@@ -29,10 +35,14 @@ try
     }
     else
     {
-        DvarTorahJobLog.GenerationCompleted(result);
+        DvarTorahJobLog.GenerationCompleted(result.Generation);
+        if (result.Audio is not null)
+        {
+            DvarTorahJobLog.AudioCompleted(result.Generation.Week.WeekKey, result.Audio);
+        }
     }
 
-    return 0;
+    return result?.AudioFailureCode is null ? 0 : 1;
 }
 catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
 {

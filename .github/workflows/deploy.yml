@@ -24,7 +24,8 @@ env:
   ACR_LOGIN_SERVER: askarabbiacrprod.azurecr.io
   API_IMAGE_REPOSITORY: askarabbi-api
   DVAR_TORAH_IMAGE_REPOSITORY: askarabbi-dvar-torah-job
-  CONTAINER_APP_NAME: askarabbi-api
+  CONTAINER_APP_NAME: askarabbi-api-vnet
+  # Keep the existing timer owner until the separately approved schedule cutover.
   DVAR_TORAH_JOB_NAME: askarabbi-weekly-dvar-torah
   DVAR_TORAH_JOB_CRON: "5 8 * * 0"
   DVAR_TORAH_JOB_REPLICA_TIMEOUT: "2100"

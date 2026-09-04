@@ -3,6 +3,7 @@ using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.DvarTorah;
+using AskARabbiLIB.DvarTorah.Audio;
 using AskARabbiLIB.Usage;
 using AskARabbiLIB.Grounding;
 using Microsoft.AspNetCore.DataProtection;
@@ -41,6 +42,10 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     internal FakeGroundedAnswerService GroundedAnswers { get; } = new();
 
     internal InMemoryWeeklyDvarTorahStore WeeklyDvarTorah { get; } = new();
+
+    internal FakeDvarTorahAudioReader DvarTorahAudio { get; } = new();
+
+    internal bool IsAudioEnabled { get; set; } = true;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -93,6 +98,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.RemoveAll<IConversationSettingsStore>();
                 services.RemoveAll<IUsageStore>();
                 services.RemoveAll<IWeeklyDvarTorahStore>();
+                services.RemoveAll<IDvarTorahAudioReader>();
+                services.RemoveAll<DvarTorahAudioOptions>();
 
                 services.AddSingleton<IUserAuthenticationService>(Authentication);
                 services.AddSingleton<IUserAccountStore>(Store);
@@ -100,6 +107,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.AddSingleton<IConversationSettingsStore>(Store);
                 services.AddSingleton<IUsageStore>(Store);
                 services.AddSingleton<IWeeklyDvarTorahStore>(WeeklyDvarTorah);
+                services.AddSingleton<IDvarTorahAudioReader>(DvarTorahAudio);
+                services.AddSingleton(new DvarTorahAudioOptions { Enabled = IsAudioEnabled });
             }
 
             services.AddSingleton<TimeProvider>(new FixedTimeProvider(FixedUtcNow));

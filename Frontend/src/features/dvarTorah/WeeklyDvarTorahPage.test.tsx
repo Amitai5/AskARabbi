@@ -1,8 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
-import { createSpeechChunks } from './dvarTorahSpeech.ts'
+import { normalizeDvarTorahText } from './dvarTorahText.ts'
 import { WeeklyDvarTorahPage } from './WeeklyDvarTorahPage.tsx'
 import type { WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse } from './dvarTorahTypes.ts'
 
@@ -99,18 +99,12 @@ const EmptyArchive: WeeklyDvarTorahArchiveResponse = {
 }
 
 afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe('WeeklyDvarTorahPage', () => {
-  it('breaks long readings into browser-safe speech chunks', () => {
-    const chunks = createSpeechChunks('A weekly teaching', `A deliberately long sentence ${'with meaningful words '.repeat(40)}. A short conclusion.`)
-
-    expect(chunks.length).toBeGreaterThan(1)
-    expect(chunks.every((chunk) => chunk.length <= 240)).toBe(true)
-    expect(chunks.join(' ')).toContain('A short conclusion.')
-  })
-
   it('renders normalized typography, the holiday, and chat-style source references', async () => {
     const user = userEvent.setup()
     const client = createClient(Publication)
@@ -142,52 +136,54 @@ describe('WeeklyDvarTorahPage', () => {
     expect(newsReference).toHaveFocus()
   })
 
-  it('reads the normalized teaching aloud and supports pause, resume, and stop', async () => {
+  it('streams the recording, highlights normalized text, preserves sources, and supports pause, seek, and speed', async () => {
     const user = userEvent.setup()
-    const speech = {
-      cancel: vi.fn(),
-      getVoices: vi.fn(() => [
-        createVoice('Microsoft Zira - English (United States)', 'en-US'),
-        createVoice('Microsoft David - English (United States)', 'en-US'),
-        createVoice('Microsoft Guy Online (Natural) - English (United States)', 'en-US'),
-      ]),
-      pause: vi.fn(),
-      resume: vi.fn(),
-      speak: vi.fn(),
-    }
-    class TestUtterance {
-      readonly text: string
-      lang = ''
-      rate = 1
-      voice: SpeechSynthesisVoice | null = null
-      onend: (() => void) | null = null
-      onerror: ((event: { error: string }) => void) | null = null
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      this.dispatchEvent(new Event('playing'))
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+    const article = Publication.dvarTorah!
+    const body = normalizeDvarTorahText(article.body)
+    const client = createClient({ ...Publication, dvarTorah: { ...article, audio: { version: 'v1', voice: 'Andrew', durationMs: 20_000, audioUrl: '', timingsUrl: '' } } })
+    client.getAudioTimings = vi.fn().mockResolvedValue({ schemaVersion: 1, version: 'v1', title: normalizeDvarTorahText(article.title), body, durationMs: 20_000, words: [
+      { section: 'body', text: 'God’s', textOffset: body.indexOf('God’s'), textLength: 5, audioOffsetMs: 1000, durationMs: 700 },
+      { section: 'body', text: 'Experts', textOffset: body.indexOf('Experts'), textLength: 7, audioOffsetMs: 2000, durationMs: 700 },
+    ] })
+    const { unmount } = render(<WeeklyDvarTorahPage client={client} />)
 
-      constructor(text: string) {
-        this.text = text
-      }
-    }
-    vi.stubGlobal('speechSynthesis', speech)
-    vi.stubGlobal('SpeechSynthesisUtterance', TestUtterance)
-    render(<WeeklyDvarTorahPage client={createClient(Publication)} />)
+    const listen = await screen.findByRole('button', { name: 'Listen to this teaching' })
+    const audio = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
+    expect(audio).toHaveAttribute('preload', 'none')
+    expect(audio).toHaveAttribute('crossorigin', 'use-credentials')
+    expect(audio).not.toHaveAttribute('src')
+    expect(client.getAudioTimings).not.toHaveBeenCalled()
+    await user.click(listen)
 
-    await user.click(await screen.findByRole('button', { name: 'Read this Dvar Torah aloud' }))
-
-    expect(speech.speak).toHaveBeenCalledTimes(1)
-    const utterance = speech.speak.mock.calls[0][0] as TestUtterance
-    expect(utterance.text).toContain('Nitzavim—Choosing Life. Some matters remain in God’s domain.')
-    expect(utterance.text).toContain('Experts called it “clear guidance”—and acted')
-    expect(utterance.text).not.toContain('[TA]')
-    expect(utterance.lang).toBe('en-US')
-    expect(utterance.voice?.name).toBe('Microsoft Guy Online (Natural) - English (United States)')
-
-    await user.click(screen.getByRole('button', { name: 'Pause reading' }))
-    expect(speech.pause).toHaveBeenCalledTimes(1)
-    await user.click(screen.getByRole('button', { name: 'Resume reading' }))
-    expect(speech.resume).toHaveBeenCalledTimes(1)
-    await user.click(screen.getByRole('button', { name: 'Stop reading' }))
-    expect(speech.cancel).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('button', { name: 'Read this Dvar Torah aloud' })).toBeVisible()
+    expect(play).toHaveBeenCalledTimes(1)
+    expect(audio.src).toContain('/audio?version=v1')
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
+    act(() => {
+      audio.currentTime = 1.2
+      fireEvent.timeUpdate(audio)
+    })
+    await waitFor(() => expect(document.querySelector('mark')).toHaveTextContent('God’s'))
+    await user.click(screen.getByRole('button', { name: 'Pause recording' }))
+    expect(pause).toHaveBeenCalledTimes(1)
+    fireEvent.change(screen.getByRole('slider', { name: 'Recording position' }), { target: { value: '2.2' } })
+    expect(document.querySelector('mark')).toHaveTextContent('Experts')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Playback speed' }), '1.5')
+    expect(audio.playbackRate).toBe(1.5)
+    await user.click(screen.getByRole('button', { name: 'View source 1' }))
+    expect(screen.getByRole('dialog', { name: 'Source reader' })).toBeVisible()
+    await user.click(within(screen.getByRole('dialog', { name: 'Source reader' })).getByRole('button', { name: 'Close source reader' }))
+    await user.click(screen.getByRole('button', { name: 'Resume recording' }))
+    expect(play).toHaveBeenCalledTimes(2)
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
+    unmount()
+    expect(pause).toHaveBeenCalledTimes(2)
+    expect(audio).not.toHaveAttribute('src')
   })
 
   it('loads the newest ten archive records, shows their metadata, searches, and pages', async () => {
@@ -204,6 +200,7 @@ describe('WeeklyDvarTorahPage', () => {
       return page === 2 ? secondPage : Archive
     })
     const client: DvarTorahClient = {
+      ...createClient(Publication),
       getCurrent: vi.fn().mockResolvedValue(Publication),
       getArchive,
       getArchived: vi.fn().mockResolvedValue(ArchivedArticle),
@@ -237,6 +234,7 @@ describe('WeeklyDvarTorahPage', () => {
   it('opens a selected past teaching and returns to the archive', async () => {
     const user = userEvent.setup()
     const client: DvarTorahClient = {
+      ...createClient(Publication),
       getCurrent: vi.fn().mockResolvedValue(Publication),
       getArchive: vi.fn().mockResolvedValue(Archive),
       getArchived: vi.fn().mockResolvedValue(ArchivedArticle),
@@ -248,26 +246,18 @@ describe('WeeklyDvarTorahPage', () => {
 
     expect(client.getArchived).toHaveBeenCalledWith('diaspora:2026-08-29')
     expect(await screen.findByRole('heading', { name: 'Responsibility in the Camp' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Read aloud unavailable' })).toBeDisabled()
+    expect(screen.getByText('Audio is not available for this teaching yet.')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Back to past teachings' }))
     expect(await screen.findByRole('heading', { name: 'Explore past Dvar Torahs.' })).toBeVisible()
   })
 })
-
-function createVoice(name: string, lang: string) {
-  return {
-    default: false,
-    lang,
-    localService: true,
-    name,
-    voiceURI: name,
-  } satisfies SpeechSynthesisVoice
-}
 
 function createClient(response: WeeklyDvarTorahResponse, archive: WeeklyDvarTorahArchiveResponse = EmptyArchive): DvarTorahClient {
   return {
     getCurrent: vi.fn().mockResolvedValue(response),
     getArchive: vi.fn().mockResolvedValue(archive),
     getArchived: vi.fn().mockResolvedValue(response.dvarTorah ?? ArchivedArticle),
+    getAudioUrl: vi.fn((_weekKey: string, version: string) => `https://api.example.test/audio?version=${version}`),
+    getAudioTimings: vi.fn().mockResolvedValue(null),
   }
 }

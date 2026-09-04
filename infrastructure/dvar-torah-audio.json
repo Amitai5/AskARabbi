@@ -1,0 +1,150 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "type": "string", "defaultValue": "centralus" },
+    "environmentName": { "type": "string", "defaultValue": "askarabbi-production-private-env" },
+    "vnetName": { "type": "string", "defaultValue": "askarabbi-production-vnet" },
+    "storageName": { "type": "string", "defaultValue": "askarabbiaudioprod" },
+    "containerName": { "type": "string", "defaultValue": "dvar-torah-audio" },
+    "logWorkspaceName": { "type": "string", "defaultValue": "askarabbi-loganalytics" }
+  },
+  "variables": {
+    "vnetId": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
+    "storageId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageName'))]",
+    "dnsZone": "privatelink.blob.core.windows.net",
+    "privateEndpointName": "[concat(parameters('storageName'), '-blob-pe')]",
+    "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logWorkspaceName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-05-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "tags": { "application": "AskARabbi", "purpose": "Private narration storage" },
+      "properties": {
+        "addressSpace": { "addressPrefixes": ["10.82.0.0/16"] },
+        "subnets": [
+          {
+            "name": "container-apps",
+            "properties": {
+              "addressPrefix": "10.82.0.0/23",
+              "delegations": [{ "name": "container-apps", "properties": { "serviceName": "Microsoft.App/environments" } }]
+            }
+          },
+          {
+            "name": "private-endpoints",
+            "properties": {
+              "addressPrefix": "10.82.2.0/27",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('storageName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": { "name": "Standard_LRS" },
+      "tags": { "application": "AskARabbi", "purpose": "Private Dvar Torah audio" },
+      "properties": {
+        "accessTier": "Hot",
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
+        "publicNetworkAccess": "Disabled",
+        "networkAcls": { "defaultAction": "Deny", "bypass": "None" }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('storageName'), '/default')]",
+      "dependsOn": ["[variables('storageId')]"],
+      "properties": {
+        "deleteRetentionPolicy": { "enabled": true, "days": 7 },
+        "containerDeleteRetentionPolicy": { "enabled": true, "days": 7 }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('storageName'), '/default/', parameters('containerName'))]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageName'), 'default')]"],
+      "properties": { "publicAccess": "None" }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2020-06-01",
+      "name": "[variables('dnsZone')]",
+      "location": "global",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2020-06-01",
+      "name": "[concat(variables('dnsZone'), '/', parameters('vnetName'))]",
+      "location": "global",
+      "dependsOn": ["[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZone'))]", "[variables('vnetId')]"],
+      "properties": { "virtualNetwork": { "id": "[variables('vnetId')]" }, "registrationEnabled": false }
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-05-01",
+      "name": "[variables('privateEndpointName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": ["[variables('storageId')]", "[variables('vnetId')]"],
+      "properties": {
+        "subnet": { "id": "[concat(variables('vnetId'), '/subnets/private-endpoints')]" },
+        "privateLinkServiceConnections": [
+          {
+            "name": "blob",
+            "properties": { "privateLinkServiceId": "[variables('storageId')]", "groupIds": ["blob"] }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-05-01",
+      "name": "[concat(variables('privateEndpointName'), '/blob')]",
+      "dependsOn": ["[resourceId('Microsoft.Network/privateEndpoints', variables('privateEndpointName'))]", "[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZone'))]"],
+      "properties": {
+        "privateDnsZoneConfigs": [{ "name": "blob", "properties": { "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZone'))]" } }]
+      }
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2025-01-01",
+      "name": "[parameters('environmentName')]",
+      "location": "[parameters('location')]",
+      "tags": { "application": "AskARabbi", "purpose": "Private storage access" },
+      "dependsOn": ["[variables('vnetId')]"],
+      "properties": {
+        "infrastructureResourceGroup": "[concat('ME-', parameters('environmentName'))]",
+        "vnetConfiguration": {
+          "infrastructureSubnetId": "[concat(variables('vnetId'), '/subnets/container-apps')]",
+          "internal": false
+        },
+        "workloadProfiles": [{ "name": "Consumption", "workloadProfileType": "Consumption" }],
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(variables('workspaceId'), '2023-09-01').customerId]",
+            "sharedKey": "[listKeys(variables('workspaceId'), '2023-09-01').primarySharedKey]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "environmentId": { "type": "string", "value": "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]" },
+    "storageServiceUri": { "type": "string", "value": "[reference(variables('storageId'), '2023-05-01').primaryEndpoints.blob]" },
+    "containerScope": { "type": "string", "value": "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', parameters('storageName'), 'default', parameters('containerName'))]" }
+  }
+}

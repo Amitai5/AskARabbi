@@ -15,6 +15,8 @@ const dvarTorahClient: DvarTorahClient = {
   }),
   getArchive: () => Promise.resolve({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 }),
   getArchived: () => Promise.reject(new Error('No archived articles in this fixture.')),
+  getAudioUrl: () => '',
+  getAudioTimings: () => Promise.resolve(null),
 }
 
 describe('Background conversation navigation', () => {

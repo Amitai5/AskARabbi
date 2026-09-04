@@ -55,6 +55,9 @@ public sealed record WeeklyDvarTorahArticle
     /// <summary>Gets searchable source, grounding, and safety metadata when available.</summary>
     public WeeklyDvarTorahContentMetadata? Metadata { get; }
 
+    /// <summary>Gets optional narration metadata; published text remains available while audio is missing or being generated.</summary>
+    public Audio.WeeklyDvarTorahAudioMetadata? Audio { get; init; }
+
     /// <summary>Gets the UTC generation-completion time.</summary>
     public DateTimeOffset GeneratedAtUtc { get; }
 

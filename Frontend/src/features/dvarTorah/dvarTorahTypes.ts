@@ -32,6 +32,33 @@ export interface WeeklyDvarTorahArticle {
   torahGroundingPercent: number | null
   generatedAtUtc: string
   publishedAtUtc: string
+  audio?: WeeklyDvarTorahAudio | null
+}
+
+export interface WeeklyDvarTorahAudio {
+  version: string
+  voice: string
+  durationMs: number
+  audioUrl: string
+  timingsUrl: string
+}
+
+export interface DvarTorahAudioWord {
+  section: 'title' | 'body'
+  text: string
+  textOffset: number
+  textLength: number
+  audioOffsetMs: number
+  durationMs: number
+}
+
+export interface DvarTorahAudioTimings {
+  schemaVersion: 1
+  version: string
+  title: string
+  body: string
+  durationMs: number
+  words: DvarTorahAudioWord[]
 }
 
 export interface WeeklyDvarTorahResponse {

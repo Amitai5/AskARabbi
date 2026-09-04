@@ -3,6 +3,7 @@ using AskARabbiLIB.AI;
 using AskARabbiLIB.Calendar;
 using AskARabbiLIB.CurrentEvents;
 using AskARabbiLIB.DvarTorah;
+using AskARabbiLIB.DvarTorah.Audio;
 using AskARabbiLIB.Persistence.Mongo;
 using AskARabbiLIB.Retrieval;
 using Azure.Core;
@@ -16,16 +17,54 @@ internal static class JobDependencyFactory
     private static readonly HttpClient NewsHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
     private static readonly HttpClient AzureVectorStoreHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
 
+    internal static async Task<WeeklyDvarTorahGenerationResult> GenerateAsync(string invocationId, CancellationToken cancellationToken)
+    {
+        var coordinator = await CreateCoordinatorAsync(cancellationToken).ConfigureAwait(false);
+        return await coordinator.RunAsync(invocationId, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static Task<WeeklyDvarTorahArticle?> LoadPublishedAsync(string weekKey, CancellationToken cancellationToken)
+    {
+        if (!DvarTorahJobEnvironment.GetBoolean("DvarTorahAudio__Enabled", false))
+        {
+            throw new DvarTorahJobConfigurationException("DvarTorahAudio__Enabled must be true for an audio-only backfill.");
+        }
+
+        var database = CreateDatabase(out var options);
+        return new MongoWeeklyDvarTorahStore(database, options).GetPublishedByWeekKeyAsync(weekKey, cancellationToken);
+    }
+
+    internal static async Task<WeeklyDvarTorahAudioResult> GenerateAudioAsync(WeeklyDvarTorahArticle article, string invocationId, CancellationToken cancellationToken)
+    {
+        if (!DvarTorahJobEnvironment.GetBoolean("DvarTorahAudio__Enabled", false))
+        {
+            return new WeeklyDvarTorahAudioResult(WeeklyDvarTorahAudioStatus.Disabled, null);
+        }
+
+        var options = new DvarTorahAudioOptions
+        {
+            Enabled = true,
+            StorageServiceUri = DvarTorahJobEnvironment.GetRequired("DvarTorahAudio__StorageServiceUri"),
+            ContainerName = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__ContainerName") ?? "dvar-torah-audio",
+            SpeechRegion = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__SpeechRegion") ?? "eastus2",
+            SpeechResourceId = DvarTorahJobEnvironment.GetRequired("DvarTorahAudio__SpeechResourceId"),
+            Voice = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__Voice") ?? "en-US-AndrewMultilingualNeural",
+            FfmpegPath = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__FfmpegPath") ?? "ffmpeg",
+            LeaseDuration = TimeSpan.FromMinutes(DvarTorahJobEnvironment.GetInteger("DvarTorahAudio__LeaseMinutes", 30)),
+        };
+        options.ValidateGeneration();
+
+        var credential = CreateCredential();
+        var database = CreateDatabase(out var databaseOptions);
+        var store = new MongoWeeklyDvarTorahAudioStore(database, databaseOptions);
+        var narrator = new AzureSpeechDvarTorahNarrator(options, credential, new FfmpegDvarTorahMp3Encoder(options));
+        var storage = new AzureBlobDvarTorahAudioStorage(options, credential);
+        var coordinator = new WeeklyDvarTorahAudioCoordinator(store, narrator, storage, TimeProvider.System, options);
+        return await coordinator.RunAsync(article, invocationId, cancellationToken).ConfigureAwait(false);
+    }
+
     internal static async Task<WeeklyDvarTorahGenerationCoordinator> CreateCoordinatorAsync(CancellationToken cancellationToken)
     {
-        var databaseOptions = new MongoDatabaseOptions
-        {
-            ConnectionString = DvarTorahJobEnvironment.GetRequired("MongoDB__ConnectionString"),
-            DatabaseName = DvarTorahJobEnvironment.GetOptional("MongoDB__DatabaseName") ?? "askarabbi",
-            DvarTorahCollectionName = DvarTorahJobEnvironment.GetOptional("MongoDB__DvarTorahCollectionName") ?? "WeeklyAIDvarTorahs",
-        };
-        databaseOptions.Validate();
-
         var dvarTorahOptions = new WeeklyDvarTorahOptions
         {
             InIsrael = DvarTorahJobEnvironment.GetBoolean("DvarTorah__InIsrael", false),
@@ -55,8 +94,7 @@ internal static class JobDependencyFactory
         var corpusFingerprint = DvarTorahJobEnvironment.GetRequired("AI__CorpusFingerprint");
         var timeoutSeconds = DvarTorahJobEnvironment.GetInteger("AI__TimeoutSeconds", 300);
         var retryCount = DvarTorahJobEnvironment.GetInteger("AI__MaximumRetryCount", 1);
-        var tenantId = DvarTorahJobEnvironment.GetOptional("AI__TenantId");
-        TokenCredential credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = tenantId });
+        var credential = CreateCredential();
         var manifest = await new ManifestLoader().LoadAsync(Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json"), cancellationToken).ConfigureAwait(false);
         var vectorClient = new AzureOpenAIVectorStoreClient(
             new AzureOpenAIVectorStoreClientOptions
@@ -100,11 +138,31 @@ internal static class JobDependencyFactory
         var currentEvents = new FreeRssCurrentEventsSource(NewsHttpClient, FreeNewsFeedCatalog.Default, timeProvider: TimeProvider.System, feedFailureObserver: DvarTorahJobLog.NewsFeedFailed);
         var generator = new GroundedWeeklyDvarTorahGenerator(currentEvents, retriever, generationEngine, reviewEngine, prompts, contentOptions, TimeProvider.System);
 
-        var mongoClient = new MongoClient(MongoClientSettings.FromConnectionString(databaseOptions.ConnectionString));
-        var database = mongoClient.GetDatabase(databaseOptions.DatabaseName);
+        var database = CreateDatabase(out var databaseOptions);
         var store = new MongoWeeklyDvarTorahStore(database, databaseOptions);
         var timeProvider = TimeProvider.System;
         var weeklyService = new WeeklyDvarTorahService(new HebrewCalendarService(), store, timeProvider, dvarTorahOptions);
         return new WeeklyDvarTorahGenerationCoordinator(store, generator, weeklyService, timeProvider, dvarTorahOptions);
+    }
+
+    private static IMongoDatabase CreateDatabase(out MongoDatabaseOptions options)
+    {
+        options = new MongoDatabaseOptions
+        {
+            ConnectionString = DvarTorahJobEnvironment.GetRequired("MongoDB__ConnectionString"),
+            DatabaseName = DvarTorahJobEnvironment.GetOptional("MongoDB__DatabaseName") ?? "askarabbi",
+            DvarTorahCollectionName = DvarTorahJobEnvironment.GetOptional("MongoDB__DvarTorahCollectionName") ?? "WeeklyAIDvarTorahs",
+        };
+        options.Validate();
+        var client = new MongoClient(MongoClientSettings.FromConnectionString(options.ConnectionString));
+        return client.GetDatabase(options.DatabaseName);
+    }
+
+    private static TokenCredential CreateCredential()
+    {
+        var environment = DvarTorahJobEnvironment.GetOptional("DOTNET_ENVIRONMENT") ?? DvarTorahJobEnvironment.GetOptional("ASPNETCORE_ENVIRONMENT");
+        return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase)
+            ? new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = DvarTorahJobEnvironment.GetOptional("AI__TenantId") })
+            : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned);
     }
 }

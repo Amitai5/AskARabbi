@@ -27,7 +27,9 @@ internal sealed class InMemoryWeeklyDvarTorahStore : IWeeklyDvarTorahStore
     public Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var article = ArchivedArticles.FirstOrDefault(candidate => candidate.Week.WeekKey == weekKey);
+        var article = ArchivedArticles.FirstOrDefault(candidate => candidate.Week.WeekKey == weekKey)
+            ?? (CurrentArticle?.Week.WeekKey == weekKey ? CurrentArticle : null)
+            ?? (LatestArticle?.Week.WeekKey == weekKey ? LatestArticle : null);
         return Task.FromResult(article);
     }
 

@@ -1,5 +1,6 @@
 using AskARabbi.Api.Contracts.DvarTorah;
 using AskARabbiLIB.DvarTorah;
+using AskARabbiLIB.DvarTorah.Audio;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,12 +13,15 @@ namespace AskARabbi.Api.Controllers;
 public sealed class DvarTorahController : ControllerBase
 {
     private readonly WeeklyDvarTorahService weeklyDvarTorah;
+    private readonly DvarTorahAudioOptions audioOptions;
 
     /// <summary>Initializes the weekly Dvar Torah API.</summary>
     /// <param name="weeklyDvarTorah">Weekly publication service.</param>
-    public DvarTorahController(WeeklyDvarTorahService weeklyDvarTorah)
+    /// <param name="audioOptions">Private audio availability configuration.</param>
+    public DvarTorahController(WeeklyDvarTorahService weeklyDvarTorah, DvarTorahAudioOptions audioOptions)
     {
         this.weeklyDvarTorah = weeklyDvarTorah ?? throw new ArgumentNullException(nameof(weeklyDvarTorah));
+        this.audioOptions = audioOptions ?? throw new ArgumentNullException(nameof(audioOptions));
     }
 
     /// <summary>Gets this week's publication or the latest earlier publication while this week is pending.</summary>
@@ -74,7 +78,7 @@ public sealed class DvarTorahController : ControllerBase
         return article is null ? NotFound() : Ok(ToResponse(article));
     }
 
-    private static WeeklyDvarTorahArticleResponse ToResponse(WeeklyDvarTorahArticle article) => new(
+    private WeeklyDvarTorahArticleResponse ToResponse(WeeklyDvarTorahArticle article) => new(
         ToResponse(article.Week),
         article.Title,
         article.Body,
@@ -83,7 +87,20 @@ public sealed class DvarTorahController : ControllerBase
         article.Metadata?.Sources.Select(ToResponse).ToArray() ?? [],
         article.Metadata?.TorahGroundingPercent,
         article.GeneratedAtUtc,
-        article.PublishedAtUtc);
+        article.PublishedAtUtc,
+        ToAudioResponse(article));
+
+    private WeeklyDvarTorahAudioResponse? ToAudioResponse(WeeklyDvarTorahArticle article)
+    {
+        if (!audioOptions.Enabled || article.Audio is not { } audio)
+        {
+            return null;
+        }
+
+        var basePath = $"/api/dvar-torah/archive/{Uri.EscapeDataString(article.Week.WeekKey)}/audio";
+        var version = Uri.EscapeDataString(audio.Version);
+        return new WeeklyDvarTorahAudioResponse(audio.Version, audio.Voice, audio.DurationMs, $"{basePath}?version={version}", $"{basePath}/timings?version={version}");
+    }
 
     private static WeeklyDvarTorahSourceResponse ToResponse(WeeklyDvarTorahSource source) => new(
         source.SourceId,

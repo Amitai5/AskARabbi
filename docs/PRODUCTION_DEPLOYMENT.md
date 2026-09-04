@@ -22,16 +22,20 @@ The backend now uses Azure Container Apps rather than App Service:
 | Resource group | `AARProduction` |
 | Container registry | `askarabbiacrprod.azurecr.io` |
 | Registry SKU | Basic; admin credentials disabled |
-| Container App | `askarabbi-api` |
-| Provider hostname | `askarabbi-api.nicebeach-dd0ab493.centralus.azurecontainerapps.io` |
+| Container App | `askarabbi-api-vnet` |
+| Provider hostname | `askarabbi-api-vnet.nicestone-7ffaddef.centralus.azurecontainerapps.io` |
 | Runtime port | `8080` |
 | API image repository | `askarabbi-api` |
-| Scheduled Container Apps Job | `askarabbi-weekly-dvar-torah` (one-time provisioning still required) |
-| Job image repository | `askarabbi-dvar-torah-job` (created by the first image push) |
+| Scheduled Container Apps Job | `askarabbi-weekly-dvar-torah` |
+| Job image repository | `askarabbi-dvar-torah-job` |
 | Job schedule | `5 8 * * 0` (Sunday 08:05 UTC) |
 | Cosmos MongoDB database | `askarabbi` |
 
 The API uses its system-assigned managed identity to pull from ACR; the scheduled job must be provisioned with its own system identity and `AcrPull` assignment. Runtime secrets remain on the individual Container Apps resources and are not embedded in either image or supplied by the deployment workflow. Managed ASP.NET Core Data Protection is enabled for authentication-cookie continuity across API replicas and revisions.
+
+### Private narration migration
+
+Private Blob narration uses `askarabbi-production-private-env`, API `askarabbi-api-vnet`, and generator `askarabbi-weekly-dvar-torah-vnet`. The API's DNS cutover is approved; the original API remains available for rollback. The weekly schedule remains on the original job until its separate approval: the replacement is Manual and has successfully generated the existing Nitzavim recording. Follow [DVAR_TORAH_AUDIO.md](DVAR_TORAH_AUDIO.md) for scoped roles, backfill, DNS/TLS checks, and ordered timer migration. Storage public network access must remain disabled. After the schedule cutover, update the workflow job name to the replacement and its job timeout to 3600 seconds.
 
 ## Automatic backend deployment
 
@@ -41,7 +45,7 @@ The API uses its system-assigned managed identity to pull from ACR; the schedule
 2. Checks out the exact verified commit SHA.
 3. Authenticates to Azure through GitHub OpenID Connect; no Azure client secret is used.
 4. Builds the API and weekly-job Dockerfiles for Linux AMD64 and pushes commit-SHA tags to their separate ACR repositories.
-5. Updates `askarabbi-api` and `askarabbi-weekly-dvar-torah` to their immutable registry digests instead of mutable tags.
+5. Updates `askarabbi-api-vnet` and the current timer owner `askarabbi-weekly-dvar-torah` to their immutable registry digests instead of mutable tags.
 6. Waits for the API revision to become healthy, calls its public `/health` endpoint, and verifies the job image, Schedule trigger, UTC cron expression, and provisioning state.
 
 Pull requests, failed verification runs, staging branches, and all branches other than `production` cannot enter this deployment job. Deployments are serialized so two production revisions are not updated concurrently. The frontend's separate production deployment remains unchanged.
@@ -59,7 +63,7 @@ Complete this one-time setup before the first workflow run:
    - Audience: `api://AzureADTokenExchange`
 3. Do not create an Entra client secret. The federated credential is the trust boundary.
 4. On ACR `askarabbiacrprod`, assign that service principal the `AcrPush` role at the registry scope. The registry currently uses legacy registry permissions; if it is later migrated to ABAC-enabled repository permissions, replace this with `Container Registry Repository Writer`.
-5. On Container App `askarabbi-api` and Container Apps Job `askarabbi-weekly-dvar-torah`, assign the same service principal `Container Apps Contributor` at each individual resource scope.
+5. On Container App `askarabbi-api-vnet` and the selected Container Apps Job, assign the same service principal `Container Apps Contributor` at each individual resource scope. The replacement job also has this scoped assignment for its later cutover.
 6. In GitHub, open **Settings → Environments → production**. Restrict the environment to the `production` branch and add these environment secrets:
    - `AZURE_CLIENT_ID`: the app registration's Application (client) ID
    - `AZURE_TENANT_ID`: the Microsoft Entra Directory (tenant) ID
@@ -104,7 +108,7 @@ The Container App uses its system-assigned managed identity for Azure OpenAI Res
 
 ### Azure Container Apps configuration
 
-In the Azure portal, open `askarabbi-api` and use **Settings → Secrets** for secret values. Reference those secrets from **Containers → Environment variables** instead of entering the secret values directly as plain environment variables. The deployment workflow updates only the image and preserves this runtime configuration.
+In the Azure portal, open `askarabbi-api-vnet` and use **Settings → Secrets** for secret values. Reference those secrets from **Containers → Environment variables** instead of entering the secret values directly as plain environment variables. The deployment workflow updates only the image and preserves this runtime configuration.
 
 The live deployment temporarily allows both `api.askarabbi.ai` and the Azure provider hostname in `AllowedHosts` so the provider URL can be smoke-tested before DNS is connected. Do not replace the allow-list with `*`. Remove the provider hostname after the custom domain is stable unless Azure health operations still require it.
 

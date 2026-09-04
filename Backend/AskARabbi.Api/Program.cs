@@ -3,6 +3,7 @@ using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Configuration;
 using AskARabbi.Api.Conversations;
 using AskARabbi.Api.Development;
+using AskARabbi.Api.DvarTorahAudio;
 using AskARabbi.Api.Errors;
 using AskARabbi.Api.Persistence;
 using AskARabbi.Api.Usage;
@@ -51,7 +52,7 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<WorkOsCookieAuthenticationEvents>();
 builder.Services.AddCors(options => options.AddPolicy(FrontendCorsOptions.PolicyName, policy =>
 {
-    policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials().WithExposedHeaders("Server-Timing");
+    policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials().WithExposedHeaders("Server-Timing", "Accept-Ranges", "Content-Range", "ETag");
     if (allowedFrontendOrigins.Count > 0)
     {
         policy.WithOrigins([.. allowedFrontendOrigins]);
@@ -78,15 +79,15 @@ var weeklyDvarTorahOptions = builder.Configuration.GetSection(WeeklyDvarTorahOpt
 weeklyDvarTorahOptions.Validate();
 builder.Services.AddSingleton(weeklyDvarTorahOptions);
 builder.Services.AddSingleton<WeeklyDvarTorahService>();
+builder.Services.AddDvarTorahAudio(builder.Configuration, builder.Environment);
 if (groundedChatOptions.IsConfigured)
 {
     var managedManifestPath = Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json");
     var managedManifest = await new ManifestLoader().LoadAsync(managedManifestPath).ConfigureAwait(false);
     builder.Services.AddSingleton(managedManifest);
-    builder.Services.AddSingleton<TokenCredential>(_ => new DefaultAzureCredential(new DefaultAzureCredentialOptions
-    {
-        TenantId = string.IsNullOrWhiteSpace(groundedChatOptions.TenantId) ? null : groundedChatOptions.TenantId,
-    }));
+    builder.Services.AddSingleton<TokenCredential>(_ => builder.Environment.IsDevelopment()
+        ? new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = string.IsNullOrWhiteSpace(groundedChatOptions.TenantId) ? null : groundedChatOptions.TenantId })
+        : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
     builder.Services.AddHttpClient("AzureOpenAIVectorStore", client => client.Timeout = Timeout.InfiniteTimeSpan);
     builder.Services.AddSingleton(provider => new AzureOpenAIVectorStoreClient(
         new AzureOpenAIVectorStoreClientOptions

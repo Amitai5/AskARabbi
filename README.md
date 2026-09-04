@@ -87,6 +87,8 @@ Accounts will provide access to conversation history, source preferences, and us
 
 The signed-in application includes a weekly-learning destination separate from conversation history. It loads only when opened and asks the API for the upcoming Shabbat's publication; if the current teaching is not ready, the API may return the most recent earlier publication without mislabeling it as current. A separate scheduled Azure Container Apps Job owns generation and publication so model latency or retries never block the conversational API.
 
+After text publication, a separate narration coordinator can produce an English/Hebrew Azure Speech recording, store it privately in Hot Blob Storage, and attach versioned audio metadata to the same Mongo document. The authenticated API streams MP3 byte ranges; the browser supports playback, seeking, speed controls, and synchronized word highlighting without downloading a speech model. See [private narration and deployment](docs/DVAR_TORAH_AUDIO.md).
+
 ## Texts and data
 
 The primary planned source is [Sefaria](https://www.sefaria.org/), a nonprofit organization assembling a free, interconnected digital library of Jewish texts in Hebrew and translation. Its library includes Tanakh, Mishnah, Talmud, Midrash, Halakhah, responsa, Jewish thought, and other collections.

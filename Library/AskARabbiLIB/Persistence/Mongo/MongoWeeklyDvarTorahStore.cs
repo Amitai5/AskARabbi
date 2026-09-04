@@ -306,7 +306,10 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
         }
 
         var metadata = ToMetadata(document);
-        return new WeeklyDvarTorahArticle(week, document.Title, document.Body, document.GeneratorVersion, AsUtc(document.GeneratedAtUtc.Value), AsUtc(document.PublishedAtUtc.Value), metadata);
+        return new WeeklyDvarTorahArticle(week, document.Title, document.Body, document.GeneratorVersion, AsUtc(document.GeneratedAtUtc.Value), AsUtc(document.PublishedAtUtc.Value), metadata)
+        {
+            Audio = document.Audio?.ToDomain(),
+        };
     }
 
     internal static WeeklyDvarTorahArchiveItem ToArchiveItem(MongoWeeklyDvarTorahArchiveDocument document)

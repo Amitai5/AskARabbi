@@ -37,6 +37,26 @@ internal sealed class MongoWeeklyDvarTorahDocument
     [BsonIgnoreIfNull]
     public string? Body { get; set; }
 
+    [BsonElement("audio")]
+    [BsonIgnoreIfNull]
+    public MongoWeeklyDvarTorahAudioDocument? Audio { get; set; }
+
+    [BsonElement("audioLeaseId")]
+    [BsonIgnoreIfNull]
+    public string? AudioLeaseId { get; set; }
+
+    [BsonElement("audioLeaseVersion")]
+    [BsonIgnoreIfNull]
+    public string? AudioLeaseVersion { get; set; }
+
+    [BsonElement("audioLeaseExpiresAtUtc")]
+    [BsonIgnoreIfNull]
+    public DateTime? AudioLeaseExpiresAtUtc { get; set; }
+
+    [BsonElement("audioFailureCode")]
+    [BsonIgnoreIfNull]
+    public string? AudioFailureCode { get; set; }
+
     [BsonElement("generatorVersion")]
     [BsonIgnoreIfNull]
     public string? GeneratorVersion { get; set; }

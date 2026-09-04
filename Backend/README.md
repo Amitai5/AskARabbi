@@ -12,12 +12,12 @@ Warm answer requests use one bounded managed-corpus search, up to 20 candidates,
 
 - `AskARabbi.Api` is the production HTTP host and composition root.
 - `AskARabbi.Api.Tests` contains hermetic MSTest integration tests with fake identity, persistence, and time boundaries.
-- `AskARabbi.DvarTorahJob` is a one-shot .NET 10 executable and Docker image for the weekly write path; its generation gate remains disabled until an approved generator replaces the explicit unconfigured implementation.
-- `AskARabbi.DvarTorahJob.Tests` covers the host's disabled and cancellation boundaries without sharing API or conversation test fixtures.
+- `AskARabbi.DvarTorahJob` is a one-shot .NET 10 executable and Docker image for the grounded weekly write path and its post-publication Azure Speech narration.
+- `AskARabbi.DvarTorahJob.Tests` covers disabled execution, publication-before-narration ordering, audio-only backfill, failure recovery, and cancellation without real provider calls.
 - `AskARabbiBackend.slnx` owns all four projects.
 - Both production hosts reference `AskARabbiLIB` for calendar, Dvar Torah orchestration, account, conversation, personalization, usage, and MongoDB contracts and implementations.
 
-The API and library pin `WorkOS.net` 6.2.0, `MongoDB.Driver` 3.11.0, and `Zmanim` 1.5.0. The scheduled job adds no production NuGet dependency: it reuses the library's MongoDB driver, calendar service, and generation coordinator and receives secrets through the Container Apps runtime. WorkOS and MongoDB avoid custom authentication and wire-protocol clients. Zmanim supplies the weekly parashah schedule while .NET supplies numeric Hebrew-calendar conversion. These integrations stay behind narrow services and must remain covered by dependency updates and security scanning. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) for their notices.
+The API and library pin `WorkOS.net` 6.2.0, `MongoDB.Driver` 3.11.0, and `Zmanim` 1.5.0. The shared library also isolates the official Azure Speech and Blob SDKs behind narration/storage boundaries. The weekly job alone installs native Speech dependencies and FFmpeg for one seekable MP3 encode; neither a browser model nor per-listener synthesis is needed. WorkOS and MongoDB avoid custom authentication and wire-protocol clients. Zmanim supplies the weekly parashah schedule while .NET supplies numeric Hebrew-calendar conversion. These integrations must remain covered by dependency updates and security scanning. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) for their notices.
 
 ## Configuration and secrets
 
@@ -90,6 +90,10 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 | `PUT /api/conversations/{id}/sources` | Replaces its approved source selectors. |
 | `DELETE /api/conversations/{id}` | Removes its metadata and message records. |
 | `GET /api/dvar-torah` | Returns the upcoming Shabbat metadata and this week's published Dvar Torah, or the most recent earlier publication while the current week is pending. |
+| `GET /api/dvar-torah/archive` | Searches and pages prior publication metadata. |
+| `GET /api/dvar-torah/archive/{weekKey}` | Returns a prior full publication. |
+| `GET`, `HEAD /api/dvar-torah/archive/{weekKey}/audio` | Authenticated MP3 stream for any published current/past week. Supports a single byte range (`206`), invalid/unsatisfiable range rejection (`416`), conditional reads, and `HEAD` without downloading audio. `download=true` supplies an attachment filename. |
+| `GET /api/dvar-torah/archive/{weekKey}/audio/timings` | Authenticated timing manifest with exact title/body word offsets for highlighting. |
 | `GET /api/conversation-settings/usage` | Returns usage and exact inclusive-start/exclusive-end UTC dates for the current calendar month. |
 | `GET /api/conversation-settings/personalization` | Returns configured personalization or an explicit unconfigured envelope. |
 | `PUT /api/conversation-settings/personalization` | Validates, normalizes, and replaces personalization. |
@@ -102,9 +106,17 @@ Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver
 
 ## Weekly Dvar Torah Container Apps Job
 
-[`AskARabbi.DvarTorahJob`](AskARabbi.DvarTorahJob) is the separate one-shot writer image. The `askarabbi-weekly-dvar-torah` Azure Container Apps Job is scheduled with `5 8 * * 0`, which Azure evaluates as Sunday at 08:05 UTC. Each execution reads the Cosmos Mongo connection string from a job-level secret reference, calculates the upcoming Shabbat with the same pinned calendar service as the API, acquires a recoverable Mongo lease, generates through `IWeeklyDvarTorahGenerator`, and atomically publishes once. Platform retries either return `AlreadyPublished`, observe `GenerationInProgress`, or recover an expired lease.
+[`AskARabbi.DvarTorahJob`](AskARabbi.DvarTorahJob) is the separate one-shot writer image. The VNet-integrated `askarabbi-weekly-dvar-torah-vnet` Azure Container Apps Job is scheduled with `5 8 * * 0`, which Azure evaluates as Sunday at 08:05 UTC. Each execution reads the Cosmos Mongo connection string from a job-level secret reference, calculates the upcoming Shabbat with the same pinned calendar service as the API, acquires a recoverable Mongo lease, generates grounded text through `IWeeklyDvarTorahGenerator`, and atomically publishes once. Platform retries either return `AlreadyPublished`, observe `GenerationInProgress`, or recover an expired lease.
 
-The content generator is deliberately not implemented in this milestone. `DvarTorah__GenerationEnabled` defaults to `false`, so scheduled executions exit successfully before loading MongoDB configuration; the current generator remains an explicit failure if the gate is enabled prematurely and never writes placeholder religious content. Follow the job [README](AskARabbi.DvarTorahJob/README.md) when the prompt, sources, validation, model, and publishing policy are approved.
+`DvarTorah__GenerationEnabled` defaults to `false`; the explicit production configuration enables the grounded publication pipeline. After publication, a separate audio coordinator optionally generates an English/Hebrew recording with Azure Speech, stores the MP3 and word timings in Hot-tier private Blob Storage, and attaches recording metadata to the Mongo article. Audio has its own recoverable lease and immutable content/voice version: retries reuse completed uploads, and any audio failure leaves the published text unchanged. An explicit single-week backfill mode does not invoke the text generator. Follow the job [README](AskARabbi.DvarTorahJob/README.md) for configuration and recovery.
+
+### Authenticated narration contract
+
+Publication responses add nullable `audio: { version, voice, durationMs, audioUrl, timingsUrl }`. Older records without audio remain readable and return `audio: null`. The URLs point only to authenticated API routes; private Blob URIs are retained server-side, never returned as SAS or public links. Both audio routes accept `?version=...` and return `409` if the recording changed, preventing an old manifest from highlighting new audio. Versioned responses use private browser caching; shared/CDN caching is prohibited. The stream uses bounded Blob ranges instead of buffering the MP3 in API memory. The API never synthesizes recordings during a read.
+
+The timing response has `schemaVersion: 1`, `version`, `voice`, exact normalized `title` and `body`, `durationMs`, `textOffsetUnit: "UTF-16 code units"`, and `words: [{ section, text, textOffset, textLength, audioOffsetMs, durationMs }]`. The frontend only highlights when the manifest matches the displayed article and active version, and starts the normal authenticated MP3 stream on user interaction. Missing audio returns `404`; storage/manifest failures return a safe `503` while the article remains readable.
+
+API narration configuration is secret-free: `DvarTorahAudio__Enabled=true`, `DvarTorahAudio__StorageServiceUri=https://<account>.blob.core.windows.net/`, and `DvarTorahAudio__ContainerName=dvar-torah-audio`. When disabled, no storage client or credential is created. Production uses the API's system-assigned identity with `Storage Blob Data Reader` on the private container. The job separately uses `Storage Blob Data Contributor` and `Cognitive Services Speech User`, plus its existing database/model access. Storage public network access stays disabled; both cloud hosts use the VNet's private endpoint/DNS, and local downloads go through the authenticated API rather than opening storage to the internet.
 
 The implementation adapts only the relevant invariant `DateOnly` and `TimeOnly` BSON-serialization idea discovered in ClearVowAI. AskRabbi already had focused Azure OpenAI, Key Vault, retrieval, and grounding services, so the older Foundry Agent, SQL, Redis, reflection-tool, and unrelated service code was not duplicated.
 

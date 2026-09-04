@@ -4,8 +4,10 @@ import { SourceReader } from '../conversations/SourceReader.tsx'
 import type { ConversationSource } from '../conversations/conversationData.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import { DvarTorahReadAloud } from './DvarTorahReadAloud.tsx'
+import { DvarTorahNarratedText, HighlightedText } from './DvarTorahNarratedText.tsx'
+import { createNarratedParagraphs } from './dvarTorahAudio.ts'
 import { normalizeDvarTorahText } from './dvarTorahText.ts'
-import type { DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
+import type { DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
@@ -230,7 +232,7 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
                 <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
                 Back to past teachings
               </button>
-              <PublishedArticle article={archivedArticle} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} />
+              <PublishedArticle key={`${archivedArticle.week.weekKey}:${archivedArticle.audio?.version ?? ''}`} article={archivedArticle} client={client} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} />
             </div>
           ) : loadError !== null ? (
             <LoadError message={loadError} onRetry={retry} />
@@ -241,7 +243,7 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
           ) : publication.dvarTorah === null ? (
             <PendingPublication week={publication.currentWeek} onRetry={retry} />
           ) : (
-            <PublishedArticle article={publication.dvarTorah} showFallbackNotice={!publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} />
+            <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} client={client} showFallbackNotice={!publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} />
           )}
         </div>
       </section>
@@ -252,15 +254,19 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
 
 interface PublishedArticleProps {
   article: WeeklyDvarTorahArticle
+  client: DvarTorahClient
   showFallbackNotice?: boolean
   sources: readonly ConversationSource[]
   selectedSourceNumber: number | null
   onSelectSource(sourceNumber: number, trigger: HTMLButtonElement): void
 }
 
-function PublishedArticle({ article, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource }: PublishedArticleProps) {
-  const paragraphs = normalizeDvarTorahText(article.body).split(/\r?\n\s*\r?\n/).filter((paragraph) => paragraph.trim().length > 0)
-  const sourceNumbersById = new Map(article.sources.map((source, index) => [source.sourceId, index + 1]))
+function PublishedArticle({ article, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource }: PublishedArticleProps) {
+  const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
+  const title = useMemo(() => normalizeDvarTorahText(article.title), [article.title])
+  const body = useMemo(() => normalizeDvarTorahText(article.body), [article.body])
+  const paragraphs = useMemo(() => createNarratedParagraphs(body), [body])
+  const sourceNumbersById = useMemo(() => new Map(article.sources.map((source, index) => [source.sourceId, index + 1])), [article.sources])
   return (
     <article className="mt-9 border-t border-line pt-7" aria-label={normalizeDvarTorahText(article.title)}>
       {!showFallbackNotice ? null : (
@@ -270,10 +276,10 @@ function PublishedArticle({ article, showFallbackNotice = false, sources, select
       )}
 
       <WeekDetails week={article.week} />
-      <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink">{normalizeDvarTorahText(article.title)}</h2>
-      <DvarTorahReadAloud key={article.week.weekKey} title={article.title} body={article.body} />
+      <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} /></h2>
+      <DvarTorahReadAloud audio={article.audio ?? null} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} />
       <div className="mt-8 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-5 sm:pl-7">
-        {paragraphs.map((paragraph, index) => <p key={index} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]">{renderParagraph(paragraph, sourceNumbersById, selectedSourceNumber, onSelectSource)}</p>)}
+        {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}
       <p className="mt-10 max-w-[46rem] border-t border-line pt-5 text-xs leading-5 text-muted">
@@ -467,27 +473,6 @@ function LoadError({ message, onRetry }: { message: string; onRetry(): void }) {
 function formatShabbatDate(value: string) {
   const date = new Date(`${value}T12:00:00Z`)
   return Number.isNaN(date.getTime()) ? value : ShabbatDateFormatter.format(date)
-}
-
-function renderParagraph(paragraph: string, sourceNumbersById: ReadonlyMap<string, number>, selectedSourceNumber: number | null, onSelectSource: PublishedArticleProps['onSelectSource']) {
-  return paragraph.split(/(\[[A-Za-z][A-Za-z0-9_-]*\])/g).map((part, index) => {
-    const match = /^\[([A-Za-z][A-Za-z0-9_-]*)\]$/.exec(part)
-    if (match === null) {
-      return part
-    }
-
-    const sourceNumber = sourceNumbersById.get(match[1])
-    if (sourceNumber === undefined) {
-      return part
-    }
-
-    const isSelected = sourceNumber === selectedSourceNumber
-    return (
-      <button key={`${match[1]}-${index}`} type="button" aria-label={`View source ${sourceNumber}`} aria-expanded={isSelected} onClick={(event) => onSelectSource(sourceNumber, event.currentTarget)} className={`relative mx-0.5 inline-flex rounded-sm px-0.5 font-semibold text-pomegranate underline decoration-pomegranate/35 underline-offset-4 transition hover:bg-pomegranate/8 hover:decoration-pomegranate ${isSelected ? 'bg-pomegranate/10 ring-1 ring-pomegranate/45' : ''}`}>
-        [{sourceNumber}]
-      </button>
-    )
-  })
 }
 
 function toConversationSources(sources: readonly WeeklyDvarTorahSource[]): ConversationSource[] {

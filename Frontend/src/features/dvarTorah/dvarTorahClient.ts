@@ -5,6 +5,8 @@ export interface DvarTorahClient {
   getCurrent(forceRefresh?: boolean): Promise<WeeklyDvarTorahResponse>
   getArchive(query?: WeeklyDvarTorahArchiveQuery): Promise<WeeklyDvarTorahArchiveResponse>
   getArchived(weekKey: string): Promise<WeeklyDvarTorahArticle>
+  getAudioUrl(weekKey: string, version: string): string
+  getAudioTimings(weekKey: string, version: string, signal?: AbortSignal): Promise<unknown>
 }
 
 interface CachedPublication {
@@ -53,11 +55,21 @@ export function createBackendDvarTorahClient(apiClient: ApiClient = createApiCli
     getArchived(weekKey) {
       return apiClient.request<WeeklyDvarTorahArticle>(`/api/dvar-torah/archive/${encodeURIComponent(weekKey)}`)
     },
+    getAudioUrl(weekKey, version) {
+      return `${apiClient.baseUrl}${getAudioPath(weekKey)}?version=${encodeURIComponent(version)}`
+    },
+    getAudioTimings(weekKey, version, signal) {
+      return apiClient.request<unknown>(`${getAudioPath(weekKey)}/timings?version=${encodeURIComponent(version)}`, { signal })
+    },
   }
 }
 
+function getAudioPath(weekKey: string) {
+  return `/api/dvar-torah/archive/${encodeURIComponent(weekKey)}/audio`
+}
+
 function getCacheExpiration(response: WeeklyDvarTorahResponse) {
-  if (!response.isCurrentWeek || response.dvarTorah === null) {
+  if (!response.isCurrentWeek || response.dvarTorah === null || response.dvarTorah.audio == null) {
     return Date.now() + PendingPublicationCacheMilliseconds
   }
 

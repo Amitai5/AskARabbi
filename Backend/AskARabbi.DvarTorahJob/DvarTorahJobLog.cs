@@ -1,11 +1,48 @@
 using System.Text.Json;
 using AskARabbiLIB.CurrentEvents;
 using AskARabbiLIB.DvarTorah;
+using AskARabbiLIB.DvarTorah.Audio;
 
 namespace AskARabbi.DvarTorahJob;
 
 internal static class DvarTorahJobLog
 {
+    internal static void AudioCompleted(string weekKey, WeeklyDvarTorahAudioResult result)
+    {
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            timestampUtc = DateTimeOffset.UtcNow,
+            level = "Information",
+            eventName = "WeeklyDvarTorahAudioCompleted",
+            weekKey,
+            status = result.Status.ToString(),
+            version = result.Audio?.Version,
+            durationMs = result.Audio?.DurationMs,
+            audioLength = result.Audio?.AudioLength,
+        }));
+    }
+
+    internal static void AudioFailed(string weekKey, Exception exception)
+    {
+        var diagnostic = DvarTorahAudioFailureDiagnostic.FromException(exception);
+        Console.Error.WriteLine(JsonSerializer.Serialize(new
+        {
+            timestampUtc = DateTimeOffset.UtcNow,
+            level = "Error",
+            eventName = "WeeklyDvarTorahAudioFailed",
+            weekKey,
+            failureCode = diagnostic.FailureCode,
+            stage = diagnostic.Stage,
+            exceptionType = diagnostic.ExceptionType,
+            innerExceptionType = diagnostic.InnerExceptionType,
+            providerStatus = diagnostic.ProviderStatus,
+            providerErrorCode = diagnostic.ProviderErrorCode,
+            stackTrace = diagnostic.StackTrace,
+            configurationError = exception is DvarTorahJobConfigurationException ? exception.Message : null,
+            textRemainsPublished = true,
+        }));
+    }
+
     internal static void GenerationDisabled()
     {
         Console.WriteLine(JsonSerializer.Serialize(new
