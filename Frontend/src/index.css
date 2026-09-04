@@ -33,6 +33,13 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Scale the desktop design tokens without transforming the viewport or scroll containers. */
+@media (min-width: 64rem) {
+  :root {
+    font-size: 80%;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -90,7 +97,8 @@ a {
   outline-offset: 3px;
 }
 
-.message-composer-input:focus-visible {
+.message-composer-input:focus-visible,
+.answer-copy-button:focus-visible {
   outline: none;
 }
 

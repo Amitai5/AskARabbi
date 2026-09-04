@@ -173,6 +173,9 @@ describe('App', () => {
     expect(conversation.contains(composerDock)).toBe(false)
     expect(conversation.parentElement).toContainElement(composerDock as HTMLElement)
     expect(screen.getByRole('navigation', { name: 'Recent conversations' })).toHaveClass('overscroll-y-contain', 'touch-pan-y')
+    expect(screen.getByRole('button', { name: 'Open conversation navigation' }).closest('header')).toHaveClass('lg:hidden')
+    expect(screen.queryByRole('button', { name: 'Toggle conversation navigation' })).not.toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: 'Conversation navigation' })).toHaveClass('lg:visible', 'lg:translate-x-0')
 
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
     await user.click(screen.getByRole('menuitem', { name: 'Log out' }))
@@ -311,9 +314,10 @@ describe('App', () => {
 
     expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('')
     expect(within(screen.getByRole('article')).getByText('Why is chicken treated like meat?')).toBeVisible()
-    expect(screen.getByRole('status')).toHaveTextContent('checking the quotations')
+    expect(within(screen.getByRole('article')).getByRole('status')).toHaveTextContent('checking the quotations')
     expect(screen.getByTestId('answer-progress-dots').children).toHaveLength(3)
-    expect(screen.getByRole('button', { name: 'Chicken and dairy' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Chicken and dairy' })).toBeEnabled()
+    expect(screen.getByRole('status', { name: 'Generating answer for Why is chicken treated like meat?' })).toBeVisible()
     expect(screen.getByRole('button', { name: /Choose sources:/ })).toBeDisabled()
     await waitFor(() => expect(submittedContent).toBe('Why is chicken treated like meat?'))
     await act(async () => {

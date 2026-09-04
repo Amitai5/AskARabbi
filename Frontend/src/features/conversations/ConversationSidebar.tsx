@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BookOpenText, Check, Ellipsis, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { BookOpenText, Check, Ellipsis, LoaderCircle, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import type { ConversationSummary } from './conversationData.ts'
@@ -9,9 +9,8 @@ interface ConversationSidebarProps {
   conversations: ConversationSummary[]
   selectedId: string | null
   isMobileOpen: boolean
-  isDesktopOpen: boolean
   isNewConversationDisabled: boolean
-  isConversationNavigationDisabled: boolean
+  pendingConversationIds: ReadonlySet<string>
   isDvarTorahSelected: boolean
   user: AuthenticatedUser
   onCloseMobile(): void
@@ -25,12 +24,11 @@ interface ConversationSidebarProps {
   onLogout(): Promise<void>
 }
 
-export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isDesktopOpen, isNewConversationDisabled, isConversationNavigationDisabled, isDvarTorahSelected, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenSettings, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
+export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, pendingConversationIds, isDvarTorahSelected, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenSettings, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null)
-  const desktopVisibility = isDesktopOpen ? 'lg:visible lg:w-72 lg:translate-x-0' : 'lg:invisible lg:w-0 lg:-translate-x-full lg:border-r-0'
   const mobileVisibility = isMobileOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'
 
   useEffect(() => {
@@ -95,10 +93,6 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
   }
 
   function selectConversation(id: string) {
-    if (isConversationNavigationDisabled) {
-      return
-    }
-
     closeActionMenu()
     onSelectConversation(id)
   }
@@ -109,16 +103,12 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
   }
 
   function openDvarTorah() {
-    if (isConversationNavigationDisabled) {
-      return
-    }
-
     closeActionMenu()
     onOpenDvarTorah()
   }
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(20rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden overscroll-none border-r border-line bg-stone transition-[transform,width] duration-300 ease-out lg:relative lg:z-0 ${mobileVisibility} ${desktopVisibility}`} aria-label="Conversation navigation">
+    <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(20rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden overscroll-none border-r border-line bg-stone transition-transform duration-300 ease-out lg:relative lg:z-0 lg:visible lg:w-72 lg:translate-x-0 ${mobileVisibility}`} aria-label="Conversation navigation">
       <div className="flex items-center justify-between px-5 pb-5 pt-6">
         <Brand compact />
         <button type="button" onClick={onCloseMobile} className="flex size-11 items-center justify-center rounded-lg text-ink transition hover:bg-stone-deep lg:hidden" aria-label="Close conversation navigation">
@@ -137,7 +127,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
         <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Weekly learning</p>
         <div className={`relative flex min-h-11 items-center rounded-lg transition hover:bg-stone-deep/70 ${isDvarTorahSelected ? 'bg-stone-deep/70 font-semibold' : ''}`}>
           {isDvarTorahSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-pomegranate" /> : null}
-          <button type="button" disabled={isConversationNavigationDisabled} onClick={openDvarTorah} aria-current={isDvarTorahSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left text-sm text-ink disabled:cursor-wait disabled:opacity-60">
+          <button type="button" onClick={openDvarTorah} aria-current={isDvarTorahSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left text-sm text-ink">
             <BookOpenText aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.65} />
             <span className="truncate">This week’s Dvar Torah</span>
           </button>
@@ -149,6 +139,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
         <ul className="space-y-1">
           {conversations.map((conversation, index) => {
             const isSelected = !isDvarTorahSelected && conversation.id === selectedId
+            const isPending = pendingConversationIds.has(conversation.id)
             return (
               <li key={conversation.id} className="relative">
                 {editingId === conversation.id ? (
@@ -165,13 +156,17 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                 ) : (
                   <div className={`group relative flex min-h-11 items-center rounded-lg transition hover:bg-stone-deep/70 ${isSelected ? 'bg-stone-deep/70 font-semibold' : ''}`}>
                     {isSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-pomegranate" /> : null}
-                    <button type="button" disabled={isConversationNavigationDisabled} onClick={() => selectConversation(conversation.id)} aria-current={isSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pl-3 pr-1 text-left text-sm text-ink disabled:cursor-wait disabled:opacity-60">
+                    <button type="button" onClick={() => selectConversation(conversation.id)} aria-current={isSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pl-3 pr-1 text-left text-sm text-ink">
                       <MessageCircle aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.65} />
                       <span className="truncate">{conversation.title}</span>
                     </button>
 
+                    {isPending ? <span role="status" aria-label={`Generating answer for ${conversation.title}`} className="flex size-7 shrink-0 items-center justify-center text-pomegranate" title="Answer in progress">
+                      <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                    </span> : null}
+
                     <div className="relative mr-1" data-conversation-actions>
-                      <button type="button" disabled={isConversationNavigationDisabled} onClick={() => {
+                      <button type="button" disabled={isPending} onClick={() => {
                         setDeleteConfirmationId(null)
                         setOpenMenuId((current) => current === conversation.id ? null : conversation.id)
                       }} className={`flex size-9 items-center justify-center rounded-md text-muted transition hover:bg-paper hover:text-ink focus:opacity-100 disabled:cursor-wait disabled:opacity-30 ${openMenuId === conversation.id ? 'bg-paper text-ink opacity-100' : 'opacity-55 group-hover:opacity-100'}`} aria-label={`Conversation actions for ${conversation.title}, item ${index + 1}`} aria-haspopup="menu" aria-expanded={openMenuId === conversation.id}>

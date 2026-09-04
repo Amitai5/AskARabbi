@@ -20,10 +20,12 @@ describe('AssistantMessage', () => {
     render(<AssistantMessage message={Message} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
 
     const copyButton = screen.getByRole('button', { name: 'Copy answer' })
-    expect(copyButton).toHaveClass('opacity-0', 'group-hover:opacity-100', 'group-focus-within:opacity-100')
+    expect(copyButton).toHaveClass('answer-copy-button', 'opacity-0', 'group-hover:opacity-100', 'group-focus-within:opacity-100', 'focus-visible:ring-inset')
     expect(copyButton).not.toHaveTextContent('Copy')
     expect(copyButton.querySelector('svg')).toBeInTheDocument()
-    expect(copyButton.parentElement).toHaveClass('mt-3', 'justify-end', 'pb-2', 'pr-2')
+    expect(copyButton.closest('[data-message-role="assistant"]')).toHaveClass('relative')
+    expect(copyButton.parentElement).toHaveClass('absolute', 'bottom-0', 'right-0', 'p-0.5')
+    expect(screen.getByText(Message.content)).toHaveClass('last:min-h-9', 'last:pr-12')
     expect(screen.getByText(Message.content).compareDocumentPosition(copyButton) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
 
     await user.click(copyButton)
@@ -31,6 +33,21 @@ describe('AssistantMessage', () => {
     expect(writeText).toHaveBeenCalledWith(Message.content)
     expect(screen.getByRole('button', { name: 'Answer copied' })).toHaveClass('opacity-100')
     expect(screen.getByRole('status')).toHaveTextContent('Answer copied to clipboard.')
+  })
+
+  it('does not create empty footer paragraphs from trailing whitespace', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValueOnce(undefined)
+    const message = { ...Message, content: 'An opening paragraph.\n \nThe final line.\n\n  \n' }
+    render(<AssistantMessage message={message} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
+
+    const finalParagraph = screen.getByText('The final line.')
+    expect(finalParagraph.parentElement?.querySelectorAll('p')).toHaveLength(2)
+    expect(finalParagraph).toBe(finalParagraph.parentElement?.lastElementChild)
+
+    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+
+    expect(writeText).toHaveBeenCalledWith(message.content)
   })
 
   it('shows retry feedback when clipboard access fails', async () => {

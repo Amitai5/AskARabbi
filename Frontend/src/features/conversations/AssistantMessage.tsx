@@ -42,15 +42,15 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
     : 'opacity-100'
 
   return (
-    <div className="conversation-message group border-l-2 border-pomegranate pl-5" data-message-role="assistant">
+    <div className="conversation-message group relative border-l-2 border-pomegranate pl-5" data-message-role="assistant">
       <p className="mb-3 font-display text-xl text-ink">AskRabbi</p>
       <div className="space-y-4 text-base leading-7 text-ink sm:text-lg">
-        {normalizedContent.split(/\n\n+/).map((paragraph, index) => (
-          <p key={`${message.id}-paragraph-${index}`}>{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
+        {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
+          <p key={`${message.id}-paragraph-${index}`} className="last:min-h-9 last:pr-12">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}
       </div>
-      <div className="mt-3 flex min-h-10 items-start justify-end pb-2 pr-2">
-        <button type="button" aria-label={copyLabel} title={copyLabel} onClick={() => void handleCopy()} className={`inline-flex size-8 items-center justify-center rounded-md border border-line bg-paper text-muted shadow-sm transition hover:border-line-strong hover:bg-stone hover:text-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pomegranate/55 motion-reduce:transition-none ${copyVisibilityClass}`}>
+      <div className="absolute bottom-0 right-0 flex p-0.5">
+        <button type="button" aria-label={copyLabel} title={copyLabel} onClick={() => void handleCopy()} className={`answer-copy-button inline-flex size-8 items-center justify-center rounded-md border border-line bg-paper text-muted shadow-sm transition hover:border-line-strong hover:bg-stone hover:text-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pomegranate/55 motion-reduce:transition-none ${copyVisibilityClass}`}>
           {copyStatus === 'copied' ? <Check aria-hidden="true" className="size-4 text-pomegranate" strokeWidth={1.8} /> : <Copy aria-hidden="true" className="size-4" strokeWidth={1.8} />}
         </button>
       </div>
