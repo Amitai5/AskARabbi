@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using AskARabbiLIB.AI;
 using AskARabbiLIB.Models;
 using AskARabbiLIB.Retrieval;
 using Azure.Core;
@@ -17,6 +18,7 @@ public sealed class AzureOpenAIVectorStoreClientTests
     [DataRow("zero-timeout")]
     [DataRow("long-timeout")]
     [DataRow("empty-model")]
+    [DataRow("unknown-service-tier")]
     [TestCategory("Unit")]
     public void Validate_InvalidClientOptions_Throws(string scenario)
     {
@@ -27,6 +29,7 @@ public sealed class AzureOpenAIVectorStoreClientTests
             "zero-timeout" => new AzureOpenAIVectorStoreClientOptions { ProjectEndpoint = new Uri("https://openai.example.test/"), Timeout = TimeSpan.Zero },
             "long-timeout" => new AzureOpenAIVectorStoreClientOptions { ProjectEndpoint = new Uri("https://openai.example.test/"), Timeout = TimeSpan.FromMinutes(11) },
             "empty-model" => new AzureOpenAIVectorStoreClientOptions { ProjectEndpoint = new Uri("https://openai.example.test/"), ModelName = " " },
+            "unknown-service-tier" => new AzureOpenAIVectorStoreClientOptions { ProjectEndpoint = new Uri("https://openai.example.test/"), ServiceTier = (AIServiceTier)999 },
             _ => throw new AssertFailedException($"Unknown scenario '{scenario}'."),
         };
 
@@ -48,7 +51,7 @@ public sealed class AzureOpenAIVectorStoreClientTests
             _ => Json(HttpStatusCode.OK, StoreJson("vs_test", new string('a', 64))),
             _ => Json(HttpStatusCode.OK, """{"status":"incomplete","output":[{"type":"reasoning"},{"type":"file_search_call","status":"completed","results":[{"file_id":"file_1","filename":"source.md","score":0.75,"attributes":{"language":"English"},"text":"result text"}]},{"type":"message"}]}"""));
         using var httpClient = new HttpClient(handler);
-        var client = CreateClient(httpClient);
+        var client = CreateClient(httpClient, serviceTier: AIServiceTier.Priority);
 
         var store = await client.GetAsync("vs_test");
         var page = await client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"], Languages = ["English"], MaximumResults = 5, ScoreThreshold = 0.2 });
@@ -65,6 +68,7 @@ public sealed class AzureOpenAIVectorStoreClientTests
         StringAssert.Contains(handler.Requests[1].Body, "\"type\":\"file_search\"");
         StringAssert.Contains(handler.Requests[1].Body, "\"reasoning\":{\"effort\":\"low\"}");
         StringAssert.Contains(handler.Requests[1].Body, "\"max_output_tokens\":2048");
+        StringAssert.Contains(handler.Requests[1].Body, "\"service_tier\":\"priority\"");
         StringAssert.Contains(handler.Requests[1].Body, "\"store\":false");
         StringAssert.Contains(handler.Requests[1].Body, "vs_test");
         StringAssert.Contains(handler.Requests[1].Body, "score_threshold");
@@ -843,12 +847,13 @@ public sealed class AzureOpenAIVectorStoreClientTests
         Assert.HasCount(0, handler.Requests);
     }
 
-    private static AzureOpenAIVectorStoreClient CreateClient(HttpClient httpClient, Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
+    private static AzureOpenAIVectorStoreClient CreateClient(HttpClient httpClient, Func<TimeSpan, CancellationToken, Task>? delayAsync = null, AIServiceTier serviceTier = AIServiceTier.Auto)
     {
         var options = new AzureOpenAIVectorStoreClientOptions
         {
             ProjectEndpoint = new Uri("https://openai.example.test/"),
             ModelName = "search-model",
+            ServiceTier = serviceTier,
         };
         return delayAsync is null
             ? new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient)

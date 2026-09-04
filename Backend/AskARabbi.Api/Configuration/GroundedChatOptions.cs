@@ -37,6 +37,9 @@ public sealed record GroundedChatOptions
     /// <summary>Gets the reasoning effort used for answer generation.</summary>
     public AIReasoningEffort ReasoningEffort { get; init; } = AIReasoningEffort.Medium;
 
+    /// <summary>Gets the processing tier used for conversational answer and validation calls.</summary>
+    public AIServiceTier ServiceTier { get; init; } = AIServiceTier.Priority;
+
     /// <summary>Gets the maximum retries after an initial answer or audit request.</summary>
     public int MaximumRetryCount { get; init; } = 1;
 
@@ -155,6 +158,10 @@ public sealed record GroundedChatOptions
         if (!Enum.IsDefined(ReasoningEffort))
         {
             throw new InvalidOperationException($"{SectionName}:{nameof(ReasoningEffort)} is not supported.");
+        }
+        if (!Enum.IsDefined(ServiceTier))
+        {
+            throw new InvalidOperationException($"{SectionName}:{nameof(ServiceTier)} is not supported.");
         }
         if (MaximumRetryCount is < 0 or > 5)
         {

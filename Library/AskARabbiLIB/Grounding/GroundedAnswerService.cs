@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.DvarTorah;
@@ -26,6 +28,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     private static readonly string[] AuthorityNounTokens = ["rabbi", "rabbis", "sage", "sages", "authority", "authorities", "school", "schools", "decisor", "decisors", "posek", "poskim", "רב", "רבנים", "раввин", "раввины", "rabino", "rabinos", "rabbin", "rabbins", "rabbiner", "rabbini", "rabin", "rabini"];
     private static readonly string[] ParashahTokens = ["parasha", "parashah", "parashat", "parsha", "portion", "sedra"];
     private static readonly string[] ContentRequestTokens = ["about", "content", "describe", "description", "explain", "happen", "happened", "happens", "meaning", "means", "story", "stories", "summarize", "summary", "teach", "teaches", "theme", "themes"];
+    private static readonly Regex ExplicitDatePattern = new(@"\b(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}/\d{1,2}/\d{2,4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s*\d{4})?)\b", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private readonly ISourceRetriever retriever;
     private readonly IAIEngine engine;
@@ -97,7 +100,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         ValidateQuestion(question, recentConversation, currentDate);
         var mayUseTools = toolRegistry?.MayApply(question.Question) == true;
         var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc);
-        var prefetchedParashah = await TryPrefetchParashahAsync(question.Question, toolContext, cancellationToken).ConfigureAwait(false);
+        var prefetchedParashah = await TryPrefetchParashahAsync(question.Question, recentConversation, toolContext, cancellationToken).ConfigureAwait(false);
         var questionFocus = prefetchedParashah is null ? CreateQuestionFocus(question.Question) : CreateParashahQuestionFocus(prefetchedParashah);
         var retrievalStopwatch = Stopwatch.StartNew();
         var retrievalText = prefetchedParashah?.Parashah is { } parashah
@@ -232,15 +235,15 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             : new EvidencePacket(packet.Items.Concat(additions).ToArray(), packet.CharacterCount + additions.Sum(item => item.PresentedText.Length));
     }
 
-    private async Task<PrefetchedParashahResult?> TryPrefetchParashahAsync(string question, AIToolExecutionContext context, CancellationToken cancellationToken)
+    private async Task<PrefetchedParashahResult?> TryPrefetchParashahAsync(string question, IReadOnlyList<GroundedConversationTurn> recentConversation, AIToolExecutionContext context, CancellationToken cancellationToken)
     {
-        if (toolRegistry is null || !TryGetMitzvahAnniversaryAge(question, out var anniversaryAge) || !RequestsParashahContent(question))
+        if (toolRegistry is null || ResolveParashahContentIntent(question, recentConversation) is not { } intentQuestion)
         {
             return null;
         }
 
-        var arguments = BinaryData.FromString(JsonSerializer.Serialize(new { hebrewAnniversaryAge = anniversaryAge }, PromptJsonOptions));
-        var result = await toolRegistry.ExecuteAsync(FindParashahToolName, arguments, context, cancellationToken).ConfigureAwait(false);
+        var request = CreateParashahToolRequest(intentQuestion, context);
+        var result = await toolRegistry.ExecuteAsync(FindParashahToolName, request.Arguments, context, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Evidence is null)
         {
             return null;
@@ -253,7 +256,82 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var holiday = data.TryGetProperty("holiday", out var holidayValue) && holidayValue.ValueKind == JsonValueKind.String
             ? holidayValue.GetString()
             : null;
-        return new PrefetchedParashahResult(parashah, holiday, anniversaryAge, result);
+        return new PrefetchedParashahResult(parashah, holiday, request.AnswerBasis, result);
+    }
+
+    private static string? ResolveParashahContentIntent(string question, IReadOnlyList<GroundedConversationTurn> recentConversation)
+    {
+        if (!RequestsParashahContent(question))
+        {
+            return null;
+        }
+        if (MentionsParashah(question))
+        {
+            return question;
+        }
+        return recentConversation.TakeLast(2).LastOrDefault(turn => MentionsParashah(turn.Question))?.Question;
+    }
+
+    private static ParashahToolRequest CreateParashahToolRequest(string intentQuestion, AIToolExecutionContext context)
+    {
+        var inIsrael = SearchTextNormalizer.Tokenize(intentQuestion).Contains("israel", StringComparer.Ordinal);
+        if (TryGetMitzvahAnniversaryAge(intentQuestion, out var anniversaryAge))
+        {
+            var arguments = BinaryData.FromString(JsonSerializer.Serialize(new { hebrewAnniversaryAge = anniversaryAge, inIsrael }, PromptJsonOptions));
+            return new ParashahToolRequest(arguments, $"the Shabbat on or after your {anniversaryAge}th Hebrew birthday");
+        }
+
+        if (TryGetRequestedParashahDate(intentQuestion, context, out var requestedDate, out var answerBasis))
+        {
+            var arguments = BinaryData.FromString(JsonSerializer.Serialize(new { dateTime = requestedDate, inIsrael }, PromptJsonOptions));
+            return new ParashahToolRequest(arguments, answerBasis);
+        }
+
+        var defaultArguments = BinaryData.FromString(JsonSerializer.Serialize(new { inIsrael }, PromptJsonOptions));
+        return new ParashahToolRequest(defaultArguments, "the upcoming Shabbat");
+    }
+
+    private static bool TryGetRequestedParashahDate(string question, AIToolExecutionContext context, out DateTime requestedDate, out string answerBasis)
+    {
+        var localToday = GetCurrentLocalDateTime(context).Date;
+        var tokens = SearchTextNormalizer.Tokenize(question).ToHashSet(StringComparer.Ordinal);
+        if (tokens.Contains("tomorrow"))
+        {
+            requestedDate = localToday.AddDays(1);
+            answerBasis = "the Shabbat on or after tomorrow";
+            return true;
+        }
+        if (tokens.Contains("today"))
+        {
+            requestedDate = localToday;
+            answerBasis = "the Shabbat on or after today";
+            return true;
+        }
+        if (tokens.Contains("next") && tokens.Contains("week"))
+        {
+            requestedDate = localToday.AddDays(7);
+            answerBasis = "the Shabbat on or after next week";
+            return true;
+        }
+
+        var match = ExplicitDatePattern.Match(question);
+        if (match.Success && DateTime.TryParse(match.Value, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out requestedDate))
+        {
+            requestedDate = DateTime.SpecifyKind(requestedDate.Date, DateTimeKind.Unspecified);
+            answerBasis = $"the Shabbat on or after {requestedDate:MMMM d, yyyy}";
+            return true;
+        }
+
+        requestedDate = default;
+        answerBasis = string.Empty;
+        return false;
+    }
+
+    private static DateTime GetCurrentLocalDateTime(AIToolExecutionContext context)
+    {
+        var timeZoneId = string.IsNullOrWhiteSpace(context.UserProfile?.BirthTimeZone) ? TimeZoneInfo.Utc.Id : context.UserProfile.BirthTimeZone.Trim();
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        return TimeZoneInfo.ConvertTime(context.CurrentUtc, timeZone).DateTime;
     }
 
     private async Task<IReadOnlyList<SourceRetrievalHit>> RetrieveParashahPassagesAsync(GroundedQuestion question, string? parashah, string retrievalText, CancellationToken cancellationToken)
@@ -368,6 +446,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         return tokens.Overlaps(ContentRequestTokens);
     }
 
+    private static bool MentionsParashah(string question)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(question).ToHashSet(StringComparer.Ordinal);
+        return tokens.Overlaps(ParashahTokens);
+    }
+
     private static bool AllowsTorahSource(GroundedQuestion question)
     {
         var sourceKeysAllowTorah = question.SourceKeys.Count == 0 || question.SourceKeys.Contains("collection:Torah", StringComparer.Ordinal);
@@ -380,14 +464,14 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         if (string.IsNullOrWhiteSpace(result.Parashah))
         {
             var displacement = string.IsNullOrWhiteSpace(result.Holiday) ? "a festival reading" : result.Holiday;
-            var festivalDirectAnswer = $"The short answer is: there is no regular weekly parashah for the Shabbat on or after your {result.AnniversaryAge}th Hebrew birthday because {displacement} replaces it.";
+            var festivalDirectAnswer = $"The short answer is: there is no regular weekly parashah for {result.AnswerBasis} because {displacement} replaces it.";
             return new QuestionFocus(
                 $"Claim 1 must be exactly: \"{festivalDirectAnswer}\" Explain only the reading information supported by the calendar evidence. Do not expose any internal function, calculation mechanism, retrieval process, evidence container, model, or provider. Return no disagreements, limitations, follow-up question, or practical-ruling disclaimer.",
                 null,
                 new AnswerRequirements(1, festivalDirectAnswer, true));
         }
 
-        var directAnswer = $"The short answer is: the parashah for the Shabbat on or after your {result.AnniversaryAge}th Hebrew birthday is {result.Parashah}.";
+        var directAnswer = $"The short answer is: the parashah for {result.AnswerBasis} is {result.Parashah}.";
         return new QuestionFocus(
             $"Return exactly three connected claims. Claim 1 must be exactly: \"{directAnswer}\" Cite the weekly-reading result, but do not explain the implementation or calculation process. Claims 2 and 3 must be two concise, substantive paragraphs explaining the Torah portion's story across its beginning, middle, and end, using only the supplied Torah passages and citing every event they describe. Do not use weekly-reading evidence for story content. Do not expose any internal function, calculation mechanism, retrieval process, evidence container, model, or provider. Return no disagreements, limitations, follow-up question, or practical-ruling disclaimer. Use the profile only to choose respectful terminology and community-appropriate transliteration, such as Tevet or Teves; never infer a legal rule from identity.",
             null,
@@ -964,5 +1048,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
     private sealed record AnswerRequirements(int ClaimCount, string ExactFirstClaimText, bool RequiresPlainAnswerShape);
 
-    private sealed record PrefetchedParashahResult(string? Parashah, string? Holiday, int AnniversaryAge, AIToolExecutionResult ToolResult);
+    private sealed record ParashahToolRequest(BinaryData Arguments, string AnswerBasis);
+
+    private sealed record PrefetchedParashahResult(string? Parashah, string? Holiday, string AnswerBasis, AIToolExecutionResult ToolResult);
 }

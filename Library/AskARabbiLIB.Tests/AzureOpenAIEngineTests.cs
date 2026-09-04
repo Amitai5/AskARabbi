@@ -90,6 +90,17 @@ public sealed class AzureOpenAIEngineTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public void Validate_UnknownServiceTier_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var options = CreateOptions() with { ServiceTier = (AIServiceTier)999 };
+
+        // Act and assert
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(options.Validate);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public async Task GenerateStructuredAsync_Success_ReportsUsageAndPropagatesModel()
     {
         // Arrange
@@ -388,6 +399,23 @@ public sealed class AzureOpenAIEngineTests
     }
 
     [TestMethod]
+    [DataRow(AIServiceTier.Auto, null)]
+    [DataRow(AIServiceTier.Standard, "default")]
+    [DataRow(AIServiceTier.Priority, "priority")]
+    [TestCategory("Unit")]
+    public void CreateOptions_ServiceTier_MapsToProviderRequest(AIServiceTier serviceTier, string? expected)
+    {
+        // Arrange
+        var request = new AITransportRequest([new AIMessage(AIMessageRole.User, "Question")], "grounded", BinaryData.FromString("{\"type\":\"object\"}"), "deployment-name", 2000, AIReasoningEffort.Medium, ServiceTier: serviceTier);
+
+        // Act
+        var options = AzureResponsesTransport.CreateOptions(request);
+
+        // Assert
+        Assert.AreEqual(expected, options.ServiceTier?.ToString());
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public void AppendResponseOutputItems_ToolContinuation_PreservesEveryProviderItemInOrder()
     {
@@ -509,16 +537,18 @@ public sealed class AzureOpenAIEngineTests
 
     [TestMethod]
     [TestCategory("Unit")]
-    public void CreateOptions_UnknownReasoningEffortOrMessageRole_ThrowsArgumentOutOfRangeException()
+    public void CreateOptions_UnknownReasoningEffortMessageRoleOrServiceTier_ThrowsArgumentOutOfRangeException()
     {
         // Arrange
         var schema = BinaryData.FromString("{\"type\":\"object\"}");
         var invalidEffort = new AITransportRequest([new AIMessage(AIMessageRole.User, "Question")], "schema", schema, "deployment", 100, (AIReasoningEffort)999);
         var invalidRole = new AITransportRequest([new AIMessage((AIMessageRole)999, "Question")], "schema", schema, "deployment", 100, AIReasoningEffort.Low);
+        var invalidServiceTier = new AITransportRequest([new AIMessage(AIMessageRole.User, "Question")], "schema", schema, "deployment", 100, AIReasoningEffort.Low, ServiceTier: (AIServiceTier)999);
 
         // Act and assert
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => AzureResponsesTransport.CreateOptions(invalidEffort));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => AzureResponsesTransport.CreateOptions(invalidRole));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => AzureResponsesTransport.CreateOptions(invalidServiceTier));
     }
 
     [TestMethod]

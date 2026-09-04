@@ -18,6 +18,9 @@ public sealed record AIEngineOptions
     /// <summary>Gets the provider-neutral reasoning effort.</summary>
     public AIReasoningEffort ReasoningEffort { get; init; } = AIReasoningEffort.Medium;
 
+    /// <summary>Gets the provider processing tier requested for each generation.</summary>
+    public AIServiceTier ServiceTier { get; init; } = AIServiceTier.Auto;
+
     /// <summary>Gets the maximum number of retries after the initial provider request.</summary>
     public int MaximumRetryCount { get; init; } = 2;
 
@@ -38,6 +41,11 @@ public sealed record AIEngineOptions
         if (MaximumOutputTokens is < 1 or > 100_000)
         {
             throw new ArgumentOutOfRangeException(nameof(MaximumOutputTokens), "Maximum output tokens must be between 1 and 100,000.");
+        }
+
+        if (!Enum.IsDefined(ServiceTier))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ServiceTier), "AI service tier is not supported.");
         }
 
         if (MaximumRetryCount is < 0 or > 5)

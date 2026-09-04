@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using AskARabbiLIB.AI;
 using Azure.Core;
 
 namespace AskARabbiLIB.Retrieval;
@@ -89,6 +90,10 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
             ["max_output_tokens"] = FileSearchOutputTokenBudget,
             ["store"] = false,
         };
+        if (GetServiceTier(options.ServiceTier) is { } serviceTier)
+        {
+            payload["service_tier"] = serviceTier;
+        }
 
         for (var attempt = 1; ; attempt++)
         {
@@ -104,6 +109,14 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
             }
         }
     }
+
+    private static string? GetServiceTier(AIServiceTier serviceTier) => serviceTier switch
+    {
+        AIServiceTier.Auto => null,
+        AIServiceTier.Standard => "default",
+        AIServiceTier.Priority => "priority",
+        _ => throw new ArgumentOutOfRangeException(nameof(serviceTier)),
+    };
 
     internal async Task<AzureOpenAIVectorStoreInfo> CreateStoreAsync(string name, IReadOnlyDictionary<string, string> metadata, CancellationToken cancellationToken)
     {

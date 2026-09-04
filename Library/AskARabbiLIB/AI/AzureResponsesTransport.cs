@@ -156,6 +156,7 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
             StoredOutputEnabled = false,
             MaxOutputTokenCount = request.MaximumOutputTokens,
             TruncationMode = ResponseTruncationMode.Disabled,
+            ServiceTier = MapServiceTier(request.ServiceTier),
             ReasoningOptions = new ResponseReasoningOptions
             {
                 ReasoningEffortLevel = request.ReasoningEffort switch
@@ -195,6 +196,14 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
 
         return options;
     }
+
+    private static ResponseServiceTier? MapServiceTier(AIServiceTier serviceTier) => serviceTier switch
+    {
+        AIServiceTier.Auto => default(ResponseServiceTier?),
+        AIServiceTier.Standard => ResponseServiceTier.Default,
+        AIServiceTier.Priority => (ResponseServiceTier)"priority",
+        _ => throw new ArgumentOutOfRangeException(nameof(serviceTier)),
+    };
 
     internal static void AppendResponseOutputItems(CreateResponseOptions responseOptions, IEnumerable<ResponseItem> outputItems)
     {

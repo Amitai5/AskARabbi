@@ -36,6 +36,7 @@ public sealed class ProductionConfigurationTests
         Assert.AreEqual(8_000, groundedChat.MaximumOutputTokens);
         Assert.AreEqual(1_600, groundedChat.ValidationMaximumOutputTokens);
         Assert.AreEqual(AIReasoningEffort.Medium, groundedChat.ReasoningEffort);
+        Assert.AreEqual(AIServiceTier.Priority, groundedChat.ServiceTier);
         Assert.AreEqual(20, groundedChat.MaximumCandidates);
         Assert.AreEqual(10, groundedChat.MaximumEvidenceSegments);
         Assert.AreEqual(0, groundedChat.MaximumEnrichmentHits);

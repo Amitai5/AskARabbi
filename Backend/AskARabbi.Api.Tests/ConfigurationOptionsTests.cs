@@ -137,6 +137,7 @@ public sealed class ConfigurationOptionsTests
     [DataRow("validation-tokens")]
     [DataRow("retry-count")]
     [DataRow("reasoning-effort")]
+    [DataRow("service-tier")]
     [DataRow("enrichment-hits")]
     [DataRow("cache-duration")]
     [DataRow("cache-capacity")]
@@ -148,6 +149,7 @@ public sealed class ConfigurationOptionsTests
             "validation-tokens" => new GroundedChatOptions { ValidationMaximumOutputTokens = 0 },
             "retry-count" => new GroundedChatOptions { MaximumRetryCount = 6 },
             "reasoning-effort" => new GroundedChatOptions { ReasoningEffort = (AIReasoningEffort)999 },
+            "service-tier" => new GroundedChatOptions { ServiceTier = (AIServiceTier)999 },
             "enrichment-hits" => new GroundedChatOptions { MaximumEnrichmentHits = 11 },
             "cache-duration" => new GroundedChatOptions { RetrievalCacheSeconds = 0 },
             "cache-capacity" => new GroundedChatOptions { RetrievalCacheMaximumEntries = 0 },

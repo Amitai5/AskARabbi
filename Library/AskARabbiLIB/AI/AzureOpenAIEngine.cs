@@ -75,7 +75,7 @@ public sealed class AzureOpenAIEngine : IAIEngine
         var stopwatch = Stopwatch.StartNew();
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(options.Timeout);
-        var request = new AITransportRequest(messages.ToArray(), schemaName, jsonSchema, options.ModelName, options.MaximumOutputTokens, options.ReasoningEffort, toolSession);
+        var request = new AITransportRequest(messages.ToArray(), schemaName, jsonSchema, options.ModelName, options.MaximumOutputTokens, options.ReasoningEffort, toolSession, options.ServiceTier);
         AITransportResult? lastResult = null;
 
         for (var attempt = 0; attempt <= options.MaximumRetryCount; attempt++)

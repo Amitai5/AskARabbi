@@ -94,6 +94,7 @@ if (groundedChatOptions.IsConfigured)
         {
             ProjectEndpoint = new Uri(groundedChatOptions.ProjectEndpoint, UriKind.Absolute),
             ModelName = groundedChatOptions.ModelName,
+            ServiceTier = groundedChatOptions.ServiceTier,
             Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
         },
         provider.GetRequiredService<TokenCredential>(),
@@ -119,6 +120,7 @@ if (groundedChatOptions.IsConfigured)
             Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
             MaximumOutputTokens = groundedChatOptions.MaximumOutputTokens,
             ReasoningEffort = groundedChatOptions.ReasoningEffort,
+            ServiceTier = groundedChatOptions.ServiceTier,
             MaximumRetryCount = groundedChatOptions.MaximumRetryCount,
         },
         provider.GetRequiredService<TokenCredential>()));
@@ -134,6 +136,7 @@ if (groundedChatOptions.IsConfigured)
                 Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
                 MaximumOutputTokens = groundedChatOptions.ValidationMaximumOutputTokens,
                 ReasoningEffort = AIReasoningEffort.Low,
+                ServiceTier = groundedChatOptions.ServiceTier,
                 MaximumRetryCount = groundedChatOptions.MaximumRetryCount,
             },
             provider.GetRequiredService<TokenCredential>());
