@@ -1,6 +1,6 @@
 # Weekly Dvar Torah Container Apps Job
 
-This .NET 10 executable is the isolated weekly write path for the `WeeklyAIDvarTorahs` MongoDB collection. Its Docker image runs in the VNet-integrated `askarabbi-weekly-dvar-torah-vnet` Azure Container Apps Job, whose five-field cron expression is `5 8 * * 0` (Sunday at 08:05 UTC). Each execution performs at most one text-generation attempt, then generates or recovers that publication's narration and exits; it does not run an internal timer or HTTP server.
+This .NET 10 executable is the isolated weekly write path for the `WeeklyAIDvarTorahs` MongoDB collection. The VNet-integrated `askarabbi-weekly-dvar-torah-vnet` Azure Container Apps Job supports private narration and currently has a Manual trigger. The existing `askarabbi-weekly-dvar-torah` job still owns the `5 8 * * 0` schedule (Sunday at 08:05 UTC); transferring that schedule requires a separate rollout decision. Each execution performs at most one text-generation attempt, then generates or recovers that publication's narration and exits; it does not run an internal timer or HTTP server.
 
 The job calculates the upcoming Shabbat with the same pinned calendar service as the API, acquires a recoverable MongoDB lease, researches current events, retrieves passages from the approved Sefaria Torah corpus, drafts a structured teaching, runs deterministic grounding checks plus an independent safety/inclusion review, and atomically publishes once. Platform retries either return `AlreadyPublished`, observe `GenerationInProgress`, or recover an expired lease.
 
@@ -20,11 +20,15 @@ The [writing guide](../../docs/DVAR_TORAH_WRITING.md) defines a beginner-friendl
 
 - Current events come only from curated public-service, government, or institutional RSS/Atom endpoints that require no API key or paid publisher subscription: PBS News, NPR, MIT News, NIST, NASA, and Federal Reserve releases. Commercial subscription publishers are excluded. Individual feed failures are logged and tolerated when enough independent publishers remain.
 - Only bounded feed metadata is retained: publisher, headline, short summary, public URL, publication time, and retrieval time. The job does not scrape or republish article bodies.
+- Political news and multi-topic newsletters/roundups are excluded before model selection. Research selects a constructive, nonpolitical development corroborated by different publishers, not unrelated facts sharing a broad theme.
 - Torah passages come from the same fingerprint-verified managed Sefaria corpus used by grounded conversations. Retrieved passages are deterministically restricted to the regular parashah or exact festival reading for that Hebrew date and Israel/Diaspora cycle. An unknown festival range fails closed without publishing.
 - Each article features exactly three impactful passages in the body. The model selects only their evidence IDs; application code inserts the exact bounded wording and canonical references from public-domain or CC0 Torah evidence, then rejects any missing or altered quotation. News evidence is never quoted.
 - At least 80% of both substantive source weight and sourced teaching claims must be Torah. The article must cite at least eight distinct Torah passages and at least two independent current-events publishers by default.
+- The draft targets four connected Torah teaching claims and one brief current-event fact. Multiple passages can support the same claim, preserving the grounding ratios without fragmenting the essay into eight separate themes.
 - A separate model pass blocks unsupported claims, irresponsible Torah interpretation, political persuasion, violence advocacy or glorification, graphic violence, hate or dehumanization, racism, sexism, targeting or alienation of protected/minority groups, exploitation of suffering, and claims that tragedy is divine punishment.
-- One repair is allowed. A second grounding, neutrality, or safety failure leaves the week unpublished and records a safe failure code.
+- One editorial/grounding repair is allowed. A second validation failure leaves the week unpublished. A provider-blocked completion stops immediately rather than being replayed or retried as an editorial defect; Azure protections remain enabled.
+- Generation failures log fixed review check names and safe provider response IDs/completion categories, never draft text, source text, or model-generated review concerns. If the repair request fails, the original failed review checks are retained.
+- The v3 internal review schema returns only enumerated checks, packet-scoped source IDs, and paragraph numbers, not free-form feedback that could copy source material. Application code formats repair instructions. All prior publication checks remain required; API and Mongo schemas do not change.
 - Published records include tags, the central moral teaching, deterministic Torah-grounding percentage, model/review versions, the news research window, and complete bounded Torah/news source provenance. MongoDB indexes the tag array for future archive search.
 
 ## Safe pre-generation state
@@ -90,4 +94,4 @@ docker build --file Backend/AskARabbi.DvarTorahJob/Dockerfile --tag askarabbi-dv
 docker run --rm askarabbi-dvar-torah-job:local
 ```
 
-Both local runs use the safe disabled default and should exit with code `0`. The production workflow builds this Dockerfile, pushes `askarabbi-dvar-torah-job:<verified-commit>` to ACR, resolves its immutable digest, updates the existing Container Apps Job, and verifies the job image, schedule trigger, cron expression, and provisioning state.
+Both local runs use the safe disabled default and should exit with code `0`. The production workflow builds this Dockerfile, pushes `askarabbi-dvar-torah-job:<verified-commit>` to ACR, resolves its immutable digest, updates the existing scheduled Container Apps Job, and verifies the job image, schedule trigger, cron expression, and provisioning state. Until the private job is part of that deployment workflow, update its image explicitly to the same verified digest without changing either job's trigger.

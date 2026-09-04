@@ -14,6 +14,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private const string HighRiskNewsPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|dead|death|deaths|genocide|gunfire|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|rape|raped|shooting|shootings|slur|terror|terrorism|violent|violence|war|weapon|weapons|wounded)\b";
     private const string HighRiskTorahPattern = @"\b(?:assault|assaulted|attack|attacked|attacks|bomb|bombed|bombing|burn|burned|burning|burnt|curse|cursed|curses|destroy|destroyed|destruction|fury|genocide|gunfire|harm|hostage|hostages|kill|killed|killing|massacre|military|missile|murder|murdered|plague|plagues|punish|punished|punishment|rape|raped|shooting|shootings|slaughter|slay|slur|smite|smitten|smote|sulfur|terror|terrorism|vengeance|vengeful|violent|violence|war|warfare|weapon|weapons|wounded|wrath)\b";
     private const string SensitivePersonalDataPattern = @"(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?<!\d)(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}(?!\d)|\b(?:\d{1,3}\.){3}\d{1,3}\b)";
+    private const string PoliticalNewsPattern = @"\b(?:ballots?|elections?|electoral|midterms?|voting|voters?|partisan|politics|political|politicians?|presidential|supreme court|campaign trail)\b";
+    private const string NewsRoundupPattern = @"\b(?:newsletters?|roundups?|news briefing|headlines|up first)\b";
     private static readonly JsonSerializerOptions PromptJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -29,7 +31,6 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     private readonly TimeProvider timeProvider;
     private readonly BinaryData researchSchema;
     private readonly BinaryData draftSchema;
-    private readonly BinaryData reviewSchema;
 
     /// <summary>Initializes a fail-closed weekly content generator.</summary>
     /// <param name="currentEvents">No-subscription current-events source.</param>
@@ -52,7 +53,6 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         this.timeProvider = timeProvider ?? TimeProvider.System;
         researchSchema = BinaryData.FromString(prompts.ResearchJsonSchema);
         draftSchema = BinaryData.FromString(prompts.DraftJsonSchema);
-        reviewSchema = BinaryData.FromString(prompts.ReviewJsonSchema);
     }
 
     /// <inheritdoc/>
@@ -114,12 +114,13 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         WeeklyDvarTorahArticleDraft? previousDraft = null;
         string? validationError = null;
         string? diagnosticCategory = null;
+        var failedChecks = new List<string>();
+        AIResponseDiagnostics? lastDiagnostics = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
             IReadOnlyList<AIMessage> messages = attempt switch
             {
                 0 => draftMessages,
-                _ when previousDraft is null => draftMessages.Concat([new AIMessage(AIMessageRole.User, prompts.FormatRepair(validationError ?? "The prior completion was blocked."))]).ToArray(),
                 _ => draftMessages.Concat(
                 [
                     new AIMessage(AIMessageRole.Assistant, JsonSerializer.Serialize(previousDraft, PromptJsonOptions)),
@@ -127,14 +128,11 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 ]).ToArray(),
             };
             var draftResult = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahArticleDraft>(messages, prompts.DraftSchemaName, draftSchema, cancellationToken).ConfigureAwait(false);
+            lastDiagnostics = draftResult.Diagnostics;
             if (!draftResult.IsSuccess || draftResult.Value is not { } draft)
             {
-                if (attempt == 0 && IsCompletionContentFilterFailure(draftResult))
-                {
-                    validationError = "The prior completion was blocked by the provider. Produce a fresh, peaceful article using original paraphrase in every field and no direct quotations or substantial contiguous source wording. Do not output URLs, contact details, email addresses, telephone numbers, IP addresses, timestamps, chapter-and-verse numbers, or any digits.";
-                    continue;
-                }
-                throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.");
+                // A blocked completion is not an editorial defect to repair or retry blindly.
+                throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("DraftProviderFailed", draftResult), $"The weekly Dvar Torah drafting model failed: {draftResult.ErrorMessage ?? draftResult.Status.ToString()}.", diagnosticCategory, failedChecks, draftResult.Diagnostics);
             }
 
             var generatedDraft = draft;
@@ -145,13 +143,16 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             var validation = WeeklyDvarTorahCandidateValidator.Validate(completedDraft, evidence, options);
             if (!validation.IsValid)
             {
+                failedChecks.Clear();
                 validationError = string.Join(" ", validation.Errors);
                 diagnosticCategory = ClassifyCandidateValidationErrors(validation.Errors);
                 continue;
             }
 
-            var review = await ReviewAsync(week, research, completedDraft, evidence, validation, cancellationToken).ConfigureAwait(false);
-            var reviewErrors = WeeklyDvarTorahReviewValidator.Validate(review);
+            var (review, reviewDiagnostics) = await ReviewAsync(week, research, completedDraft, evidence, validation, cancellationToken, diagnosticCategory, failedChecks).ConfigureAwait(false);
+            lastDiagnostics = reviewDiagnostics;
+            failedChecks.Clear();
+            var reviewErrors = WeeklyDvarTorahReviewValidator.Validate(review, failedChecks, validation.UsedEvidenceIds);
             if (reviewErrors.Count > 0)
             {
                 validationError = string.Join(" ", reviewErrors);
@@ -180,7 +181,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             }
         }
 
-        throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}", diagnosticCategory);
+        throw new WeeklyDvarTorahGenerationException("CandidateValidationFailed", $"Weekly Dvar Torah generation failed its repair attempt: {validationError ?? "unknown validation failure"}", diagnosticCategory, failedChecks, lastDiagnostics);
     }
 
     private async Task<WeeklyDvarTorahResearchDraft> ResearchAsync(WeeklyDvarTorahWeek week, DateTimeOffset windowStart, DateTimeOffset windowEnd, IReadOnlyList<NewsCandidate> candidates, CancellationToken cancellationToken, WeeklyDvarTorahResearchDraft? previousResearch = null, string? validationError = null)
@@ -228,7 +229,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var result = await generationEngine.GenerateStructuredAsync<WeeklyDvarTorahResearchDraft>(messages, prompts.ResearchSchemaName, researchSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } research)
         {
-            throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("ResearchProviderFailed", result), $"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+            throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("ResearchProviderFailed", result), $"The weekly Dvar Torah research model failed: {result.ErrorMessage ?? result.Status.ToString()}.", providerDiagnostics: result.Diagnostics);
         }
 
         return research;
@@ -332,7 +333,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 introductionAddedByApplication = WeeklyDvarTorahIntroduction.Text,
                 compositionTargets = new
                 {
-                    torahTeachingStatements = 8,
+                    torahTeachingStatements = 4,
                     currentEventFactStatements = 1,
                     connectionStatements = 1,
                     distinctTorahEvidenceIds = options.MinimumTorahEvidenceItems,
@@ -419,7 +420,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         return "ContentShape";
     }
 
-    private async Task<WeeklyDvarTorahReviewDraft> ReviewAsync(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, WeeklyDvarTorahCandidateValidation validation, CancellationToken cancellationToken)
+    private async Task<(WeeklyDvarTorahReviewDraft Review, AIResponseDiagnostics Diagnostics)> ReviewAsync(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, WeeklyDvarTorahArticleDraft draft, IReadOnlyList<WeeklyDvarTorahEvidence> evidence, WeeklyDvarTorahCandidateValidation validation, CancellationToken cancellationToken, string? previousDiagnosticCategory, IReadOnlyList<string> previousFailedChecks)
     {
         var used = validation.UsedEvidenceIds.ToHashSet(StringComparer.Ordinal);
         var input = new
@@ -442,13 +443,14 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             .AddSystem(prompts.ReviewSystemPrompt)
             .AddUser($"<UNTRUSTED_DRAFT_AND_EVIDENCE_JSON>\n{JsonSerializer.Serialize(input, PromptJsonOptions)}\n</UNTRUSTED_DRAFT_AND_EVIDENCE_JSON>")
             .Build();
+        var reviewSchema = WeeklyDvarTorahReviewSchema.ForEvidence(prompts.ReviewJsonSchema, validation.UsedEvidenceIds);
         var result = await reviewEngine.GenerateStructuredAsync<WeeklyDvarTorahReviewDraft>(messages, prompts.ReviewSchemaName, reviewSchema, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } review)
         {
-            throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("IndependentReviewFailed", result), $"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.");
+            throw new WeeklyDvarTorahGenerationException(CreateProviderFailureCode("IndependentReviewFailed", result), $"The independent weekly Dvar Torah review failed: {result.ErrorMessage ?? result.Status.ToString()}.", previousDiagnosticCategory, previousFailedChecks, result.Diagnostics);
         }
 
-        return review;
+        return (review, result.Diagnostics);
     }
 
     private IReadOnlyList<NewsCandidate> SelectNewsCandidates(IReadOnlyList<CurrentEventItem> items)
@@ -457,6 +459,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         var groups = items
             .Where(item => item is not null)
             .Where(item => !ContainsHighRiskNewsContent(item))
+            .Where(item => !ContainsPoliticalNewsContent(item))
+            .Where(item => !IsNewsRoundup(item))
             .Where(item => !ContainsSensitivePersonalData(item))
             .Where(CanPersistNewsEvidence)
             .GroupBy(item => item.Publisher, StringComparer.OrdinalIgnoreCase)
@@ -602,9 +606,11 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 
     private static string CreateProviderFailureCode<T>(string stage, AIEngineResult<T> result) => $"{stage}.{result.Status}.{result.Diagnostics.CompletionReason ?? "unknown"}";
 
-    private static bool IsCompletionContentFilterFailure<T>(AIEngineResult<T> result) => result.Status == AIEngineStatus.InvalidResponse && result.Diagnostics.CompletionReason?.StartsWith("content_filter", StringComparison.Ordinal) == true;
-
     private static bool ContainsHighRiskNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", HighRiskNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static bool ContainsPoliticalNewsContent(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}\n{item.Category}", PoliticalNewsPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static bool IsNewsRoundup(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.SourceUrl}", NewsRoundupPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     private static bool ContainsSensitivePersonalData(CurrentEventItem item) => Regex.IsMatch($"{item.Title}\n{item.Summary}", SensitivePersonalDataPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 

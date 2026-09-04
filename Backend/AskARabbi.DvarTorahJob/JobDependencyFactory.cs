@@ -72,6 +72,16 @@ internal static class JobDependencyFactory
         };
         dvarTorahOptions.Validate();
 
+        var generator = await CreateGeneratorAsync(cancellationToken).ConfigureAwait(false);
+        var database = CreateDatabase(out var databaseOptions);
+        var store = new MongoWeeklyDvarTorahStore(database, databaseOptions);
+        var timeProvider = TimeProvider.System;
+        var weeklyService = new WeeklyDvarTorahService(new HebrewCalendarService(), store, timeProvider, dvarTorahOptions);
+        return new WeeklyDvarTorahGenerationCoordinator(store, generator, weeklyService, timeProvider, dvarTorahOptions);
+    }
+
+    internal static async Task<GroundedWeeklyDvarTorahGenerator> CreateGeneratorAsync(CancellationToken cancellationToken)
+    {
         var contentOptions = new WeeklyDvarTorahContentOptions
         {
             ResearchWindowDays = DvarTorahJobEnvironment.GetInteger("DvarTorah__ResearchWindowDays", 7),
@@ -136,13 +146,7 @@ internal static class JobDependencyFactory
         }, credential);
         var prompts = WeeklyDvarTorahPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts"));
         var currentEvents = new FreeRssCurrentEventsSource(NewsHttpClient, FreeNewsFeedCatalog.Default, timeProvider: TimeProvider.System, feedFailureObserver: DvarTorahJobLog.NewsFeedFailed);
-        var generator = new GroundedWeeklyDvarTorahGenerator(currentEvents, retriever, generationEngine, reviewEngine, prompts, contentOptions, TimeProvider.System);
-
-        var database = CreateDatabase(out var databaseOptions);
-        var store = new MongoWeeklyDvarTorahStore(database, databaseOptions);
-        var timeProvider = TimeProvider.System;
-        var weeklyService = new WeeklyDvarTorahService(new HebrewCalendarService(), store, timeProvider, dvarTorahOptions);
-        return new WeeklyDvarTorahGenerationCoordinator(store, generator, weeklyService, timeProvider, dvarTorahOptions);
+        return new GroundedWeeklyDvarTorahGenerator(currentEvents, retriever, generationEngine, reviewEngine, prompts, contentOptions, TimeProvider.System);
     }
 
     private static IMongoDatabase CreateDatabase(out MongoDatabaseOptions options)

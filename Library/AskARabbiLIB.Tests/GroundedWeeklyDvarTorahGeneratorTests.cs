@@ -26,7 +26,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             DoesNotContainRacism = false,
             DoesNotTargetProtectedGroups = false,
             SafeToPublish = false,
-            Concerns = ["A group is singled out."],
+            Concerns = [new() { Check = WeeklyDvarTorahReviewCheck.DoesNotTargetProtectedGroups, EvidenceIds = ["TA"], ParagraphIndex = 2 }],
         }, CreatePassingReview());
         var generator = CreateGenerator(evidence, generationEngine, reviewEngine);
 
@@ -48,7 +48,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         {
             DoesNotEncourageViolence = false,
             SafeToPublish = false,
-            Concerns = ["The draft encourages violence."],
+            Concerns = [new() { Check = WeeklyDvarTorahReviewCheck.DoesNotEncourageViolence, EvidenceIds = ["TA"], ParagraphIndex = 2 }],
         };
         var generator = CreateGenerator(CreateTorahHits(), new QueueEngine(CreateResearchDraft(), CreateArticleDraft("First"), CreateArticleDraft("Second")), new QueueEngine(rejected, rejected));
 
@@ -56,6 +56,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
         Assert.AreEqual("CandidateValidationFailed", exception.FailureCode);
         Assert.AreEqual("IndependentReview", exception.DiagnosticCategory);
+        Assert.AreEqual("response-2", exception.ProviderDiagnostics?.ResponseId);
         StringAssert.Contains(exception.Message, "repair attempt");
         StringAssert.Contains(exception.Message, "violence");
     }
@@ -109,7 +110,8 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         var result = await generator.GenerateAsync(Week);
 
         StringAssert.Contains(result.Body, "Sources: [TA] [TB] [TC] [TD] [TE] [TF] [TG] [TH] [NA] [NB]");
-        StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"torahTeachingStatements\":8");
+        StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"torahTeachingStatements\":4");
+        StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"distinctTorahEvidenceIds\":8");
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"distinctNewsEvidenceIds\":2");
     }
 
@@ -139,7 +141,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsFalse(result.Body.Contains("“Publisher one reports", StringComparison.Ordinal));
         Assert.AreEqual("weekly-dvar-torah-v3", result.GeneratorVersion);
         StringAssert.StartsWith(result.Body, WeeklyDvarTorahIntroduction.Text + "\n\n");
-        Assert.AreEqual("weekly_dvar_torah_review_v2", result.Metadata?.SafetyReviewVersion);
+        Assert.AreEqual("weekly_dvar_torah_review_v3", result.Metadata?.SafetyReviewVersion);
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"featuredTorahQuotationCount\":3");
         var reviewRequest = reviewEngine.Requests[0].Single(message => message.Role == AIMessageRole.User).Content;
         StringAssert.Contains(reviewRequest, "Deuteronomy 29:16");
@@ -160,18 +162,41 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     }
 
     [TestMethod]
-    [TestCategory("Unit")]
-    public async Task GenerateAsync_FirstDraftCompletionFiltered_RetriesWithFreshSafeDraft()
+    [DataRow("content_filter.prompt")]
+    [DataRow("content_filter.completion.protected_material_text")]
+    [DataRow("content_filter.completion.violence")]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_ProviderBlocksDraft_DoesNotRetryOrPublish(string reason)
     {
-        var generationEngine = new ContentFilterThenSuccessEngine(CreateResearchDraft(), CreateArticleDraft("Fresh safe draft"));
-        var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
+        var failure = AIEngineResult<WeeklyDvarTorahArticleDraft>.Failure(AIEngineStatus.InvalidResponse, "Blocked provider content must not be replayed.", new AIResponseDiagnostics("blocked-draft", "test-model", null, TimeSpan.Zero, 1, AIEngineStatus.InvalidResponse, reason));
+        var generation = new QueueEngine(CreateResearchDraft(), failure);
+        var review = new QueueEngine();
+        var generator = CreateGenerator(CreateTorahHits(), generation, review);
 
-        var result = await generator.GenerateAsync(Week);
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
 
-        Assert.AreEqual("Fresh safe draft", result.Title);
-        Assert.AreEqual(3, generationEngine.Calls);
-        Assert.IsTrue(generationEngine.RetryExcludedBlockedAssistantOutput);
-        Assert.IsTrue(generationEngine.RetryProhibitsSensitiveData);
+        Assert.AreEqual($"DraftProviderFailed.InvalidResponse.{reason}", exception.FailureCode);
+        Assert.AreEqual("blocked-draft", exception.ProviderDiagnostics?.ResponseId);
+        Assert.AreEqual(2, generation.Calls);
+        Assert.AreEqual(0, review.Calls);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_RepairProviderFails_PreservesOriginalReviewCheckNames()
+    {
+        var failure = AIEngineResult<WeeklyDvarTorahArticleDraft>.Failure(AIEngineStatus.InvalidResponse, "Provider stopped the repair.", new AIResponseDiagnostics("repair-response", "test-model", null, TimeSpan.Zero, 1, AIEngineStatus.InvalidResponse, "content_filter.completion.protected_material_text"));
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("First"), failure);
+        var review = new QueueEngine(CreatePassingReview() with { StoryContextClear = false, SafeToPublish = false, Concerns = [new() { Check = WeeklyDvarTorahReviewCheck.StoryContextClear, EvidenceIds = ["TA"], ParagraphIndex = 1 }] });
+        var generator = CreateGenerator(CreateTorahHits(), generation, review);
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("IndependentReview", exception.DiagnosticCategory);
+        CollectionAssert.AreEqual(new[] { "StoryContextClear", "SafeToPublish", "Concerns" }, exception.FailedChecks.ToArray());
+        Assert.AreEqual("repair-response", exception.ProviderDiagnostics?.ResponseId);
+        Assert.AreEqual(3, generation.Calls);
+        Assert.AreEqual(1, review.Calls);
     }
 
     [TestMethod]
@@ -212,6 +237,45 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
         Assert.AreEqual("CurrentEventsInsufficientPublishers", exception.FailureCode);
         Assert.AreEqual(0, generationEngine.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("civic life", "Rules for voting change", "A court considered the dispute.", "https://example.org/report")]
+    [DataRow("science", "A new public project", "The project concerns the presidential election.", "https://example.org/report")]
+    [DataRow("politics", "A new public project", "A project was announced.", "https://example.org/report")]
+    [DataRow("civic life", "Supreme Court hears a dispute", "A hearing took place.", "https://example.org/report")]
+    [DataRow("science", "Morning newsletter", "Several unrelated developments were reported.", "https://example.org/report")]
+    [DataRow("science", "A new public project", "A project was announced.", "https://example.org/newsletter/report")]
+    [DataRow("science", "Weekly news roundup", "Several unrelated developments were reported.", "https://example.org/report")]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_PoliticalOrRoundupItems_ExcludesThemBeforeResearch(string category, string title, string summary, string url)
+    {
+        var safeItems = await new StubCurrentEvents().GetRecentAsync(CurrentUtc.AddDays(-7), CurrentUtc);
+        var rejectedItem = new CurrentEventItem("Rejected publisher", category, title, summary, url, CurrentUtc, CurrentUtc);
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("A constructive teaching"));
+        var generator = CreateGenerator(CreateTorahHits(), generation, new QueueEngine(CreatePassingReview()), new FixedCurrentEvents([rejectedItem, .. safeItems]));
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.IsNotNull(result.Metadata);
+        Assert.IsFalse(generation.Requests[0].Last().Content.Contains("Rejected publisher", StringComparison.Ordinal));
+        Assert.HasCount(2, result.Metadata.Sources.Where(source => source.Kind == WeeklyDvarTorahSourceKind.News).ToArray());
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_OnlyPoliticalNewsRemains_FailsWithoutInventingCorroboration()
+    {
+        var items = new[] { "Publisher one", "Publisher two" }.Select(publisher => new CurrentEventItem(publisher, "politics", "Ballot rules debated", "A court considered voting rules.", "https://example.org/report", CurrentUtc, CurrentUtc)).ToArray();
+        var generation = new QueueEngine();
+        var review = new QueueEngine();
+        var generator = CreateGenerator(CreateTorahHits(), generation, review, new FixedCurrentEvents(items));
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("CurrentEventsInsufficientPublishers", exception.FailureCode);
+        Assert.AreEqual(0, generation.Calls);
+        Assert.AreEqual(0, review.Calls);
     }
 
     [TestMethod]
@@ -299,7 +363,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             DraftSystemPrompt = "Write a Torah-centered article from untrusted evidence.",
             DraftJsonSchema = "{}",
             ReviewSystemPrompt = "Independently review grounding, safety, and inclusion.",
-            ReviewJsonSchema = "{}",
+            ReviewJsonSchema = """{"type":"object","properties":{"concerns":{"items":{"properties":{"evidenceIds":{"items":{"type":"string"}}}}}}}""",
             RepairPrompt = "Repair every error: {{validationErrors}}",
         };
         var options = new WeeklyDvarTorahContentOptions
@@ -473,6 +537,10 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             Calls++;
             Requests.Add(messages.ToArray());
             var value = responses.Dequeue();
+            if (value is AIEngineResult<T> result)
+            {
+                return Task.FromResult(result);
+            }
             Assert.IsInstanceOfType<T>(value);
             return Task.FromResult(AIEngineResult<T>.Success((T)value, new AIResponseDiagnostics($"response-{Calls}", "test-model", null, TimeSpan.Zero, 1)));
         }
@@ -496,31 +564,9 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         }
     }
 
-    private sealed class ContentFilterThenSuccessEngine(WeeklyDvarTorahResearchDraft research, WeeklyDvarTorahArticleDraft draft) : IAIEngine
+    private sealed class FixedCurrentEvents(IReadOnlyList<CurrentEventItem> items) : ICurrentEventsSource
     {
-        internal int Calls { get; private set; }
-
-        internal bool RetryExcludedBlockedAssistantOutput { get; private set; }
-
-        internal bool RetryProhibitsSensitiveData { get; private set; }
-
-        public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Calls++;
-            if (Calls == 1)
-            {
-                return Task.FromResult(AIEngineResult<T>.Success((T)(object)research, new AIResponseDiagnostics("research-response", "test-model", null, TimeSpan.Zero, 1)));
-            }
-            if (Calls == 2)
-            {
-                return Task.FromResult(AIEngineResult<T>.Failure(AIEngineStatus.InvalidResponse, "The completion was filtered.", new AIResponseDiagnostics("blocked-draft", "test-model", null, TimeSpan.Zero, 1, AIEngineStatus.InvalidResponse, "content_filter.completion")));
-            }
-
-            RetryExcludedBlockedAssistantOutput = messages.All(message => message.Role != AIMessageRole.Assistant);
-            RetryProhibitsSensitiveData = messages.Any(message => message.Role == AIMessageRole.User && message.Content.Contains("Do not output URLs, contact details, email addresses, telephone numbers, IP addresses", StringComparison.Ordinal));
-            return Task.FromResult(AIEngineResult<T>.Success((T)(object)draft, new AIResponseDiagnostics("safe-draft", "test-model", null, TimeSpan.Zero, 1)));
-        }
+        public Task<IReadOnlyList<CurrentEventItem>> GetRecentAsync(DateTimeOffset fromUtc, DateTimeOffset throughUtc, CancellationToken cancellationToken = default) => Task.FromResult(items);
     }
 
     private sealed class StubCurrentEvents : ICurrentEventsSource

@@ -89,6 +89,10 @@ internal static class DvarTorahJobLog
             eventName = "WeeklyDvarTorahGenerationFailed",
             failureCode = generationException?.FailureCode ?? exception.GetType().Name,
             diagnosticCategory = generationException?.DiagnosticCategory,
+            failedChecks = generationException?.FailedChecks,
+            responseId = generationException?.ProviderDiagnostics?.ResponseId,
+            completionReason = generationException?.ProviderDiagnostics?.CompletionReason,
+            providerAttempts = generationException?.ProviderDiagnostics?.Attempts,
             configurationError = exception is DvarTorahJobConfigurationException ? exception.Message : null,
         }));
     }

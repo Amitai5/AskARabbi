@@ -128,5 +128,5 @@ internal sealed record WeeklyDvarTorahReviewDraft
     public required bool SafeToPublish { get; init; }
 
     [JsonPropertyName("concerns")]
-    public required IReadOnlyList<string> Concerns { get; init; }
+    public required IReadOnlyList<WeeklyDvarTorahReviewConcern> Concerns { get; init; }
 }

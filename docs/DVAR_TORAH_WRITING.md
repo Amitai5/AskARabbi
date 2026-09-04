@@ -21,9 +21,13 @@ Aim for five to eight minutes of spoken delivery within configured length bounds
 ## Research and publication checks
 
 - The research prompt plans a textual question and connected searches, including the scene and stakes. The bounded retrieval packet reserves up to two passages from a dedicated context search. All passages still pass the existing weekly-reading, licensing, and content filters.
+- The contemporary lens must be constructive and nonpolitical. Political news and multi-topic newsletters/roundups are excluded before research. Selected publishers must corroborate the same specific development; an unrelated fact from a roundup is not corroboration.
+- The drafting target is four connected teaching claims, supported by at least eight distinct Torah passages, plus one brief corroborated news fact. This keeps one essay from becoming eight separate mini-sermons while preserving both 80% Torah-grounding checks.
 - Exact quotations are inserted by the application from approved public-domain/CC0 evidence. The model cannot improvise quotations or reference URLs.
 - Existing Torah/news weighting, corroboration, safety, grounding, and source-provenance requirements remain intact. Editorial changes do not relax those checks.
-- Review schema `weekly_dvar_torah_review_v2` requires `storyContextClear`, `argumentHasBeginningMiddleEnd`, and `conclusionReturnsToOpening`, alongside all existing checks. A failed editorial check goes through the same single repair attempt; a second failure leaves the article unpublished.
+- Review schema `weekly_dvar_torah_review_v3` preserves `storyContextClear`, `argumentHasBeginningMiddleEnd`, and `conclusionReturnsToOpening`, alongside all existing checks. A failed editorial check goes through the same single repair attempt; a second failure leaves the article unpublished.
+- Review concerns contain only an enumerated check, known source IDs, and a paragraph number (zero for overall/metadata issues). The schema restricts source IDs to the current packet. Application-written repair messages explain the check; the reviewer cannot return article text, headlines, or quotations. This is an internal model-contract change; the API and Mongo document shape are unchanged. Existing articles retain their original review-version metadata.
+- Azure output protections also apply to review responses. A provider-blocked completion stops immediately, without an automatic drafting retry. Safe logs retain failed check names and provider response IDs, including when a repair request fails.
 - Missing source context is not permission to invent a story. Choose a supported angle, or fail review rather than publish an unsupported essay.
 
 Edit the research, draft, and review instructions together in `Backend/AskARabbi.DvarTorahJob/Prompts`. Keep review JSON and its typed contract synchronized. The default generator version is `weekly-dvar-torah-v3`; update an explicit environment override if one is configured.
