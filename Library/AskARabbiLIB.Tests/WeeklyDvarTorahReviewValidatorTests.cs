@@ -40,6 +40,26 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
         Assert.IsTrue(errors.Any(error => error.Contains("alienation", StringComparison.OrdinalIgnoreCase)));
     }
 
+    [TestMethod]
+    [DataRow("context", "story context")]
+    [DataRow("argument", "beginning, middle, and end")]
+    [DataRow("conclusion", "opening question")]
+    [TestCategory("Regression")]
+    public void Validate_EditorialCheckFails_BlocksOtherwiseSupportedArticle(string check, string expectedError)
+    {
+        var review = CreatePassingReview() with
+        {
+            StoryContextClear = check != "context",
+            ArgumentHasBeginningMiddleEnd = check != "argument",
+            ConclusionReturnsToOpening = check != "conclusion",
+        };
+
+        var errors = WeeklyDvarTorahReviewValidator.Validate(review);
+
+        Assert.HasCount(1, errors);
+        StringAssert.Contains(errors[0], expectedError);
+    }
+
     private static WeeklyDvarTorahReviewDraft CreatePassingReview() => new()
     {
         AllClaimsSupported = true,
@@ -49,6 +69,9 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
         NewsSourcesDescribeSameEvent = true,
         CurrentEventHasUsImpact = true,
         DeepMoralTeachingPresent = true,
+        StoryContextClear = true,
+        ArgumentHasBeginningMiddleEnd = true,
+        ConclusionReturnsToOpening = true,
         DoesNotEncourageViolence = true,
         DoesNotGlorifyOrGraphicallyDescribeViolence = true,
         DoesNotContainHateOrDehumanization = true,

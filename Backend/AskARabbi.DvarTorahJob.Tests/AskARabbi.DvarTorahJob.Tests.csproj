@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AskARabbi.DvarTorahJob\AskARabbi.DvarTorahJob.csproj" />
+    <EmbeddedResource Include="..\AskARabbi.DvarTorahJob\Prompts\*" LogicalName="Prompts.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

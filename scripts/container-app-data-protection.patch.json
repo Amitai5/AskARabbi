@@ -1,0 +1,11 @@
+{
+  "properties": {
+    "configuration": {
+      "runtime": {
+        "dotnet": {
+          "autoConfigureDataProtection": true
+        }
+      }
+    }
+  }
+}

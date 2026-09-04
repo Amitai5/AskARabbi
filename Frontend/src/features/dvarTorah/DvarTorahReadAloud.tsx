@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Headphones, LoaderCircle, Pause, Play, RotateCcw } from 'lucide-react'
+import { Headphones, LoaderCircle, Pause, Play, RotateCcw, TextCursorInput } from 'lucide-react'
 import { findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, WeeklyDvarTorahAudio } from './dvarTorahTypes.ts'
@@ -11,11 +11,13 @@ interface DvarTorahReadAloudProps {
   body: string
   client: DvarTorahClient
   onWordChange(word: DvarTorahAudioWord | null): void
+  isFollowing?: boolean
+  onToggleFollowing?(): void
 }
 
 type PlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
 
-export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWordChange }: DvarTorahReadAloudProps) {
+export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWordChange, isFollowing = false, onToggleFollowing }: DvarTorahReadAloudProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const frameRef = useRef<number | null>(null)
   const requestIdRef = useRef(0)
@@ -158,7 +160,7 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
   const duration = Math.max(0, audio.durationMs / 1000)
 
   return (
-    <section className="mt-6 max-w-[46rem] rounded-2xl border border-line bg-paper px-4 py-3.5 shadow-sm sm:px-5" aria-label="Dvar Torah audio player">
+    <section className="mx-auto w-full max-w-[54rem] rounded-2xl border border-line bg-paper px-3 py-2 shadow-[0_-4px_24px_-12px_rgba(20,37,59,0.18)] sm:px-5 sm:py-3" aria-label="Dvar Torah audio player">
       <audio ref={audioRef} crossOrigin="use-credentials" preload="none" aria-label="Dvar Torah recording" onPlaying={() => {
         setPlaybackState('playing')
         stopAnimation()
@@ -172,11 +174,12 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
         currentWordRef.current = null
         onWordChange(null)
       }} onError={failPlayback} />
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <button type="button" onClick={togglePlayback} aria-label={primaryLabel} className="inline-flex min-h-11 items-center gap-2.5 rounded-full bg-pomegranate px-4 text-sm font-semibold text-white transition hover:bg-pomegranate-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <button type="button" onClick={togglePlayback} aria-label={primaryLabel} title={primaryLabel} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2.5 rounded-full bg-pomegranate px-3 text-sm font-semibold text-white transition hover:bg-pomegranate-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate sm:px-4">
           <PrimaryIcon aria-hidden="true" className={`size-4 ${playbackState === 'loading' ? 'animate-spin motion-reduce:animate-none' : ''}`} fill={isActive ? 'none' : 'currentColor'} strokeWidth={1.8} />
-          {playbackState === 'loading' ? 'Loading audio…' : isActive ? 'Pause' : playbackState === 'paused' ? 'Resume' : playbackState === 'error' ? 'Try again' : 'Listen'}
+          <span className="hidden sm:inline">{playbackState === 'loading' ? 'Loading audio…' : isActive ? 'Pause' : playbackState === 'paused' ? 'Resume' : playbackState === 'error' ? 'Try again' : 'Listen'}</span>
         </button>
+        {onToggleFollowing === undefined ? null : <button type="button" onClick={onToggleFollowing} aria-pressed={isFollowing} aria-label="Follow text" title={isFollowing ? 'Auto-scroll is on. Scroll manually to pause following.' : 'Resume following the spoken words.'} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-xs font-semibold transition hover:bg-stone sm:px-3 sm:text-sm ${isFollowing ? 'text-pomegranate' : 'text-muted'}`}><TextCursorInput aria-hidden="true" className="hidden size-4 sm:block" /><span>{isFollowing ? 'Follow text' : 'Follow paused'}</span></button>}
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => seek(0)} disabled={playbackState === 'idle' || playbackState === 'error'} aria-label="Restart recording" className="flex size-11 items-center justify-center rounded-full text-ink-soft transition hover:bg-stone hover:text-pomegranate disabled:opacity-40"><RotateCcw aria-hidden="true" className="size-4" /></button>
           <label className="sr-only" htmlFor={`audio-speed-${weekKey}`}>Playback speed</label>
@@ -195,7 +198,6 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
         <input type="range" aria-label="Recording position" aria-valuetext={`${formatAudioTime(position)} of ${formatAudioTime(duration)}`} min={0} max={duration} step={0.1} value={Math.min(position, duration)} disabled={playbackState === 'idle' || playbackState === 'error'} onChange={(event) => seek(Number(event.target.value))} className="h-11 min-w-0 flex-1 cursor-pointer accent-pomegranate disabled:cursor-default disabled:opacity-50" />
         <span className="text-xs tabular-nums text-muted" aria-hidden="true">{formatAudioTime(duration)}</span>
       </div>
-      <p className="text-xs leading-5 text-muted">A narrated reading · Follow the highlighted words.</p>
       <p className="sr-only" aria-live="polite">{playbackState === 'playing' ? 'Playing the Dvar Torah recording.' : playbackState === 'paused' ? 'Recording paused.' : ''}</p>
       {timingsError ? <p className="mt-2 text-xs leading-5 text-muted">Word highlighting is unavailable for this recording. You can still listen.</p> : null}
       {playbackError === null ? null : <p className="mt-2 text-sm leading-6 text-pomegranate" role="alert">{playbackError}</p>}

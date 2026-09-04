@@ -36,5 +36,5 @@ export const HighlightedText = memo(function HighlightedText({ text, textOffset 
     return text
   }
   const start = activeWord.textOffset - textOffset
-  return <>{text.slice(0, start)}<mark className="rounded-sm bg-brass/30 text-ink shadow-[0_0_0_2px_var(--color-brass)]">{text.slice(start, start + activeWord.textLength)}</mark>{text.slice(start + activeWord.textLength)}</>
+  return <>{text.slice(0, start)}<mark data-narration-word className="rounded-sm bg-brass/30 text-ink shadow-[0_0_0_2px_var(--color-brass)]">{text.slice(start, start + activeWord.textLength)}</mark>{text.slice(start + activeWord.textLength)}</>
 })

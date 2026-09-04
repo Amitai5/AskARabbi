@@ -14,6 +14,8 @@ The weekly generator publishes the text first, then invokes a separate narration
 
 Audio failure leaves the text readable. The job reports failure for operational retry; successful text generation is not repeated. A recording is invalidated when its text, voice, or narration format changes. No user profile or private conversation is sent for speech synthesis.
 
+The `speech-pcm24-mp3-96-v2-silent-references` narration format silences alphabetic source IDs (including `[TB]` and `[TC]`), numeric markers, application-rendered quotation-reference labels, and marker-only source appendices. It preserves exact UTF-16 offsets with spaces and still reads the quoted words. Existing MP3s need an audio-only backfill on the updated generator to gain this behavior; no published article is overwritten. Newly generated articles include the consistent welcome described in the [writing guide](DVAR_TORAH_WRITING.md).
+
 ## Browser/API contract
 
 Published article responses add an optional `audio` object containing `version`, `voice`, `durationMs`, `audioUrl`, and `timingsUrl`. Existing records without narration remain valid and return no ready recording.
@@ -25,6 +27,8 @@ Published article responses add an optional `audio` object containing `version`,
 - Missing recordings return `404`; storage outages return a safe retryable response. Responses are privately cached and never expose storage credentials.
 
 The timing manifest contains canonical title/body text, a schema version, duration, voice, and ordered word events: `section`, `text`, `textOffset`, `textLength`, `audioOffsetMs`, and `durationMs`. Positions use UTF-16 code units, matching JavaScript string offsets. The frontend validates the version and exact displayed text before highlighting. It fetches audio/timings on demand, supports pause, seeking, and speed controls, and stops playback when leaving the article. No frontend speech model or new frontend package is required.
+
+The browser player is docked below the scrollable teaching on both mobile and desktop. **Follow text** scrolls only when the highlighted word approaches the edge; manual scrolling pauses following, source-reader inspection temporarily suspends it, and reduced-motion settings disable animation. Neither seeking nor following triggers new synthesis or a new timing request.
 
 ## Azure resources and isolation
 

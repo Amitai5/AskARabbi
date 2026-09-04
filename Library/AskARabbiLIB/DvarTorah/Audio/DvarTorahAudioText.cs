@@ -7,7 +7,7 @@ namespace AskARabbiLIB.DvarTorah.Audio;
 /// <summary>Maintains the exact browser display-text contract and deterministic narration identity.</summary>
 public static partial class DvarTorahAudioText
 {
-    private const string NarrationFormatVersion = "speech-pcm24-mp3-96-v1";
+    private const string NarrationFormatVersion = "speech-pcm24-mp3-96-v2-silent-references";
 
     /// <summary>Normalizes legacy control punctuation exactly as the frontend display normalizer does.</summary>
     /// <param name="value">Original stored text.</param>
@@ -54,6 +54,7 @@ public static partial class DvarTorahAudioText
     {
         // Replace markers with equal-length spaces so every spoken character keeps its display position.
         var spoken = CitationPattern().Replace(displayText, match => new string(' ', match.Length));
+        spoken = ReferenceLabelPattern().Replace(spoken, match => new string(' ', match.Length));
         var chunks = new List<NarrationChunk>();
         for (var start = 0; start < spoken.Length;)
         {
@@ -80,6 +81,10 @@ public static partial class DvarTorahAudioText
         return chunks;
     }
 
-    [GeneratedRegex(@"\[(?:[A-Za-z]+\d+|\d+)(?:\s*[,;–-]\s*(?:[A-Za-z]+\d+|\d+))*\]", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\[(?:[TNO][A-Z]{1,2}|[A-Za-z]+\d+|\d+)(?:\s*[,;–-]\s*(?:[TNO][A-Z]{1,2}|[A-Za-z]+\d+|\d+))*\]", RegexOptions.CultureInvariant)]
     private static partial Regex CitationPattern();
+
+    // Only application-rendered labels are silent; the actual Torah quotation remains narrated.
+    [GeneratedRegex(@"^[\t ]*(?:Torah text — [^\r\n“]+: (?=“)|Sources:(?=[\t ]*\r?$))", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex ReferenceLabelPattern();
 }

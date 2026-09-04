@@ -65,6 +65,51 @@ public sealed class DvarTorahAudioTextTests
     }
 
     [TestMethod]
+    [DataRow("[TB]")]
+    [DataRow("[TC]")]
+    [DataRow("[TAA]")]
+    [DataRow("[NA, NB; TC]")]
+    [DataRow("[TA–TC]")]
+    [DataRow("[T1]")]
+    [DataRow("[1, 2]")]
+    [TestCategory("Regression")]
+    public void GetChunks_ReferenceLabels_AreSilentWithoutShiftingFollowingWords(string marker)
+    {
+        var display = $"Learn {marker} שַׁבָּת 😀 together.";
+
+        var spoken = string.Concat(DvarTorahAudioText.GetChunks("body", display).Select(chunk => chunk.Text));
+
+        Assert.AreEqual(display.Replace(marker, new string(' ', marker.Length)), spoken);
+        Assert.AreEqual(display.IndexOf("together", StringComparison.Ordinal), spoken.IndexOf("together", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetChunks_QuotationReferenceAndSourceAppendix_SpeaksQuotationAndPreservesBracketedProse()
+    {
+        const string display = "Torah text — Deuteronomy 30:14: “Learn [together] שַׁבָּת.” [TB]\n\nSources: [TB] [TC]\n\nKeep learning.";
+
+        var spoken = string.Concat(DvarTorahAudioText.GetChunks("body", display).Select(chunk => chunk.Text));
+
+        Assert.AreEqual(display.Length, spoken.Length);
+        Assert.IsFalse(spoken.Contains("Deuteronomy", StringComparison.Ordinal));
+        Assert.IsFalse(spoken.Contains("Sources:", StringComparison.Ordinal));
+        StringAssert.Contains(spoken, "“Learn [together] שַׁבָּת.”");
+        Assert.AreEqual(display.IndexOf("Keep", StringComparison.Ordinal), spoken.IndexOf("Keep", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetVersion_PreviousNarrationRules_RequireRegeneration()
+    {
+        var article = DvarTorahAudioTestData.Article();
+        var legacyText = string.Join('\0', "speech-pcm24-mp3-96-v1", DvarTorahAudioTestData.Voice, article.Title, article.Body);
+        var legacyVersion = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(legacyText)));
+
+        Assert.AreNotEqual(legacyVersion, DvarTorahAudioText.GetVersion(article, DvarTorahAudioTestData.Voice));
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public void Ssml_HebrewAndXmlCharacters_UsesExplicitLanguagesAndExactDisplayPositions()
     {

@@ -6,7 +6,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$apiVersion = '2025-01-01'
+# The stable 2025-01-01 schema omits runtime.dotnet and silently loses managed session keys.
+$apiVersion = '2025-02-02-preview'
 $resourcePrefix = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup"
 $environmentId = "$resourcePrefix/providers/Microsoft.App/managedEnvironments/askarabbi-production-private-env"
 $apiId = "$resourcePrefix/providers/Microsoft.App/containerApps/askarabbi-api-vnet"
@@ -109,6 +110,9 @@ try {
         throw 'The replacement API has a custom domain. Staging must not overwrite a live cutover.'
     }
     $apiConfiguration = $sourceApi.properties.configuration
+    if ($apiConfiguration.runtime.dotnet.autoConfigureDataProtection -ne $true) {
+        throw 'The source API must have Azure-managed Data Protection enabled before cloning authentication configuration.'
+    }
     $apiConfiguration.secrets = @(Copy-Secrets $sourceApiId)
     $apiConfiguration.ingress.customDomains = @()
     $apiConfiguration.ingress.PSObject.Properties.Remove('fqdn')
@@ -138,6 +142,10 @@ try {
     $null = Invoke-Arm 'PUT' $apiId @{
         location = 'centralus'; identity = @{ type = 'SystemAssigned' }
         properties = @{ managedEnvironmentId = $environmentId; workloadProfileName = 'Consumption'; configuration = $apiConfiguration; template = $apiTemplate }
+    }
+    $configuredApi = Invoke-Arm 'GET' $apiId
+    if ($configuredApi.properties.configuration.runtime.dotnet.autoConfigureDataProtection -ne $true) {
+        throw 'The replacement API did not retain managed Data Protection. Do not cut over DNS or attempt sign-in.'
     }
     $null = Invoke-Arm 'PUT' $jobId @{
         location = 'centralus'; identity = @{ type = 'SystemAssigned' }

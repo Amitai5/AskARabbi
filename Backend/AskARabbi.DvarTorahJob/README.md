@@ -16,6 +16,8 @@ For a single existing publication, start a manual execution with `DvarTorahAudio
 
 ## Content and source contract
 
+The [writing guide](../../docs/DVAR_TORAH_WRITING.md) defines a beginner-friendly essay with a scene-setting beginning, one evidence-backed argument, and a conclusion returning to the opening idea. The application adds the same welcome to every new article. Independent review must approve its context, structure, and ending as well as grounding and safety. Existing publications are not rewritten automatically.
+
 - Current events come only from curated public-service, government, or institutional RSS/Atom endpoints that require no API key or paid publisher subscription: PBS News, NPR, MIT News, NIST, NASA, and Federal Reserve releases. Commercial subscription publishers are excluded. Individual feed failures are logged and tolerated when enough independent publishers remain.
 - Only bounded feed metadata is retained: publisher, headline, short summary, public URL, publication time, and retrieval time. The job does not scrape or republish article bodies.
 - Torah passages come from the same fingerprint-verified managed Sefaria corpus used by grounded conversations. Retrieved passages are deterministically restricted to the regular parashah or exact festival reading for that Hebrew date and Israel/Diaspora cycle. An unknown festival range fails closed without publishing.
@@ -51,7 +53,7 @@ The generator is implemented, but activation remains fail-closed. Before setting
 | `DvarTorah__MinimumTorahGroundingPercent` | No | `80` (cannot be configured lower) |
 | `DvarTorah__MinimumBodyCharacters` | No | `2500` |
 | `DvarTorah__MaximumBodyCharacters` | No | `15000` |
-| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v2` |
+| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v3` |
 | `AI__ProjectEndpoint` | When generation is enabled | None |
 | `AI__ModelName` | When generation is enabled | None |
 | `AI__VectorStoreId` | When generation is enabled | None |

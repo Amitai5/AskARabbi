@@ -37,7 +37,7 @@ if (localDevelopmentOptions.UseDemoServices)
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<SessionProtectionHealthCheck>("session-protection");
 builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;

@@ -82,6 +82,15 @@ internal sealed record WeeklyDvarTorahReviewDraft
     [JsonPropertyName("deepMoralTeachingPresent")]
     public required bool DeepMoralTeachingPresent { get; init; }
 
+    [JsonPropertyName("storyContextClear")]
+    public required bool StoryContextClear { get; init; }
+
+    [JsonPropertyName("argumentHasBeginningMiddleEnd")]
+    public required bool ArgumentHasBeginningMiddleEnd { get; init; }
+
+    [JsonPropertyName("conclusionReturnsToOpening")]
+    public required bool ConclusionReturnsToOpening { get; init; }
+
     [JsonPropertyName("doesNotEncourageViolence")]
     public required bool DoesNotEncourageViolence { get; init; }
 

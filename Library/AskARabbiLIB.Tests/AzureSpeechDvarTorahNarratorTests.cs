@@ -53,6 +53,28 @@ public sealed class AzureSpeechDvarTorahNarratorTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_AlphabeticReferences_NeverSendsLabelsToSpeechAndKeepsExactHighlightOffsets()
+    {
+        const string body = "Learn [TB].\n\nTorah text — Genesis 44:18: “שַׁבָּת שָׁלוֹם.” [TC]\n\nSources: [TB] [TC]\n\nContinue.";
+        var article = DvarTorahAudioTestData.Article(body);
+        var calls = new List<string>();
+        var narrator = new AzureSpeechDvarTorahNarrator(DvarTorahAudioTestData.Options(), new RecordingEncoder(), (ssml, _) =>
+        {
+            calls.Add(ssml);
+            return Task.FromResult(SpeechResult(ssml));
+        });
+
+        var result = await narrator.GenerateAsync(article, DvarTorahAudioText.GetVersion(article, DvarTorahAudioTestData.Voice));
+
+        Assert.IsTrue(calls.All(ssml => !ssml.Contains("[TB]", StringComparison.Ordinal) && !ssml.Contains("[TC]", StringComparison.Ordinal) && !ssml.Contains("Genesis", StringComparison.Ordinal) && !ssml.Contains("Sources:", StringComparison.Ordinal)));
+        Assert.AreEqual(body, result.Timings.Body);
+        CollectionAssert.AreEqual(new[] { "Title", "Learn", "שַׁבָּת", "שָׁלוֹם", "Continue" }, result.Timings.Words.Select(word => word.Text).ToArray());
+        Assert.AreEqual(body.IndexOf("Continue", StringComparison.Ordinal), result.Timings.Words[^1].TextOffset);
+        DvarTorahAudioValidation.ValidateTimings(result.Timings);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task GenerateAsync_MissingBoundary_FailsBeforeEncoding()
     {

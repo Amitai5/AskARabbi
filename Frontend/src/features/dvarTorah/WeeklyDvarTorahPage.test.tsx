@@ -154,6 +154,13 @@ describe('WeeklyDvarTorahPage', () => {
     const { unmount } = render(<WeeklyDvarTorahPage client={client} />)
 
     const listen = await screen.findByRole('button', { name: 'Listen to this teaching' })
+    const player = screen.getByRole('region', { name: 'Dvar Torah audio player' })
+    const readingArea = screen.getByRole('region', { name: 'A teaching for the week.' })
+    expect(readingArea).not.toContainElement(player)
+    expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.wheel(readingArea)
+    expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'false')
+    await user.click(screen.getByRole('button', { name: 'Follow text' }))
     const audio = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
     expect(audio).toHaveAttribute('preload', 'none')
     expect(audio).toHaveAttribute('crossorigin', 'use-credentials')
@@ -184,6 +191,20 @@ describe('WeeklyDvarTorahPage', () => {
     unmount()
     expect(pause).toHaveBeenCalledTimes(2)
     expect(audio).not.toHaveAttribute('src')
+  })
+
+  it('removes the bottom player when browsing the archive', async () => {
+    const article = Publication.dvarTorah!
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+    const client = createClient({ ...Publication, dvarTorah: { ...article, audio: { version: 'v1', voice: 'Andrew', durationMs: 20_000, audioUrl: '', timingsUrl: '' } } })
+    render(<WeeklyDvarTorahPage client={client} />)
+    await screen.findByRole('region', { name: 'Dvar Torah audio player' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Past teachings' }))
+
+    expect(screen.queryByRole('region', { name: 'Dvar Torah audio player' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Dvar Torah recording')).not.toBeInTheDocument()
   })
 
   it('loads the newest ten archive records, shows their metadata, searches, and pages', async () => {

@@ -61,6 +61,24 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_StoryContextMissing_RepairsBeforePublishingWithOneWelcome()
+    {
+        var draft = CreateArticleDraft("An accessible teaching");
+        var generation = new QueueEngine(CreateResearchDraft(), draft, draft with { Body = WeeklyDvarTorahIntroduction.Prepend(draft.Body) });
+        var review = new QueueEngine(CreatePassingReview() with { StoryContextClear = false }, CreatePassingReview());
+        var generator = CreateGenerator(CreateTorahHits(), generation, review);
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.AreEqual(3, generation.Calls);
+        Assert.AreEqual(2, review.Calls);
+        Assert.AreEqual(result.Body.IndexOf(WeeklyDvarTorahIntroduction.Text, StringComparison.Ordinal), result.Body.LastIndexOf(WeeklyDvarTorahIntroduction.Text, StringComparison.Ordinal));
+        StringAssert.Contains(generation.Requests[2].Last().Content, "story context");
+        StringAssert.Contains(generation.Requests[1].Last().Content, "introductionAddedByApplication");
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task GenerateAsync_DraftGroundingFailsBothAttempts_ReportsSafeDiagnosticCategory()
     {
@@ -119,7 +137,9 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         StringAssert.Contains(result.Body, thirdQuotation);
         Assert.IsTrue(result.Body.IndexOf(firstQuotation, StringComparison.Ordinal) > result.Body.IndexOf("anchored here [TH]", StringComparison.Ordinal));
         Assert.IsFalse(result.Body.Contains("“Publisher one reports", StringComparison.Ordinal));
-        Assert.AreEqual("weekly-dvar-torah-v2", result.GeneratorVersion);
+        Assert.AreEqual("weekly-dvar-torah-v3", result.GeneratorVersion);
+        StringAssert.StartsWith(result.Body, WeeklyDvarTorahIntroduction.Text + "\n\n");
+        Assert.AreEqual("weekly_dvar_torah_review_v2", result.Metadata?.SafetyReviewVersion);
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"featuredTorahQuotationCount\":3");
         var reviewRequest = reviewEngine.Requests[0].Single(message => message.Role == AIMessageRole.User).Content;
         StringAssert.Contains(reviewRequest, "Deuteronomy 29:16");
@@ -248,7 +268,29 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsTrue(result.Metadata.Sources.All(source => source.SourceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)));
     }
 
-    private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null)
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_ThematicHitsOutrankScene_PreservesContextWithinEvidenceLimit()
+    {
+        var seed = CreateTorahHits()[0];
+        var themeHits = Enumerable.Range(0, 15).Select(index => seed with { Segment = seed.Segment with { SegmentId = $"theme-{index}", Text = $"Thematic evidence {index}." } }).ToArray();
+        var contextHits = new[]
+        {
+            seed with { Score = 0.01, Segment = seed.Segment with { SegmentId = "scene", Text = "The scene and the speaker." } },
+            seed with { Score = 0.02, Segment = seed.Segment with { SegmentId = "stakes", Text = "The choices facing the audience." } },
+        };
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("A contextual teaching"));
+        var generator = CreateGenerator(themeHits, generation, new QueueEngine(CreatePassingReview()), contextHits: contextHits);
+
+        await generator.GenerateAsync(Week);
+
+        var request = generation.Requests[1].Last().Content;
+        StringAssert.Contains(request, "The scene and the speaker.");
+        StringAssert.Contains(request, "The choices facing the audience.");
+        Assert.IsFalse(request.Contains("Thematic evidence 14.", StringComparison.Ordinal));
+    }
+
+    private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null, IReadOnlyList<SourceRetrievalHit>? contextHits = null)
     {
         var prompts = new WeeklyDvarTorahPromptSet
         {
@@ -266,7 +308,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             MaximumBodyCharacters = 5_000,
             OverallTimeout = TimeSpan.FromMinutes(2),
         };
-        return new GroundedWeeklyDvarTorahGenerator(currentEvents ?? new StubCurrentEvents(), new StubRetriever(hits), generationEngine, reviewEngine, prompts, options, new FixedTimeProvider(CurrentUtc));
+        return new GroundedWeeklyDvarTorahGenerator(currentEvents ?? new StubCurrentEvents(), new StubRetriever(hits, contextHits), generationEngine, reviewEngine, prompts, options, new FixedTimeProvider(CurrentUtc));
     }
 
     private static WeeklyDvarTorahResearchDraft CreateResearchDraft() => new()
@@ -315,6 +357,9 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         NewsSourcesDescribeSameEvent = true,
         CurrentEventHasUsImpact = true,
         DeepMoralTeachingPresent = true,
+        StoryContextClear = true,
+        ArgumentHasBeginningMiddleEnd = true,
+        ConclusionReturnsToOpening = true,
         DoesNotEncourageViolence = true,
         DoesNotGlorifyOrGraphicallyDescribeViolence = true,
         DoesNotContainHateOrDehumanization = true,
@@ -518,9 +563,9 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         }
     }
 
-    private sealed class StubRetriever(IReadOnlyList<SourceRetrievalHit> hits) : ISourceRetriever
+    private sealed class StubRetriever(IReadOnlyList<SourceRetrievalHit> hits, IReadOnlyList<SourceRetrievalHit>? contextHits = null) : ISourceRetriever
     {
-        public Task<IReadOnlyList<SourceRetrievalHit>> SearchAsync(SourceRetrievalQuery query, CancellationToken cancellationToken = default) => Task.FromResult(hits);
+        public Task<IReadOnlyList<SourceRetrievalHit>> SearchAsync(SourceRetrievalQuery query, CancellationToken cancellationToken = default) => Task.FromResult(contextHits is not null && query.QueryText?.Contains("setting, speakers", StringComparison.Ordinal) == true ? contextHits : hits);
 
         public Task<IReadOnlyList<SourceSegment>> GetContextAsync(string documentId, int documentOrdinal, int radius, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SourceSegment>>([]);
     }

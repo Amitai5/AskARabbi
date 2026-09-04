@@ -140,6 +140,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             var generatedDraft = draft;
             var completedDraft = AddMissingBodyEvidenceMarkers(generatedDraft, evidence, options.MaximumBodyCharacters);
             completedDraft = WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(completedDraft, evidence, options.MaximumBodyCharacters);
+            completedDraft = completedDraft with { Body = WeeklyDvarTorahIntroduction.Prepend(completedDraft.Body) };
             previousDraft = generatedDraft;
             var validation = WeeklyDvarTorahCandidateValidator.Validate(completedDraft, evidence, options);
             if (!validation.IsValid)
@@ -242,11 +243,13 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
         }
 
         var queries = research.TorahSearchQueries
+            .Prepend($"{reading}: setting, speakers, relationships, preceding events and the choices at stake in the Torah reading")
             .Append($"{reading}: {research.Theme}. {research.MoralQuestion}")
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(5)
             .ToArray();
         var hits = new Dictionary<string, SourceRetrievalHit>(StringComparer.Ordinal);
+        var contextSegmentIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var query in queries)
         {
             var results = await torahRetriever.SearchAsync(new SourceRetrievalQuery
@@ -274,6 +277,10 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 {
                     continue;
                 }
+                if (query == queries[0])
+                {
+                    contextSegmentIds.Add(hit.Segment.SegmentId);
+                }
                 if (!hits.TryGetValue(hit.Segment.SegmentId, out var existing) || hit.Score > existing.Score)
                 {
                     hits[hit.Segment.SegmentId] = hit;
@@ -281,9 +288,14 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             }
         }
 
-        var selected = hits.Values
+        var ranked = hits.Values
             .OrderByDescending(hit => hit.Score)
             .ThenBy(hit => hit.Segment.CanonicalReference, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        // Reserve a small part of the bounded packet for the scene, not just high-scoring thematic words.
+        var selected = ranked.Where(hit => contextSegmentIds.Contains(hit.Segment.SegmentId)).Take(2)
+            .Concat(ranked)
+            .DistinctBy(hit => hit.Segment.SegmentId)
             .Take(options.MaximumTorahEvidenceItems)
             .ToArray();
         if (selected.Length < options.MinimumTorahEvidenceItems)
@@ -316,7 +328,8 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 minimumTorahGroundingPercent = options.MinimumTorahGroundingPercent,
                 minimumTorahSources = options.MinimumTorahEvidenceItems,
                 minimumNewsPublishers = options.MinimumNewsPublishers,
-                bodyCharacters = new { minimum = options.MinimumBodyCharacters, maximum = WeeklyDvarTorahQuotationRenderer.GetMaximumGeneratedBodyCharacters(options) },
+                bodyCharacters = new { minimum = options.MinimumBodyCharacters, maximum = Math.Max(options.MinimumBodyCharacters, WeeklyDvarTorahQuotationRenderer.GetMaximumGeneratedBodyCharacters(options) - WeeklyDvarTorahIntroduction.Text.Length - 2) },
+                introductionAddedByApplication = WeeklyDvarTorahIntroduction.Text,
                 compositionTargets = new
                 {
                     torahTeachingStatements = 8,

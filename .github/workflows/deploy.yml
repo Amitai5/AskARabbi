@@ -93,6 +93,20 @@ jobs:
       - name: Enable the Azure Container Apps CLI extension
         run: az config set extension.use_dynamic_install=yes_without_prompt
 
+      - name: Verify managed session-key configuration before deployment
+        run: |
+          set -euo pipefail
+          subscription_id="$(az account show --query id --output tsv)"
+          api_resource="https://management.azure.com/subscriptions/$subscription_id/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.App/containerApps/$CONTAINER_APP_NAME"
+          enabled="$(az rest --method get \
+            --url "$api_resource?api-version=2025-02-02-preview" \
+            --query properties.configuration.runtime.dotnet.autoConfigureDataProtection \
+            --output tsv)"
+          if [ "$enabled" != "true" ]; then
+            echo "Azure-managed Data Protection must be enabled before deploying the API. A key-directory environment variable alone is not sufficient." >&2
+            exit 1
+          fi
+
       - name: Deploy immutable API image to Container Apps
         env:
           API_IMAGE_DIGEST: ${{ steps.build-api.outputs.digest }}
@@ -119,6 +133,17 @@ jobs:
         id: verify-deployment
         run: |
           set -euo pipefail
+
+          subscription_id="$(az account show --query id --output tsv)"
+          api_resource="https://management.azure.com/subscriptions/$subscription_id/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.App/containerApps/$CONTAINER_APP_NAME"
+          enabled="$(az rest --method get \
+            --url "$api_resource?api-version=2025-02-02-preview" \
+            --query properties.configuration.runtime.dotnet.autoConfigureDataProtection \
+            --output tsv)"
+          if [ "$enabled" != "true" ]; then
+            echo "The deployment lost Azure-managed Data Protection; Google sign-in cannot safely create application sessions." >&2
+            exit 1
+          fi
 
           revision_name="$(az containerapp show \
             --name "$CONTAINER_APP_NAME" \

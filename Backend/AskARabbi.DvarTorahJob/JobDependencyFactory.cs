@@ -84,7 +84,7 @@ internal static class JobDependencyFactory
             MinimumBodyCharacters = DvarTorahJobEnvironment.GetInteger("DvarTorah__MinimumBodyCharacters", 2_500),
             MaximumBodyCharacters = DvarTorahJobEnvironment.GetInteger("DvarTorah__MaximumBodyCharacters", 15_000),
             OverallTimeout = TimeSpan.FromMinutes(DvarTorahJobEnvironment.GetInteger("DvarTorah__ResearchTimeoutMinutes", 25)),
-            GeneratorVersion = DvarTorahJobEnvironment.GetOptional("DvarTorah__GeneratorVersion") ?? "weekly-dvar-torah-v2",
+            GeneratorVersion = DvarTorahJobEnvironment.GetOptional("DvarTorah__GeneratorVersion") ?? "weekly-dvar-torah-v3",
         };
         contentOptions.Validate();
 

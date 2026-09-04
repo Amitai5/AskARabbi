@@ -13,6 +13,9 @@ internal static class WeeklyDvarTorahReviewValidator
         AddFailure(review.NewsSourcesDescribeSameEvent, "Independent review found that the news sources did not corroborate the same event.", errors);
         AddFailure(review.CurrentEventHasUsImpact, "Independent review found no meaningful United States impact.", errors);
         AddFailure(review.DeepMoralTeachingPresent, "Independent review found no sufficiently deep moral teaching.", errors);
+        AddFailure(review.StoryContextClear, "Independent review found insufficient story context for a reader unfamiliar with the Torah portion.", errors);
+        AddFailure(review.ArgumentHasBeginningMiddleEnd, "Independent review found no coherent beginning, middle, and end developing one central insight.", errors);
+        AddFailure(review.ConclusionReturnsToOpening, "Independent review found no conclusion returning to the opening question or image.", errors);
         AddFailure(review.DoesNotEncourageViolence, "Independent review found encouragement, instruction, or approval of violence.", errors);
         AddFailure(review.DoesNotGlorifyOrGraphicallyDescribeViolence, "Independent review found glorified or graphic violence.", errors);
         AddFailure(review.DoesNotContainHateOrDehumanization, "Independent review found hateful or dehumanizing language.", errors);
