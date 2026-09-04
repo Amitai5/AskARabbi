@@ -55,14 +55,21 @@ public sealed class AzureSpeechDvarTorahNarrator : IDvarTorahNarrator
             }
             var offsetMs = pcm.Length * 1000d / PcmBytesPerSecond;
             var displayText = chunk.Section == "title" ? title : body;
+            var alignmentCursor = chunk.DisplayOffset;
+            var chunkEnd = chunk.DisplayOffset + chunk.Text.Length;
             foreach (var boundary in result.Words)
             {
                 var displayOffset = ssml.GetDisplayOffset(boundary.SsmlOffset);
-                if (displayOffset < 0 || displayOffset > displayText.Length - boundary.Text.Length || !displayText.AsSpan(displayOffset, boundary.Text.Length).SequenceEqual(boundary.Text))
+                if (!IsExactBoundary(displayText, boundary.Text, displayOffset, alignmentCursor, chunkEnd))
+                {
+                    displayOffset = FindExactBoundary(displayText, boundary.Text, alignmentCursor, chunkEnd);
+                }
+                if (displayOffset < 0)
                 {
                     throw new DvarTorahAudioException("WordAlignmentFailed", "alignment");
                 }
                 words.Add(new(chunk.Section, boundary.Text, displayOffset, boundary.Text.Length, offsetMs + boundary.AudioOffsetMs, boundary.DurationMs));
+                alignmentCursor = displayOffset + boundary.Text.Length;
             }
             if (result.Words.Count == 0)
             {
@@ -74,6 +81,21 @@ public sealed class AzureSpeechDvarTorahNarrator : IDvarTorahNarrator
         DvarTorahAudioValidation.ValidateTimings(timings);
         var mp3 = await encoder.EncodeAsync(pcm, deadline.Token).ConfigureAwait(false);
         return new DvarTorahNarration(mp3, timings);
+    }
+
+    private static bool IsExactBoundary(string displayText, string word, int offset, int minimumOffset, int maximumOffset)
+    {
+        return offset >= minimumOffset && offset <= maximumOffset - word.Length && displayText.AsSpan(offset, word.Length).SequenceEqual(word);
+    }
+
+    private static int FindExactBoundary(string displayText, string word, int minimumOffset, int maximumOffset)
+    {
+        if (word.Length == 0 || minimumOffset < 0 || maximumOffset > displayText.Length || minimumOffset > maximumOffset - word.Length)
+        {
+            return -1;
+        }
+
+        return displayText.IndexOf(word, minimumOffset, maximumOffset - minimumOffset, StringComparison.Ordinal);
     }
 
     private static async Task<DvarTorahSpeechAudio> SynthesizeAsync(string ssml, DvarTorahAudioOptions options, TokenCredential credential, CancellationToken cancellationToken)

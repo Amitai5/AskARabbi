@@ -33,6 +33,8 @@ public sealed class WeeklyDvarTorahPromptContractTests
 
         StringAssert.Contains(draft, "has NOT read the parashah");
         StringAssert.Contains(draft, "BEGINNING:");
+        StringAssert.Contains(draft, "first model-generated paragraph must explicitly name");
+        StringAssert.Contains(draft, "Do not substitute vague labels");
         StringAssert.Contains(draft, "MIDDLE:");
         StringAssert.Contains(draft, "END:");
         StringAssert.Contains(draft, "introductionAddedByApplication");

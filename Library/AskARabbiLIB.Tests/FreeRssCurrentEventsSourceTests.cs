@@ -15,7 +15,7 @@ public sealed class FreeRssCurrentEventsSourceTests
     public void DefaultCatalog_NoSubscriptionPolicy_ContainsOnlyApprovedPublicSources()
     {
         CollectionAssert.AreEquivalent(
-            new[] { "PBS News", "NPR", "MIT News", "NIST", "NASA", "Federal Reserve" },
+            new[] { "PBS News", "NPR", "The New York Times", "NBC News", "ABC News", "CBS News", "MIT News", "NIST", "NASA", "Federal Reserve" },
             FreeNewsFeedCatalog.Default.Select(feed => feed.Publisher).ToArray());
         Assert.IsTrue(FreeNewsFeedCatalog.Default.All(feed => feed.FeedUrl.Scheme == Uri.UriSchemeHttps));
     }

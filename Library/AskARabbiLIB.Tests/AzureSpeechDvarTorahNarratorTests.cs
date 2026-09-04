@@ -88,9 +88,8 @@ public sealed class AzureSpeechDvarTorahNarratorTests
     }
 
     [TestMethod]
-    [DataRow(0u, "Title")]
-    [DataRow(uint.MaxValue, "Title")]
     [DataRow(1u, "Wrong")]
+    [DataRow(uint.MaxValue, "Wrong")]
     [TestCategory("Unit")]
     public async Task GenerateAsync_InvalidBoundaryOffset_RejectsWrongWordHighlight(uint offset, string text)
     {
@@ -102,6 +101,29 @@ public sealed class AzureSpeechDvarTorahNarratorTests
         Assert.AreEqual("WordAlignmentFailed", failure.FailureCode);
         Assert.AreEqual("alignment", failure.Stage);
         Assert.AreEqual(0, encoder.Calls);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_ProviderOffsetsDoNotMapToSsml_AlignsExactWordsInOrder()
+    {
+        var article = DvarTorahAudioTestData.Article("First repeated word. Second repeated word.");
+        var encoder = new RecordingEncoder();
+        var narrator = new AzureSpeechDvarTorahNarrator(DvarTorahAudioTestData.Options(), encoder, (ssml, _) =>
+        {
+            var text = XDocument.Parse(ssml).Root?.Value ?? throw new AssertFailedException("Invalid SSML.");
+            var words = Regex.Matches(text, @"[\p{L}\p{M}]+", RegexOptions.CultureInvariant)
+                .Select((match, index) => new DvarTorahSpeechWord(match.Value, uint.MaxValue, index * 100d, 50d))
+                .ToArray();
+            return Task.FromResult(new DvarTorahSpeechAudio(new byte[48_000], words));
+        });
+
+        var result = await narrator.GenerateAsync(article, DvarTorahAudioText.GetVersion(article, DvarTorahAudioTestData.Voice));
+
+        Assert.AreEqual(1, encoder.Calls);
+        CollectionAssert.AreEqual(new[] { "Title", "First", "repeated", "word", "Second", "repeated", "word" }, result.Timings.Words.Select(word => word.Text).ToArray());
+        Assert.AreEqual(article.Body.LastIndexOf("repeated", StringComparison.Ordinal), result.Timings.Words[^2].TextOffset);
+        DvarTorahAudioValidation.ValidateTimings(result.Timings);
     }
 
     [TestMethod]
