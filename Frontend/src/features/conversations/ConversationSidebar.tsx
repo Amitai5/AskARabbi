@@ -108,7 +108,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
   }
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(20rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden overscroll-none border-r border-line bg-stone transition-transform duration-300 ease-out lg:relative lg:z-0 lg:visible lg:w-72 lg:translate-x-0 ${mobileVisibility}`} aria-label="Conversation navigation">
+    <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(20rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden overscroll-none border-r border-line bg-stone text-base leading-6 transition-transform duration-300 ease-out lg:relative lg:z-0 lg:visible lg:w-72 lg:translate-x-0 lg:text-lg ${mobileVisibility}`} aria-label="Conversation navigation">
       <div className="flex items-center justify-between px-5 pb-5 pt-6">
         <Brand compact />
         <button type="button" onClick={onCloseMobile} className="flex size-11 items-center justify-center rounded-lg text-ink transition hover:bg-stone-deep lg:hidden" aria-label="Close conversation navigation">
@@ -117,17 +117,17 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
       </div>
 
       <div className="px-4">
-        <button type="button" disabled={isNewConversationDisabled} onClick={onNewConversation} className="flex h-13 w-full items-center justify-center gap-2.5 rounded-lg bg-pomegranate px-4 text-sm font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60">
+        <button type="button" disabled={isNewConversationDisabled} onClick={onNewConversation} className="flex h-13 w-full items-center justify-center gap-2.5 rounded-lg bg-pomegranate px-4 font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60">
           <Plus aria-hidden="true" className="size-5" strokeWidth={1.75} />
           New conversation
         </button>
       </div>
 
       <nav className="mt-6 px-3" aria-label="Weekly learning">
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Weekly learning</p>
+        <p className="px-3 pb-2 text-sm font-semibold uppercase leading-4 tracking-[0.14em] text-muted">Weekly learning</p>
         <div className={`relative flex min-h-11 items-center rounded-lg transition hover:bg-stone-deep/70 ${isDvarTorahSelected ? 'bg-stone-deep/70 font-semibold' : ''}`}>
           {isDvarTorahSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-pomegranate" /> : null}
-          <button type="button" onClick={openDvarTorah} aria-current={isDvarTorahSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left text-sm text-ink">
+          <button type="button" onClick={openDvarTorah} aria-current={isDvarTorahSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left text-ink">
             <BookOpenText aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.65} />
             <span className="truncate">This week’s Dvar Torah</span>
           </button>
@@ -135,7 +135,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
       </nav>
 
       <nav className="mt-5 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-3 pb-4" aria-label="Recent conversations">
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Recent</p>
+        <p className="px-3 pb-2 text-sm font-semibold uppercase leading-4 tracking-[0.14em] text-muted">Recent</p>
         <ul className="space-y-1">
           {conversations.map((conversation, index) => {
             const isSelected = !isDvarTorahSelected && conversation.id === selectedId
@@ -145,7 +145,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                 {editingId === conversation.id ? (
                   <form className="flex min-h-11 items-center gap-1 rounded-lg bg-stone-deep/70 pl-3 pr-1" onSubmit={(event) => submitRename(event, conversation.id)}>
                     <MessageCircle aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.65} />
-                    <input autoFocus type="text" maxLength={80} value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} className="h-9 min-w-0 flex-1 rounded-md border border-line-strong bg-paper px-2 text-sm text-ink focus:border-pomegranate focus:outline-none" aria-label={`Rename ${conversation.title}`} />
+                    <input autoFocus type="text" maxLength={80} value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} className="h-9 min-w-0 flex-1 rounded-md border border-line-strong bg-paper px-2 text-ink focus:border-pomegranate focus:outline-none" aria-label={`Rename ${conversation.title}`} />
                     <button type="submit" disabled={renameDraft.trim().length === 0} className="flex size-8 shrink-0 items-center justify-center rounded-md text-ink transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40" aria-label="Save conversation name">
                       <Check aria-hidden="true" className="size-4" strokeWidth={1.9} />
                     </button>
@@ -156,7 +156,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                 ) : (
                   <div className={`group relative flex min-h-11 items-center rounded-lg transition hover:bg-stone-deep/70 ${isSelected ? 'bg-stone-deep/70 font-semibold' : ''}`}>
                     {isSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-pomegranate" /> : null}
-                    <button type="button" onClick={() => selectConversation(conversation.id)} aria-current={isSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pl-3 pr-1 text-left text-sm text-ink">
+                    <button type="button" onClick={() => selectConversation(conversation.id)} aria-current={isSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pl-3 pr-1 text-left text-ink">
                       <MessageCircle aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.65} />
                       <span className="truncate">{conversation.title}</span>
                     </button>
@@ -176,20 +176,20 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                       {openMenuId === conversation.id ? (
                         deleteConfirmationId === conversation.id ? (
                           <div className="absolute right-0 top-10 z-30 w-52 rounded-xl border border-line bg-paper p-3 shadow-menu" role="dialog" aria-label={`Delete ${conversation.title}`}>
-                            <p className="text-sm font-semibold text-ink">Delete this conversation?</p>
-                            <p className="mt-1 text-xs leading-5 text-muted">This permanently removes it from your account.</p>
+                            <p className="text-base font-semibold text-ink">Delete this conversation?</p>
+                            <p className="mt-1 text-sm leading-5 text-muted">This permanently removes it from your account.</p>
                             <div className="mt-3 flex justify-end gap-2">
-                              <button type="button" onClick={() => setDeleteConfirmationId(null)} className="h-9 rounded-lg px-3 text-xs font-semibold text-ink transition hover:bg-stone">Cancel</button>
-                              <button type="button" onClick={() => deleteConversation(conversation.id)} className="h-9 rounded-lg bg-pomegranate px-3 text-xs font-semibold text-white transition hover:bg-pomegranate-dark">Delete</button>
+                              <button type="button" onClick={() => setDeleteConfirmationId(null)} className="h-9 rounded-lg px-3 font-semibold text-ink transition hover:bg-stone">Cancel</button>
+                              <button type="button" onClick={() => deleteConversation(conversation.id)} className="h-9 rounded-lg bg-pomegranate px-3 font-semibold text-white transition hover:bg-pomegranate-dark">Delete</button>
                             </div>
                           </div>
                         ) : (
                           <div className="absolute right-0 top-10 z-30 w-44 rounded-xl border border-line bg-paper p-1.5 shadow-menu" role="menu" aria-label={`Actions for ${conversation.title}`}>
-                            <button type="button" onClick={() => startRename(conversation)} className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-sm text-ink transition hover:bg-stone" role="menuitem">
+                            <button type="button" onClick={() => startRename(conversation)} className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-ink transition hover:bg-stone" role="menuitem">
                               <Pencil aria-hidden="true" className="size-4" strokeWidth={1.7} />
                               Rename
                             </button>
-                            <button type="button" onClick={() => setDeleteConfirmationId(conversation.id)} className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-sm text-pomegranate transition hover:bg-stone" role="menuitem">
+                            <button type="button" onClick={() => setDeleteConfirmationId(conversation.id)} className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-pomegranate transition hover:bg-stone" role="menuitem">
                               <Trash2 aria-hidden="true" className="size-4" strokeWidth={1.7} />
                               Delete
                             </button>

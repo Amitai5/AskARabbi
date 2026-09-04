@@ -49,7 +49,7 @@ export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLog
               setIsOpen(false)
               onOpenSettings()
             }}
-            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink transition hover:bg-stone"
+            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone"
             role="menuitem"
           >
             <Wrench aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
@@ -61,14 +61,14 @@ export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLog
               setIsOpen(false)
               onOpenPersonalization()
             }}
-            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink transition hover:bg-stone"
+            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone"
             role="menuitem"
           >
             <SlidersHorizontal aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
             Personalization
           </button>
           <div className="my-1 h-px bg-line" />
-          <button type="button" onClick={() => void onLogout()} className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink transition hover:bg-stone" role="menuitem">
+          <button type="button" onClick={() => void onLogout()} className="flex h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone" role="menuitem">
             <LogOut aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
             Log out
           </button>
@@ -86,7 +86,7 @@ export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLog
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-ink/35 bg-paper">
           <UserRound aria-hidden="true" className="size-5" strokeWidth={1.65} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{user.name}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold">{user.name}</span>
         <ChevronUp aria-hidden="true" className={`size-4 transition-transform ${isOpen ? '' : 'rotate-180'}`} strokeWidth={1.75} />
       </button>
     </div>

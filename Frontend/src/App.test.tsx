@@ -152,6 +152,51 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeVisible()
   })
 
+  it('uses uniform readable controls and a larger loading message within the compact layout', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const conversation = await clients.conversationClient.get('chicken-dairy')
+    const pendingConversation = createDeferred<ConversationDetails>()
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      get: () => pendingConversation.promise,
+    }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+
+    const loading = await screen.findByText('Loading conversation…')
+    expect(loading).toHaveAttribute('role', 'status')
+    expect(loading).toHaveClass('text-lg')
+    const sidebar = screen.getByRole('complementary', { name: 'Conversation navigation' })
+    expect(sidebar).toHaveClass('text-base', 'lg:text-lg', 'leading-6', 'lg:w-72')
+    expect(within(sidebar).getByText('Weekly learning')).toHaveClass('text-sm', 'leading-4')
+    expect(within(sidebar).getByText('Recent')).toHaveClass('text-sm', 'leading-4')
+    expect(within(sidebar).getByRole('button', { name: 'New conversation' })).toHaveClass('h-13')
+    expect(await within(sidebar).findByRole('button', { name: 'Chicken and dairy' })).toHaveClass('min-h-11')
+    const name = within(sidebar).getByText('Amitai Erfanian')
+    expect(name).toHaveClass('truncate')
+    expect(name).not.toHaveClass('text-sm')
+    expect(name.closest('button')).toHaveClass('min-h-14')
+    const composer = screen.getByLabelText('Message AskRabbi')
+    expect(composer.parentElement?.parentElement).toHaveClass('text-base', 'lg:text-lg', 'leading-6', 'max-w-[50rem]')
+    expect(composer).toHaveClass('min-h-10', 'max-h-40')
+    expect(screen.getByText('English · quotes in English')).toHaveClass('text-sm', 'leading-4')
+    expect(screen.getByText('AskRabbi can make mistakes. Check the cited sources.')).toHaveClass('text-sm', 'leading-5')
+
+    await act(async () => {
+      pendingConversation.resolve(conversation)
+      await pendingConversation.promise
+    })
+
+    await expectConversationStarter()
+    expect(screen.queryByText('Loading conversation…')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+    const personalization = screen.getByRole('menuitem', { name: 'Personalization' })
+    expect(personalization).toHaveClass('h-11')
+    expect(personalization).not.toHaveClass('text-sm')
+  })
+
   it('contains tablet swipe scrolling within the authenticated dashboard', async () => {
     const user = userEvent.setup()
     await renderApp()

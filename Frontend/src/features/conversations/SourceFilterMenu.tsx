@@ -61,7 +61,7 @@ export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: S
         aria-controls="conversation-source-filter"
         aria-label={`Choose sources: ${selectionLabel}`}
         onClick={() => setIsOpen((current) => !current)}
-        className="inline-flex h-9 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-ink-soft transition hover:bg-stone hover:text-ink"
+        className="inline-flex h-9 items-center gap-2 rounded-lg px-2 font-semibold text-ink-soft transition hover:bg-stone hover:text-ink"
       >
         <BookOpenCheck aria-hidden="true" className="size-4 text-pomegranate" strokeWidth={1.8} />
         <span>{selectionLabel}</span>

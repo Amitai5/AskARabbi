@@ -567,7 +567,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
                 <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
                   {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
                   {isLoadingConversations || isLoadingConversation ? (
-                    <div className="flex flex-1 items-center justify-center"><p className="text-sm text-muted" role="status">Loading conversation…</p></div>
+                    <div className="flex flex-1 items-center justify-center"><p className="text-lg text-muted" role="status">Loading conversation…</p></div>
                   ) : displayedMessages.length === 0 ? (
                     <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
                       <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
@@ -605,7 +605,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
 function DvarTorahLoading() {
   return (
     <section className="flex min-h-0 flex-1 items-center justify-center px-6" aria-label="Weekly Dvar Torah">
-      <p className="text-sm text-muted" role="status">Opening this week’s Dvar Torah…</p>
+      <p className="text-lg text-muted" role="status">Opening this week’s Dvar Torah…</p>
     </section>
   )
 }
