@@ -8,6 +8,7 @@ import type { ConversationSettingsClient } from '../personalization/conversation
 import { PersonalizationPage } from '../personalization/PersonalizationPage.tsx'
 import type { PersonalizationProfile } from '../personalization/personalizationTypes.ts'
 import { SettingsPage } from '../settings/SettingsPage.tsx'
+import { publishUserDataEvent, subscribeToUserDataEvents } from '../settings/userDataEvents.ts'
 import type { UsageSummary, UserSettings } from '../settings/settingsTypes.ts'
 import type { ConversationClient, ConversationTurn } from './conversationClient.ts'
 import type { ConversationDetails, ConversationMessage, ConversationSummary } from './conversationData.ts'
@@ -56,7 +57,7 @@ interface ConversationSession {
 }
 
 export function ConversationDashboard({ user, initialPersonalizationProfile, initialUserSettings, conversationClient, conversationSettingsClient, dvarTorahClient, onSavePersonalization, onSaveSettings }: ConversationDashboardProps) {
-  const { requestPasswordReset, signOut } = useAuth()
+  const { requestPasswordReset, signOut, deleteAccount } = useAuth()
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedConversation, setSelectedConversation] = useState<ConversationDetails | null>(null)
@@ -76,6 +77,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [sourceReaderSelection, setSourceReaderSelection] = useState<SourceReaderSelection | null>(null)
   const selectionRequestId = useRef(0)
+  const dataGeneration = useRef(0)
   const selectedIdRef = useRef<string | null>(null)
   // Keep in-flight and completed turns in the dashboard, not the currently visible page.
   const conversationSessions = useRef(new Map<string, ConversationSession>())
@@ -84,6 +86,27 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const sourceReaderTriggerRef = useRef<HTMLButtonElement | null>(null)
   const conversationScrollRef = useRef<HTMLElement | null>(null)
   const shouldScrollToLatestRef = useRef(true)
+
+  const clearChatState = useCallback(() => {
+    dataGeneration.current += 1
+    selectionRequestId.current += 1
+    selectedIdRef.current = null
+    conversationSessions.current.clear()
+    sourceUpdateQueues.current.clear()
+    sendingConversationIds.current.clear()
+    setConversations([])
+    setSelectedId(null)
+    setSelectedConversation(null)
+    setPendingQuestions(new Map())
+    setSourceReaderSelection(null)
+    setConversationError(null)
+    setIsLoadingConversation(false)
+    setDraft('')
+  }, [])
+
+  useEffect(() => subscribeToUserDataEvents(user.id, (event) => {
+    if (event.kind === 'chats-deleted') { clearChatState() }
+  }), [clearChatState, user.id])
 
   useEffect(() => {
     document.documentElement.classList.add(DashboardScrollLockClass)
@@ -114,12 +137,13 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
 
   useEffect(() => {
     let isCurrent = true
+    const generation = dataGeneration.current
     const requestId = selectionRequestId.current + 1
     selectionRequestId.current = requestId
 
     void conversationClient.list()
       .then(async (values) => {
-        if (!isCurrent) {
+        if (!isCurrent || dataGeneration.current !== generation) {
           return
         }
 
@@ -326,6 +350,16 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     }
   }
 
+  async function handleDeleteAllChats() {
+    if (sendingConversationIds.current.size > 0) {
+      throw new Error('Wait for your current answers to finish before deleting chats.')
+    }
+    await Promise.all(sourceUpdateQueues.current.values())
+    await conversationClient.deleteAll()
+    clearChatState()
+    publishUserDataEvent({ userId: user.id, kind: 'chats-deleted' })
+  }
+
   async function handleDeleteConversation(id: string) {
     if (sendingConversationIds.current.has(id)) {
       return
@@ -355,10 +389,12 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
       }
     } catch (error) {
       setConversationError(getErrorMessage(error, 'The conversation could not be deleted.'))
+      throw error
     }
   }
 
   async function handleSubmit() {
+    const generation = dataGeneration.current
     const question = draft.trim()
     if (question.length === 0 || selectedSourceKeys.length === 0 || isSending || isLoadingConversation || isLoadingConversations || selectedId !== selectedIdRef.current) {
       return
@@ -404,6 +440,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
       const turn = session.isNew
         ? await conversationClient.createWithMessage(messageId, question, selectedSourceKeys)
         : await conversationClient.appendMessage(conversationId, messageId, question)
+      if (dataGeneration.current !== generation) { return }
       const conversation = mergeConversationTurn(conversationBeforeSend, turn)
 
       session.conversation = conversation
@@ -531,7 +568,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         onNewConversation={handleNewConversation}
         onSelectConversation={(id) => void handleSelectConversation(id)}
         onRenameConversation={(id, title) => void handleRenameConversation(id, title)}
-        onDeleteConversation={(id) => void handleDeleteConversation(id)}
+        onDeleteConversation={handleDeleteConversation}
         onOpenDvarTorah={handleOpenDvarTorah}
         onOpenSettings={handleOpenSettings}
         onOpenPersonalization={handleOpenPersonalization}
@@ -557,7 +594,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
             <WeeklyDvarTorahPage client={dvarTorahClient} />
           </Suspense>
         ) : activeView === 'settings' ? (
-          <SettingsPage user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />
+          <SettingsPage user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} isDataBusy={pendingQuestions.size > 0 || isLoadingConversations} onDeleteChats={handleDeleteAllChats} onDeleteAccount={deleteAccount} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />
         ) : activeView === 'personalization' ? (
           <PersonalizationPage profile={personalizationProfile} onBack={handleBackToConversation} onSave={handleSavePersonalization} />
         ) : (

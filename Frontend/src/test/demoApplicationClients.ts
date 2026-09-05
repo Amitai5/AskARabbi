@@ -86,6 +86,12 @@ export function createDemoApplicationClients(): DemoApplicationClients {
     requestPasswordReset: () => Promise.resolve(),
     confirmPasswordReset: () => Promise.resolve(),
     signOut: () => Promise.resolve(),
+    deleteAccount: () => {
+      conversations.clear()
+      profile = null
+      settings = createDefaultUserSettings()
+      return Promise.resolve({ status: 'deleted' })
+    },
   }
 
   const conversationClient: ConversationClient = {
@@ -131,6 +137,10 @@ export function createDemoApplicationClients(): DemoApplicationClients {
     },
     delete: (conversationId) => {
       conversations.delete(conversationId)
+      return Promise.resolve()
+    },
+    deleteAll: () => {
+      conversations.clear()
       return Promise.resolve()
     },
   }

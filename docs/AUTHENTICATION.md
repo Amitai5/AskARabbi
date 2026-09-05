@@ -42,7 +42,7 @@ sequenceDiagram
     Api-->>Browser: Minimum safe local account projection
 ```
 
-State and PKCE cookies expire after ten minutes and are deleted at the callback. The authorization code is exchanged only by the backend. The WorkOS access token is never stored or returned to React. Its `sid` and `exp` claims are read only from the provider response; the rotating refresh token, session ID, and expiration are retained inside the ASP.NET Core protected application ticket. Near expiration, the API exchanges the refresh token, updates the local WorkOS user projection in Cosmos, and renews the encrypted ticket. A transient provider failure retains only a still-unexpired session; an expired or provider-rejected session fails closed.
+State and PKCE cookies expire after ten minutes and are deleted at the callback. The authorization code is exchanged only by the backend. The WorkOS access token is never stored or returned to React. Its `sid` and `exp` claims are read only from the provider response; the rotating refresh token, session ID, and expiration are retained inside the ASP.NET Core protected application ticket. Near expiration, the API exchanges the refresh token and renews the encrypted ticket without upserting an account. Every authenticated request checks that the local account still exists and is not pending deletion. A transient provider failure retains only a still-unexpired session; an expired or provider-rejected session fails closed. See [account data deletion](ACCOUNT_DATA.md) for callback-race protection, recovery, and rollout requirements.
 
 ## Implemented routes
 
@@ -54,6 +54,8 @@ State and PKCE cookies expire after ten minutes and are deleted at the callback.
 | `POST /api/user/forgot-password` | Ask WorkOS to send recovery while returning the same `202` shape for valid input regardless of account existence. |
 | `POST /api/user/reset-password` | Confirm a WorkOS reset and clear the current AskRabbi cookie. |
 | `POST /api/user/logout` | Clear the AskRabbi cookie and return the WorkOS logout URL when a provider session ID is available. |
+| `DELETE /api/user/data/chats` | With explicit confirmation, erase every conversation and message owned by the signed-in user. |
+| `DELETE /api/user/data/account` | With explicit confirmation, disable the account and erase its WorkOS identity and owned application data, retrying partial cleanup. |
 
 There is no separate Google controller endpoint: the frontend requests `provider=google`, and the backend maps that allow-listed value into the WorkOS authorization URL. Email uses a hosted login hint, and account creation uses WorkOS's sign-up screen hint. Apple and Microsoft are accepted backend provider values for future reviewed buttons; the dashboard still controls whether each method is actually enabled.
 
@@ -81,7 +83,7 @@ Only this account projection reaches the browser:
 
 ## Required hardening before public launch
 
-The implemented ticket has an eight-hour sliding lifetime and refreshes its WorkOS session near access-token expiration. Password reset revokes WorkOS sessions, and this API clears the requesting browser's local ticket after a successful reset. This is substantially better than a disconnected local cookie, but it is not the final horizontally scaled cross-device revocation design: another already-issued AskRabbi ticket is rejected only when it next attempts a WorkOS refresh.
+The implemented ticket has an eight-hour sliding lifetime and refreshes its WorkOS session near access-token expiration. Password reset revokes WorkOS sessions, and this API clears the requesting browser's local ticket after a successful reset. For password reset, another already-issued AskRabbi ticket is rejected only when it next attempts a WorkOS refresh. Account deletion is different: its local pending/missing-account check rejects other tickets on their next API request. A shared session design is still needed for general cross-device revocation and coordinated token rotation.
 
 Before public deployment:
 

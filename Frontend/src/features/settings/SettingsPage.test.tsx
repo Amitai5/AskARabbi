@@ -23,6 +23,9 @@ describe('SettingsPage', () => {
         usage={null}
         usageError={null}
         isLoadingUsage={false}
+        isDataBusy={false}
+        onDeleteChats={vi.fn()}
+        onDeleteAccount={vi.fn()}
         onBack={vi.fn()}
         onSave={() => Promise.resolve()}
         onRequestPasswordReset={() => Promise.reject(new Error('Provider unavailable'))}

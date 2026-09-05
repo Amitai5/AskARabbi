@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, Bell, BookOpenText, Gauge, KeyRound, Save, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Bell, BookOpenText, Database, Gauge, KeyRound, Save, ShieldCheck } from 'lucide-react'
+import { UserDataControls } from './UserDataControls.tsx'
 import { Toast } from '../../components/Toast.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import type { UsageSummary, UserSettings } from './settingsTypes.ts'
@@ -10,6 +11,9 @@ interface SettingsPageProps {
   usage: UsageSummary | null
   usageError: string | null
   isLoadingUsage: boolean
+  isDataBusy: boolean
+  onDeleteChats(): Promise<void>
+  onDeleteAccount(): Promise<void>
   onBack(): void
   onSave(settings: UserSettings): Promise<void>
   onRequestPasswordReset(): Promise<void>
@@ -18,7 +22,7 @@ interface SettingsPageProps {
 
 type NotificationKind = 'settings' | 'password'
 
-export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage, onBack, onSave, onRequestPasswordReset, onRetryUsage }: SettingsPageProps) {
+export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage, isDataBusy, onDeleteChats, onDeleteAccount, onBack, onSave, onRequestPasswordReset, onRetryUsage }: SettingsPageProps) {
   const [draft, setDraft] = useState(settings)
   const [notificationKind, setNotificationKind] = useState<NotificationKind | null>(null)
   const [notificationId, setNotificationId] = useState(0)
@@ -91,7 +95,7 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
             Account and usage.
           </h1>
           <p className="mt-3 max-w-[43rem] text-sm leading-6 text-ink-soft sm:text-base">
-            Manage account access, review your current allowance, and choose a few conversation defaults.
+            Manage account access, review your allowance, choose conversation defaults, and control your data.
           </p>
         </div>
 
@@ -138,6 +142,10 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
                 {isSaving ? 'Saving…' : 'Save settings'}
               </button>
             </div>
+          </SettingsSection>
+
+          <SettingsSection icon={<Database aria-hidden="true" />} title="Your data" description="You’re in control of what you keep. Manage your conversations or permanently leave AskRabbi.">
+            <UserDataControls isBusy={isDataBusy || isSaving || isRequestingPasswordReset} onDeleteChats={onDeleteChats} onDeleteAccount={onDeleteAccount} />
           </SettingsSection>
         </div>
       </div>

@@ -169,7 +169,7 @@ describe('App', () => {
     expect(loading).toHaveAttribute('role', 'status')
     expect(loading).toHaveClass('text-lg')
     const sidebar = screen.getByRole('complementary', { name: 'Conversation navigation' })
-    expect(sidebar).toHaveClass('text-base', 'lg:text-lg', 'leading-6', 'lg:w-72')
+    expect(sidebar).toHaveClass('text-base', 'lg:text-lg', 'leading-6', 'lg:w-[22rem]')
     expect(within(sidebar).getByText('Weekly learning')).toHaveClass('text-sm', 'leading-4')
     expect(within(sidebar).getByText('Recent')).toHaveClass('text-sm', 'leading-4')
     expect(within(sidebar).getByRole('button', { name: 'New conversation' })).toHaveClass('h-13')
@@ -633,7 +633,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Conversation actions for Kashrut basics, item 1' }))
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
     const confirmation = screen.getByRole('dialog', { name: 'Delete Kashrut basics' })
-    expect(within(confirmation).getByText('Delete this conversation?')).toBeVisible()
+    expect(within(confirmation).getByText(/Delete this conversation\?/)).toBeVisible()
     await user.click(within(confirmation).getByRole('button', { name: 'Delete' }))
 
     expect(screen.queryByText('Kashrut basics')).not.toBeInTheDocument()

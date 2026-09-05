@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BookOpenText, Check, Ellipsis, LoaderCircle, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { BookOpenText, Check, Ellipsis, LoaderCircle, MessageCircle, Plus, X } from 'lucide-react'
+import { ConfirmDeletionDialog } from '../../components/ConfirmDeletionDialog.tsx'
+import { ConversationActionMenu } from './ConversationActionMenu.tsx'
 import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import type { ConversationSummary } from './conversationData.ts'
@@ -17,7 +19,7 @@ interface ConversationSidebarProps {
   onNewConversation(): void
   onSelectConversation(id: string): void
   onRenameConversation(id: string, title: string): void
-  onDeleteConversation(id: string): void
+  onDeleteConversation(id: string): Promise<void>
   onOpenDvarTorah(): void
   onOpenSettings(): void
   onOpenPersonalization(): void
@@ -26,21 +28,15 @@ interface ConversationSidebarProps {
 
 export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, pendingConversationIds, isDvarTorahSelected, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenSettings, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null)
   const mobileVisibility = isMobileOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'
 
   useEffect(() => {
-    if (openMenuId === null && editingId === null && deleteConfirmationId === null) {
+    if (editingId === null) {
       return
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!(event.target instanceof Element) || event.target.closest('[data-conversation-actions]') === null) {
-        setOpenMenuId(null)
-        setDeleteConfirmationId(null)
-      }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -52,17 +48,13 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
         setEditingId(null)
         setRenameDraft('')
       }
-      setOpenMenuId(null)
-      setDeleteConfirmationId(null)
     }
 
-    document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [deleteConfirmationId, editingId, openMenuId])
+  }, [editingId])
 
   function closeActionMenu() {
     setOpenMenuId(null)
@@ -97,18 +89,16 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
     onSelectConversation(id)
   }
 
-  function deleteConversation(id: string) {
-    closeActionMenu()
-    onDeleteConversation(id)
-  }
-
   function openDvarTorah() {
     closeActionMenu()
     onOpenDvarTorah()
   }
 
+  const menuConversation = conversations.find((conversation) => conversation.id === openMenuId)
+  const deleteConversation = conversations.find((conversation) => conversation.id === deleteConfirmationId)
+
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(20rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden overscroll-none border-r border-line bg-stone text-base leading-6 transition-transform duration-300 ease-out lg:relative lg:z-0 lg:visible lg:w-72 lg:translate-x-0 lg:text-lg ${mobileVisibility}`} aria-label="Conversation navigation">
+    <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(21rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden overscroll-none border-r border-line bg-stone text-base leading-6 transition-transform duration-300 ease-out lg:relative lg:z-0 lg:visible lg:w-[22rem] lg:translate-x-0 lg:text-lg ${mobileVisibility}`} aria-label="Conversation navigation">
       <div className="flex items-center justify-between px-5 pb-5 pt-6">
         <Brand compact />
         <button type="button" onClick={onCloseMobile} className="flex size-11 items-center justify-center rounded-lg text-ink transition hover:bg-stone-deep lg:hidden" aria-label="Close conversation navigation">
@@ -134,8 +124,8 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
         </div>
       </nav>
 
-      <nav className="mt-5 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-3 pb-4" aria-label="Recent conversations">
-        <p className="px-3 pb-2 text-sm font-semibold uppercase leading-4 tracking-[0.14em] text-muted">Recent</p>
+      <p className="mt-5 shrink-0 px-6 pb-3 text-sm font-semibold uppercase leading-4 tracking-[0.14em] text-muted">Recent</p>
+      <nav className="sidebar-scroll mx-2 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-1 pb-4" aria-label="Recent conversations">
         <ul className="space-y-1">
           {conversations.map((conversation, index) => {
             const isSelected = !isDvarTorahSelected && conversation.id === selectedId
@@ -158,7 +148,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                     {isSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-pomegranate" /> : null}
                     <button type="button" onClick={() => selectConversation(conversation.id)} aria-current={isSelected ? 'page' : undefined} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pl-3 pr-1 text-left text-ink">
                       <MessageCircle aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.65} />
-                      <span className="truncate">{conversation.title}</span>
+                      <span className="truncate" title={conversation.title}>{conversation.title}</span>
                     </button>
 
                     {isPending ? <span role="status" aria-label={`Generating answer for ${conversation.title}`} className="flex size-7 shrink-0 items-center justify-center text-pomegranate" title="Answer in progress">
@@ -166,36 +156,14 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                     </span> : null}
 
                     <div className="relative mr-1" data-conversation-actions>
-                      <button type="button" disabled={isPending} onClick={() => {
+                      <button type="button" disabled={isPending} onClick={(event) => {
                         setDeleteConfirmationId(null)
+                        setMenuAnchor(event.currentTarget)
                         setOpenMenuId((current) => current === conversation.id ? null : conversation.id)
                       }} className={`flex size-9 items-center justify-center rounded-md text-muted transition hover:bg-paper hover:text-ink focus:opacity-100 disabled:cursor-wait disabled:opacity-30 ${openMenuId === conversation.id ? 'bg-paper text-ink opacity-100' : 'opacity-55 group-hover:opacity-100'}`} aria-label={`Conversation actions for ${conversation.title}, item ${index + 1}`} aria-haspopup="menu" aria-expanded={openMenuId === conversation.id}>
                         <Ellipsis aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.8} />
                       </button>
 
-                      {openMenuId === conversation.id ? (
-                        deleteConfirmationId === conversation.id ? (
-                          <div className="absolute right-0 top-10 z-30 w-52 rounded-xl border border-line bg-paper p-3 shadow-menu" role="dialog" aria-label={`Delete ${conversation.title}`}>
-                            <p className="text-base font-semibold text-ink">Delete this conversation?</p>
-                            <p className="mt-1 text-sm leading-5 text-muted">This permanently removes it from your account.</p>
-                            <div className="mt-3 flex justify-end gap-2">
-                              <button type="button" onClick={() => setDeleteConfirmationId(null)} className="h-9 rounded-lg px-3 font-semibold text-ink transition hover:bg-stone">Cancel</button>
-                              <button type="button" onClick={() => deleteConversation(conversation.id)} className="h-9 rounded-lg bg-pomegranate px-3 font-semibold text-white transition hover:bg-pomegranate-dark">Delete</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="absolute right-0 top-10 z-30 w-44 rounded-xl border border-line bg-paper p-1.5 shadow-menu" role="menu" aria-label={`Actions for ${conversation.title}`}>
-                            <button type="button" onClick={() => startRename(conversation)} className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-ink transition hover:bg-stone" role="menuitem">
-                              <Pencil aria-hidden="true" className="size-4" strokeWidth={1.7} />
-                              Rename
-                            </button>
-                            <button type="button" onClick={() => setDeleteConfirmationId(conversation.id)} className="flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-pomegranate transition hover:bg-stone" role="menuitem">
-                              <Trash2 aria-hidden="true" className="size-4" strokeWidth={1.7} />
-                              Delete
-                            </button>
-                          </div>
-                        )
-                      ) : null}
                     </div>
                   </div>
                 )}
@@ -204,6 +172,9 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
           })}
         </ul>
       </nav>
+
+      {menuConversation && menuAnchor ? <ConversationActionMenu anchor={menuAnchor} title={menuConversation.title} onRename={() => startRename(menuConversation)} onDelete={() => { setOpenMenuId(null); setDeleteConfirmationId(menuConversation.id) }} onClose={() => setOpenMenuId(null)} /> : null}
+      {deleteConversation ? <ConfirmDeletionDialog title={`Delete ${deleteConversation.title}`} description="Delete this conversation? This permanently removes it and its messages from your account." confirmLabel="Delete" onConfirm={() => onDeleteConversation(deleteConversation.id)} onClose={() => setDeleteConfirmationId(null)} /> : null}
 
       <ProfileMenu user={user} onOpenSettings={onOpenSettings} onOpenPersonalization={onOpenPersonalization} onLogout={onLogout} />
     </aside>

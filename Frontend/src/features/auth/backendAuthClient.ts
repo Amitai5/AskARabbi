@@ -69,6 +69,9 @@ export function createBackendAuthClient(options: BackendAuthClientOptions = {}):
         throw error
       }
     },
+    deleteAccount() {
+      return apiClient.request<{ status: 'deleted' | 'pending' }>('/api/user/data/account', { method: 'DELETE', headers: { 'X-Confirm-Deletion': 'DELETE ACCOUNT' } })
+    },
   }
 }
 

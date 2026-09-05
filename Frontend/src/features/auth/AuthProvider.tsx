@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AuthContext, type AuthContextValue } from './authContext.ts'
+import { Toast } from '../../components/Toast.tsx'
+import { publishUserDataEvent, subscribeToUserDataEvents } from '../settings/userDataEvents.ts'
 import type { AuthClient, AuthenticatedUser, SocialAuthProvider } from './authTypes.ts'
 
 interface AuthProviderProps {
@@ -12,6 +14,17 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
   const [isInitializing, setIsInitializing] = useState(true)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [authenticationError, setAuthenticationError] = useState<string | null>(null)
+  const [deletionStatus, setDeletionStatus] = useState<'deleted' | 'pending' | null>(null)
+
+  useEffect(() => {
+    if (!user) { return }
+    return subscribeToUserDataEvents(user.id, (event) => {
+      if (event.kind === 'account-deleted') {
+        setUser(null)
+        setDeletionStatus(event.status === 'pending' ? 'pending' : 'deleted')
+      }
+    })
+  }, [user])
 
   useEffect(() => {
     let isCurrent = true
@@ -96,6 +109,12 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
   }, [client])
 
   const requestPasswordReset = useCallback((email: string) => client.requestPasswordReset(email), [client])
+  const deleteAccount = useCallback(async () => {
+    const result = await client.deleteAccount()
+    if (user) { publishUserDataEvent({ userId: user.id, kind: 'account-deleted', status: result.status }) }
+    setUser(null)
+    setDeletionStatus(result.status)
+  }, [client, user])
   const confirmPasswordReset = useCallback((token: string, newPassword: string) => client.confirmPasswordReset(token, newPassword), [client])
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -110,9 +129,10 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
     requestPasswordReset,
     confirmPasswordReset,
     signOut,
-  }), [authenticationError, clearAuthenticationError, confirmPasswordReset, isAuthenticating, isInitializing, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signOut, signUp, user])
+    deleteAccount,
+  }), [authenticationError, clearAuthenticationError, confirmPasswordReset, deleteAccount, isAuthenticating, isInitializing, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signOut, signUp, user])
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}{deletionStatus ? <Toast notificationId={1} title={deletionStatus === 'deleted' ? 'Account deleted' : 'Account deletion requested'} message={deletionStatus === 'deleted' ? 'Your AskRabbi account and its data have been deleted.' : 'Your account is disabled. We will automatically retry the remaining cleanup.'} onDismiss={() => setDeletionStatus(null)} /> : null}</AuthContext.Provider>
 }
 
 function getErrorMessage(error: unknown, fallback: string) {

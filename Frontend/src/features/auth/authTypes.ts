@@ -17,4 +17,5 @@ export interface AuthClient {
   requestPasswordReset(email: string): Promise<void>
   confirmPasswordReset(token: string, newPassword: string): Promise<void>
   signOut(): Promise<void>
+  deleteAccount(): Promise<{ status: 'deleted' | 'pending' }>
 }

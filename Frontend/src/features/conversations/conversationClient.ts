@@ -9,6 +9,7 @@ export interface ConversationClient {
   rename(conversationId: string, title: string): Promise<void>
   updateSources(conversationId: string, enabledSourceKeys: readonly string[]): Promise<void>
   delete(conversationId: string): Promise<void>
+  deleteAll(): Promise<void>
 }
 
 interface ConversationTurnBase {
@@ -66,6 +67,9 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
     },
     delete(conversationId) {
       return apiClient.request<void>(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' })
+    },
+    deleteAll() {
+      return apiClient.request<void>('/api/user/data/chats', { method: 'DELETE', headers: { 'X-Confirm-Deletion': 'DELETE ALL CHATS' } })
     },
   }
 }
