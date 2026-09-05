@@ -18,7 +18,7 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
         {
             IsResponsive = true,
             OverallExplanation = "The claim directly answers the current lamp-lighting question.",
-            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "The cited passage directly states the timing rule." }],
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "The cited passage directly states the timing rule.", SupportingQuotations = CreateDraft().Claims[0].Quotations }],
         };
         var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
         var validator = new AIGroundedClaimEvidenceValidator(engine, CreatePrompts());
@@ -133,6 +133,74 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
         // Assert
         Assert.AreEqual(ClaimEvidenceValidationStatus.ProviderFailure, result.Status);
         Assert.AreEqual(AIEngineStatus.TimedOut, result.EngineStatus);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task ValidateAsync_SupportExistsInAnotherPassage_ReconcilesCitationsWithoutChangingClaim()
+    {
+        var packet = CreatePacket();
+        var other = packet.Items[0].Source with { SegmentId = "other", CanonicalReference = "Shabbat 20a:2", Text = "This other passage concerns the lamp wick." };
+        packet = new EvidencePacket([.. packet.Items, new EvidenceItem("E2", other, other.Text, false, other.Text.Length)], packet.CharacterCount + other.Text.Length);
+        var draft = CreateDraft();
+        draft = draft with { Claims = [draft.Claims[0] with { EvidenceIds = ["E2"], Quotations = [new GroundedQuotationDraft { EvidenceId = "E2", Text = "@Q1", Role = "Proposed support" }] }] };
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = true,
+            OverallExplanation = "The timing explanation answers the question.",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "E1, not E2, establishes the timing.", SupportingQuotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = "@Q2", Role = "The flame must catch before nightfall." }] }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+
+        var result = await new AIGroundedClaimEvidenceValidator(engine, CreatePrompts()).ValidateAsync("When must the flame catch?", draft, packet);
+
+        Assert.AreEqual(ClaimEvidenceValidationStatus.Supported, result.Status);
+        Assert.IsNotNull(result.ReconciledDraft);
+        Assert.AreEqual(draft.Claims[0].Text, result.ReconciledDraft.Claims[0].Text);
+        CollectionAssert.AreEqual(new[] { "E1" }, result.ReconciledDraft.Claims[0].EvidenceIds.ToArray());
+        Assert.AreEqual("The flame should catch before nightfall.", result.ReconciledDraft.Claims[0].Quotations[0].Text);
+        StringAssert.Contains(engine.LastMessages![^1].Content, "A lamp may not be kindled.");
+    }
+
+    [TestMethod]
+    [DataRow("E1", "invented quotation")]
+    [DataRow("E2", "@Q1")]
+    [DataRow("E1", "@Q99")]
+    [DataRow(null, "@Q1")]
+    [DataRow("E1", null)]
+    [TestCategory("Regression")]
+    public async Task ValidateAsync_AuditReturnsInvalidCitation_FailsClosed(string? evidenceId, string? text)
+    {
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = true,
+            OverallExplanation = "The draft attempts to answer.",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "Claims support.", SupportingQuotations = [new GroundedQuotationDraft { EvidenceId = evidenceId!, Text = text!, Role = "Basis" }] }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+
+        var result = await new AIGroundedClaimEvidenceValidator(engine, CreatePrompts()).ValidateAsync("Question", CreateDraft(), CreatePacket());
+
+        Assert.AreEqual(ClaimEvidenceValidationStatus.Unsupported, result.Status);
+        Assert.IsNull(result.ReconciledDraft);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task ValidateAsync_AuditOmitsSupportingQuotations_FailsClosed()
+    {
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = true,
+            OverallExplanation = "The draft attempts to answer.",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "Claims support." }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+
+        var result = await new AIGroundedClaimEvidenceValidator(engine, CreatePrompts()).ValidateAsync("Question", CreateDraft(), CreatePacket());
+
+        Assert.AreEqual(ClaimEvidenceValidationStatus.Unsupported, result.Status);
+        Assert.IsNull(result.ReconciledDraft);
     }
 
     private static GroundedPromptSet CreatePrompts() => new()

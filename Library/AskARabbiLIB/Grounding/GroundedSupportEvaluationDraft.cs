@@ -15,4 +15,7 @@ internal sealed record GroundedSupportEvaluationDraft
 
     [JsonPropertyName("explanation")]
     public required string Explanation { get; init; }
+
+    [JsonPropertyName("supportingQuotations")]
+    public IReadOnlyList<GroundedQuotationDraft>? SupportingQuotations { get; init; }
 }

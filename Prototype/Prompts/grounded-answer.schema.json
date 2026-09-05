@@ -9,7 +9,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "text": { "type": "string", "description": "One independently verifiable factual or interpretive proposition. The first claim must directly fulfill the current answerFocus; split compound propositions into separate claims." },
+          "text": { "type": "string", "description": "One coherent explanatory paragraph. The first paragraph directly answers the current answerFocus. Every factual proposition must be supported by the combined cited passages; narrative paragraphs may cover multiple connected events. Use ordinary Unicode punctuation, not control characters." },
           "evidenceIds": { "type": "array", "description": "Existing packet evidence IDs that together directly support the complete proposition.", "items": { "type": "string" } },
           "attribution": { "type": ["string", "null"] },
           "quotations": {

@@ -31,6 +31,38 @@ static async Task<int> RunAsync(string[] args)
         var maximumDocuments = ParseOptionalPositiveInt(options, "maximum-documents");
         var publicationManifest = maximumDocuments is null ? manifest : manifest with { DocumentCount = Math.Min(maximumDocuments.Value, manifest.DocumentCount), Documents = manifest.Documents.Take(maximumDocuments.Value).ToArray() };
         var fingerprint = SourceIndexBuilder.ComputeCorpusFingerprint(publicationManifest);
+        if (command == "read")
+        {
+            var reader = new BundledCanonicalSourceReader(manifest, Path.Combine(repositoryRoot, "Backend", "AskARabbi.Api", "Data", "canonical-sources.zip"));
+            var segments = await reader.ReadAsync(RequireOption(options, "reference", null), new SourceRetrievalQuery { Languages = ["English", "Hebrew"] }, cancellationSource.Token).ConfigureAwait(false);
+            WriteJson(segments.Select(segment => new { segment.CanonicalReference, segment.Text, segment.Version, segment.Language }));
+            return 0;
+        }
+        if (command == "bundle")
+        {
+            var destination = Path.GetFullPath(RequireOption(options, "output", "CANONICAL_BUNDLE_OUTPUT"));
+            var selected = manifest.Documents.Where(document => document.FileLanguageCode is "en" or "he")
+                .GroupBy(document => (document.Collection, document.FileTitle, document.FileLanguageCode, document.WorkKey))
+                .Select(group => group.OrderByDescending(document => document.SegmentCount)
+                    .ThenByDescending(document => document.VersionTitle.Contains("JPS 1917", StringComparison.Ordinal) || document.VersionTitle == "Tanach with Nikkud")
+                    .ThenBy(document => document.DocumentId, StringComparer.Ordinal).First())
+                .OrderBy(document => document.DocumentId, StringComparer.Ordinal).ToArray();
+            Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? throw new InvalidOperationException("The archive requires a directory."));
+            var loader = new SefariaDocumentFileLoader(repositoryRoot);
+            using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write);
+            using var archive = new System.IO.Compression.ZipArchive(output, System.IO.Compression.ZipArchiveMode.Create);
+            foreach (var document in selected)
+            {
+                await loader.LoadNormalizedMarkdownAsync(document, cancellationSource.Token).ConfigureAwait(false);
+                var entry = archive.CreateEntry(document.Sha256 + ".md", System.IO.Compression.CompressionLevel.SmallestSize);
+                entry.LastWriteTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                await using var input = File.OpenRead(Path.Combine(repositoryRoot, document.FilePath));
+                await using var entryStream = entry.Open();
+                await input.CopyToAsync(entryStream, cancellationSource.Token).ConfigureAwait(false);
+            }
+            WriteJson(new { documents = selected.Length, originalBytes = selected.Sum(document => document.FileSizeBytes), destination });
+            return 0;
+        }
         if (command == "fingerprint")
         {
             WriteJson(new { corpusFingerprint = fingerprint, publicationManifest.DocumentCount, segmentCount = publicationManifest.Documents.Sum(document => (long)document.SegmentCount) });
@@ -66,12 +98,16 @@ static async Task<int> RunAsync(string[] args)
         var tenantId = GetOption(options, "tenant-id") ?? Environment.GetEnvironmentVariable("AI__TenantId");
         var modelName = GetOption(options, "model") ?? Environment.GetEnvironmentVariable("AI__ModelName");
         using var httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId });
+        Azure.Core.TokenCredential credential = command == "answer"
+            ? new AzureCliCredential(new AzureCliCredentialOptions { TenantId = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId })
+            : new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId });
         var client = new AzureOpenAIVectorStoreClient(new AzureOpenAIVectorStoreClientOptions { ProjectEndpoint = new Uri(endpointText, UriKind.Absolute), ModelName = modelName, Timeout = TimeSpan.FromMinutes(2) }, credential, httpClient);
         var publisher = new AzureOpenAIVectorStoreCorpusPublisher(client);
 
         switch (command)
         {
+            case "answer":
+                return await ConversationProbe.RunAsync(manifest, repositoryRoot, new Uri(endpointText), modelName ?? throw new ArgumentException("--model is required."), RequireOption(options, "vector-store-id", "AI__VectorStoreId"), credential, client, RequireOption(options, "question", null), GetOption(options, "sources") == "core", cancellationSource.Token).ConfigureAwait(false);
             case "publish":
             {
                 var provider = new SefariaNormalizedDocumentProvider(new SefariaDocumentFileLoader(repositoryRoot));
@@ -222,6 +258,9 @@ static void PrintHelp()
     Console.WriteLine("Commands:");
     Console.WriteLine("  fingerprint [--manifest path] [--maximum-documents n]");
     Console.WriteLine("  validate [--manifest path] [--maximum-documents n]");
+    Console.WriteLine("  bundle --output new-archive.zip [--manifest path]");
+    Console.WriteLine("  read --reference canonical-reference");
+    Console.WriteLine("  answer --endpoint uri --model deployment --vector-store-id id --question text [--sources core]");
     Console.WriteLine("  publish --endpoint uri [--name value] [--maximum-documents n] [--concurrency 1-16]");
     Console.WriteLine("  resume --endpoint uri --vector-store-id id [--maximum-documents n] [--concurrency 1-16]");
     Console.WriteLine("  replace --endpoint uri --source-vector-store-id id [--name value] [--maximum-documents n] [--concurrency 1-16]");
@@ -232,5 +271,5 @@ static void PrintHelp()
     Console.WriteLine();
     Console.WriteLine("Common options: --repository-root path --manifest path --tenant-id guid");
     Console.WriteLine("Environment fallbacks: AI__ProjectEndpoint, AI__ModelName, AI__VectorStoreId, AI__TenantId");
-    Console.WriteLine("No API key or client secret is accepted; authentication uses DefaultAzureCredential.");
+    Console.WriteLine("No API key or client secret is accepted; answer uses AzureCliCredential, other network commands use DefaultAzureCredential.");
 }

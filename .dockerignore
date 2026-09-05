@@ -12,6 +12,7 @@ Data/NormalizedData/Sefaria/*
 !Data/NormalizedData/Sefaria/Metadata
 Data/NormalizedData/Sefaria/Metadata/*
 !Data/NormalizedData/Sefaria/Metadata/document-manifest.json
+!Backend/AskARabbi.Api/Data/canonical-sources.zip
 Frontend
 Prototype
 !Prototype/Prompts

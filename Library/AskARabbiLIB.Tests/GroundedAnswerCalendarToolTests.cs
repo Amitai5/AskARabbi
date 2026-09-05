@@ -113,7 +113,7 @@ public sealed class GroundedAnswerCalendarToolTests
         var directAnswer = "The short answer is: the parashah for the Shabbat on or after tomorrow is Nitzavim.";
         var answerEngine = new CompositeCalendarAnswerEngine(
             passages,
-            directAnswer,
+            "The selected reading is Nitzavim.",
             "Nitzavim opens with the whole community standing together to enter the covenant, including leaders, children, and strangers.",
             ["Deuteronomy 29:9"],
             "It then anticipates exile and return before closing with the choice between life and death and the call to love God, listen, and hold fast.",
@@ -150,6 +150,7 @@ public sealed class GroundedAnswerCalendarToolTests
         var rendered = new GroundedAnswerTextRenderer().Render(result.Answer);
         StringAssert.StartsWith(rendered, directAnswer);
         StringAssert.Contains(rendered, "community standing together");
+        Assert.IsFalse(result.Trace.RepairAttempted, "Paraphrasing a calculated calendar introduction must not cause another model call.");
         StringAssert.Contains(rendered, "choice between life and death");
         Assert.IsFalse(rendered.Contains("can't summarize", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(rendered.Contains("supplied material", StringComparison.OrdinalIgnoreCase));
@@ -160,7 +161,7 @@ public sealed class GroundedAnswerCalendarToolTests
 
     [TestMethod]
     [TestCategory("Regression")]
-    public async Task AnswerAsync_ParashahSummaryFollowUp_ReusesPriorCalendarIntentAndRetrievesTorahText()
+    public async Task AnswerAsync_ParashahSummaryFollowUp_ResolvesNamedPortionWithoutRepeatingCalendar()
     {
         // Arrange
         var passages = CreateNitzavimPassages();
@@ -196,7 +197,9 @@ public sealed class GroundedAnswerCalendarToolTests
         Assert.IsFalse(answerEngine.ToolOverloadWasUsed);
         Assert.IsNotNull(result.Answer);
         var rendered = new GroundedAnswerTextRenderer().Render(result.Answer);
-        StringAssert.StartsWith(rendered, directAnswer);
+        StringAssert.StartsWith(rendered, "Nitzavim opens");
+        Assert.HasCount(2, result.Answer.Claims);
+        Assert.IsFalse(result.Answer.Citations.Any(citation => citation.Collection == "Calendar calculations"));
         StringAssert.Contains(rendered, "choose life");
         Assert.IsFalse(rendered.Contains("no Torah text", StringComparison.OrdinalIgnoreCase));
     }
@@ -362,6 +365,18 @@ public sealed class GroundedAnswerCalendarToolTests
             LastMessages = messages.ToArray();
             using var payload = JsonDocument.Parse(messages[^1].Content);
             var evidence = payload.RootElement.GetProperty("evidenceBoundary").GetProperty("items").EnumerateArray().ToDictionary(item => item.GetProperty("canonicalReference").GetString() ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+            if (!evidence.ContainsKey("Weekly Torah reading"))
+            {
+                var storyDraft = new GroundedAnswerDraft
+                {
+                    Claims = [CreateStoryClaim(firstStoryText, evidence, firstStoryReferences), CreateStoryClaim(secondStoryText, evidence, secondStoryReferences)],
+                    Disagreements = [],
+                    Limitations = [],
+                    ClarifyingQuestion = null,
+                    HumanGuidanceRecommended = false,
+                };
+                return Task.FromResult(AIEngineResult<T>.Success((T)(object)storyDraft, new AIResponseDiagnostics("answer", "test", new AIUsage(1, 1, 2), TimeSpan.FromMilliseconds(1), 1)));
+            }
             var calendarEvidence = evidence["Weekly Torah reading"];
             var calendarEvidenceId = GetEvidenceId(calendarEvidence);
             var calendarQuotation = calendarEvidence.GetProperty("text").GetString() ?? throw new AssertFailedException("Calendar evidence text was missing.");
@@ -467,6 +482,7 @@ public sealed class GroundedAnswerCalendarToolTests
                 IsRelevant = true,
                 IsSupported = true,
                 Explanation = "The cited passage directly supports the statement.",
+                SupportingQuotations = JsonSerializer.Deserialize<GroundedQuotationDraft[]>(statement.GetProperty("quotations").GetRawText()),
             }).ToArray();
             var draft = new GroundedSupportValidationDraft
             {

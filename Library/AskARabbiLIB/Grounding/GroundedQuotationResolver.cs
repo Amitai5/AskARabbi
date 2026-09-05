@@ -18,6 +18,12 @@ internal static class GroundedQuotationResolver
         }
 
         var requested = requestedText.Trim();
+        if (requested.StartsWith("@Q", StringComparison.Ordinal))
+        {
+            var choice = GroundedQuotationChoices.Create(evidence).FirstOrDefault(candidate => candidate.Selector == requested);
+            resolvedText = choice?.Text ?? string.Empty;
+            return choice is not null;
+        }
         if (evidence.PresentedText.Contains(requested, StringComparison.Ordinal) && evidence.Source.Text.Contains(requested, StringComparison.Ordinal))
         {
             resolvedText = requested;

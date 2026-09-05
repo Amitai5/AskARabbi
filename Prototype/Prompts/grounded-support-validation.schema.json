@@ -13,9 +13,22 @@
           "statementId": { "type": "string" },
           "isRelevant": { "type": "boolean" },
           "isSupported": { "type": "boolean" },
-          "explanation": { "type": "string" }
+          "explanation": { "type": "string" },
+          "supportingQuotations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "evidenceId": { "type": "string" },
+                "text": { "type": "string" },
+                "role": { "type": "string" }
+              },
+              "required": ["evidenceId", "text", "role"]
+            }
+          }
         },
-        "required": ["statementId", "isRelevant", "isSupported", "explanation"]
+        "required": ["statementId", "isRelevant", "isSupported", "explanation", "supportingQuotations"]
       }
     }
   },

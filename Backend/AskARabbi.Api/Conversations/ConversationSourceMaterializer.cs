@@ -31,7 +31,7 @@ internal static partial class ConversationSourceMaterializer
                 Language = citation.Language,
                 Collection = citation.Collection,
                 License = citation.License,
-                SourceUrl = string.Equals(citation.Collection, "Calendar calculations", StringComparison.Ordinal) ? citation.SourceUrl : CreateCanonicalSourceUrl(citation.CanonicalReference),
+                SourceUrl = citation.Collection is "Calendar calculations" or "Technical background" ? item.Source.SourceUrl : CreateCanonicalSourceUrl(citation.CanonicalReference),
                 AttributionUrl = citation.SourceUrl,
                 Quotations = quotationsByEvidenceId.GetValueOrDefault(citation.EvidenceId, []),
                 Context = item.PresentedText,

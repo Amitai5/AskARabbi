@@ -85,6 +85,7 @@ if (groundedChatOptions.IsConfigured)
     var managedManifestPath = Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json");
     var managedManifest = await new ManifestLoader().LoadAsync(managedManifestPath).ConfigureAwait(false);
     builder.Services.AddSingleton(managedManifest);
+    builder.Services.AddSingleton<ICanonicalSourceReader>(new BundledCanonicalSourceReader(managedManifest, Path.Combine(AppContext.BaseDirectory, "Data", "canonical-sources.zip")));
     builder.Services.AddSingleton<TokenCredential>(_ => builder.Environment.IsDevelopment()
         ? new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = string.IsNullOrWhiteSpace(groundedChatOptions.TenantId) ? null : groundedChatOptions.TenantId })
         : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
@@ -147,7 +148,8 @@ if (groundedChatOptions.IsConfigured)
             provider.GetRequiredService<GroundedPromptSet>(),
             groundedChatOptions.CreateGroundedAnswerOptions(),
             provider.GetRequiredService<TimeProvider>(),
-            provider.GetRequiredService<IAIToolRegistry>());
+            provider.GetRequiredService<IAIToolRegistry>(),
+            provider.GetRequiredService<ICanonicalSourceReader>());
     });
 }
 else

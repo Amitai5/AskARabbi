@@ -238,6 +238,7 @@ public sealed class GroundedConversationTurnService
 
     private static string? CreateClientFailureMessage(GroundedAnswerResult result) => result.Status switch
     {
+        GroundedAnswerStatus.InsufficientEvidence => "I couldn't find enough relevant text in the sources selected for this conversation. Try naming the passage or enabling an additional source, and I'll take another look.",
         GroundedAnswerStatus.ValidationFailed => "AskARabbi could not fully support every statement with the cited sources, so it did not show the answer. Please try again.",
         GroundedAnswerStatus.AIUnavailable => "AskARabbi could not complete the grounded answer right now. Please try again.",
         GroundedAnswerStatus.AuthenticationFailed => "AskARabbi could not connect to its AI provider right now. Please try again shortly.",

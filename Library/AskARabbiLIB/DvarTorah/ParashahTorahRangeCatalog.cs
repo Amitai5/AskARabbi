@@ -19,6 +19,31 @@ internal static class ParashahTorahRangeCatalog
         return Ranges.ContainsKey(Normalize(parashah));
     }
 
+    internal static string? ResolveName(string text)
+    {
+        var words = AskARabbiLIB.Search.SearchTextNormalizer.Tokenize(text).ToArray();
+        for (var length = 4; length >= 1; length--)
+        {
+            for (var start = 0; start + length <= words.Length; start++)
+            {
+                var name = string.Join(' ', words.Skip(start).Take(length));
+                if (Ranges.ContainsKey(Normalize(name)))
+                {
+                    // "Bo" is also an ordinary word; require explicit portion context for short names.
+                    if (name.Length > 3 || text.Contains("par", StringComparison.OrdinalIgnoreCase) || text.Contains("פרש", StringComparison.Ordinal))
+                    {
+                        return name;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    internal static string? GetCanonicalRange(string parashah) => Ranges.TryGetValue(Normalize(parashah), out var range)
+        ? $"{range.Book} {range.StartChapter}:{range.StartVerse}-{range.EndChapter}:{range.EndVerse}"
+        : null;
+
     internal static bool TryGetRetrievalReferences(string parashah, out IReadOnlyList<string> references)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(parashah);
@@ -96,6 +121,14 @@ internal static class ParashahTorahRangeCatalog
         Add(values, new("Numbers", 30, 2, 36, 13), "Matos Masei", "Matos-Masei");
         Add(values, new("Deuteronomy", 29, 9, 31, 30), "Nitzavim Vayeilech", "Nitzavim-Vayeilech");
         Add(values, new("Exodus", 35, 1, 40, 38), "Vayakhel Pekudei", "Vayakhel-Pekudei");
+        string[] hebrewNames = ["בראשית", "נח", "לך לך", "וירא", "חיי שרה", "תולדות", "ויצא", "וישלח", "וישב", "מקץ", "ויגש", "ויחי", "שמות", "וארא", "בא", "בשלח", "יתרו", "משפטים", "תרומה", "תצוה", "כי תשא", "ויקהל", "פקודי", "ויקרא", "צו", "שמיני", "תזריע", "מצרע", "אחרי מות", "קדשים", "אמר", "בהר", "בחקתי", "במדבר", "נשא", "בהעלתך", "שלח", "קרח", "חקת", "בלק", "פינחס", "מטות", "מסעי", "דברים", "ואתחנן", "עקב", "ראה", "שפטים", "כי תצא", "כי תבוא", "נצבים", "וילך", "האזינו", "וזאת הברכה"];
+        var singleRanges = values.Values.Distinct().Take(54).ToArray();
+        for (var index = 0; index < hebrewNames.Length; index++)
+        {
+            values[Normalize(hebrewNames[index])] = singleRanges[index];
+        }
+        values["ניצבים"] = values["נצבים"];
+        values["וייגש"] = values["ויגש"];
         return values;
     }
 

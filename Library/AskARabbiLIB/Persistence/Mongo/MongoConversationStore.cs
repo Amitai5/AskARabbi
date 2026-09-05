@@ -26,13 +26,11 @@ public sealed class MongoConversationStore : IConversationStore
         var documents = await conversations.Find(document => document.UserId == userId.ToString("D"))
             .SortByDescending(document => document.UpdatedAtUtc)
             .Limit(limit)
-            .Project(document => new MongoConversationSummaryProjection
-            {
-                Id = document.Id,
-                Title = document.Title,
-                EnabledSourceKeys = document.EnabledSourceKeys,
-                UpdatedAtUtc = document.UpdatedAtUtc,
-            })
+            .Project<MongoConversationSummaryProjection>(Builders<MongoConversationDocument>.Projection
+                .Include(document => document.Id)
+                .Include(document => document.Title)
+                .Include(document => document.EnabledSourceKeys)
+                .Include(document => document.UpdatedAtUtc))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

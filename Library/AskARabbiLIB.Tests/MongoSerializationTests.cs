@@ -11,6 +11,25 @@ namespace AskARabbiLIB.Tests;
 public sealed class MongoSerializationTests
 {
     [TestMethod]
+    [TestCategory("Regression")]
+    public void ConversationSummaryProjection_CosmosInclusionProjection_PreservesSavedTitle()
+    {
+        var bson = new BsonDocument
+        {
+            ["_id"] = "69a9abbd-97e5-47f2-b4f0-79f8078438dd",
+            ["title"] = "Parashat Nitzavim",
+            ["enabledSourceKeys"] = new BsonArray { "collection:Torah" },
+            ["updatedAtUtc"] = new DateTime(2026, 9, 5, 12, 0, 0, DateTimeKind.Utc),
+        };
+
+        var summary = BsonSerializer.Deserialize<MongoConversationSummaryProjection>(bson);
+
+        Assert.AreEqual("Parashat Nitzavim", summary.Title);
+        Assert.AreEqual("69a9abbd-97e5-47f2-b4f0-79f8078438dd", summary.Id);
+        CollectionAssert.AreEqual(new[] { "collection:Torah" }, summary.EnabledSourceKeys);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public void DateOnlySerializer_RoundTrip_PreservesInvariantDate()
     {

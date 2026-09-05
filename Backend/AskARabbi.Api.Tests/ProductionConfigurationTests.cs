@@ -34,7 +34,7 @@ public sealed class ProductionConfigurationTests
         Assert.AreEqual("https://api.askarabbi.ai/api/user/callback", workOs.RedirectUri);
         Assert.AreEqual("https://askarabbi.ai/", workOs.FrontendUri);
         Assert.AreEqual(8_000, groundedChat.MaximumOutputTokens);
-        Assert.AreEqual(1_600, groundedChat.ValidationMaximumOutputTokens);
+        Assert.AreEqual(3_200, groundedChat.ValidationMaximumOutputTokens);
         Assert.AreEqual(AIReasoningEffort.Medium, groundedChat.ReasoningEffort);
         Assert.AreEqual(AIServiceTier.Priority, groundedChat.ServiceTier);
         Assert.AreEqual(20, groundedChat.MaximumCandidates);
