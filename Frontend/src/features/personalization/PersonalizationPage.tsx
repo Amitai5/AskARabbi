@@ -13,7 +13,7 @@ interface PersonalizationPageProps {
   onSave(profile: PersonalizationProfile): Promise<void>
 }
 
-const InputClassName = 'mt-2 h-12 w-full rounded-lg border border-line-strong bg-paper px-3.5 text-[0.95rem] text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15'
+const InputClassName = 'mt-2 h-12 w-full rounded-lg border border-line-strong bg-paper px-3.5 text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15'
 
 export function PersonalizationPage({ profile, onBack, onSave }: PersonalizationPageProps) {
   const [draft, setDraft] = useState(profile)
@@ -57,18 +57,18 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
         <Toast notificationId={saveNotificationId} title="Saved to your account" message="AskRabbi will use these preferences in future conversations." onDismiss={() => setSaveNotificationId(0)} />
       ) : null}
 
-      <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 sm:pt-9">
-        <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-ink-soft transition hover:text-pomegranate">
+      <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 text-base leading-7 sm:pt-9 sm:text-lg">
+        <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 font-semibold text-ink-soft transition hover:text-pomegranate">
           <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
           Back to conversation
         </button>
 
         <div className="mt-3 max-w-[46rem]">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pomegranate">Personalization</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-pomegranate">Personalization</p>
           <h1 id="personalization-title" className="mt-2 font-display text-[clamp(2.15rem,4vw,3.1rem)] leading-[1.04] tracking-[-0.04em] text-ink">
             Make AskRabbi yours.
           </h1>
-          <p className="mt-3 max-w-[43rem] text-sm leading-6 text-ink-soft sm:text-base">
+          <p className="mt-3 max-w-[43rem] text-ink-soft">
             A few details help us tailor explanations without defining what you believe or practice.
           </p>
         </div>
@@ -97,7 +97,7 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
               </div>
             </div>
 
-            <div className="mt-6 border-l-2 border-brass bg-stone/55 px-4 py-3 text-sm leading-6 text-ink-soft">
+            <div className="mt-6 border-l-2 border-brass bg-stone/55 px-4 py-3 text-ink-soft">
               A time zone gives us the regional date context. If your birth was near sunset, an exact Hebrew-date calculation may still ask for your birthplace later.
             </div>
           </FormSection>
@@ -117,7 +117,7 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
               </FormField>
             </div>
 
-            <div className="mt-6 border-l-2 border-brass bg-stone/55 px-4 py-3 text-sm leading-6 text-ink-soft">
+            <div className="mt-6 border-l-2 border-brass bg-stone/55 px-4 py-3 text-ink-soft">
               When the preferred quotation language is unavailable, AskRabbi should say so and use the closest approved text rather than inventing a translation.
             </div>
           </FormSection>
@@ -142,18 +142,18 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
 
           <FormSection icon={<UserRound aria-hidden="true" />} title="Anything else?" description="Optional context for a more useful conversation.">
             <FormField label="Additional information" htmlFor="additional-context" error={errors.additionalContext} hint="Optional. For example: what you do, what you are studying, family customs, accessibility needs, or topics you want explained differently.">
-              <textarea id="additional-context" name="additionalContext" maxLength={2_000} rows={7} value={draft.additionalContext} onChange={(event) => updateField('additionalContext', event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-line-strong bg-paper px-3.5 py-3 text-[0.95rem] leading-6 text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15" aria-invalid={errors.additionalContext !== undefined} aria-describedby={errors.additionalContext ? 'additional-context-error additional-context-hint additional-context-count' : 'additional-context-hint additional-context-count'} />
-              <p id="additional-context-count" className="mt-2 text-right text-xs text-muted">{draft.additionalContext.length.toLocaleString()} / 2,000</p>
+              <textarea id="additional-context" name="additionalContext" maxLength={2_000} rows={7} value={draft.additionalContext} onChange={(event) => updateField('additionalContext', event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-line-strong bg-paper px-3.5 py-3 text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15" aria-invalid={errors.additionalContext !== undefined} aria-describedby={errors.additionalContext ? 'additional-context-error additional-context-hint additional-context-count' : 'additional-context-hint additional-context-count'} />
+              <p id="additional-context-count" className="mt-2 text-right text-sm leading-6 text-muted sm:text-base">{draft.additionalContext.length.toLocaleString()} / 2,000</p>
             </FormField>
           </FormSection>
 
           <div className="flex justify-end border-t border-line pt-7">
-            <button type="submit" disabled={isSaving} className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-pomegranate px-5 text-sm font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60">
+            <button type="submit" disabled={isSaving} className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-pomegranate px-5 font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60">
               <Save aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.8} />
               {isSaving ? 'Saving…' : 'Save personalization'}
             </button>
           </div>
-          {saveError === null ? null : <p className="mt-4 text-right text-sm font-medium text-pomegranate" role="alert">{saveError}</p>}
+          {saveError === null ? null : <p className="mt-4 text-right font-medium text-pomegranate" role="alert">{saveError}</p>}
         </form>
       </div>
     </section>
@@ -174,9 +174,9 @@ function FormSection({ icon, title, description, children }: FormSectionProps) {
         <div>
           <div className="flex items-center gap-2.5 text-ink [&_svg]:size-[1.15rem] [&_svg]:text-pomegranate [&_svg]:stroke-[1.7]">
             {icon}
-            <h2 className="font-display text-xl">{title}</h2>
+            <h2 className="font-display text-2xl">{title}</h2>
           </div>
-          <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
+          <p className="mt-2 text-muted">{description}</p>
         </div>
         <div>{children}</div>
       </div>
@@ -195,10 +195,10 @@ interface FormFieldProps {
 function FormField({ label, htmlFor, error, hint, children }: FormFieldProps) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-ink">{label}</label>
+      <label htmlFor={htmlFor} className="font-semibold text-ink">{label}</label>
       {children}
-      {hint ? <p id={`${htmlFor}-hint`} className="mt-2 text-xs leading-5 text-muted">{hint}</p> : null}
-      {error ? <p id={`${htmlFor}-error`} className="mt-2 text-sm font-medium text-pomegranate" role="alert">{error}</p> : null}
+      {hint ? <p id={`${htmlFor}-hint`} className="mt-2 text-sm leading-6 text-muted sm:text-base">{hint}</p> : null}
+      {error ? <p id={`${htmlFor}-error`} className="mt-2 font-medium text-pomegranate" role="alert">{error}</p> : null}
     </div>
   )
 }
