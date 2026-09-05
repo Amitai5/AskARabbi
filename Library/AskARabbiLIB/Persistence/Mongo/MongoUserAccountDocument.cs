@@ -5,6 +5,9 @@ namespace AskARabbiLIB.Persistence.Mongo;
 [BsonIgnoreExtraElements]
 internal sealed class MongoUserAccountDocument
 {
+    [BsonElement("deletionRequestedAtUtc")]
+    public DateTime? DeletionRequestedAtUtc { get; init; }
+
     [BsonId]
     public required string Id { get; init; }
 

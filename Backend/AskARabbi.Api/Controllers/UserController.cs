@@ -22,6 +22,7 @@ public sealed class UserController : ControllerBase
     private const string PkceVerifierCookieName = "AskRabbi.PkceVerifier";
     private readonly IUserAuthenticationService authenticationService;
     private readonly IUserAccountStore userAccounts;
+    private readonly IUserDataStore userData;
     private readonly ICurrentUser currentUser;
     private readonly TimeProvider timeProvider;
     private readonly WorkOsAuthenticationOptions options;
@@ -34,10 +35,12 @@ public sealed class UserController : ControllerBase
     /// <param name="timeProvider">UTC time source.</param>
     /// <param name="options">WorkOS configuration.</param>
     /// <param name="environment">Current host environment.</param>
-    public UserController(IUserAuthenticationService authenticationService, IUserAccountStore userAccounts, ICurrentUser currentUser, TimeProvider timeProvider, WorkOsAuthenticationOptions options, IHostEnvironment environment)
+    /// <param name="userData">Durable account-erasure boundary.</param>
+    public UserController(IUserAuthenticationService authenticationService, IUserAccountStore userAccounts, ICurrentUser currentUser, TimeProvider timeProvider, WorkOsAuthenticationOptions options, IHostEnvironment environment, IUserDataStore userData)
     {
         this.authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         this.userAccounts = userAccounts ?? throw new ArgumentNullException(nameof(userAccounts));
+        this.userData = userData ?? throw new ArgumentNullException(nameof(userData));
         this.currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         this.options = options ?? throw new ArgumentNullException(nameof(options));
@@ -105,6 +108,21 @@ public sealed class UserController : ControllerBase
 
         var authenticated = await authenticationService.AuthenticateAsync(code, codeVerifier, cancellationToken).ConfigureAwait(false);
         var account = await userAccounts.UpsertAsync(authenticated.User, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        if (account.IsDeletionPending)
+        {
+            return Problem(statusCode: 409, detail: "This account is being deleted and cannot be signed in.");
+        }
+        // An authorization exchange may have started before erasure and returned after its Mongo record was removed.
+        // Verify after upsert so that such an exchange cannot register a deleted identity again.
+        if (!await authenticationService.UserExistsAsync(account.ProviderUserId, cancellationToken).ConfigureAwait(false))
+        {
+            var pending = await userData.TryRequestDeletionAsync(account.Id, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+            if (pending is not null)
+            {
+                await userData.CompleteDeletionAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            }
+            return Unauthorized();
+        }
         var properties = new AuthenticationProperties
         {
             AllowRefresh = true,
@@ -124,7 +142,7 @@ public sealed class UserController : ControllerBase
     public async Task<ActionResult<UserSessionResponse>> GetSession(CancellationToken cancellationToken)
     {
         var account = await userAccounts.GetByIdAsync(currentUser.UserId, cancellationToken).ConfigureAwait(false);
-        if (account is null)
+        if (account is null || account.IsDeletionPending)
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
             return Unauthorized();

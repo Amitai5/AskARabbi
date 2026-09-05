@@ -3,6 +3,9 @@ namespace AskARabbiLIB.Accounts;
 /// <summary>Represents an AskRabbi account linked to an external authentication identity.</summary>
 public sealed record UserAccount
 {
+    /// <summary>Whether account erasure has been accepted and all access must be denied.</summary>
+    public bool IsDeletionPending { get; init; }
+
     /// <summary>Gets the immutable AskRabbi user ID.</summary>
     public required Guid Id { get; init; }
 

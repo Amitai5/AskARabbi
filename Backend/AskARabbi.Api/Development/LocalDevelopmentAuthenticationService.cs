@@ -18,6 +18,16 @@ public sealed class LocalDevelopmentAuthenticationService : IUserAuthenticationS
     }
 
     /// <inheritdoc/>
+    public Task<bool> UserExistsAsync(string providerUserId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    /// <inheritdoc/>
+    public Task DeleteUserAsync(string providerUserId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
     public Uri GetAuthorizationUri(AuthorizationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

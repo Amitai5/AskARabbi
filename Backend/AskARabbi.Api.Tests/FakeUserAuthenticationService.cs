@@ -5,6 +5,21 @@ namespace AskARabbi.Api.Tests;
 
 internal sealed class FakeUserAuthenticationService : IUserAuthenticationService
 {
+    internal bool FailDeletion { get; set; }
+    internal bool DoesUserExist { get; set; } = true;
+    public Task<bool> UserExistsAsync(string providerUserId, CancellationToken cancellationToken = default) => Task.FromResult(DoesUserExist);
+    internal string? DeletedProviderUserId { get; private set; }
+
+    public Task DeleteUserAsync(string providerUserId, CancellationToken cancellationToken = default)
+    {
+        if (FailDeletion)
+        {
+            throw new IdentityProviderUnavailableException();
+        }
+        DeletedProviderUserId = providerUserId;
+        return Task.CompletedTask;
+    }
+
     internal int AuthenticateCallCount { get; private set; }
     internal string? LastResetEmail { get; private set; }
     internal string? LastResetToken { get; private set; }

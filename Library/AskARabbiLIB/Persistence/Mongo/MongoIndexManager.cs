@@ -42,6 +42,7 @@ public sealed class MongoIndexManager
         var messageIndex = CreateMessageIndex();
 
         await users.Indexes.CreateOneAsync(userIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await users.Indexes.CreateOneAsync(new CreateIndexModel<MongoUserAccountDocument>(Builders<MongoUserAccountDocument>.IndexKeys.Ascending(document => document.DeletionRequestedAtUtc), new CreateIndexOptions { Name = "ix_users_deletionRequestedAtUtc" }), cancellationToken: cancellationToken).ConfigureAwait(false);
         await conversations.Indexes.CreateOneAsync(conversationIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await messages.Indexes.CreateOneAsync(messageIndex, cancellationToken: cancellationToken).ConfigureAwait(false);
         await weeklyDvarTorah.Indexes.CreateOneAsync(MongoWeeklyDvarTorahStore.CreateLatestPublishedIndex(), cancellationToken: cancellationToken).ConfigureAwait(false);

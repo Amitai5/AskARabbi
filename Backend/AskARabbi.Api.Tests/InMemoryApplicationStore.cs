@@ -5,14 +5,102 @@ using AskARabbiLIB.Usage;
 
 namespace AskARabbi.Api.Tests;
 
-internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore
+internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IUserDataStore
 {
+    private readonly object dataSynchronization = new();
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Dictionary<Guid, Conversation> conversations = [];
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
     private UserAccount? account;
     private int answerCount = 7;
+    private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
+    private Guid nextAccountId = StableUserId;
+
+    /// <inheritdoc/>
+    public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            if (account?.Id != userId || account.IsDeletionPending || dataOperations.Values.Any(value => value.ExpiresAt > now && (exclusive || value.Exclusive)))
+            {
+                return Task.FromResult(false);
+            }
+            dataOperations[operationId] = (expiresAt, exclusive);
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task ReleaseAsync(Guid userId, Guid operationId, CancellationToken cancellationToken = default)
+    {
+        lock (dataSynchronization)
+        {
+            if (account?.Id == userId)
+            {
+                dataOperations.Remove(operationId);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<PendingAccountDeletion?> TryRequestDeletionAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            if (account?.Id != userId || account.IsDeletionPending || dataOperations.Values.Any(value => value.ExpiresAt > now))
+            {
+                return Task.FromResult<PendingAccountDeletion?>(null);
+            }
+            account = account with { IsDeletionPending = true };
+            return Task.FromResult<PendingAccountDeletion?>(new(userId, account.ProviderUserId));
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<PendingAccountDeletion>> ListPendingDeletionsAsync(CancellationToken cancellationToken = default)
+    {
+        lock (dataSynchronization)
+        {
+            return Task.FromResult<IReadOnlyList<PendingAccountDeletion>>(account?.IsDeletionPending == true ? [new(account.Id, account.ProviderUserId)] : []);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task DeleteChatsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            foreach (var id in conversations.Values.Where(value => value.UserId == userId).Select(value => value.Id).ToArray())
+            {
+                conversations.Remove(id);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public async Task CompleteDeletionAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (account?.Id != userId || !account.IsDeletionPending)
+        {
+            return;
+        }
+        await DeleteChatsAsync(userId, cancellationToken);
+        lock (dataSynchronization)
+        {
+            personalization.Remove(userId);
+            preferences.Remove(userId);
+            answerCount = 0;
+            account = null;
+            nextAccountId = Guid.NewGuid();
+            dataOperations.Clear();
+        }
+    }
 
     internal Guid UserId => account?.Id ?? StableUserId;
 
@@ -20,7 +108,8 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
     {
         account = new UserAccount
         {
-            Id = StableUserId,
+            Id = account?.Id ?? nextAccountId,
+            IsDeletionPending = account?.IsDeletionPending ?? false,
             ProviderUserId = identity.ProviderUserId,
             Email = identity.Email,
             IsEmailVerified = identity.IsEmailVerified,

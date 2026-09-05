@@ -1,4 +1,5 @@
 using AskARabbiLIB.Accounts;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -31,6 +32,17 @@ internal sealed class WorkOsCookieAuthenticationEvents : CookieAuthenticationEve
     public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        if (!Guid.TryParse(context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            await RejectSessionAsync(context).ConfigureAwait(false);
+            return;
+        }
+        var account = await userAccounts.GetByIdAsync(userId, context.HttpContext.RequestAborted).ConfigureAwait(false);
+        if (account is null || account.IsDeletionPending)
+        {
+            await RejectSessionAsync(context).ConfigureAwait(false);
+            return;
+        }
         var refreshToken = context.Properties.GetTokenValue(RefreshTokenName);
         var expiresAtValue = context.Properties.GetTokenValue(AccessTokenExpiresAtName);
         if (string.IsNullOrWhiteSpace(refreshToken) || !DateTimeOffset.TryParse(expiresAtValue, null, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAtUtc))
@@ -53,7 +65,12 @@ internal sealed class WorkOsCookieAuthenticationEvents : CookieAuthenticationEve
                 return;
             }
 
-            var account = await userAccounts.UpsertAsync(refreshed.User, now, context.HttpContext.RequestAborted).ConfigureAwait(false);
+            // Refresh is not registration: never recreate an erased account from an older cookie.
+            if (refreshed.User.ProviderUserId != account.ProviderUserId)
+            {
+                await RejectSessionAsync(context).ConfigureAwait(false);
+                return;
+            }
             context.ReplacePrincipal(ApplicationPrincipalFactory.Create(account, refreshed.SessionId));
             StoreSessionTokens(context.Properties, refreshed);
             context.ShouldRenew = true;

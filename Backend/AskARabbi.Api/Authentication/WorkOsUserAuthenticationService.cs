@@ -22,6 +22,51 @@ public sealed class WorkOsUserAuthenticationService : IUserAuthenticationService
     }
 
     /// <inheritdoc/>
+    public async Task<bool> UserExistsAsync(string providerUserId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerUserId);
+        try
+        {
+            await client.UserManagement.GetAsync(providerUserId, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (ApiException exception) when (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+        catch (ApiException exception)
+        {
+            throw new IdentityProviderUnavailableException(exception);
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new IdentityProviderUnavailableException(exception);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task DeleteUserAsync(string providerUserId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerUserId);
+        try
+        {
+            await client.UserManagement.DeleteAsync(providerUserId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (ApiException exception) when (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Idempotent recovery after WorkOS succeeded but MongoDB cleanup was interrupted.
+        }
+        catch (ApiException exception)
+        {
+            throw new IdentityProviderUnavailableException(exception);
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new IdentityProviderUnavailableException(exception);
+        }
+    }
+
+    /// <inheritdoc/>
     public Uri GetAuthorizationUri(AuthorizationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

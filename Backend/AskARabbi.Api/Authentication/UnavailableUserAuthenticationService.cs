@@ -4,6 +4,12 @@ namespace AskARabbi.Api.Authentication;
 public sealed class UnavailableUserAuthenticationService : IUserAuthenticationService
 {
     /// <inheritdoc/>
+    public Task<bool> UserExistsAsync(string providerUserId, CancellationToken cancellationToken = default) => Task.FromException<bool>(new IdentityProviderUnavailableException());
+
+    /// <inheritdoc/>
+    public Task DeleteUserAsync(string providerUserId, CancellationToken cancellationToken = default) => Task.FromException(new IdentityProviderUnavailableException());
+
+    /// <inheritdoc/>
     public Uri GetAuthorizationUri(AuthorizationRequest request) => throw new IdentityProviderUnavailableException();
 
     /// <inheritdoc/>

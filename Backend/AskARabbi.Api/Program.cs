@@ -157,6 +157,7 @@ else
     builder.Services.AddSingleton<IGroundedAnswerService, UnavailableGroundedAnswerService>();
 }
 builder.Services.AddScoped<GroundedConversationTurnService>();
+builder.Services.AddScoped<AskARabbi.Api.Accounts.AccountDeletionService>();
 
 if (localDevelopmentOptions.UseDemoServices)
 {
@@ -198,6 +199,7 @@ app.UseRouting();
 app.UseCors(FrontendCorsOptions.PolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<AskARabbi.Api.Accounts.UserDataOperationMiddleware>();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

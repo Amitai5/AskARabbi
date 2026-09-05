@@ -149,4 +149,23 @@ public sealed class UserControllerTests
         StringAssert.StartsWith(logout.RedirectUri, "https://auth.example.test/logout");
         Assert.AreEqual(HttpStatusCode.Unauthorized, sessionResponse.StatusCode);
     }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task Callback_IdentityDeletedDuringExchange_DoesNotResurrectAccount()
+    {
+        await using var application = new TestApplicationFactory();
+        application.Authentication.DoesUserExist = false;
+        using var client = application.CreateNonRedirectingClient();
+        using var login = await client.GetAsync("/api/user/login");
+        var state = QueryHelpers.ParseQuery(login.Headers.Location!.Query)["state"].ToString();
+
+        using var callback = await client.GetAsync($"/api/user/callback?code=test-code&state={Uri.EscapeDataString(state)}");
+        using var session = await client.GetAsync("/api/user/session");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, callback.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, session.StatusCode);
+        Assert.IsNull(await application.Store.GetByIdAsync(application.Store.UserId));
+        Assert.HasCount(0, await application.Store.ListPendingDeletionsAsync());
+    }
 }

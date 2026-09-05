@@ -7,7 +7,7 @@ using AskARabbiLIB.Usage;
 namespace AskARabbi.Api.Development;
 
 /// <summary>Stores local development data in process memory without replacing production persistence.</summary>
-public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore
+public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore
 {
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly object synchronization = new();
@@ -17,6 +17,96 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     private readonly Dictionary<(Guid UserId, DateTimeOffset PeriodStartUtc), int> answerCounts = [];
     private readonly IReadOnlyList<WeeklyDvarTorahArticle> weeklyDvarTorahs = CreateWeeklyDvarTorahs();
     private UserAccount? account;
+    private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
+    private Guid nextAccountId = StableUserId;
+
+    /// <inheritdoc/>
+    public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            if (account?.Id != userId || account.IsDeletionPending || dataOperations.Values.Any(value => value.ExpiresAt > now && (exclusive || value.Exclusive)))
+            {
+                return Task.FromResult(false);
+            }
+            dataOperations[operationId] = (expiresAt, exclusive);
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task ReleaseAsync(Guid userId, Guid operationId, CancellationToken cancellationToken = default)
+    {
+        lock (synchronization)
+        {
+            if (account?.Id == userId)
+            {
+                dataOperations.Remove(operationId);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<PendingAccountDeletion?> TryRequestDeletionAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            if (account?.Id != userId || account.IsDeletionPending || dataOperations.Values.Any(value => value.ExpiresAt > now))
+            {
+                return Task.FromResult<PendingAccountDeletion?>(null);
+            }
+            account = account with { IsDeletionPending = true };
+            return Task.FromResult<PendingAccountDeletion?>(new(userId, account.ProviderUserId));
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<PendingAccountDeletion>> ListPendingDeletionsAsync(CancellationToken cancellationToken = default)
+    {
+        lock (synchronization)
+        {
+            return Task.FromResult<IReadOnlyList<PendingAccountDeletion>>(account?.IsDeletionPending == true ? [new(account.Id, account.ProviderUserId)] : []);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task DeleteChatsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            foreach (var id in conversations.Values.Where(value => value.UserId == userId).Select(value => value.Id).ToArray())
+            {
+                conversations.Remove(id);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public async Task CompleteDeletionAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (account?.Id != userId || !account.IsDeletionPending)
+        {
+            return;
+        }
+        await DeleteChatsAsync(userId, cancellationToken);
+        lock (synchronization)
+        {
+            personalization.Remove(userId);
+            preferences.Remove(userId);
+            foreach (var key in answerCounts.Keys.Where(key => key.UserId == userId).ToArray())
+            {
+                answerCounts.Remove(key);
+            }
+            account = null;
+            nextAccountId = Guid.NewGuid();
+            dataOperations.Clear();
+        }
+    }
 
     /// <inheritdoc/>
     public Task<UserAccount> UpsertAsync(ExternalUserIdentity identity, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
@@ -28,7 +118,8 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
         {
             account = new UserAccount
             {
-                Id = StableUserId,
+                Id = account?.Id ?? nextAccountId,
+                IsDeletionPending = account?.IsDeletionPending ?? false,
                 ProviderUserId = identity.ProviderUserId,
                 Email = identity.Email,
                 IsEmailVerified = identity.IsEmailVerified,

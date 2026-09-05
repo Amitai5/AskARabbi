@@ -3,6 +3,18 @@ namespace AskARabbi.Api.Authentication;
 /// <summary>Provides the identity-provider operations used by the user API.</summary>
 public interface IUserAuthenticationService
 {
+    /// <summary>Checks that an identity still exists after registration, closing the concurrent-login/erasure race.</summary>
+    /// <param name="providerUserId">WorkOS user ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>False only when the provider confirms the identity is gone.</returns>
+    Task<bool> UserExistsAsync(string providerUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>Permanently deletes the AskRabbi WorkOS identity; missing identities count as already deleted.</summary>
+    /// <param name="providerUserId">Server-owned WorkOS user ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The completion task.</returns>
+    Task DeleteUserAsync(string providerUserId, CancellationToken cancellationToken = default);
+
     /// <summary>Builds a hosted authorization URL with the supplied anti-forgery state.</summary>
     /// <param name="request">Authorization state, PKCE, and optional hosted-interface hints.</param>
     /// <returns>The hosted authorization URL.</returns>

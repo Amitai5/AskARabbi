@@ -94,6 +94,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
             {
                 services.RemoveAll<IUserAuthenticationService>();
                 services.RemoveAll<IUserAccountStore>();
+                services.RemoveAll<IUserDataStore>();
                 services.RemoveAll<IConversationStore>();
                 services.RemoveAll<IConversationSettingsStore>();
                 services.RemoveAll<IUsageStore>();
@@ -103,6 +104,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
 
                 services.AddSingleton<IUserAuthenticationService>(Authentication);
                 services.AddSingleton<IUserAccountStore>(Store);
+                services.AddSingleton<IUserDataStore>(Store);
                 services.AddSingleton<IConversationStore>(Store);
                 services.AddSingleton<IConversationSettingsStore>(Store);
                 services.AddSingleton<IUsageStore>(Store);

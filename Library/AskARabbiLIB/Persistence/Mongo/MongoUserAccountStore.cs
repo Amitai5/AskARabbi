@@ -61,6 +61,7 @@ public sealed class MongoUserAccountStore : IUserAccountStore
 
     private static UserAccount ToDomain(MongoUserAccountDocument document) => new()
     {
+        IsDeletionPending = document.DeletionRequestedAtUtc is not null,
         Id = Guid.Parse(document.Id),
         ProviderUserId = document.ProviderUserId,
         Email = document.Email,

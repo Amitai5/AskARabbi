@@ -7,8 +7,26 @@ using AskARabbiLIB.Usage;
 namespace AskARabbiLIB.Persistence.Mongo;
 
 /// <summary>Fails persistence operations explicitly when MongoDB has not been configured.</summary>
-public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore
+public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore
 {
+    /// <inheritdoc/>
+    public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) => Task.FromException<bool>(CreateException());
+
+    /// <inheritdoc/>
+    public Task ReleaseAsync(Guid userId, Guid operationId, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
+
+    /// <inheritdoc/>
+    public Task<PendingAccountDeletion?> TryRequestDeletionAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromException<PendingAccountDeletion?>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<PendingAccountDeletion>> ListPendingDeletionsAsync(CancellationToken cancellationToken = default) => Task.FromException<IReadOnlyList<PendingAccountDeletion>>(CreateException());
+
+    /// <inheritdoc/>
+    public Task DeleteChatsAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
+
+    /// <inheritdoc/>
+    public Task CompleteDeletionAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
+
     /// <inheritdoc/>
     public Task<UserAccount> UpsertAsync(ExternalUserIdentity identity, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException<UserAccount>(CreateException());
 
