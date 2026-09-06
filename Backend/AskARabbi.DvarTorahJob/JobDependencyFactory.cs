@@ -4,6 +4,7 @@ using AskARabbiLIB.Calendar;
 using AskARabbiLIB.CurrentEvents;
 using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.DvarTorah.Audio;
+using AskARabbiLIB.Models;
 using AskARabbiLIB.Persistence.Mongo;
 using AskARabbiLIB.Retrieval;
 using Azure.Core;
@@ -106,6 +107,8 @@ internal static class JobDependencyFactory
         var retryCount = DvarTorahJobEnvironment.GetInteger("AI__MaximumRetryCount", 1);
         var credential = CreateCredential();
         var manifest = await new ManifestLoader().LoadAsync(Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json"), cancellationToken).ConfigureAwait(false);
+        var unrestrictedDocuments = manifest.Documents.Where(document => document.Collection == "Torah" && document.LicenseCategory is SourceLicenseCategory.PublicDomain or SourceLicenseCategory.Cc0).ToArray();
+        var canonicalReader = new BundledCanonicalSourceReader(manifest with { Documents = unrestrictedDocuments, DocumentCount = unrestrictedDocuments.Length }, Path.Combine(AppContext.BaseDirectory, "Data", "canonical-sources.zip"));
         var vectorClient = new AzureOpenAIVectorStoreClient(
             new AzureOpenAIVectorStoreClientOptions
             {
@@ -146,7 +149,7 @@ internal static class JobDependencyFactory
         }, credential);
         var prompts = WeeklyDvarTorahPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts"));
         var currentEvents = new FreeRssCurrentEventsSource(NewsHttpClient, FreeNewsFeedCatalog.Default, timeProvider: TimeProvider.System, feedFailureObserver: DvarTorahJobLog.NewsFeedFailed);
-        return new GroundedWeeklyDvarTorahGenerator(currentEvents, retriever, generationEngine, reviewEngine, prompts, contentOptions, TimeProvider.System);
+        return new GroundedWeeklyDvarTorahGenerator(currentEvents, retriever, generationEngine, reviewEngine, prompts, contentOptions, TimeProvider.System, canonicalReader);
     }
 
     private static IMongoDatabase CreateDatabase(out MongoDatabaseOptions options)

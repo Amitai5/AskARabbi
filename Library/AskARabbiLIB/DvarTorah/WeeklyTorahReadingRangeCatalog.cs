@@ -19,4 +19,16 @@ internal static class WeeklyTorahReadingRangeCatalog
             ? ParashahTorahRangeCatalog.Contains(week.Parashah, canonicalReference)
             : FestivalTorahRangeCatalog.Contains(week, canonicalReference);
     }
+
+    internal static IReadOnlyList<string> GetCanonicalRanges(WeeklyDvarTorahWeek week)
+    {
+        ArgumentNullException.ThrowIfNull(week);
+        if (week.Parashah is null)
+        {
+            return FestivalTorahRangeCatalog.GetCanonicalRanges(week);
+        }
+
+        var range = ParashahTorahRangeCatalog.GetCanonicalRange(week.Parashah);
+        return range is null ? [] : [range];
+    }
 }

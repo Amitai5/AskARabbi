@@ -33,6 +33,12 @@ internal static class FestivalTorahRangeCatalog
         return GetRanges(week).Any(range => range.Contains(canonicalReference));
     }
 
+    internal static IReadOnlyList<string> GetCanonicalRanges(WeeklyDvarTorahWeek week)
+    {
+        ArgumentNullException.ThrowIfNull(week);
+        return GetRanges(week).Select(range => $"{range.Book} {range.StartChapter}:{range.StartVerse}-{range.EndChapter}:{range.EndVerse}").ToArray();
+    }
+
     private static IReadOnlyList<TorahRange> GetRanges(WeeklyDvarTorahWeek week)
     {
         if (week.Holiday is null)

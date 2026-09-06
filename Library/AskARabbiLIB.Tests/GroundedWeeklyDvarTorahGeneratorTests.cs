@@ -377,7 +377,79 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsFalse(request.Contains("Thematic evidence 14.", StringComparison.Ordinal));
     }
 
-    private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null, IReadOnlyList<SourceRetrievalHit>? contextHits = null)
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_FestivalSearchReturnsUnrelatedPortion_ReadsExactHolidayReadingBeforeDrafting()
+    {
+        var week = new WeeklyDvarTorahWeek(new DateOnly(2026, 9, 12), "1 Tishrei, 5787", null, "Rosh Hashana", false);
+        var segments = CreateTorahHits().Select((hit, index) => hit.Segment with { DocumentId = "genesis", CanonicalReference = $"Genesis 21:{index + 1}" }).ToArray();
+        var reader = new StubCanonicalReader(segments);
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("A holiday teaching"));
+        var generator = CreateGenerator(CreateTorahHits(), generation, new QueueEngine(CreatePassingReview()), canonicalReader: reader);
+
+        var result = await generator.GenerateAsync(week);
+
+        Assert.HasCount(1, reader.Requests);
+        Assert.AreEqual("Genesis 21:1-21:34", reader.Requests[0].Reference);
+        CollectionAssert.AreEqual(new[] { "English" }, reader.Requests[0].Filters.Languages.ToArray());
+        CollectionAssert.AreEqual(new[] { "Torah" }, reader.Requests[0].Filters.Collections.ToArray());
+        Assert.IsNotNull(result.Metadata);
+        Assert.HasCount(8, result.Metadata.Sources.Where(source => source.Kind == WeeklyDvarTorahSourceKind.Torah).ToArray());
+        Assert.IsTrue(result.Metadata.Sources.Where(source => source.Kind == WeeklyDvarTorahSourceKind.Torah).All(source => source.CanonicalReference?.StartsWith("Genesis 21:", StringComparison.Ordinal) == true));
+        Assert.AreEqual(2, generation.Calls);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_CanonicalFallbackContainsIneligibleOrDuplicatePassages_KeepsAllExistingEvidenceChecks()
+    {
+        var segments = CreateTorahHits().Take(7).Select(hit => hit.Segment).ToArray();
+        var seed = segments[0];
+        SourceSegment[] rejected =
+        [
+            seed,
+            seed with { SegmentId = "wrong-reading", CanonicalReference = "Genesis 21:1" },
+            CreateAttributionLicensedTorahHit().Segment,
+            CreateHighRiskTorahHit().Segment,
+            seed with { SegmentId = "invalid-url", SourceUrl = "not-a-source-url" },
+        ];
+        var generation = new QueueEngine(CreateResearchDraft());
+        var review = new QueueEngine();
+        var generator = CreateGenerator([], generation, review, canonicalReader: new StubCanonicalReader([.. segments, .. rejected]));
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("TorahEvidenceInsufficient", exception.FailureCode);
+        StringAssert.Contains(exception.Message, "only 7 passages");
+        Assert.AreEqual(1, generation.Calls);
+        Assert.AreEqual(0, review.Calls);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_RegularPortionMissingFromSearch_UsesConfiguredCanonicalRange()
+    {
+        var reader = new StubCanonicalReader(CreateTorahHits().Select(hit => hit.Segment).ToArray());
+        var generator = CreateGenerator([], new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Nitzavim")), new QueueEngine(CreatePassingReview()), canonicalReader: reader);
+
+        await generator.GenerateAsync(Week);
+
+        Assert.AreEqual("Deuteronomy 29:9-30:20", reader.Requests.Single().Reference);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_SearchAlreadySufficient_DoesNotReadCanonicalArchive()
+    {
+        var reader = new StubCanonicalReader([]);
+        var generator = CreateGenerator(CreateTorahHits(), new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Existing retrieval")), new QueueEngine(CreatePassingReview()), canonicalReader: reader);
+
+        await generator.GenerateAsync(Week);
+
+        Assert.HasCount(0, reader.Requests);
+    }
+
+    private static GroundedWeeklyDvarTorahGenerator CreateGenerator(IReadOnlyList<SourceRetrievalHit> hits, IAIEngine generationEngine, IAIEngine reviewEngine, ICurrentEventsSource? currentEvents = null, IReadOnlyList<SourceRetrievalHit>? contextHits = null, ICanonicalSourceReader? canonicalReader = null)
     {
         var prompts = new WeeklyDvarTorahPromptSet
         {
@@ -395,7 +467,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
             MaximumBodyCharacters = 5_000,
             OverallTimeout = TimeSpan.FromMinutes(2),
         };
-        return new GroundedWeeklyDvarTorahGenerator(currentEvents ?? new StubCurrentEvents(), new StubRetriever(hits, contextHits), generationEngine, reviewEngine, prompts, options, new FixedTimeProvider(CurrentUtc));
+        return new GroundedWeeklyDvarTorahGenerator(currentEvents ?? new StubCurrentEvents(), new StubRetriever(hits, contextHits), generationEngine, reviewEngine, prompts, options, new FixedTimeProvider(CurrentUtc), canonicalReader);
     }
 
     private static WeeklyDvarTorahResearchDraft CreateResearchDraft() => new()
@@ -639,6 +711,18 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         public Task<IReadOnlyList<SourceRetrievalHit>> SearchAsync(SourceRetrievalQuery query, CancellationToken cancellationToken = default) => Task.FromResult(contextHits is not null && query.QueryText?.Contains("setting, speakers", StringComparison.Ordinal) == true ? contextHits : hits);
 
         public Task<IReadOnlyList<SourceSegment>> GetContextAsync(string documentId, int documentOrdinal, int radius, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SourceSegment>>([]);
+    }
+
+    private sealed class StubCanonicalReader(IReadOnlyList<SourceSegment> segments) : ICanonicalSourceReader
+    {
+        internal List<(string Reference, SourceRetrievalQuery Filters)> Requests { get; } = [];
+
+        public Task<IReadOnlyList<SourceSegment>> ReadAsync(string reference, SourceRetrievalQuery filters, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Requests.Add((reference, filters));
+            return Task.FromResult(segments);
+        }
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset currentUtc) : TimeProvider

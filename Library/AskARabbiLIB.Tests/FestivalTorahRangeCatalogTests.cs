@@ -46,6 +46,31 @@ public sealed class FestivalTorahRangeCatalogTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public void GetCanonicalRanges_RoshHashana_ReturnsOnlyFirstDayTorahReading()
+    {
+        var result = FestivalTorahRangeCatalog.GetCanonicalRanges(CreateWeek("2026-09-12", "Rosh Hashana", false));
+
+        CollectionAssert.AreEqual(new[] { "Genesis 21:1-21:34" }, result.ToArray());
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetCanonicalRanges_SimchatTorah_ReturnsBothBooks()
+    {
+        var result = FestivalTorahRangeCatalog.GetCanonicalRanges(CreateWeek("2026-10-03", "Shemini Atzeret", true));
+
+        CollectionAssert.AreEqual(new[] { "Deuteronomy 33:1-34:12", "Genesis 1:1-2:3" }, result.ToArray());
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetCanonicalRanges_UnknownFestival_ReturnsNoInventedRange()
+    {
+        Assert.HasCount(0, WeeklyTorahReadingRangeCatalog.GetCanonicalRanges(CreateWeek("2026-09-12", "Unknown festival", false)));
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     [DataRow("2026-09-26", "Sukkot", false, "Leviticus 23:44")]
     [DataRow("1990-10-06", "Chol Hamoed Sukkot", false, "Exodus 34:26")]

@@ -24,6 +24,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
 
     private readonly ICurrentEventsSource currentEvents;
     private readonly ISourceRetriever torahRetriever;
+    private readonly ICanonicalSourceReader? canonicalReader;
     private readonly IAIEngine generationEngine;
     private readonly IAIEngine reviewEngine;
     private readonly WeeklyDvarTorahPromptSet prompts;
@@ -40,10 +41,12 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
     /// <param name="prompts">Version-controlled prompt and schema contract.</param>
     /// <param name="options">Research and validation bounds.</param>
     /// <param name="timeProvider">Clock used for research-window provenance.</param>
-    public GroundedWeeklyDvarTorahGenerator(ICurrentEventsSource currentEvents, ISourceRetriever torahRetriever, IAIEngine generationEngine, IAIEngine reviewEngine, WeeklyDvarTorahPromptSet prompts, WeeklyDvarTorahContentOptions? options = null, TimeProvider? timeProvider = null)
+    /// <param name="canonicalReader">Optional checksum-verified reading lookup when thematic search returns too little evidence.</param>
+    public GroundedWeeklyDvarTorahGenerator(ICurrentEventsSource currentEvents, ISourceRetriever torahRetriever, IAIEngine generationEngine, IAIEngine reviewEngine, WeeklyDvarTorahPromptSet prompts, WeeklyDvarTorahContentOptions? options = null, TimeProvider? timeProvider = null, ICanonicalSourceReader? canonicalReader = null)
     {
         this.currentEvents = currentEvents ?? throw new ArgumentNullException(nameof(currentEvents));
         this.torahRetriever = torahRetriever ?? throw new ArgumentNullException(nameof(torahRetriever));
+        this.canonicalReader = canonicalReader;
         this.generationEngine = generationEngine ?? throw new ArgumentNullException(nameof(generationEngine));
         this.reviewEngine = reviewEngine ?? throw new ArgumentNullException(nameof(reviewEngine));
         this.prompts = prompts ?? throw new ArgumentNullException(nameof(prompts));
@@ -262,19 +265,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             }, cancellationToken).ConfigureAwait(false);
             foreach (var hit in results)
             {
-                if (!WeeklyTorahReadingRangeCatalog.Contains(week, hit.Segment.CanonicalReference))
-                {
-                    continue;
-                }
-                if (!HasUnrestrictedQuotationLicense(hit))
-                {
-                    continue;
-                }
-                if (!CanPersistTorahEvidence(hit))
-                {
-                    continue;
-                }
-                if (ContainsHighRiskTorahContent(hit))
+                if (!IsEligibleTorahEvidence(week, hit))
                 {
                     continue;
                 }
@@ -285,6 +276,24 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 if (!hits.TryGetValue(hit.Segment.SegmentId, out var existing) || hit.Score > existing.Score)
                 {
                     hits[hit.Segment.SegmentId] = hit;
+                }
+            }
+        }
+
+        if (hits.Count < options.MinimumTorahEvidenceItems && canonicalReader is not null)
+        {
+            // Festival names often retrieve laws about the holiday instead of its actual Torah reading.
+            // Read the configured passage from the verified corpus, retaining every existing publication check.
+            foreach (var reference in WeeklyTorahReadingRangeCatalog.GetCanonicalRanges(week))
+            {
+                var segments = await canonicalReader.ReadAsync(reference, new SourceRetrievalQuery { Languages = ["English"], Collections = ["Torah"] }, cancellationToken).ConfigureAwait(false);
+                foreach (var segment in segments)
+                {
+                    var hit = new SourceRetrievalHit(segment, 0, true);
+                    if (IsEligibleTorahEvidence(week, hit))
+                    {
+                        hits.TryAdd(segment.SegmentId, hit);
+                    }
                 }
             }
         }
@@ -317,6 +326,11 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
             null,
             hit.Segment.License)).ToArray();
     }
+
+    private static bool IsEligibleTorahEvidence(WeeklyDvarTorahWeek week, SourceRetrievalHit hit) => WeeklyTorahReadingRangeCatalog.Contains(week, hit.Segment.CanonicalReference)
+        && HasUnrestrictedQuotationLicense(hit)
+        && CanPersistTorahEvidence(hit)
+        && !ContainsHighRiskTorahContent(hit);
 
     private IReadOnlyList<AIMessage> BuildDraftMessages(WeeklyDvarTorahWeek week, WeeklyDvarTorahResearchDraft research, IReadOnlyList<WeeklyDvarTorahEvidence> evidence)
     {

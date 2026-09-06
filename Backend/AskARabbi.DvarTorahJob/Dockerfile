@@ -8,6 +8,7 @@ RUN dotnet restore "Backend/AskARabbi.DvarTorahJob/AskARabbi.DvarTorahJob.csproj
 
 COPY ["Library/AskARabbiLIB/", "Library/AskARabbiLIB/"]
 COPY ["Backend/AskARabbi.DvarTorahJob/", "Backend/AskARabbi.DvarTorahJob/"]
+COPY ["Backend/AskARabbi.Api/Data/canonical-sources.zip", "Backend/AskARabbi.Api/Data/"]
 COPY ["Data/NormalizedData/Sefaria/Metadata/document-manifest.json", "Data/NormalizedData/Sefaria/Metadata/"]
 RUN dotnet publish "Backend/AskARabbi.DvarTorahJob/AskARabbi.DvarTorahJob.csproj" --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
 
