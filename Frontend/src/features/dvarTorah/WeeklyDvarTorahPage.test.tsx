@@ -115,6 +115,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(screen.getByText(/God’s domain/)).toBeVisible()
     expect(screen.getByText(/“clear guidance”—and acted/)).toBeVisible()
     expect(screen.getByText('Rosh Hashanah')).toBeVisible()
+    expect(screen.queryByLabelText('Estimated reading time')).not.toBeInTheDocument()
     expect(document.body).not.toHaveTextContent('\u0019')
 
     const torahReference = screen.getByRole('button', { name: 'View source 1' })
@@ -154,6 +155,8 @@ describe('WeeklyDvarTorahPage', () => {
     const { unmount } = render(<WeeklyDvarTorahPage client={client} />)
 
     const listen = await screen.findByRole('button', { name: 'Listen to this teaching' })
+    expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('About 1 min read')
+    expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('Based on audio at 1×')
     const player = screen.getByRole('region', { name: 'Dvar Torah audio player' })
     const readingArea = screen.getByRole('region', { name: 'A teaching for the week.' })
     expect(readingArea).not.toContainElement(player)
@@ -182,6 +185,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(document.querySelector('mark')).toHaveTextContent('Experts')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Playback speed' }), '1.5')
     expect(audio.playbackRate).toBe(1.5)
+    expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('About 1 min read')
     await user.click(screen.getByRole('button', { name: 'View source 1' }))
     expect(screen.getByRole('dialog', { name: 'Source reader' })).toBeVisible()
     await user.click(within(screen.getByRole('dialog', { name: 'Source reader' })).getByRole('button', { name: 'Close source reader' }))
@@ -205,6 +209,25 @@ describe('WeeklyDvarTorahPage', () => {
 
     expect(screen.queryByRole('region', { name: 'Dvar Torah audio player' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Dvar Torah recording')).not.toBeInTheDocument()
+  })
+
+  it('shows the archived teaching’s own audio-based reading time above its paragraphs', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+    const client = createClient(Publication)
+    client.getArchive = vi.fn().mockResolvedValue(Archive)
+    client.getArchived = vi.fn().mockResolvedValue({ ...ArchivedArticle, audio: { version: 'archived', voice: 'Andrew', durationMs: 403_012.5, audioUrl: '', timingsUrl: '' } })
+    render(<WeeklyDvarTorahPage client={client} />)
+    await screen.findByRole('heading', { name: 'Nitzavim—Choosing Life' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Past teachings' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Responsibility in the Camp' }))
+
+    const duration = await screen.findByLabelText('Estimated reading time')
+    expect(duration).toHaveTextContent('About 7 min read')
+    expect(duration).toHaveAttribute('title', 'Based on 6:43 of audio at 1× speed, rounded up to the next minute.')
+    expect(duration.compareDocumentPosition(screen.getByText(/God’s domain/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(client.getAudioTimings).not.toHaveBeenCalled()
   })
 
   it('loads the newest ten archive records, shows their metadata, searches, and pages', async () => {

@@ -172,7 +172,7 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
     {
         var evidence = CreateEvidence();
         var valid = CreateDraft(evidence);
-        var exactQuotation = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(evidence[0]);
+        var exactQuotation = WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(evidence[0]);
         Assert.IsNotNull(exactQuotation);
         var altered = valid with { Body = valid.Body.Replace(exactQuotation, "Torah text — altered wording [T1]", StringComparison.Ordinal) };
 
@@ -194,6 +194,35 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
 
         Assert.IsFalse(result.IsValid);
         Assert.IsTrue(result.Errors.Any(error => error.Contains("independent publishers", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [DataRow("standalone")]
+    [DataRow("line-break")]
+    [DataRow("markers-only")]
+    [DataRow("repeated")]
+    [DataRow("unresolved")]
+    [TestCategory("Regression")]
+    public void Validate_QuotationNotIntegratedOrUnresolved_BlocksPublication(string scenario)
+    {
+        var evidence = CreateEvidence();
+        var valid = CreateDraft(evidence);
+        var quotation = WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(evidence[0]);
+        Assert.IsNotNull(quotation);
+        var replacement = scenario switch
+        {
+            "standalone" => $"\n\n{quotation}\n\n",
+            "line-break" => $"\n{quotation}\n",
+            "markers-only" => $"\n\n[T2] {quotation} [T3]\n\n",
+            "repeated" => $"{quotation} Another mention: {quotation}",
+            _ => "{{quote:UNKNOWN}}",
+        };
+        var invalid = valid with { Body = valid.Body.Replace(quotation, replacement, StringComparison.Ordinal) };
+
+        var result = WeeklyDvarTorahCandidateValidator.Validate(invalid, evidence, CreateOptions());
+
+        Assert.IsFalse(result.IsValid);
+        Assert.IsTrue(result.Errors.Any(error => error.Contains("quotation", StringComparison.OrdinalIgnoreCase)));
     }
 
     [TestMethod]
@@ -237,7 +266,7 @@ public sealed class WeeklyDvarTorahCandidateValidatorTests
         var draft = new WeeklyDvarTorahArticleDraft
         {
             Title = "Standing Together With Responsibility",
-            Body = $"{citations}\n\n{new string('a', 1_200)}",
+            Body = $"Moses teaches: {{{{quote:T1}}}} We are responsible. The text continues: {{{{quote:T3}}}} Our choices matter. The closing challenge says: {{{{quote:T5}}}} We can act. {citations}\n\n{new string('a', 1_200)}",
             FeaturedTorahEvidenceIds = ["T1", "T3", "T5"],
             CentralTeaching = "Covenantal responsibility asks us to see one another and turn shared awareness into patient, concrete good.",
             Tags = ["responsibility", "community", "nitzavim", "technology", "current events"],

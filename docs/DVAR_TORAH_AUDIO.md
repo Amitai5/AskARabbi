@@ -14,7 +14,13 @@ The weekly generator publishes the text first, then invokes a separate narration
 
 Audio failure leaves the text readable. The job reports failure for operational retry; successful text generation is not repeated. A recording is invalidated when its text, voice, or narration format changes. No user profile or private conversation is sent for speech synthesis.
 
-The `speech-pcm24-mp3-96-v2-silent-references` narration format silences alphabetic source IDs (including `[TB]` and `[TC]`), numeric markers, application-rendered quotation-reference labels, and marker-only source appendices. It preserves exact UTF-16 offsets with spaces and still reads the quoted words. Existing MP3s need an audio-only backfill on the updated generator to gain this behavior; no published article is overwritten. Newly generated articles include the consistent welcome described in the [writing guide](DVAR_TORAH_WRITING.md).
+The `speech-pcm24-mp3-96-v3-flowing-quotations` narration format retains the silent references introduced in v2: alphabetic source IDs (including `[TB]` and `[TC]`), numeric markers, legacy application-rendered quotation-reference labels, and marker-only source appendices. The quotation itself is still spoken. Newly generated articles place exact quotations inside their explanatory paragraphs, following the consistent welcome described in the [writing guide](DVAR_TORAH_WRITING.md).
+
+Requests prefer paragraph or sentence boundaries instead of cutting ordinary sentences at an arbitrary word. Exceptionally long sentences fall back to whitespace, with a surrogate-safe hard limit for unbroken text. SSML collapses repeated whitespace, including masked reference gaps, and maps each emitted character back to its original UTF-16 display position. Word-boundary fallback searches only spoken text so a silent reference cannot steal a word highlight.
+
+The approved male Andrew multilingual voice and English/Hebrew language spans remain unchanged. Voice-scoped `Leading-exact=0ms` and `Tailing-exact=250ms` prevent independently synthesized chunks from stacking their natural edge silence. Sentence and comma prosody remain with the voice; punctuation-silence overrides can conflict with word-boundary events. See Microsoft's [SSML silence documentation](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-structure). A listening check on newly synthesized English/Hebrew narration is still needed to assess subjective delivery.
+
+Archived MP3s are not swept or rewritten at deployment. An explicit audio-only backfill on the updated generator can upgrade a selected recording; the normal coordinator also regenerates mismatched narration if a later job execution revisits that same published week. Neither path rewrites an article or moves its old quotation paragraphs; inline quotations apply to newly generated text. The new format produces a new immutable MP3/timings pair, and publication updates the audio metadata only when both are ready.
 
 ## Browser/API contract
 
@@ -29,6 +35,8 @@ Published article responses add an optional `audio` object containing `version`,
 The timing manifest contains canonical title/body text, a schema version, duration, voice, and ordered word events: `section`, `text`, `textOffset`, `textLength`, `audioOffsetMs`, and `durationMs`. Positions use UTF-16 code units, matching JavaScript string offsets. The frontend validates the version and exact displayed text before highlighting. It fetches audio/timings on demand, supports pause, seeking, and speed controls, and stops playback when leaving the article. No frontend speech model or new frontend package is required.
 
 The browser player is docked below the scrollable teaching on both mobile and desktop. **Follow text** scrolls only when the highlighted word approaches the edge; manual scrolling pauses following, source-reader inspection temporarily suspends it, and reduced-motion settings disable animation. Neither seeking nor following triggers new synthesis or a new timing request.
+
+The top of each current or opened archive article shows **About N min read**, derived directly from `audio.durationMs` at 1× speed and rounded up to the next whole minute. The tooltip gives the baseline audio length. This is an audio-based estimate, not a words-per-minute guess or remaining-playback time; it stays unchanged at other playback speeds. Missing, nonfinite, or nonpositive durations omit the estimate. This uses existing article metadata without fetching the MP3 or timings, adding state, or changing an API contract.
 
 ## Azure resources and isolation
 

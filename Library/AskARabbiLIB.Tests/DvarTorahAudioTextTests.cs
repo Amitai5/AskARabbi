@@ -100,10 +100,12 @@ public sealed class DvarTorahAudioTextTests
 
     [TestMethod]
     [TestCategory("Regression")]
-    public void GetVersion_PreviousNarrationRules_RequireRegeneration()
+    [DataRow("speech-pcm24-mp3-96-v1")]
+    [DataRow("speech-pcm24-mp3-96-v2-silent-references")]
+    public void GetVersion_PreviousNarrationRules_RequireRegeneration(string previousFormat)
     {
         var article = DvarTorahAudioTestData.Article();
-        var legacyText = string.Join('\0', "speech-pcm24-mp3-96-v1", DvarTorahAudioTestData.Voice, article.Title, article.Body);
+        var legacyText = string.Join('\0', previousFormat, DvarTorahAudioTestData.Voice, article.Title, article.Body);
         var legacyVersion = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(legacyText)));
 
         Assert.AreNotEqual(legacyVersion, DvarTorahAudioText.GetVersion(article, DvarTorahAudioTestData.Voice));
@@ -126,6 +128,69 @@ public sealed class DvarTorahAudioTextTests
         Assert.AreEqual(10 + text.IndexOf("שַׁבָּת", StringComparison.Ordinal), ssml.GetDisplayOffset((uint)ssml.Text.IndexOf("שַׁבָּת", StringComparison.Ordinal)));
         Assert.AreEqual(-1, ssml.GetDisplayOffset(uint.MaxValue));
         Assert.AreEqual(-1, ssml.GetDisplayOffset(0));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetChunks_ParagraphFits_PrefersParagraphOverLaterMidParagraphBoundary()
+    {
+        const string paragraph = "A small choice can change the direction of a day.\n\n";
+        var body = paragraph + "Listen closely. " + new string('a', 100);
+
+        var chunks = DvarTorahAudioText.GetChunks("body", body, 80);
+
+        Assert.AreEqual(paragraph, chunks[0].Text);
+        Assert.AreEqual(paragraph.Length, chunks[1].DisplayOffset);
+        Assert.AreEqual(body, string.Concat(chunks.Select(chunk => chunk.Text)));
+    }
+
+    [TestMethod]
+    [DataRow("Moses says, “Choose life.” ")]
+    [DataRow("A question changes us! ")]
+    [DataRow("Why does this matter? ")]
+    [DataRow("וּבָחַרְתָּ בַּחַיִּים׃ ")]
+    [TestCategory("Regression")]
+    public void GetChunks_LongParagraph_EndsAtCompleteSentenceInsteadOfMiddleOfNextThought(string sentence)
+    {
+        var body = sentence + sentence + new string('x', sentence.Length * 4);
+
+        var chunks = DvarTorahAudioText.GetChunks("body", body, sentence.Length * 3);
+
+        Assert.AreEqual(sentence + sentence, chunks[0].Text);
+        Assert.AreEqual(body, string.Concat(chunks.Select(chunk => chunk.Text)));
+        Assert.IsTrue(chunks.All(chunk => chunk.Text.Length <= sentence.Length * 3));
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [TestCategory("Regression")]
+    public void GetChunks_InvalidCharacterLimit_FailsBeforeSplittingSurrogatePairs(int maximumCharacters)
+    {
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => DvarTorahAudioText.GetChunks("body", "😀", maximumCharacters));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void Ssml_InlineQuotationAndSilentMarkers_PreservesFlowAndMapsCollapsedWhitespace()
+    {
+        const string body = "Moses says, “Choose life.” [TA] It asks us to act.\n\nHe calls: “וּבָחַרְתָּ בַּחַיִּים” [TB] Choose today.";
+        var chunk = DvarTorahAudioText.GetChunks("body", body).Single();
+
+        var ssml = new DvarTorahSsml(chunk, DvarTorahAudioTestData.Voice);
+        var document = XDocument.Parse(ssml.Text);
+
+        Assert.AreEqual("Moses says, “Choose life.” It asks us to act. He calls: “וּבָחַרְתָּ בַּחַיִּים” Choose today.", document.Root?.Value);
+        Assert.AreEqual(body.IndexOf("It asks", StringComparison.Ordinal), ssml.GetDisplayOffset((uint)ssml.Text.IndexOf("It asks", StringComparison.Ordinal)));
+        Assert.AreEqual(body.IndexOf("Choose today", StringComparison.Ordinal), ssml.GetDisplayOffset((uint)ssml.Text.IndexOf("Choose today", StringComparison.Ordinal)));
+        Assert.IsFalse(document.Descendants().Any(element => element.Name.LocalName == "break"));
+        Assert.HasCount(1, document.Descendants().Where(element => element.Name.LocalName == "voice").ToArray());
+        var silence = document.Descendants().Where(element => element.Name.LocalName == "silence").ToArray();
+        Assert.HasCount(2, silence);
+        Assert.AreEqual("Leading-exact", silence[0].Attribute("type")?.Value);
+        Assert.AreEqual("0ms", silence[0].Attribute("value")?.Value);
+        Assert.AreEqual("Tailing-exact", silence[1].Attribute("type")?.Value);
+        Assert.AreEqual("250ms", silence[1].Attribute("value")?.Value);
     }
 
     [TestMethod]

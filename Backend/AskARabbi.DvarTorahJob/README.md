@@ -16,19 +16,19 @@ For a single existing publication, start a manual execution with `DvarTorahAudio
 
 ## Content and source contract
 
-The [writing guide](../../docs/DVAR_TORAH_WRITING.md) defines a beginner-friendly essay with a scene-setting beginning, one evidence-backed argument, and a conclusion returning to the opening idea. The application adds the same welcome to every new article. Independent review must approve its context, structure, and ending as well as grounding and safety. Existing publications are not rewritten automatically.
+The [writing guide](../../docs/DVAR_TORAH_WRITING.md) defines a beginner-friendly essay with a grounded modern hook, clear Torah-story context, one evidence-backed argument with inline quotations, and a hopeful conclusion returning to the opening idea with concrete actions. The application adds the same welcome to every new article. Independent review must approve its hook, quotation integration, context, structure, and ending as well as grounding and safety. Existing publications are not rewritten automatically.
 
 - Current events come only from curated public-service, government, or institutional RSS/Atom endpoints that require no API key or paid publisher subscription: PBS News, NPR, MIT News, NIST, NASA, and Federal Reserve releases. Commercial subscription publishers are excluded. Individual feed failures are logged and tolerated when enough independent publishers remain.
 - Only bounded feed metadata is retained: publisher, headline, short summary, public URL, publication time, and retrieval time. The job does not scrape or republish article bodies.
 - Political news and multi-topic newsletters/roundups are excluded before model selection. Research selects a constructive, nonpolitical development corroborated by different publishers, not unrelated facts sharing a broad theme.
 - Torah passages come from the same fingerprint-verified managed Sefaria corpus used by grounded conversations. Retrieved passages are deterministically restricted to the regular parashah or exact festival reading for that Hebrew date and Israel/Diaspora cycle. An unknown festival range fails closed without publishing.
-- Each article features exactly three impactful passages in the body. The model selects only their evidence IDs; application code inserts the exact bounded wording and canonical references from public-domain or CC0 Torah evidence, then rejects any missing or altered quotation. News evidence is never quoted.
+- Each article features exactly three impactful passages in the body. The model selects their evidence IDs and places each supplied `{{quote:ID}}` slot inside its explanatory paragraph; application code replaces it in place with exact bounded public-domain/CC0 wording and a source marker. Canonical references remain available in the source reader. Missing, repeated, detached, or altered quotations fail validation. News evidence is never quoted.
 - At least 80% of both substantive source weight and sourced teaching claims must be Torah. The article must cite at least eight distinct Torah passages and at least two independent current-events publishers by default.
 - The draft targets four connected Torah teaching claims and one brief current-event fact. Multiple passages can support the same claim, preserving the grounding ratios without fragmenting the essay into eight separate themes.
 - A separate model pass blocks unsupported claims, irresponsible Torah interpretation, political persuasion, violence advocacy or glorification, graphic violence, hate or dehumanization, racism, sexism, targeting or alienation of protected/minority groups, exploitation of suffering, and claims that tragedy is divine punishment.
 - One editorial/grounding repair is allowed. A second validation failure leaves the week unpublished. A provider-blocked completion stops immediately rather than being replayed or retried as an editorial defect; Azure protections remain enabled.
 - Generation failures log fixed review check names and safe provider response IDs/completion categories, never draft text, source text, or model-generated review concerns. If the repair request fails, the original failed review checks are retained.
-- The v3 internal review schema returns only enumerated checks, packet-scoped source IDs, and paragraph numbers, not free-form feedback that could copy source material. Application code formats repair instructions. All prior publication checks remain required; API and Mongo schemas do not change.
+- The v4 internal review schema adds grounded-opening and integrated-quotation checks and returns only enumerated checks, packet-scoped source IDs, and paragraph numbers, not free-form feedback that could copy source material. Application code formats repair instructions. All prior publication checks remain required; API and Mongo schemas do not change.
 - Published records include tags, the central moral teaching, deterministic Torah-grounding percentage, model/review versions, the news research window, and complete bounded Torah/news source provenance. MongoDB indexes the tag array for future archive search.
 
 ## Safe pre-generation state
@@ -57,7 +57,7 @@ The generator is implemented, but activation remains fail-closed. Before setting
 | `DvarTorah__MinimumTorahGroundingPercent` | No | `80` (cannot be configured lower) |
 | `DvarTorah__MinimumBodyCharacters` | No | `2500` |
 | `DvarTorah__MaximumBodyCharacters` | No | `15000` |
-| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v3` |
+| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v4` |
 | `AI__ProjectEndpoint` | When generation is enabled | None |
 | `AI__ModelName` | When generation is enabled | None |
 | `AI__VectorStoreId` | When generation is enabled | None |

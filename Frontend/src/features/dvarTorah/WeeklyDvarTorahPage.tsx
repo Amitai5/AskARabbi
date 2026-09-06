@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, BookMarked, BookOpenText, CalendarDays, ChevronLeft, ChevronRight, LoaderCircle, RefreshCw, Search, Sparkles } from 'lucide-react'
+import { ArrowLeft, BookMarked, BookOpenText, CalendarDays, ChevronLeft, ChevronRight, Clock, LoaderCircle, RefreshCw, Search, Sparkles } from 'lucide-react'
 import { SourceReader } from '../conversations/SourceReader.tsx'
 import type { ConversationSource } from '../conversations/conversationData.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import { DvarTorahReadAloud } from './DvarTorahReadAloud.tsx'
 import { DvarTorahNarratedText, HighlightedText } from './DvarTorahNarratedText.tsx'
-import { createNarratedParagraphs } from './dvarTorahAudio.ts'
+import { createNarratedParagraphs, estimateReadingMinutes, formatAudioTime } from './dvarTorahAudio.ts'
 import { normalizeDvarTorahText } from './dvarTorahText.ts'
 import { useNarrationFollow } from './useNarrationFollow.ts'
 import type { DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
@@ -278,6 +278,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
   const body = useMemo(() => normalizeDvarTorahText(article.body), [article.body])
   const paragraphs = useMemo(() => createNarratedParagraphs(body), [body])
   const sourceNumbersById = useMemo(() => new Map(article.sources.map((source, index) => [source.sourceId, index + 1])), [article.sources])
+  const readingMinutes = estimateReadingMinutes(article.audio?.durationMs)
   return (
     <article ref={articleRef} className="mt-9 border-t border-line pt-7" aria-label={normalizeDvarTorahText(article.title)}>
       {!showFallbackNotice ? null : (
@@ -288,6 +289,12 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
 
       <WeekDetails week={article.week} />
       <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} /></h2>
+      {readingMinutes === null ? null : (
+        <p aria-label="Estimated reading time" title={`Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <span className="inline-flex items-center gap-2 font-semibold text-ink-soft"><Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read</span>
+          <span>Based on audio at 1×</span>
+        </p>
+      )}
       {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
       {article.audio == null ? <p className="mt-5 text-sm text-muted">Audio is not available for this teaching yet.</p> : null}
       <div className="mt-8 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-5 sm:pl-7">

@@ -60,6 +60,15 @@ export function formatAudioTime(seconds: number) {
   return `${Math.floor(wholeSeconds / 60)}:${String(wholeSeconds % 60).padStart(2, '0')}`
 }
 
+export function estimateReadingMinutes(durationMs: number | null | undefined): number | null {
+  if (durationMs == null || !Number.isFinite(durationMs) || durationMs <= 0) {
+    return null
+  }
+
+  // Use the saved recording's 1× duration, not word counts or the selected playback speed.
+  return Math.max(1, Math.ceil(durationMs / 60_000))
+}
+
 export function createNarratedParagraphs(body: string) {
   const paragraphs: { text: string; textOffset: number }[] = []
   let textOffset = 0

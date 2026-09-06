@@ -91,6 +91,12 @@ internal sealed record WeeklyDvarTorahReviewDraft
     [JsonPropertyName("conclusionReturnsToOpening")]
     public required bool ConclusionReturnsToOpening { get; init; }
 
+    [JsonPropertyName("openingHookGrounded")]
+    public required bool OpeningHookGrounded { get; init; }
+
+    [JsonPropertyName("quotationsIntegrated")]
+    public required bool QuotationsIntegrated { get; init; }
+
     [JsonPropertyName("doesNotEncourageViolence")]
     public required bool DoesNotEncourageViolence { get; init; }
 

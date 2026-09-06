@@ -348,6 +348,7 @@ public sealed class GroundedWeeklyDvarTorahGenerator : IWeeklyDvarTorahGenerator
                 item.Title,
                 item.Publisher,
                 text = item.PresentedText,
+                quotationSlot = item.Kind == WeeklyDvarTorahSourceKind.Torah ? WeeklyDvarTorahQuotationRenderer.GetQuotationSlot(item.EvidenceId) : null,
             }),
         };
         return new AIPromptBuilder()

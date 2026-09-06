@@ -150,6 +150,11 @@ internal static class WeeklyDvarTorahCandidateValidator
 
     private static void ValidateFeaturedTorahQuotations(WeeklyDvarTorahArticleDraft draft, IReadOnlyDictionary<string, WeeklyDvarTorahEvidence> evidence, IReadOnlyList<WeeklyDvarTorahSourcedStatementDraft> torahStatements, ICollection<string> errors)
     {
+        var body = draft.Body ?? string.Empty;
+        if (body.Contains("{{", StringComparison.Ordinal) || body.Contains("}}", StringComparison.Ordinal))
+        {
+            errors.Add("The body contains unresolved quotation slots. Use each featured passage's exact {{quote:ID}} slot once, inside an explanatory paragraph; do not use slots for other IDs.");
+        }
         var ids = draft.FeaturedTorahEvidenceIds ?? [];
         if (ids.Count != WeeklyDvarTorahQuotationRenderer.RequiredQuotationCount || ids.Any(string.IsNullOrWhiteSpace) || ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)
         {
@@ -177,13 +182,29 @@ internal static class WeeklyDvarTorahCandidateValidator
                 errors.Add($"Featured Torah quotation '{id}' must also support a Torah teaching.");
             }
 
-            var quotationLine = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(item);
-            if (quotationLine is null || !(draft.Body ?? string.Empty).Contains(quotationLine, StringComparison.Ordinal))
+            var quotation = WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(item);
+            var index = quotation is null ? -1 : body.IndexOf(quotation, StringComparison.Ordinal);
+            if (quotation is null || index < 0)
             {
-                errors.Add($"The article body is missing the exact trusted Torah quotation for evidence '{id}'.");
+                errors.Add($"The article body is missing the exact trusted Torah quotation for evidence '{id}'. Place its {WeeklyDvarTorahQuotationRenderer.GetQuotationSlot(id)} slot once inside the paragraph that introduces and explains it.");
+                continue;
+            }
+            if (body.IndexOf(quotation, index + quotation.Length, StringComparison.Ordinal) >= 0)
+            {
+                errors.Add($"Featured Torah quotation '{id}' must occur exactly once in the body.");
+            }
+            var paragraphStart = body.LastIndexOf('\n', index);
+            var paragraphEnd = body.IndexOf('\n', index + quotation.Length);
+            var before = body[(paragraphStart + 1)..index];
+            var after = body[(index + quotation.Length)..(paragraphEnd < 0 ? body.Length : paragraphEnd)];
+            if (!ContainsNarrative(before) || !ContainsNarrative(after))
+            {
+                errors.Add($"Featured Torah quotation '{id}' must be woven into one paragraph, with an introduction before it and an explanation after it; do not put it on a separate line.");
             }
         }
     }
+
+    private static bool ContainsNarrative(string text) => Regex.Replace(text, @"\[[^\]\r\n]*\]", string.Empty, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Any(char.IsLetter);
 
     private static void ValidateTags(IReadOnlyList<string>? tags, ICollection<string> errors)
     {

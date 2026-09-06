@@ -127,6 +127,41 @@ public sealed class AzureSpeechDvarTorahNarratorTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_LegacySilentLabelRepeatsSpokenWord_DoesNotHighlightTheReference()
+    {
+        const string body = "Torah text — Genesis 1:1: “Genesis begins our story.” [TA]\n\nWe begin again.";
+        var article = DvarTorahAudioTestData.Article(body);
+        var narrator = new AzureSpeechDvarTorahNarrator(DvarTorahAudioTestData.Options(), new RecordingEncoder(), (ssml, _) =>
+        {
+            var result = SpeechResult(ssml);
+            return Task.FromResult(result with { Words = result.Words.Select(word => word with { SsmlOffset = uint.MaxValue }).ToArray() });
+        });
+
+        var narration = await narrator.GenerateAsync(article, DvarTorahAudioText.GetVersion(article, DvarTorahAudioTestData.Voice));
+
+        var genesis = narration.Timings.Words.Single(word => word.Text == "Genesis");
+        Assert.AreEqual(body.LastIndexOf("Genesis", StringComparison.Ordinal), genesis.TextOffset);
+        DvarTorahAudioValidation.ValidateTimings(narration.Timings);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_InlineQuotationParagraph_ReadsQuoteInOrderWithoutLabelsAndAlignsWords()
+    {
+        const string body = "Moses teaches, “Choose life.” [TA] Those words invite responsibility. He says, “וּבָחַרְתָּ בַּחַיִּים” [TB] Choose a kind action today.";
+        var article = DvarTorahAudioTestData.Article(body);
+        var narrator = new AzureSpeechDvarTorahNarrator(DvarTorahAudioTestData.Options(), new RecordingEncoder(), (ssml, _) => Task.FromResult(SpeechResult(ssml)));
+
+        var narration = await narrator.GenerateAsync(article, DvarTorahAudioText.GetVersion(article, DvarTorahAudioTestData.Voice));
+
+        CollectionAssert.AreEqual(new[] { "Title", "Moses", "teaches", "Choose", "life", "Those", "words", "invite", "responsibility", "He", "says", "וּבָחַרְתָּ", "בַּחַיִּים", "Choose", "a", "kind", "action", "today" }, narration.Timings.Words.Select(word => word.Text).ToArray());
+        Assert.AreEqual(body.IndexOf("Those", StringComparison.Ordinal), narration.Timings.Words[5].TextOffset);
+        Assert.AreEqual(body.LastIndexOf("Choose", StringComparison.Ordinal), narration.Timings.Words[13].TextOffset);
+        DvarTorahAudioValidation.ValidateTimings(narration.Timings);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task GenerateAsync_InvalidArticleOrVersion_RejectsBeforeCallingSpeech()
     {

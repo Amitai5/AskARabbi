@@ -46,6 +46,8 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
     [DataRow("context", "story context")]
     [DataRow("argument", "beginning, middle, and end")]
     [DataRow("conclusion", "opening question")]
+    [DataRow("hook", "modern opening hook")]
+    [DataRow("quotations", "quotations disconnected")]
     [TestCategory("Regression")]
     public void Validate_EditorialCheckFails_BlocksOtherwiseSupportedArticle(string check, string expectedError)
     {
@@ -54,6 +56,8 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
             StoryContextClear = check != "context",
             ArgumentHasBeginningMiddleEnd = check != "argument",
             ConclusionReturnsToOpening = check != "conclusion",
+            OpeningHookGrounded = check != "hook",
+            QuotationsIntegrated = check != "quotations",
         };
 
         var errors = WeeklyDvarTorahReviewValidator.Validate(review);
@@ -114,6 +118,8 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
         StoryContextClear = true,
         ArgumentHasBeginningMiddleEnd = true,
         ConclusionReturnsToOpening = true,
+        OpeningHookGrounded = true,
+        QuotationsIntegrated = true,
         DoesNotEncourageViolence = true,
         DoesNotGlorifyOrGraphicallyDescribeViolence = true,
         DoesNotContainHateOrDehumanization = true,

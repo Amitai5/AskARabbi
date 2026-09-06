@@ -54,22 +54,21 @@ public sealed class AzureSpeechDvarTorahNarrator : IDvarTorahNarrator
                 throw new DvarTorahAudioException("AudioDataInvalid", "synthesis");
             }
             var offsetMs = pcm.Length * 1000d / PcmBytesPerSecond;
-            var displayText = chunk.Section == "title" ? title : body;
-            var alignmentCursor = chunk.DisplayOffset;
-            var chunkEnd = chunk.DisplayOffset + chunk.Text.Length;
+            var alignmentCursor = 0;
             foreach (var boundary in result.Words)
             {
-                var displayOffset = ssml.GetDisplayOffset(boundary.SsmlOffset);
-                if (!IsExactBoundary(displayText, boundary.Text, displayOffset, alignmentCursor, chunkEnd))
+                var relativeOffset = ssml.GetDisplayOffset(boundary.SsmlOffset) - chunk.DisplayOffset;
+                if (!IsExactBoundary(chunk.Text, boundary.Text, relativeOffset, alignmentCursor, chunk.Text.Length))
                 {
-                    displayOffset = FindExactBoundary(displayText, boundary.Text, alignmentCursor, chunkEnd);
+                    // Search the spoken copy, not silent reference labels that may repeat the same word.
+                    relativeOffset = FindExactBoundary(chunk.Text, boundary.Text, alignmentCursor, chunk.Text.Length);
                 }
-                if (displayOffset < 0)
+                if (relativeOffset < 0)
                 {
                     throw new DvarTorahAudioException("WordAlignmentFailed", "alignment");
                 }
-                words.Add(new(chunk.Section, boundary.Text, displayOffset, boundary.Text.Length, offsetMs + boundary.AudioOffsetMs, boundary.DurationMs));
-                alignmentCursor = displayOffset + boundary.Text.Length;
+                words.Add(new(chunk.Section, boundary.Text, chunk.DisplayOffset + relativeOffset, boundary.Text.Length, offsetMs + boundary.AudioOffsetMs, boundary.DurationMs));
+                alignmentCursor = relativeOffset + boundary.Text.Length;
             }
             if (result.Words.Count == 0)
             {

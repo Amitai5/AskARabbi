@@ -12,6 +12,8 @@ internal enum WeeklyDvarTorahReviewCheck
     StoryContextClear,
     ArgumentHasBeginningMiddleEnd,
     ConclusionReturnsToOpening,
+    OpeningHookGrounded,
+    QuotationsIntegrated,
     DoesNotEncourageViolence,
     DoesNotGlorifyOrGraphicallyDescribeViolence,
     DoesNotContainHateOrDehumanization,

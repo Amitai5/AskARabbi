@@ -10,17 +10,17 @@ public sealed class WeeklyDvarTorahQuotationRendererTests
 
     [TestMethod]
     [TestCategory("Unit")]
-    public void AddTrustedQuotations_ValidSelections_InsertsExactQuotesAfterCitingParagraph()
+    public void AddTrustedQuotations_ValidSelections_WeavesExactQuotesInsideExplanatoryParagraph()
     {
         var first = CreateEvidence("T1", "  Choose   life.  ", " Deuteronomy   30:19 ");
         var second = CreateEvidence("T2", "The word is very near to you.", "Deuteronomy 30:14");
         var news = CreateEvidence("N1", "News summary.", null, WeeklyDvarTorahSourceKind.News);
-        var draft = CreateDraft("Opening [T1] and [T2].\r\n\r\nClosing paragraph.", ["T1", "", "T1", "UNKNOWN", "N1", "T2"]);
+        var draft = CreateDraft("Moses says, {{quote:T1}} This makes responsibility personal. Another verse says, {{quote:T2}} The choice is within reach.\r\n\r\nClosing paragraph.", ["T1", "", "T1", "UNKNOWN", "N1", "T2"]);
 
         var result = WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(draft, [first, second, news], 2_000);
 
         Assert.AreNotSame(draft, result);
-        Assert.AreEqual("Opening [T1] and [T2].\n\nTorah text — Deuteronomy 30:19: “Choose life.” [T1]\n\nTorah text — Deuteronomy 30:14: “The word is very near to you.” [T2]\n\nClosing paragraph.", result.Body);
+        Assert.AreEqual("Moses says, “Choose life.” [T1] This makes responsibility personal. Another verse says, “The word is very near to you.” [T2] The choice is within reach.\n\nClosing paragraph.", result.Body);
     }
 
     [TestMethod]
@@ -28,7 +28,7 @@ public sealed class WeeklyDvarTorahQuotationRendererTests
     public void AddTrustedQuotations_ExistingQuoteOrMissingMarker_ReturnsOriginalDraft()
     {
         var evidence = CreateEvidence("T1", "Choose life.", "Deuteronomy 30:19");
-        var quotation = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(evidence);
+        var quotation = WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(evidence);
         Assert.IsNotNull(quotation);
         var existingQuote = CreateDraft($"Teaching [T1].\n\n{quotation}", ["T1"]);
         var missingMarker = CreateDraft("Teaching without a marker.", ["T1"]);
@@ -63,7 +63,7 @@ public sealed class WeeklyDvarTorahQuotationRendererTests
     public void AddTrustedQuotations_ResultExceedsMaximumBodyCharacters_ReturnsOriginalDraft()
     {
         var evidence = CreateEvidence("T1", "Choose life.", "Deuteronomy 30:19");
-        var draft = CreateDraft("Teaching [T1].", ["T1"]);
+        var draft = CreateDraft("Teaching {{quote:T1}} explained here.", ["T1"]);
 
         var result = WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(draft, [evidence], draft.Body.Length);
 
@@ -82,26 +82,26 @@ public sealed class WeeklyDvarTorahQuotationRendererTests
 
     [TestMethod]
     [TestCategory("Unit")]
-    public void CreateQuotationLine_ValidEvidence_BoundsAndFormatsTrustedText()
+    public void CreateInlineQuotation_ValidEvidence_BoundsAndFormatsTrustedText()
     {
         var spacedText = string.Join(' ', Enumerable.Repeat("covenantal", 80));
         var evidence = CreateEvidence("T1", spacedText, " Deuteronomy   30:19 ");
 
-        var result = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(evidence);
+        var result = WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(evidence);
 
         Assert.IsNotNull(result);
-        StringAssert.StartsWith(result, "Torah text — Deuteronomy 30:19: “");
+        StringAssert.StartsWith(result, "“covenantal");
         StringAssert.EndsWith(result, "…” [T1]");
         Assert.IsTrue(result.Length < spacedText.Length);
     }
 
     [TestMethod]
     [TestCategory("Unit")]
-    public void CreateQuotationLine_LongTextWithoutWordBoundary_UsesHardLimit()
+    public void CreateInlineQuotation_LongTextWithoutWordBoundary_UsesHardLimit()
     {
         var evidence = CreateEvidence("T1", new string('a', 601), "Deuteronomy 30:19");
 
-        var result = WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(evidence);
+        var result = WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(evidence);
 
         Assert.IsNotNull(result);
         StringAssert.Contains(result, $"“{new string('a', 600)}…”");
@@ -109,7 +109,7 @@ public sealed class WeeklyDvarTorahQuotationRendererTests
 
     [TestMethod]
     [TestCategory("Unit")]
-    public void CreateQuotationLine_InvalidEvidence_ReturnsNull()
+    public void CreateInlineQuotation_InvalidEvidence_ReturnsNull()
     {
         WeeklyDvarTorahEvidence[] invalidEvidence =
         [
@@ -120,9 +120,40 @@ public sealed class WeeklyDvarTorahQuotationRendererTests
 
         foreach (var evidence in invalidEvidence)
         {
-            Assert.IsNull(WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(evidence));
+            Assert.IsNull(WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(evidence));
         }
-        Assert.ThrowsExactly<ArgumentNullException>(() => WeeklyDvarTorahQuotationRenderer.CreateQuotationLine(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => WeeklyDvarTorahQuotationRenderer.CreateInlineQuotation(null!));
+    }
+
+    [TestMethod]
+    [DataRow("Start {{quote:T1}} middle {{quote:T1}} end.")]
+    [DataRow("Start {{quote:UNKNOWN}} end.")]
+    [DataRow("Start {{quote:N1}} end.")]
+    [DataRow("Start {{quote:T2}} end.")]
+    [DataRow("Start [T1] end.")]
+    [TestCategory("Regression")]
+    public void AddTrustedQuotations_AmbiguousOrUnselectedSlots_DoesNotInventPlacement(string body)
+    {
+        var draft = CreateDraft(body, ["T1"]);
+        var evidence = new[] { CreateEvidence("T1", "Choose life.", "Deuteronomy 30:19"), CreateEvidence("T2", "Another passage.", "Deuteronomy 30:14") };
+
+        var result = WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(draft, evidence, 2_000);
+
+        Assert.AreSame(draft, result);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void AddTrustedQuotations_HebrewSlot_PreservesExactWordingAndParagraphCount()
+    {
+        var draft = CreateDraft("Moses calls us to choose: {{quote:TA}} It is an invitation to act.\n\nCarry the choice forward.", ["TA"]);
+        var evidence = CreateEvidence("TA", "וּבָחַרְתָּ בַּחַיִּים", "Deuteronomy 30:19");
+
+        var result = WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(draft, [evidence], 2_000);
+
+        StringAssert.Contains(result.Body, "choose: “וּבָחַרְתָּ בַּחַיִּים” [TA] It is an invitation");
+        Assert.HasCount(2, result.Body.Split("\n\n"));
+        Assert.AreSame(result, WeeklyDvarTorahQuotationRenderer.AddTrustedQuotations(result, [evidence], 2_000));
     }
 
     [TestMethod]

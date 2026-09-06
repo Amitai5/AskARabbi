@@ -11,6 +11,8 @@ public sealed class WeeklyDvarTorahPromptContractTests
     [DataRow("storyContextClear")]
     [DataRow("argumentHasBeginningMiddleEnd")]
     [DataRow("conclusionReturnsToOpening")]
+    [DataRow("openingHookGrounded")]
+    [DataRow("quotationsIntegrated")]
     [TestCategory("Regression")]
     public void ReviewSchema_EditorialGate_IsRequiredBooleanWithMatchingInstruction(string property)
     {
@@ -33,7 +35,8 @@ public sealed class WeeklyDvarTorahPromptContractTests
 
         StringAssert.Contains(draft, "has NOT read the parashah");
         StringAssert.Contains(draft, "BEGINNING:");
-        StringAssert.Contains(draft, "first model-generated paragraph must explicitly name");
+        StringAssert.Contains(draft, "first model-generated paragraph must open with a compelling modern hook");
+        StringAssert.Contains(draft, "By that second model-generated paragraph, explicitly name");
         StringAssert.Contains(draft, "Do not substitute vague labels");
         StringAssert.Contains(draft, "MIDDLE:");
         StringAssert.Contains(draft, "END:");
@@ -58,6 +61,25 @@ public sealed class WeeklyDvarTorahPromptContractTests
 
     [TestMethod]
     [TestCategory("Regression")]
+    public void WritingContract_ModernHookAndInlineQuotes_RequiresSupportedDetailsAndActionableReturn()
+    {
+        var draft = ReadPrompt("draft-system.txt");
+        var research = ReadPrompt("research-system.txt");
+        var review = ReadPrompt("review-system.txt");
+
+        StringAssert.Contains(draft, "{{quote:TA}}");
+        StringAssert.Contains(draft, "in the SAME paragraph");
+        StringAssert.Contains(draft, "Never put a slot on its own line");
+        StringAssert.Contains(draft, "Make the first step doable today");
+        StringAssert.Contains(draft, "does not waive research requirements");
+        StringAssert.Contains(draft, "Do not invent a study");
+        StringAssert.Contains(research, "do not supply movie plots, popularity claims, study findings, or numbers from memory");
+        StringAssert.Contains(review, "Do not require Torah character names in the modern hook itself");
+        StringAssert.Contains(review, "an occasion and a concrete action the reader could take today");
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
     public void ResearchContract_ContemporaryLens_RequiresConstructiveSingleEventCorroboration()
     {
         var research = ReadPrompt("research-system.txt");
@@ -78,7 +100,7 @@ public sealed class WeeklyDvarTorahPromptContractTests
 
         Assert.AreEqual(3, properties.EnumerateObject().Count());
         Assert.AreEqual("string", properties.GetProperty("check").GetProperty("type").GetString());
-        Assert.AreEqual(22, properties.GetProperty("check").GetProperty("enum").GetArrayLength());
+        Assert.AreEqual(24, properties.GetProperty("check").GetProperty("enum").GetArrayLength());
         Assert.AreEqual("array", properties.GetProperty("evidenceIds").GetProperty("type").GetString());
         Assert.IsTrue(properties.GetProperty("evidenceIds").GetProperty("items").TryGetProperty("enum", out _));
         Assert.AreEqual("integer", properties.GetProperty("paragraphIndex").GetProperty("type").GetString());

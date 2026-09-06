@@ -80,6 +80,25 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     }
 
     [TestMethod]
+    [DataRow(false, true, "modern opening hook")]
+    [DataRow(true, false, "quotations disconnected")]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_HookOrQuotationReviewFails_RepairsBeforePublishing(bool openingHookGrounded, bool quotationsIntegrated, string expectedRepairInstruction)
+    {
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("First draft"), CreateArticleDraft("Repaired teaching"));
+        var review = new QueueEngine(CreatePassingReview() with { OpeningHookGrounded = openingHookGrounded, QuotationsIntegrated = quotationsIntegrated, SafeToPublish = false }, CreatePassingReview());
+        var generator = CreateGenerator(CreateTorahHits(), generation, review);
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.AreEqual("Repaired teaching", result.Title);
+        Assert.AreEqual(3, generation.Calls);
+        Assert.AreEqual(2, review.Calls);
+        StringAssert.Contains(generation.Requests[2].Last().Content, expectedRepairInstruction);
+        Assert.IsFalse(result.Body.Contains("{{quote:", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task GenerateAsync_DraftGroundingFailsBothAttempts_ReportsSafeDiagnosticCategory()
     {
@@ -103,7 +122,8 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     [TestCategory("Unit")]
     public async Task GenerateAsync_DraftOmitsInlineMarkers_AppendsKnownMarkersAndSendsExactCompositionTargets()
     {
-        var draft = CreateArticleDraft("Complete citation markers") with { Body = new string('a', 1_200) };
+        var draft = CreateArticleDraft("Complete citation markers");
+        draft = draft with { Body = System.Text.RegularExpressions.Regex.Replace(draft.Body, @"\[[TN][A-Z]\]", string.Empty) };
         var generationEngine = new QueueEngine(CreateResearchDraft(), draft);
         var generator = CreateGenerator(CreateTorahHits(), generationEngine, new QueueEngine(CreatePassingReview()));
 
@@ -113,6 +133,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"torahTeachingStatements\":4");
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"distinctTorahEvidenceIds\":8");
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"distinctNewsEvidenceIds\":2");
+        StringAssert.Contains(generationEngine.Requests[1].Last().Content, "\"quotationSlot\":\"{{quote:TA}}\"");
     }
 
     [TestMethod]
@@ -122,7 +143,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         var markers = string.Join(' ', Enumerable.Range(0, 8).Select(index => $"[T{(char)('A' + index)}]").Concat(["[NA]", "[NB]"]));
         var draft = CreateArticleDraft("Torah in its own words") with
         {
-            Body = $"The first interpretation is anchored here [TH].\n\nThe second interpretation is anchored here [TC].\n\nThe third interpretation is anchored here [TF].\n\n{markers}\n\n{new string('a', 1_200)}",
+            Body = $"The first verse says: {{{{quote:TH}}}} The first interpretation is anchored here.\n\nThe second verse says: {{{{quote:TC}}}} The second interpretation is anchored here.\n\nThe third verse says: {{{{quote:TF}}}} The third interpretation is anchored here.\n\n{markers}\n\n{new string('a', 1_200)}",
             FeaturedTorahEvidenceIds = ["TH", "TC", "TF"],
         };
         var generationEngine = new QueueEngine(CreateResearchDraft(), draft);
@@ -131,17 +152,19 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
 
         var result = await generator.GenerateAsync(Week);
 
-        const string firstQuotation = "Torah text — Deuteronomy 29:16: “Torah passage 8 teaches shared covenantal responsibility.” [TH]";
-        const string secondQuotation = "Torah text — Deuteronomy 29:11: “Torah passage 3 teaches shared covenantal responsibility.” [TC]";
-        const string thirdQuotation = "Torah text — Deuteronomy 29:14: “Torah passage 6 teaches shared covenantal responsibility.” [TF]";
+        const string firstQuotation = "“Torah passage 8 teaches shared covenantal responsibility.” [TH]";
+        const string secondQuotation = "“Torah passage 3 teaches shared covenantal responsibility.” [TC]";
+        const string thirdQuotation = "“Torah passage 6 teaches shared covenantal responsibility.” [TF]";
         StringAssert.Contains(result.Body, firstQuotation);
         StringAssert.Contains(result.Body, secondQuotation);
         StringAssert.Contains(result.Body, thirdQuotation);
-        Assert.IsTrue(result.Body.IndexOf(firstQuotation, StringComparison.Ordinal) > result.Body.IndexOf("anchored here [TH]", StringComparison.Ordinal));
+        StringAssert.Contains(result.Body, $"The first verse says: {firstQuotation} The first interpretation is anchored here.");
+        Assert.IsFalse(result.Body.Contains("Torah text", StringComparison.Ordinal));
+        Assert.IsFalse(result.Body.Contains("{{", StringComparison.Ordinal));
         Assert.IsFalse(result.Body.Contains("“Publisher one reports", StringComparison.Ordinal));
-        Assert.AreEqual("weekly-dvar-torah-v3", result.GeneratorVersion);
+        Assert.AreEqual("weekly-dvar-torah-v4", result.GeneratorVersion);
         StringAssert.StartsWith(result.Body, WeeklyDvarTorahIntroduction.Text + "\n\n");
-        Assert.AreEqual("weekly_dvar_torah_review_v3", result.Metadata?.SafetyReviewVersion);
+        Assert.AreEqual("weekly_dvar_torah_review_v4", result.Metadata?.SafetyReviewVersion);
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"featuredTorahQuotationCount\":3");
         var reviewRequest = reviewEngine.Requests[0].Single(message => message.Role == AIMessageRole.User).Content;
         StringAssert.Contains(reviewRequest, "Deuteronomy 29:16");
@@ -395,7 +418,7 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         return new WeeklyDvarTorahArticleDraft
         {
             Title = title,
-            Body = $"{markers}\n\n{new string('a', 1_200)}",
+            Body = $"Moses teaches: {{{{quote:TA}}}} We are responsible. The text continues: {{{{quote:TD}}}} Our choices matter. The closing challenge says: {{{{quote:TH}}}} We can act. {markers}\n\n{new string('a', 1_200)}",
             FeaturedTorahEvidenceIds = ["TA", "TD", "TH"],
             CentralTeaching = "Standing before Hashem together calls each person to transform awareness of others into patient and concrete responsibility.",
             Tags = ["responsibility", "community", "nitzavim", "technology", "current events"],
@@ -424,6 +447,8 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         StoryContextClear = true,
         ArgumentHasBeginningMiddleEnd = true,
         ConclusionReturnsToOpening = true,
+        OpeningHookGrounded = true,
+        QuotationsIntegrated = true,
         DoesNotEncourageViolence = true,
         DoesNotGlorifyOrGraphicallyDescribeViolence = true,
         DoesNotContainHateOrDehumanization = true,

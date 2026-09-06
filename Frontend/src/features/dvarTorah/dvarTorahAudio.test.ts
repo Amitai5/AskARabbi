@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createNarratedParagraphs, findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
+import { createNarratedParagraphs, estimateReadingMinutes, findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
 import type { DvarTorahAudioTimings } from './dvarTorahTypes.ts'
 
 const Timings: DvarTorahAudioTimings = {
@@ -46,6 +46,14 @@ describe('findAudioWord', () => {
 })
 
 describe('narration display helpers', () => {
+  it.each([[1, 1], [59_999, 1], [60_000, 1], [60_001, 2], [403_012.5, 7], [3_600_000, 60]])('estimates reading time from the saved 1× duration %s ms', (duration, minutes) => {
+    expect(estimateReadingMinutes(duration)).toBe(minutes)
+  })
+
+  it.each([undefined, null, 0, -1, Number.NaN, Number.POSITIVE_INFINITY])('does not invent reading time for missing or invalid duration %s', (duration) => {
+    expect(estimateReadingMinutes(duration)).toBeNull()
+  })
+
   it('preserves paragraph offsets into the original normalized body', () => {
     expect(createNarratedParagraphs(Timings.body)).toEqual([
       { text: 'שלום [T1].', textOffset: 0 }, { text: 'Learn together.', textOffset: 14 },

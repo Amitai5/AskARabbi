@@ -21,48 +21,29 @@ internal static class WeeklyDvarTorahQuotationRenderer
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         var body = draft.Body.Trim().Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        var paragraphs = body.Split("\n\n", StringSplitOptions.None);
-        var additions = new Dictionary<int, List<string>>();
         foreach (var id in selectedIds)
         {
-            if (!evidenceById.TryGetValue(id, out var item) || CreateQuotationLine(item) is not { } quotationLine || body.Contains(quotationLine, StringComparison.Ordinal))
+            if (!evidenceById.TryGetValue(id, out var item) || CreateInlineQuotation(item) is not { } quotation)
             {
                 continue;
             }
 
-            var paragraphIndex = Array.FindIndex(paragraphs, paragraph => paragraph.Contains($"[{id}]", StringComparison.Ordinal));
-            if (paragraphIndex < 0)
+            var slot = GetQuotationSlot(id);
+            var index = body.IndexOf(slot, StringComparison.Ordinal);
+            if (index < 0 || body.IndexOf(slot, index + slot.Length, StringComparison.Ordinal) >= 0)
             {
+                // Missing or repeated slots must be repaired, never moved to an unrelated paragraph.
                 continue;
             }
-            if (!additions.TryGetValue(paragraphIndex, out var lines))
-            {
-                lines = [];
-                additions[paragraphIndex] = lines;
-            }
-            lines.Add(quotationLine);
+            body = body.Replace(slot, quotation, StringComparison.Ordinal);
         }
 
-        if (additions.Count == 0)
-        {
-            return draft;
-        }
-
-        var renderedParagraphs = new List<string>(paragraphs.Length + selectedIds.Length);
-        for (var index = 0; index < paragraphs.Length; index++)
-        {
-            renderedParagraphs.Add(paragraphs[index]);
-            if (additions.TryGetValue(index, out var quotationLines))
-            {
-                renderedParagraphs.AddRange(quotationLines);
-            }
-        }
-
-        var renderedBody = string.Join("\n\n", renderedParagraphs);
-        return renderedBody.Length <= maximumBodyCharacters ? draft with { Body = renderedBody } : draft;
+        return body != draft.Body && body.Length <= maximumBodyCharacters ? draft with { Body = body } : draft;
     }
 
-    internal static string? CreateQuotationLine(WeeklyDvarTorahEvidence evidence)
+    internal static string GetQuotationSlot(string evidenceId) => "{{quote:" + evidenceId + "}}";
+
+    internal static string? CreateInlineQuotation(WeeklyDvarTorahEvidence evidence)
     {
         ArgumentNullException.ThrowIfNull(evidence);
         if (evidence.Kind != WeeklyDvarTorahSourceKind.Torah || string.IsNullOrWhiteSpace(evidence.PresentedText) || string.IsNullOrWhiteSpace(evidence.CanonicalReference))
@@ -71,8 +52,8 @@ internal static class WeeklyDvarTorahQuotationRenderer
         }
 
         var quotation = BoundQuotation(CollapseWhitespace(evidence.PresentedText));
-        var canonicalReference = CollapseWhitespace(evidence.CanonicalReference);
-        return $"Torah text — {canonicalReference}: “{quotation}” [{evidence.EvidenceId}]";
+        // The source button carries the canonical reference; only the quotation belongs in the speech.
+        return $"“{quotation}” [{evidence.EvidenceId}]";
     }
 
     internal static int GetMaximumGeneratedBodyCharacters(WeeklyDvarTorahContentOptions options)

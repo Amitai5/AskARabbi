@@ -12,6 +12,7 @@ internal sealed partial class DvarTorahSsml
     {
         var text = new StringBuilder();
         var positions = new List<int>();
+        var previousWasWhitespace = false;
         void AddMarkup(string markup)
         {
             text.Append(markup);
@@ -21,13 +22,26 @@ internal sealed partial class DvarTorahSsml
         {
             for (var index = start; index < start + length; index++)
             {
-                var escaped = chunk.Text[index] switch { '&' => "&amp;", '<' => "&lt;", '>' => "&gt;", '"' => "&quot;", '\'' => "&apos;", _ => chunk.Text[index].ToString() };
+                var character = chunk.Text[index];
+                if (char.IsWhiteSpace(character))
+                {
+                    if (previousWasWhitespace)
+                    {
+                        continue;
+                    }
+                    character = ' ';
+                }
+                previousWasWhitespace = char.IsWhiteSpace(character);
+                var escaped = character switch { '&' => "&amp;", '<' => "&lt;", '>' => "&gt;", '"' => "&quot;", '\'' => "&apos;", _ => character.ToString() };
                 text.Append(escaped);
                 positions.AddRange(Enumerable.Repeat(chunk.DisplayOffset + index, escaped.Length));
             }
         }
 
-        AddMarkup($"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{voice}'>");
+        AddMarkup($"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='{voice}'>");
+        // Prevent two independent synthesis requests from stacking their natural edge silences.
+        // Leave sentence/commas to the voice; punctuation silence overrides conflict with word boundaries.
+        AddMarkup("<mstts:silence type='Leading-exact' value='0ms'/><mstts:silence type='Tailing-exact' value='250ms'/>");
         var cursor = 0;
         foreach (Match hebrew in HebrewRunPattern().Matches(chunk.Text))
         {

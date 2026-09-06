@@ -7,7 +7,7 @@ namespace AskARabbiLIB.DvarTorah.Audio;
 /// <summary>Maintains the exact browser display-text contract and deterministic narration identity.</summary>
 public static partial class DvarTorahAudioText
 {
-    private const string NarrationFormatVersion = "speech-pcm24-mp3-96-v2-silent-references";
+    private const string NarrationFormatVersion = "speech-pcm24-mp3-96-v3-flowing-quotations";
 
     /// <summary>Normalizes legacy control punctuation exactly as the frontend display normalizer does.</summary>
     /// <param name="value">Original stored text.</param>
@@ -52,6 +52,8 @@ public static partial class DvarTorahAudioText
 
     internal static IReadOnlyList<NarrationChunk> GetChunks(string section, string displayText, int maximumCharacters = 1800)
     {
+        ArgumentNullException.ThrowIfNull(displayText);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumCharacters, 2);
         // Replace markers with equal-length spaces so every spoken character keeps its display position.
         var spoken = CitationPattern().Replace(displayText, match => new string(' ', match.Length));
         spoken = ReferenceLabelPattern().Replace(spoken, match => new string(' ', match.Length));
@@ -61,14 +63,27 @@ public static partial class DvarTorahAudioText
             var end = Math.Min(start + maximumCharacters, spoken.Length);
             if (end < spoken.Length)
             {
-                var split = spoken.LastIndexOfAny(['\n', ' ', '\t'], end - 1, end - start);
-                if (split > start)
+                // Keep the narrator's thought intact and use word boundaries only for oversized sentences.
+                var boundary = FindNaturalBoundary(spoken, start, end, ParagraphBoundaryPattern());
+                if (boundary < 0)
                 {
-                    end = split + 1;
+                    boundary = FindNaturalBoundary(spoken, start, end, SentenceBoundaryPattern());
                 }
-                else if (char.IsHighSurrogate(spoken[end - 1]))
+                if (boundary >= 0)
                 {
-                    end--;
+                    end = boundary;
+                }
+                else
+                {
+                    var split = spoken.LastIndexOfAny(['\n', '\r', ' ', '\t'], end - 1, end - start);
+                    if (split > start)
+                    {
+                        end = split + 1;
+                    }
+                    else if (char.IsHighSurrogate(spoken[end - 1]))
+                    {
+                        end--;
+                    }
                 }
             }
             var text = spoken[start..end];
@@ -80,6 +95,31 @@ public static partial class DvarTorahAudioText
         }
         return chunks;
     }
+
+    private static int FindNaturalBoundary(string text, int start, int end, Regex pattern)
+    {
+        var selected = -1;
+        var minimum = start + (end - start) / 2;
+        foreach (Match match in pattern.Matches(text, start))
+        {
+            var boundary = match.Index + match.Length;
+            if (boundary > end)
+            {
+                break;
+            }
+            if (boundary >= minimum)
+            {
+                selected = boundary;
+            }
+        }
+        return selected;
+    }
+
+    [GeneratedRegex(@"\r?\n[\t ]*\r?\n(?:[\t ]*\r?\n)*", RegexOptions.CultureInvariant)]
+    private static partial Regex ParagraphBoundaryPattern();
+
+    [GeneratedRegex("[.!?׃][\\\"”’'»)]*\\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex SentenceBoundaryPattern();
 
     [GeneratedRegex(@"\[(?:[TNO][A-Z]{1,2}|[A-Za-z]+\d+|\d+)(?:\s*[,;–-]\s*(?:[TNO][A-Z]{1,2}|[A-Za-z]+\d+|\d+))*\]", RegexOptions.CultureInvariant)]
     private static partial Regex CitationPattern();
