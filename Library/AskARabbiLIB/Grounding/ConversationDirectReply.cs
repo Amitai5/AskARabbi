@@ -14,24 +14,27 @@ internal static class ConversationDirectReply
 
     internal static async Task<GroundedAnswerResult?> TryAnswerAsync(GroundedQuestion question, IReadOnlyList<GroundedConversationTurn> history, IAIToolRegistry? registry, DateTimeOffset currentUtc, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(question.ConversationLanguage) && !string.Equals(question.ConversationLanguage, "English", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
+        var presentation = ConversationOpeningText.ForLanguage(question.ConversationLanguage);
         var tokens = SearchTextNormalizer.Tokenize(question.Question).ToHashSet(StringComparer.Ordinal);
         if (history.Count == 0 && tokens.Count <= 7 && ((tokens.Overlaps(["that", "this", "it"]) && tokens.Overlaps(["explain", "why", "clarify", "elaborate"])) || tokens.SetEquals(["tell", "me", "the", "summary"])))
         {
-            return Reply("Which topic or passage would you like me to explain? Send the question or reference, and we can work through it together.", "A question to explore", []);
+            return Reply(presentation.Clarification, presentation.Title, []);
         }
         if (tokens.Overlaps(["begin", "start"]) && tokens.Overlaps(["new", "beginner", "hello"]) && tokens.Overlaps(["jewish", "torah", "studying", "texts"]))
         {
-            return Reply("Welcome! We can begin with a short Torah passage, a question about a Jewish practice, or this week's Torah portion. I'll introduce the context, explain unfamiliar terms, and read the sources with you.\n\nWould you prefer a story, a practical topic, or a first look at Genesis?", "Beginning Jewish learning", []);
+            return Reply(presentation.Welcome, presentation.Title, []);
         }
         if (tokens.Overlaps(["car", "engine"]) && !tokens.Overlaps(["shabbat", "shabbos", "sabbath", "jewish", "halacha", "halakhah", "torah", "kosher"]))
         {
-            return Reply("I focus on Jewish texts, traditions, and practice rather than mechanical advice. If you mean how driving relates to Shabbat or another Jewish-law question, tell me the context and I'll explain it with sources.", "Cars and Jewish practice", []);
+            return Reply(presentation.OffTopic, presentation.Title, []);
         }
-        if (registry is null || !tokens.Overlaps(["date", "day", "birthday"]) || !tokens.Overlaps(["hebrew", "jewish", "gregorian", "today", "todays"]) || tokens.Overlaps(["parashah", "parashat", "portion", "story", "mitzvah"]))
+        if ((ConversationPersonalization.NormalizeLanguage(question.ConversationLanguage) ?? "English") != "English" || !string.IsNullOrWhiteSpace(question.UserProfile?.Bio))
+        {
+            // The regular calendar-capable answer path applies non-English language and
+            // explicit personal phrasing preferences while validating the calculated facts.
+            return null;
+        }
+        if (registry is null || !IsCalendarDateQuestion(question.Question))
         {
             return null;
         }
@@ -73,6 +76,12 @@ internal static class ConversationDirectReply
         }
         var afterData = JsonSerializer.SerializeToElement(after.Data, JsonOptions);
         return Reply($"{subject} Before sunset, the Hebrew date is {dateName} ({hebrewName}); after sunset, it is {afterData.GetProperty("englishText").GetString()} ({afterData.GetProperty("hebrewText").GetString()}).\n\nHebrew dates change at local sunset. A time zone alone does not establish sunset at your location, so I have shown both possibilities.", "Hebrew calendar date", [(toolName, first), (toolName, after)]);
+    }
+
+    internal static bool IsCalendarDateQuestion(string question)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(question).ToHashSet(StringComparer.Ordinal);
+        return tokens.Overlaps(["date", "day", "birthday"]) && tokens.Overlaps(["hebrew", "jewish", "gregorian", "today", "todays"]) && !tokens.Overlaps(["parashah", "parashat", "portion", "story", "mitzvah"]);
     }
 
     private static BinaryData Arguments(bool isToday, DateTime? date, bool afterSunset) => BinaryData.FromString(isToday

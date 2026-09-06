@@ -11,6 +11,12 @@ const Message: ConversationMessage = {
 }
 
 describe('UserMessage', () => {
+  it.each(['מה משמעות הפסוק?', 'معنای این آیه چیست؟', 'וואָס מיינט דער פּסוק?'])('lets a user question choose its natural writing direction: %s', (content) => {
+    render(<UserMessage message={{ ...Message, content }} />)
+
+    expect(screen.getByText(content)).toHaveAttribute('dir', 'auto')
+  })
+
   it('presents the user turn as a right-aligned chat bubble', () => {
     render(<UserMessage message={Message} />)
 

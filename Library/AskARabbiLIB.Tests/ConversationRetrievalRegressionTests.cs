@@ -11,6 +11,61 @@ namespace AskARabbiLIB.Tests;
 public sealed class ConversationRetrievalRegressionTests
 {
     [TestMethod]
+    [DataRow("English")]
+    [DataRow("French")]
+    [DataRow("German")]
+    [DataRow("Hebrew")]
+    [DataRow("Italian")]
+    [DataRow("Persian")]
+    [DataRow("Polish")]
+    [DataRow("Russian")]
+    [DataRow("Spanish")]
+    [DataRow("Yiddish")]
+    [TestCategory("Regression")]
+    public async Task DirectReply_AllResponseLanguages_TranslatesNavigationWithoutGeneration(string language)
+    {
+        var expected = ConversationOpeningText.ForLanguage(language);
+        var cases = new[] { ("Can you explain that?", expected.Clarification), ("How does a car engine work?", expected.OffTopic), ("Hello! I am new to studying Jewish texts. Where should I begin?", expected.Welcome) };
+        foreach (var (question, text) in cases)
+        {
+            var result = await ConversationDirectReply.TryAnswerAsync(new GroundedQuestion { Question = question, ConversationLanguage = language }, [], null, new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero), CancellationToken.None);
+
+            Assert.IsNotNull(result?.Answer);
+            Assert.AreEqual(text, new GroundedAnswerTextRenderer().Render(result.Answer));
+            Assert.AreEqual(0, result.Trace.ProviderAttempts);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Ashkenazi", "Teves")]
+    [DataRow("Mizrahi", "Tevet")]
+    [DataRow("Sephardi", "Tevet")]
+    [DataRow("Prefer not to say", "Tevet")]
+    [TestCategory("Regression")]
+    public async Task DirectReply_CalendarTerminology_UsesHeritageWithoutChangingEvidence(string heritage, string month)
+    {
+        var registry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
+        var question = new GroundedQuestion { Question = "What Hebrew date is January 1, 2026, before sunset?", UserProfile = new AskARabbiLIB.Profiles.UserProfile { Name = "Learner", DateOfBirth = new DateOnly(1990, 1, 1), JewishHeritage = heritage } };
+
+        var result = await ConversationDirectReply.TryAnswerAsync(question, [], registry, new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero), CancellationToken.None);
+
+        Assert.IsNotNull(result?.Answer);
+        StringAssert.Contains(new GroundedAnswerTextRenderer().Render(result.Answer), month);
+        StringAssert.Contains(result.Evidence?.Items[0].Source.Text, month);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task DirectReply_ExplicitPersonalWording_UsesPersonalizedCalendarGeneration()
+    {
+        var question = new GroundedQuestion { Question = "What is today's Hebrew date?", UserProfile = new AskARabbiLIB.Profiles.UserProfile { Name = "Learner", DateOfBirth = new DateOnly(1990, 1, 1), JewishHeritage = "Ashkenazi", Bio = "Please use Tevet, not Teves." } };
+
+        var result = await ConversationDirectReply.TryAnswerAsync(question, [], null, new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero), CancellationToken.None);
+
+        Assert.IsNull(result);
+    }
+
+    [TestMethod]
     [DataRow("Explain Deuteronomy 6:4 in plain English.", "Deuteronomy 6:4")]
     [DataRow("What does Genesis 44:18-47:27 say?", "Genesis 44:18-47:27")]
     [DataRow("Read Chullin 104b:1-9", "Chullin 104b:1-9")]

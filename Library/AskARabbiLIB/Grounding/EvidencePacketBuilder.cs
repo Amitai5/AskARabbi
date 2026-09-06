@@ -24,37 +24,38 @@ internal sealed class EvidencePacketBuilder
         var characterCount = 0;
         var enhancedHits = 0;
 
-        foreach (var hit in hits)
+        var orderedHits = hits.GroupBy(hit => hit.Segment.CanonicalReference, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(group => group.OrderBy(hit => ConversationPersonalization.LanguageRank(hit.Segment, question)).ThenByDescending(hit => hit.Score));
+        foreach (var hit in orderedHits)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var shouldEnrich = enhancedHits < options.MaximumEnrichmentHits;
+            var lookForPreferredEditionFirst = shouldEnrich && ConversationPersonalization.LanguageRank(hit.Segment, question) > 0;
+            SourceRetrievalHit? paired = null;
+            if (lookForPreferredEditionFirst)
+            {
+                paired = await FindTranslationPairAsync(hit.Segment, question, cancellationToken).ConfigureAwait(false);
+                if (paired is not null && ConversationPersonalization.LanguageRank(paired.Segment, question) < ConversationPersonalization.LanguageRank(hit.Segment, question))
+                {
+                    TryAdd(paired.Segment, question.Question, items, seenSegments, documentCounts, ref characterCount);
+                }
+            }
             TryAdd(hit.Segment, question.Question, items, seenSegments, documentCounts, ref characterCount);
             if (items.Count >= options.MaximumEvidenceSegments || characterCount >= options.MaximumEvidenceCharacters)
             {
                 break;
             }
 
-            if (enhancedHits >= options.MaximumEnrichmentHits)
+            if (!shouldEnrich)
             {
                 continue;
             }
             enhancedHits++;
 
-            var referenceMatches = await retriever.SearchAsync(new SourceRetrievalQuery
+            if (!lookForPreferredEditionFirst)
             {
-                ExactCanonicalReference = hit.Segment.CanonicalReference,
-                Languages = question.Languages,
-                Collections = question.Collections,
-                Categories = question.Categories,
-                WorkKeys = question.WorkKeys,
-                SourceKeys = question.SourceKeys,
-                CandidateLimit = 20,
-            }, cancellationToken).ConfigureAwait(false);
-            var paired = referenceMatches
-                .Where(candidate => !string.Equals(candidate.Segment.SegmentId, hit.Segment.SegmentId, StringComparison.Ordinal))
-                .Where(candidate => IsTranslationPair(hit.Segment, candidate.Segment))
-                .OrderByDescending(candidate => string.Equals(candidate.Segment.LanguageCode, "he", StringComparison.OrdinalIgnoreCase))
-                .ThenByDescending(candidate => candidate.Score)
-                .FirstOrDefault();
+                paired = await FindTranslationPairAsync(hit.Segment, question, cancellationToken).ConfigureAwait(false);
+            }
             if (paired is not null)
             {
                 TryAdd(paired.Segment, question.Question, items, seenSegments, documentCounts, ref characterCount);
@@ -72,6 +73,22 @@ internal sealed class EvidencePacketBuilder
         }
 
         return new EvidencePacket(items, characterCount);
+    }
+
+    private async Task<SourceRetrievalHit?> FindTranslationPairAsync(SourceSegment source, GroundedQuestion question, CancellationToken cancellationToken)
+    {
+        var matches = await retriever.SearchAsync(new SourceRetrievalQuery
+        {
+            ExactCanonicalReference = source.CanonicalReference,
+            Languages = question.Languages,
+            Collections = question.Collections,
+            Categories = question.Categories,
+            WorkKeys = question.WorkKeys,
+            SourceKeys = question.SourceKeys,
+            CandidateLimit = 20,
+        }, cancellationToken).ConfigureAwait(false);
+        return matches.Where(candidate => !string.Equals(candidate.Segment.SegmentId, source.SegmentId, StringComparison.Ordinal) && IsTranslationPair(source, candidate.Segment))
+            .OrderBy(candidate => ConversationPersonalization.LanguageRank(candidate.Segment, question)).ThenByDescending(candidate => candidate.Score).FirstOrDefault();
     }
 
     private bool TryAdd(SourceSegment segment, string queryText, List<EvidenceItem> items, HashSet<string> seenSegments, Dictionary<string, int> documentCounts, ref int characterCount)
@@ -180,8 +197,7 @@ internal sealed class EvidencePacketBuilder
 
     private static bool IsTranslationPair(SourceSegment first, SourceSegment second)
     {
-        var firstIsHebrew = string.Equals(first.LanguageCode, "he", StringComparison.OrdinalIgnoreCase);
-        var secondIsHebrew = string.Equals(second.LanguageCode, "he", StringComparison.OrdinalIgnoreCase);
-        return firstIsHebrew != secondIsHebrew && string.Equals(first.CanonicalReference, second.CanonicalReference, StringComparison.OrdinalIgnoreCase);
+        return !string.Equals(first.LanguageCode, second.LanguageCode, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(first.CanonicalReference, second.CanonicalReference, StringComparison.OrdinalIgnoreCase);
     }
 }

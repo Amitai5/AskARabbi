@@ -184,7 +184,7 @@ function SourceReaderContent({ idPrefix, messageId, source, showSourceContextByD
           </div>
           <div className="mt-7 space-y-6">
             {source.quotations.map((quotation, index) => (
-              <blockquote key={`${source.number}-quotation-${index}`} className="font-display text-[clamp(1.35rem,2.2vw,1.8rem)] leading-[1.55] tracking-[-0.01em] text-ink">
+              <blockquote key={`${source.number}-quotation-${index}`} dir="auto" className="font-display text-[clamp(1.35rem,2.2vw,1.8rem)] leading-[1.55] tracking-[-0.01em] text-ink">
                 “{quotation}”
               </blockquote>
             ))}
@@ -197,7 +197,7 @@ function SourceReaderContent({ idPrefix, messageId, source, showSourceContextByD
           <ChevronDown aria-hidden="true" className="size-4 transition-transform group-open:rotate-180" strokeWidth={1.9} />
           <span>{contextLabel}{source.isExcerpt ? ' (excerpt)' : ''}</span>
         </summary>
-        <p className="mt-4 whitespace-pre-wrap border-l border-line-strong pl-4 leading-7">{source.context}</p>
+        <p dir="auto" className="mt-4 whitespace-pre-wrap border-s border-line-strong ps-4 leading-7">{source.context}</p>
       </details>
     </div>
   )

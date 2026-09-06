@@ -54,7 +54,7 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
   return (
     <section className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-labelledby="personalization-title">
       {saveNotificationId > 0 ? (
-        <Toast notificationId={saveNotificationId} title="Saved to your account" message="AskRabbi will use these preferences in future conversations." onDismiss={() => setSaveNotificationId(0)} />
+        <Toast notificationId={saveNotificationId} title="Saved to your account" message="AskRabbi will use these preferences for your next replies, including in existing conversations." onDismiss={() => setSaveNotificationId(0)} />
       ) : null}
 
       <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 text-base leading-7 sm:pt-9 sm:text-lg">
@@ -74,7 +74,7 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
         </div>
 
         <form className="mt-7" onSubmit={handleSubmit} noValidate>
-          <FormSection icon={<UserRound aria-hidden="true" />} title="About you" description="For your name, age, and future Hebrew-birthday calculation.">
+          <FormSection icon={<UserRound aria-hidden="true" />} title="About you" description="For your preferred name, age-appropriate explanations, and Hebrew-calendar calculations.">
             <div className="grid gap-6 sm:grid-cols-2">
               <FormField label="Full name" htmlFor="full-name" error={errors.fullName}>
                 <input id="full-name" name="fullName" type="text" autoComplete="name" maxLength={120} required value={draft.fullName} onChange={(event) => updateField('fullName', event.target.value)} className={InputClassName} aria-invalid={errors.fullName !== undefined} aria-describedby={errors.fullName ? 'full-name-error' : undefined} />

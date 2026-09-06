@@ -15,6 +15,51 @@ namespace AskARabbiLIB.Tests;
 public sealed class GroundedAnswerCalendarToolTests
 {
     [TestMethod]
+    [DataRow("Spanish", null)]
+    [DataRow("English", "Please keep it short and explain unfamiliar words.")]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_PersonalizedDateOutsideRegistryHints_StillUsesCalculatedEvidence(string responseLanguage, string? additionalContext)
+    {
+        const string questionText = "What is the Gregorian date for today?";
+        var registry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
+        var answerEngine = new CalendarAnswerEngine("get_today_as_hebrew_and_gregorian", "{}", responseLanguage == "Spanish" ? "La fecha se calcula para la zona horaria indicada y antes de la puesta del sol." : "The date uses the stated time zone and before-sunset assumption.");
+        var service = new GroundedAnswerService(new EmptyRetriever(), answerEngine, new SupportingAuditEngine(), CreatePrompts(), new GroundedAnswerOptions { MaximumEnrichmentHits = 0 }, new FixedTimeProvider(), registry);
+        Assert.IsFalse(registry.MayApply(questionText), "This regression must exercise wording outside the registry's phrase hints.");
+
+        var result = await service.AnswerAsync(new GroundedQuestion { Question = questionText, ConversationLanguage = responseLanguage, UserProfile = CreateProfile() with { Bio = additionalContext } }, []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsTrue(answerEngine.ToolOverloadWasUsed);
+        Assert.IsNotNull(result.Answer);
+        Assert.AreEqual(responseLanguage, result.Answer.ResponseLanguage);
+        Assert.AreEqual("Calendar calculations", result.Answer.Citations[0].Collection);
+        Assert.AreEqual("Current Gregorian and Hebrew date", result.Answer.Citations[0].CanonicalReference);
+    }
+
+    [TestMethod]
+    [DataRow("Spanish", null, "La respuesta breve es: la parashá para el Shabat de mañana es Nitzavim.")]
+    [DataRow("English", "Please say Shabbos instead of Shabbat.", "The short answer is: the parashah for tomorrow's Shabbos is Nitzavim.")]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_PersonalizedCalendarAndSummary_DoesNotOverwriteGeneratedIntroduction(string responseLanguage, string? additionalContext, string introduction)
+    {
+        var passages = CreateNitzavimPassages();
+        var firstStoryText = responseLanguage == "Spanish" ? "Todo el pueblo se reúne para entrar en el pacto." : "The people gather to enter the covenant.";
+        var secondStoryText = responseLanguage == "Spanish" ? "Moshé habla del retorno y de elegir la vida." : "Moses speaks about returning and choosing life.";
+        var answerEngine = new CompositeCalendarAnswerEngine(passages, introduction, firstStoryText, ["Deuteronomy 29:9"], secondStoryText, ["Deuteronomy 30:1", "Deuteronomy 30:20"]);
+        var registry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
+        var service = new GroundedAnswerService(new ResolvedParashahRetriever(passages), answerEngine, new SupportingAuditEngine(), CreatePrompts(), new GroundedAnswerOptions { MaximumEvidenceSegments = 10, MaximumSegmentsPerDocument = 3, MaximumEnrichmentHits = 0 }, new FixedTimeProvider(), registry);
+
+        var result = await service.AnswerAsync(new GroundedQuestion { Question = "What is the parashah for tomorrow and what is it about?", ConversationLanguage = responseLanguage, QuotationLanguage = "English", SourceKeys = ["collection:Torah"], UserProfile = CreateProfile() with { Bio = additionalContext } }, []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsNotNull(result.Answer);
+        StringAssert.StartsWith(new GroundedAnswerTextRenderer().Render(result.Answer), introduction);
+        Assert.IsFalse(result.Trace.RepairAttempted);
+        Assert.IsNotNull(answerEngine.LastMessages);
+        StringAssert.Contains(answerEngine.LastMessages[^1].Content, responseLanguage);
+    }
+
+    [TestMethod]
     [TestCategory("Regression")]
     public async Task AnswerAsync_ToolOnlyQuestionWithNoCorpusHits_CallsCalendarToolAndValidatesCalculatedEvidence()
     {
@@ -302,7 +347,7 @@ public sealed class GroundedAnswerCalendarToolTests
         public Task<IReadOnlyList<SourceSegment>> GetContextAsync(string documentId, int documentOrdinal, int radius, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SourceSegment>>([]);
     }
 
-    private sealed class CalendarAnswerEngine : IAIEngine
+    private sealed class CalendarAnswerEngine(string toolName = "find_parashah_for_week", string arguments = "{\"hebrewAnniversaryAge\":13}", string claimText = "The weekly portion is Vayigash under the stated date assumptions.") : IAIEngine
     {
         internal bool ToolOverloadWasUsed { get; private set; }
 
@@ -311,7 +356,7 @@ public sealed class GroundedAnswerCalendarToolTests
         public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, AIToolExecutionSession toolSession, CancellationToken cancellationToken = default)
         {
             ToolOverloadWasUsed = true;
-            var output = await toolSession.ExecuteAsync("find_parashah_for_week", BinaryData.FromString("{\"hebrewAnniversaryAge\":13}"), cancellationToken);
+            var output = await toolSession.ExecuteAsync(toolName, BinaryData.FromString(arguments), cancellationToken);
             using var document = JsonDocument.Parse(output);
             var evidenceId = document.RootElement.GetProperty("evidence").GetProperty("evidenceId").GetString() ?? throw new AssertFailedException("Calendar evidence ID was missing.");
             var exactText = document.RootElement.GetProperty("evidence").GetProperty("exactText").GetString() ?? throw new AssertFailedException("Calendar evidence text was missing.");
@@ -321,7 +366,7 @@ public sealed class GroundedAnswerCalendarToolTests
                 [
                     new GroundedClaimDraft
                     {
-                        Text = "The weekly portion is Vayigash under the stated date assumptions.",
+                        Text = claimText,
                         EvidenceIds = [evidenceId],
                         Quotations = [new GroundedQuotationDraft { EvidenceId = evidenceId, Text = exactText, Role = "Provides the weekly-reading result and its assumptions." }],
                     },

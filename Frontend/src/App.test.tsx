@@ -674,7 +674,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Save personalization' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('Saved to your account')
-    expect(screen.getByRole('status')).toHaveTextContent('future conversations')
+    expect(screen.getByRole('status')).toHaveTextContent('next replies, including in existing conversations')
     expect(screen.getByText('Amitai Ben Erfanian')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Back to conversation' }))

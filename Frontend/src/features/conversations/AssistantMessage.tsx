@@ -46,7 +46,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
       <p className="mb-3 font-display text-xl text-ink">AskRabbi</p>
       <div className="space-y-4 text-base leading-7 text-ink sm:text-lg">
         {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
-          <p key={`${message.id}-paragraph-${index}`} className="last:min-h-9 last:pr-12">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
+          <p key={`${message.id}-paragraph-${index}`} dir="auto" className="last:min-h-9 last:pr-12">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}
       </div>
       <div className="absolute bottom-0 right-0 flex p-0.5">
@@ -69,7 +69,7 @@ function renderParagraph(paragraph: string, sourceNumbers: ReadonlySet<number>, 
 
     const isSelected = sourceNumber === selectedSourceNumber
     return (
-      <button key={`${messageId}-citation-${sourceNumber}-${index}`} type="button" aria-label={`View source ${sourceNumber}`} aria-expanded={isSelected} onClick={(event) => onSelectSource(messageId, sourceNumber, event.currentTarget)} className={`relative mx-0.5 inline-flex rounded-sm px-0.5 font-semibold text-pomegranate underline decoration-pomegranate/35 underline-offset-4 transition hover:bg-pomegranate/8 hover:decoration-pomegranate ${isSelected ? 'bg-pomegranate/10 ring-1 ring-pomegranate/45' : ''}`}>
+      <button key={`${messageId}-citation-${sourceNumber}-${index}`} type="button" dir="ltr" aria-label={`View source ${sourceNumber}`} aria-expanded={isSelected} onClick={(event) => onSelectSource(messageId, sourceNumber, event.currentTarget)} className={`relative mx-0.5 inline-flex rounded-sm px-0.5 font-semibold text-pomegranate underline decoration-pomegranate/35 underline-offset-4 transition hover:bg-pomegranate/8 hover:decoration-pomegranate ${isSelected ? 'bg-pomegranate/10 ring-1 ring-pomegranate/45' : ''}`}>
         {part}
       </button>
     )

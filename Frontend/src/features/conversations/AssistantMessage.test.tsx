@@ -14,6 +14,13 @@ const Message: ConversationMessage = {
 describe('AssistantMessage', () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it.each(['זהו הסבר בעברית.', 'این توضیح به فارسی است.', 'דאָס איז אַ דערקלערונג אויף ייִדיש.', 'This explanation is in English.'])('handles paragraph direction independently for %s', (content) => {
+    render(<AssistantMessage message={{ ...Message, content }} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
+
+    expect(screen.getByText(content)).toHaveAttribute('dir', 'auto')
+    expect(screen.getByText('AskRabbi')).not.toHaveAttribute('dir')
+  })
+
   it('copies from an icon-only action at the bottom of the response', async () => {
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValueOnce(undefined)

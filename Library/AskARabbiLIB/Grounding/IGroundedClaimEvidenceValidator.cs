@@ -8,6 +8,7 @@ internal interface IGroundedClaimEvidenceValidator
     /// <param name="draft">Structured answer draft to audit.</param>
     /// <param name="packet">Trusted evidence available to the draft.</param>
     /// <param name="cancellationToken">Token used to cancel validation.</param>
+    /// <param name="personalization">Current presentation choices, independent of untrusted question text.</param>
     /// <returns>The support audit result and provider diagnostics.</returns>
-    Task<ClaimEvidenceValidationResult> ValidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, CancellationToken cancellationToken = default);
+    Task<ClaimEvidenceValidationResult> ValidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, CancellationToken cancellationToken = default, ConversationPersonalization? personalization = null);
 }

@@ -2,6 +2,7 @@ using AskARabbiLIB.AI;
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Models;
 using AskARabbiLIB.Retrieval;
+using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AskARabbiLIB.Tests;
@@ -9,6 +10,35 @@ namespace AskARabbiLIB.Tests;
 [TestClass]
 public sealed class AIGroundedClaimEvidenceValidatorTests
 {
+    [TestMethod]
+    [DynamicData(nameof(ConversationPersonalizationTests.LanguagePairs), typeof(ConversationPersonalizationTests))]
+    [TestCategory("Regression")]
+    public async Task ValidateAsync_AllLanguagePairs_AuditsCurrentSettingsAndPreservesQuoteRoles(string responseLanguage, string quotationLanguage)
+    {
+        var draft = CreateDraft() with { ConversationTitle = "Selected title", ClarifyingQuestion = "A relevant clarification" };
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = true, OverallExplanation = "This synthetic audit validates the transport contract, not fluency.",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = true, Explanation = "Supported.", SupportingQuotations = draft.Claims[0].Quotations }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+        var personalization = new ConversationPersonalization(responseLanguage, quotationLanguage, new { additionalContext = "Explain unfamiliar terms." });
+
+        var result = await new AIGroundedClaimEvidenceValidator(engine, CreatePrompts()).ValidateAsync("Explain this passage.", draft, CreatePacket(), personalization: personalization);
+
+        Assert.AreEqual(ClaimEvidenceValidationStatus.Supported, result.Status);
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[1].Content, "evaluation criteria");
+        StringAssert.Contains(engine.LastMessages[1].Content, $"follow-up in {responseLanguage}");
+        StringAssert.Contains(engine.LastMessages[1].Content, $"approved {quotationLanguage} text");
+        using var payload = JsonDocument.Parse(engine.LastMessages[^1].Content);
+        Assert.AreEqual(responseLanguage, payload.RootElement.GetProperty("personalization").GetProperty("responseLanguage").GetString());
+        Assert.AreEqual(quotationLanguage, payload.RootElement.GetProperty("personalization").GetProperty("preferredQuotationLanguage").GetString());
+        Assert.AreEqual("Explain unfamiliar terms.", payload.RootElement.GetProperty("personalization").GetProperty("userProfile").GetProperty("additionalContext").GetString());
+        Assert.AreEqual(draft.ConversationTitle, payload.RootElement.GetProperty("conversationTitle").GetString());
+        Assert.AreEqual(draft.ClarifyingQuestion, payload.RootElement.GetProperty("clarifyingQuestion").GetString());
+    }
+
     [TestMethod]
     [TestCategory("Unit")]
     public async Task ValidateAsync_RelevantSupportedEvaluation_ReturnsSupportedAndUsesIndependentSchema()

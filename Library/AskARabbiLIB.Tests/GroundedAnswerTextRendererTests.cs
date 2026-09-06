@@ -8,6 +8,61 @@ namespace AskARabbiLIB.Tests;
 public sealed class GroundedAnswerTextRendererTests
 {
     [TestMethod]
+    [DataRow("English", "Another perspective:", "Some quotations")]
+    [DataRow("French", "Une autre perspective :", "Certaines citations")]
+    [DataRow("German", "Eine andere Perspektive:", "Einige Zitate")]
+    [DataRow("Hebrew", "נקודת מבט נוספת:", "חלק מהציטוטים")]
+    [DataRow("Italian", "Un'altra prospettiva:", "Alcune citazioni")]
+    [DataRow("Persian", "دیدگاهی دیگر:", "برخی نقل‌قول‌ها")]
+    [DataRow("Polish", "Inna perspektywa:", "Niektóre cytaty")]
+    [DataRow("Russian", "Другая точка зрения:", "Некоторые цитаты")]
+    [DataRow("Spanish", "Otra perspectiva:", "Algunas citas")]
+    [DataRow("Yiddish", "אַן אַנדער בליקווינקל:", "עטלעכע ציטאַטן")]
+    [TestCategory("Regression")]
+    public void Render_AllResponseLanguages_LocalizesApplicationTextAndEditionFallback(string language, string perspective, string fallback)
+    {
+        var answer = new GroundedAnswer([new GroundedClaim("Synthetic claim", [CreateCitation()], null, null)], [new GroundedDisagreement("Synthetic perspective", [CreateCitation()])], [], "Synthetic follow-up", true, [CreateCitation()])
+        {
+            InterpretiveNotice = string.Empty, ResponseLanguage = language, QuotationLanguage = "Hebrew",
+        };
+
+        var rendered = new GroundedAnswerTextRenderer().Render(answer);
+
+        StringAssert.Contains(rendered, perspective);
+        StringAssert.Contains(rendered, fallback);
+        StringAssert.Contains(rendered, ConversationPresentationText.ForLanguage(language).Continuation);
+        StringAssert.Contains(rendered, ConversationPresentationText.ForLanguage(language).Guidance);
+        if (language != "English")
+        {
+            Assert.IsFalse(rendered.Contains("Another perspective:", StringComparison.Ordinal));
+            Assert.IsFalse(rendered.Contains("qualified rabbi", StringComparison.Ordinal));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Calendar calculations")]
+    [DataRow("Technical background")]
+    [TestCategory("Regression")]
+    public void Render_NonReligiousEvidence_DoesNotWarnAboutTorahEdition(string collection)
+    {
+        var citation = CreateCitation() with { Collection = collection };
+        var answer = new GroundedAnswer([new GroundedClaim("Calculated fact", [citation], null, null)], [], [], null, false, [citation]) { InterpretiveNotice = string.Empty, QuotationLanguage = "Hebrew" };
+
+        Assert.AreEqual("Calculated fact [1]", new GroundedAnswerTextRenderer().Render(answer));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void Render_RequestedWordingComparison_DoesNotFalselyClaimPreferredEditionUnavailable()
+    {
+        var english = CreateCitation();
+        var hebrew = english with { Number = 2, Language = "Hebrew", LanguageCode = "he", SegmentId = "he:1" };
+        var answer = new GroundedAnswer([new GroundedClaim("A requested comparison", [english, hebrew], null, null)], [], [], null, false, [english, hebrew]) { InterpretiveNotice = string.Empty, QuotationLanguage = "English" };
+
+        Assert.AreEqual("A requested comparison [1] [2]", new GroundedAnswerTextRenderer().Render(answer));
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public void Render_CompleteValidatedAnswer_ProducesConversationWithoutInternalLimitationsOrStockNotice()
     {

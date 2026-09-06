@@ -12,13 +12,14 @@ public sealed class GroundedAnswerTextRenderer
     {
         ArgumentNullException.ThrowIfNull(answer);
         var builder = new StringBuilder();
+        var presentation = ConversationPresentationText.ForLanguage(answer.ResponseLanguage);
         foreach (var claim in answer.Claims)
         {
             AppendStatement(builder, claim.Text, claim.Citations);
         }
         if (answer.Disagreements.Count > 0)
         {
-            AppendParagraph(builder, "Another perspective:");
+            AppendParagraph(builder, presentation.Perspective);
             foreach (var disagreement in answer.Disagreements)
             {
                 AppendStatement(builder, disagreement.Text, disagreement.Citations);
@@ -26,11 +27,24 @@ public sealed class GroundedAnswerTextRenderer
         }
         if (!string.IsNullOrWhiteSpace(answer.ClarifyingQuestion))
         {
-            AppendParagraph(builder, $"If you'd like to keep exploring: {answer.ClarifyingQuestion}");
+            AppendParagraph(builder, $"{presentation.Continuation} {answer.ClarifyingQuestion}");
         }
         if (answer.HumanGuidanceRecommended)
         {
-            AppendParagraph(builder, "Because the practical answer may depend on your circumstances, talk it through with a qualified rabbi who knows your situation.");
+            AppendParagraph(builder, presentation.Guidance);
+        }
+        if (ConversationPersonalization.NormalizeLanguage(answer.QuotationLanguage) is { } requestedLanguage)
+        {
+            var preferredReferences = answer.Citations.Where(citation => ConversationPersonalization.NormalizeLanguage(citation.Language) == requestedLanguage)
+                .Select(citation => citation.CanonicalReference).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var otherLanguages = answer.Citations.Where(citation => citation.Collection is not "Calendar calculations" and not "Technical background")
+                .Where(citation => !preferredReferences.Contains(citation.CanonicalReference))
+                .Select(citation => ConversationPersonalization.NormalizeLanguage(citation.Language) ?? citation.Language)
+                .Where(language => !string.Equals(language, requestedLanguage, StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (otherLanguages.Length > 0)
+            {
+                AppendParagraph(builder, string.Format(System.Globalization.CultureInfo.InvariantCulture, presentation.QuotationFallback, requestedLanguage, string.Join(", ", otherLanguages)));
+            }
         }
         return builder.ToString().Trim();
     }
