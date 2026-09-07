@@ -40,6 +40,18 @@ describe('App', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('offers Google sign-in before email in keyboard navigation', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toHaveFocus()
+
+    await user.tab()
+    expect(screen.getByLabelText('Email address')).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Create an account' })).toBeEnabled()
+  })
+
   it('validates email before starting a session', async () => {
     const user = userEvent.setup()
     await renderApp()

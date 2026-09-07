@@ -103,7 +103,7 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
       <section className="flex min-h-dvh flex-col px-6 py-7 sm:px-10 lg:px-16 lg:py-10 xl:px-20">
         <Brand />
 
-        <div className="flex flex-1 items-center py-12 lg:py-8">
+        <div className="flex flex-1 items-center py-8">
           <div className="enter-softly w-full max-w-[39rem]">
             <h1 className="font-display text-[clamp(3rem,5vw,4.9rem)] leading-[0.98] tracking-[-0.045em] text-ink">
               {isRecoveringPassword ? 'Reset your password' : 'Welcome back'}
@@ -112,7 +112,33 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
               {isRecoveringPassword ? 'Enter your account email and WorkOS will send a secure reset link.' : 'Continue your conversation with Jewish texts and traditions.'}
             </p>
 
-            <form className="mt-10 sm:mt-12" onSubmit={handleEmailSubmit} noValidate>
+            {!isRecoveringPassword ? (
+              <div className="mt-8 sm:mt-10">
+                <button
+                  type="button"
+                  disabled={isAuthenticationPending}
+                  aria-busy={isGoogleAuthenticationPending}
+                  onClick={() => void handleGoogleLogin()}
+                  className="group grid h-16 w-full grid-cols-[2rem_1fr_1.25rem] items-center gap-2 rounded-lg bg-pomegranate px-4 text-white shadow-sm transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60 sm:grid-cols-[2rem_1fr_2rem] sm:gap-3 sm:px-5"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-md bg-white">
+                    <GoogleMark />
+                  </span>
+                  <span className="text-base font-semibold sm:text-lg">{isGoogleAuthenticationPending ? 'Continuing with Google…' : 'Continue with Google'}</span>
+                  <span className="justify-self-end">
+                    {isGoogleAuthenticationPending ? <AuthenticationSpinner /> : <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />}
+                  </span>
+                </button>
+
+                <div className="my-6 flex items-center gap-4 text-sm text-muted" aria-hidden="true">
+                  <span className="h-px flex-1 bg-line" />
+                  <span>or continue with email</span>
+                  <span className="h-px flex-1 bg-line" />
+                </div>
+              </div>
+            ) : null}
+
+            <form className={isRecoveringPassword ? 'mt-10 sm:mt-12' : undefined} onSubmit={handleEmailSubmit} noValidate>
               <label htmlFor="email" className="text-[0.95rem] font-semibold text-ink">
                 Email address
               </label>
@@ -144,9 +170,9 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
                 type="submit"
                 disabled={isAuthenticationPending || resetRequested}
                 aria-busy={isEmailAuthenticationPending}
-                className="group flex h-14 w-full items-center justify-center gap-3 rounded-lg bg-pomegranate px-5 text-[0.95rem] font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60 sm:h-16 sm:text-base"
+                className={`group flex h-14 w-full items-center justify-center gap-3 rounded-lg border px-5 transition disabled:cursor-not-allowed disabled:opacity-60 ${isRecoveringPassword ? 'border-transparent bg-pomegranate text-white hover:bg-pomegranate-dark sm:h-16' : 'border-line-strong bg-paper text-ink hover:border-ink hover:bg-stone'}`}
               >
-                <span>{resetRequested ? 'Reset email requested' : isEmailAuthenticationPending ? 'Continuing with email…' : isRecoveringPassword ? 'Send reset link' : 'Continue with email'}</span>
+                <span className="text-base font-medium">{resetRequested ? 'Reset email requested' : isEmailAuthenticationPending ? 'Continuing with email…' : isRecoveringPassword ? 'Send reset link' : 'Continue with email'}</span>
                 {isEmailAuthenticationPending ? <AuthenticationSpinner /> : <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />}
               </button>
             </form>
@@ -161,32 +187,16 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
               </button>
             )}
 
-            {!isRecoveringPassword ? <><div className="my-7 flex items-center gap-4 text-sm text-muted" aria-hidden="true">
-              <span className="h-px flex-1 bg-line" />
-              <span>or</span>
-              <span className="h-px flex-1 bg-line" />
-            </div>
-
-            <button
-              type="button"
-              disabled={isAuthenticationPending}
-              aria-busy={isGoogleAuthenticationPending}
-              onClick={() => void handleGoogleLogin()}
-              className="group grid h-14 w-full grid-cols-[1.25rem_1fr_1.25rem] items-center rounded-lg border border-ink bg-transparent px-5 text-[0.95rem] font-semibold text-ink transition hover:bg-stone disabled:cursor-not-allowed disabled:opacity-60 sm:h-16 sm:text-base"
-            >
-              <GoogleMark />
-              <span>{isGoogleAuthenticationPending ? 'Continuing with Google…' : 'Continue with Google'}</span>
-              {isGoogleAuthenticationPending ? <AuthenticationSpinner /> : <ArrowRight aria-hidden="true" className="size-5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />}
-            </button>
-
-            <p className="mt-8 text-[0.95rem] text-ink-soft">
-              New to AskRabbi?{' '}
-              <button type="button" disabled={isAuthenticationPending} onClick={() => void handleSignUp()} className="font-semibold text-pomegranate hover:text-pomegranate-dark disabled:cursor-not-allowed disabled:opacity-60">
-                Create an account
-              </button>
-            </p></> : null}
+            {!isRecoveringPassword ? (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pomegranate/20 bg-stone p-4">
+                <p className="text-base font-medium text-ink">New to AskRabbi?</p>
+                <button type="button" disabled={isAuthenticationPending} onClick={() => void handleSignUp()} className="min-h-11 rounded-md border border-pomegranate bg-paper px-3 py-2 text-pomegranate transition hover:bg-pomegranate hover:text-white disabled:cursor-not-allowed disabled:opacity-60">
+                  <span className="text-base font-semibold">Create an account</span>
+                </button>
+              </div>
+            ) : null}
             {authenticationError === null ? null : <p role="alert" className="mt-5 text-sm leading-6 text-pomegranate">{authenticationError}</p>}
-            <p className="mt-8 text-sm leading-6 text-muted">
+            <p className="mt-6 text-sm leading-6 text-muted">
               AskRabbi is a study companion, not a source of binding psak.
             </p>
           </div>
