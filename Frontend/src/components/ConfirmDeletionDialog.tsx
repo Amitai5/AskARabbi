@@ -56,8 +56,8 @@ export function ConfirmDeletionDialog({ title, description, confirmLabel, confir
     <dialog ref={dialogRef} aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} className="deletion-dialog m-auto max-h-[calc(100dvh-2rem)] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-line bg-paper p-6 text-ink shadow-menu sm:p-7" onCancel={(event) => { event.preventDefault(); if (!submittingRef.current) { onClose() } }}>
       <form onSubmit={(event) => void submit(event)} aria-busy={isSubmitting}>
         <span className="mb-4 inline-flex size-11 items-center justify-center rounded-full bg-pomegranate/10 text-pomegranate"><Trash2 aria-hidden="true" className="size-5" /></span>
-        <h2 id={`${id}-title`} className="font-display text-2xl leading-tight">{title}</h2>
-        <p id={`${id}-description`} className="mt-3 text-sm leading-6 text-ink-soft">{description}</p>
+        <h2 id={`${id}-title`} className="break-words font-display text-2xl leading-tight">{title}</h2>
+        <p id={`${id}-description`} className="mt-3 text-base leading-7 text-ink-soft">{description}</p>
         {confirmationPhrase ? <label className="mt-5 block text-sm font-semibold" htmlFor={`${id}-confirmation`}>
           Type <span className="select-all">{confirmationPhrase}</span> to confirm
           <input id={`${id}-confirmation`} autoComplete="off" spellCheck={false} value={confirmation} disabled={isSubmitting} onChange={(event) => setConfirmation(event.target.value)} className="mt-2 h-11 w-full rounded-lg border border-line-strong bg-parchment px-3 font-normal" />

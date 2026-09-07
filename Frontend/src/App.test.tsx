@@ -644,11 +644,36 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Conversation actions for Kashrut basics, item 1' }))
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
-    const confirmation = screen.getByRole('dialog', { name: 'Delete Kashrut basics' })
-    expect(within(confirmation).getByText(/Delete this conversation\?/)).toBeVisible()
+    const confirmation = screen.getByRole('dialog', { name: 'Delete "Kashrut basics" Conversation?' })
+    expect(within(confirmation).getByRole('heading', { name: 'Delete "Kashrut basics" Conversation?' })).toBeVisible()
+    expect(within(confirmation).getByText(/This permanently removes this conversation/)).toHaveClass('text-base', 'leading-7')
     await user.click(within(confirmation).getByRole('button', { name: 'Delete' }))
 
     expect(screen.queryByText('Kashrut basics')).not.toBeInTheDocument()
+  })
+
+  it('names the conversation chosen for deletion even when another conversation is open, and safely cancels', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const deleteConversation = vi.fn(clients.conversationClient.delete)
+    const conversationClient: ConversationClient = { ...clients.conversationClient, delete: deleteConversation }
+    render(<App authClient={clients.authClient} conversationClient={conversationClient} conversationSettingsClient={clients.conversationSettingsClient} />)
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    expect(await screen.findByRole('button', { name: 'Chicken and dairy', current: 'page' })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Conversation actions for Shabbat and automation, item 2' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    const confirmation = screen.getByRole('dialog', { name: 'Delete "Shabbat and automation" Conversation?' })
+
+    expect(within(confirmation).getByRole('heading')).toHaveTextContent('Delete "Shabbat and automation" Conversation?')
+    expect(within(confirmation).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    expect(deleteConversation).not.toHaveBeenCalled()
+    await user.click(within(confirmation).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Conversation actions for Shabbat and automation, item 2' })).toHaveFocus()
+    expect(deleteConversation).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Chicken and dairy', current: 'page' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Shabbat and automation' })).toBeVisible()
   })
 
   it('captures and saves personalization to the account client', async () => {

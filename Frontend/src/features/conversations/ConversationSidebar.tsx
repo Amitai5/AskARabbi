@@ -174,7 +174,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
       </nav>
 
       {menuConversation && menuAnchor ? <ConversationActionMenu anchor={menuAnchor} title={menuConversation.title} onRename={() => startRename(menuConversation)} onDelete={() => { setOpenMenuId(null); setDeleteConfirmationId(menuConversation.id) }} onClose={() => setOpenMenuId(null)} /> : null}
-      {deleteConversation ? <ConfirmDeletionDialog title={`Delete ${deleteConversation.title}`} description="Delete this conversation? This permanently removes it and its messages from your account." confirmLabel="Delete" onConfirm={() => onDeleteConversation(deleteConversation.id)} onClose={() => setDeleteConfirmationId(null)} /> : null}
+      {deleteConversation ? <ConfirmDeletionDialog title={`Delete "${deleteConversation.title}" Conversation?`} description="This permanently removes this conversation and its messages from your account. This cannot be undone." confirmLabel="Delete" onConfirm={() => onDeleteConversation(deleteConversation.id)} onClose={() => setDeleteConfirmationId(null)} /> : null}
 
       <ProfileMenu user={user} onOpenSettings={onOpenSettings} onOpenPersonalization={onOpenPersonalization} onLogout={onLogout} />
     </aside>
