@@ -5,15 +5,17 @@ import { ArrowLeft, BookMarked, BookOpenText, CalendarDays, ChevronLeft, Chevron
 import { SourceReader } from '../conversations/SourceReader.tsx'
 import type { ConversationSource } from '../conversations/conversationData.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
-import { DvarTorahReadAloud } from './DvarTorahReadAloud.tsx'
+import { DvarTorahReadAloud, type DvarTorahPlaybackHandle } from './DvarTorahReadAloud.tsx'
 import { DvarTorahNarratedText, HighlightedText } from './DvarTorahNarratedText.tsx'
 import { createNarratedParagraphs, estimateReadingMinutes, formatAudioTime } from './dvarTorahAudio.ts'
 import { normalizeDvarTorahText } from './dvarTorahText.ts'
 import { useNarrationFollow } from './useNarrationFollow.ts'
-import type { DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
+import type { DvarTorahAudioTimings, DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
+import { OfflineLearningStatus } from '../pwa/OfflineLearning.tsx'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
+  offlineSavedAt?: string
 }
 
 const ShabbatDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -35,7 +37,7 @@ const ArchivePageSize = 10
 
 type WeeklyLearningView = 'current' | 'archive' | 'archivedArticle'
 
-export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
+export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahPageProps) {
   const [publication, setPublication] = useState<WeeklyDvarTorahResponse | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -77,6 +79,7 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
   }, [client, refreshKey])
 
   useEffect(() => {
+    if (offlineSavedAt) { return }
     let isCurrent = true
 
     void client.getArchive({ page: archivePage, pageSize: ArchivePageSize, search: archiveSearch || undefined })
@@ -99,7 +102,7 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
     return () => {
       isCurrent = false
     }
-  }, [archivePage, archiveRefreshKey, archiveSearch, client])
+  }, [archivePage, archiveRefreshKey, archiveSearch, client, offlineSavedAt])
 
   useEffect(() => () => {
     archivedArticleRequestIdRef.current += 1
@@ -211,14 +214,15 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
             <div className="max-w-[46rem]">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pomegranate">Weekly Dvar Torah</p>
               <h1 id="weekly-dvar-torah-title" className="mt-2 font-display text-[clamp(2.15rem,4vw,3.1rem)] leading-[1.04] tracking-[-0.04em] text-ink">
-                A teaching for the week.
+                {offlineSavedAt ? 'Your saved weekly teaching.' : 'A teaching for the week.'}
               </h1>
               <p className="mt-3 max-w-[43rem] text-sm leading-6 text-ink-soft sm:text-base">
-                A new reflection follows the upcoming Shabbat reading and appears here when it is ready.
+                {offlineSavedAt ? `Offline copy saved ${formatSourceDate(offlineSavedAt)}. Reconnect to check for a newer teaching. Source excerpts are saved; original websites need a connection.` : 'A new reflection follows the upcoming Shabbat reading and appears here when it is ready.'}
               </p>
+              {offlineSavedAt ? null : <><OfflineLearningStatus /><a href="/offline.html" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-pomegranate hover:underline">Open saved teaching</a></>}
             </div>
 
-            <nav className="mt-7 flex w-fit rounded-xl border border-line bg-stone/55 p-1" aria-label="Weekly learning">
+            {offlineSavedAt ? null : <nav className="mt-7 flex w-fit rounded-xl border border-line bg-stone/55 p-1" aria-label="Weekly learning">
               <button type="button" aria-pressed={view === 'current'} onClick={showCurrentTeaching} className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition ${view === 'current' ? 'bg-paper text-ink shadow-sm' : 'text-ink-soft hover:text-pomegranate'}`}>
                 <BookOpenText aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 This week
@@ -227,7 +231,7 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
                 <BookMarked aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 Past teachings
               </button>
-            </nav>
+            </nav>}
 
             {view === 'archive' ? (
               <DvarTorahArchive archive={archive} searchDraft={archiveSearchDraft} activeSearch={archiveSearch} isLoading={isArchiveLoading} loadError={archiveError} articleError={archivedArticleError} loadingArticleKey={archivedArticleLoadingKey} onSearchDraftChange={setArchiveSearchDraft} onSearch={searchArchive} onPageChange={changeArchivePage} onRetry={retryArchive} onOpenArticle={(weekKey) => void openArchivedArticle(weekKey)} />
@@ -248,7 +252,7 @@ export function WeeklyDvarTorahPage({ client }: WeeklyDvarTorahPageProps) {
             ) : publication.dvarTorah === null ? (
               <PendingPublication week={publication.currentWeek} onRetry={retry} />
             ) : (
-              <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} client={client} showFallbackNotice={!publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
+              <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} client={client} showFallbackNotice={!offlineSavedAt && !publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
             )}
           </div>
         </section>
@@ -272,6 +276,11 @@ interface PublishedArticleProps {
 
 function PublishedArticle({ article, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef }: PublishedArticleProps) {
   const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
+  const [timings, setTimings] = useState<DvarTorahAudioTimings | null>(null)
+  const playerRef = useRef<DvarTorahPlaybackHandle | null>(null)
+  const titleWords = useMemo(() => timings?.words.filter((word) => word.section === 'title'), [timings])
+  const bodyWords = useMemo(() => timings?.words.filter((word) => word.section === 'body'), [timings])
+  const selectWord = useCallback((word: DvarTorahAudioWord) => playerRef.current?.seekToWord(word), [])
   const articleRef = useRef<HTMLElement | null>(null)
   const { isFollowing, toggleFollowing } = useNarrationFollow(activeWord, articleRef, scrollAreaRef, selectedSourceNumber !== null)
   const title = useMemo(() => normalizeDvarTorahText(article.title), [article.title])
@@ -288,17 +297,18 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
       )}
 
       <WeekDetails week={article.week} />
-      <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} /></h2>
+      <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} words={titleWords} onSelectWord={selectWord} /></h2>
       {readingMinutes === null ? null : (
         <p aria-label="Estimated reading time" title={`Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
           <span className="inline-flex items-center gap-2 font-semibold text-ink-soft"><Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read</span>
           <span>Based on audio at 1×</span>
         </p>
       )}
-      {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
+      {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
       {article.audio == null ? <p className="mt-5 text-sm text-muted">Audio is not available for this teaching yet.</p> : null}
+      {timings === null ? null : <p className="mt-4 text-sm text-muted">Click any word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
       <div className="mt-8 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-5 sm:pl-7">
-        {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
+        {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} words={bodyWords} onSelectWord={selectWord} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}
       <p className="mt-10 max-w-[46rem] border-t border-line pt-5 text-xs leading-5 text-muted">

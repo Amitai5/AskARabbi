@@ -69,14 +69,14 @@ Complete this one-time setup before the first workflow run:
    - Audience: `api://AzureADTokenExchange`
 3. Do not create an Entra client secret. The federated credential is the trust boundary.
 4. On ACR `askarabbiacrprod`, assign that service principal the `AcrPush` role at the registry scope. The registry currently uses legacy registry permissions; if it is later migrated to ABAC-enabled repository permissions, replace this with `Container Registry Repository Writer`.
-5. On Container App `askarabbi-api-production` and Container Apps Job `askarabbi-dvar-torah-production`, assign the same service principal `Container Apps Contributor` at each individual resource scope. Existing assignments on retired resources do not grant access to these replacements; add and verify the new assignments before deploying this workflow.
+5. Assign the same service principal `Container Apps Contributor` on Container App `askarabbi-api-production` and `Container Apps Jobs Contributor` on Container Apps Job `askarabbi-dvar-torah-production`, each at its individual resource scope. These are distinct built-in roles: the app role does not grant `Microsoft.App/jobs/read` or `write`. Existing assignments on retired resources do not grant access to replacements. The workflow checks access to both targets before updating either image.
 6. In GitHub, open **Settings → Environments → production**. Restrict the environment to the `production` branch and add these environment secrets:
    - `AZURE_CLIENT_ID`: the app registration's Application (client) ID
    - `AZURE_TENANT_ID`: the Microsoft Entra Directory (tenant) ID
    - `AZURE_SUBSCRIPTION_ID`: the Azure subscription ID
 7. Merge or push this workflow to `production`. After `Verify` passes, approve the `production` environment if it has required reviewers, then watch **Actions → Deploy Backend**.
 
-The deployment identity needs no Cosmos DB, WorkOS, Key Vault, or subscription-wide role. `AcrPush` and the two resource-scoped Container Apps contributor assignments are sufficient for this workflow. Runtime credentials are deliberately managed separately from deployment credentials.
+The deployment identity needs no Cosmos DB, WorkOS, Key Vault, or subscription-wide role. Retain `AcrPush`, the separate resource-scoped app/job contributor roles above, and the existing `Reader` assignment on the consolidated environment. Runtime credentials are deliberately managed separately from deployment credentials.
 
 ## Backend configuration
 
@@ -159,7 +159,7 @@ The schedule can be provisioned now without authorizing content generation. `Dva
 
 Use the approved migration runbook in [PRODUCTION_NETWORK.md](PRODUCTION_NETWORK.md), not the retired private-audio bootstrap scripts. Create the new job in `askarabbi-containerapps-production` with a Manual trigger while its networking and identities are tested. Copy the current private-audio job's immutable production image and runtime configuration, including narration, voice, Blob location, generation settings, and secret references. This infrastructure migration must not rebuild unrelated working-tree changes or regenerate published articles.
 
-Grant the new job identity `AcrPull` on the existing registry, `Cognitive Services OpenAI User` on the existing OpenAI account, `Cognitive Services Speech User` on the unchanged Speech resource, and `Storage Blob Data Contributor` only on the existing audio container. Grant the GitHub OIDC deployment identity resource-scoped `Container Apps Contributor` on the new job.
+Grant the new job identity `AcrPull` on the existing registry, `Cognitive Services OpenAI User` on the existing OpenAI account, `Cognitive Services Speech User` on the unchanged Speech resource, and `Storage Blob Data Contributor` only on the existing audio container. Grant the GitHub OIDC deployment identity resource-scoped `Container Apps Jobs Contributor` on the new job.
 
 The job's runtime secret store is separate from the API's. Transfer existing secret values securely in memory or preserve their Key Vault references; never emit them into a deployment summary, saved template, shell history, or logs. Preserve `MongoDB__ConnectionString` as a runtime secret reference. Subsequent deployment workflow runs update only the image and preserve the job's schedule, environment variables, identity, and secrets.
 

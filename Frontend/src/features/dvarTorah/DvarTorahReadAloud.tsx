@@ -1,59 +1,59 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { Headphones, LoaderCircle, Pause, Play, RotateCcw, TextCursorInput } from 'lucide-react'
 import { findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, WeeklyDvarTorahAudio } from './dvarTorahTypes.ts'
 
 interface DvarTorahReadAloudProps {
+  ref?: Ref<DvarTorahPlaybackHandle>
   audio: WeeklyDvarTorahAudio | null
   weekKey: string
   title: string
   body: string
   client: DvarTorahClient
   onWordChange(word: DvarTorahAudioWord | null): void
+  onTimingsChange?(timings: DvarTorahAudioTimings | null): void
   isFollowing?: boolean
   onToggleFollowing?(): void
 }
 
+export interface DvarTorahPlaybackHandle {
+  seekToWord(word: DvarTorahAudioWord): void
+}
+
 type PlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
 
-export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWordChange, isFollowing = false, onToggleFollowing }: DvarTorahReadAloudProps) {
+export function DvarTorahReadAloud(props: DvarTorahReadAloudProps) {
+  return <DvarTorahPlayer key={`${props.weekKey}:${props.audio?.version ?? ''}`} {...props} />
+}
+
+function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChange, onTimingsChange, isFollowing = false, onToggleFollowing }: DvarTorahReadAloudProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const frameRef = useRef<number | null>(null)
   const requestIdRef = useRef(0)
   const timingsRequestRef = useRef<AbortController | null>(null)
   const timingsRef = useRef<DvarTorahAudioTimings | null>(null)
   const currentWordRef = useRef<DvarTorahAudioWord | null>(null)
+  const pendingSeekRef = useRef<number | null>(null)
+  const hasInteractedRef = useRef(false)
   const [playbackState, setPlaybackState] = useState<PlaybackState>('idle')
   const [position, setPosition] = useState(0)
   const [playbackRate, setPlaybackRate] = useState('1')
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [timingsError, setTimingsError] = useState(false)
+  const version = audio?.version
 
-  useEffect(() => {
-    const element = audioRef.current
-    return () => {
-      requestIdRef.current += 1
-      timingsRequestRef.current?.abort()
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current)
-      }
-      if (element !== null) {
-        element.pause()
-        element.removeAttribute('src')
-        element.load()
-      }
+  const updateWord = useCallback(() => {
+    if (!hasInteractedRef.current) {
+      return
     }
-  }, [])
-
-  function updateWord() {
     const element = audioRef.current
-    const word = element === null || timingsRef.current === null ? null : findAudioWord(timingsRef.current.words, element.currentTime * 1000)
+    const word = element === null || timingsRef.current === null ? null : findAudioWord(timingsRef.current.words, (pendingSeekRef.current ?? element.currentTime) * 1000)
     if (word !== currentWordRef.current) {
       currentWordRef.current = word
       onWordChange(word)
     }
-  }
+  }, [onWordChange])
 
   function animateWord() {
     updateWord()
@@ -69,30 +69,75 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
     }
   }
 
-  function loadTimings() {
-    if (audio === null || timingsRequestRef.current !== null) {
+  const loadTimings = useCallback(() => {
+    if (version === undefined || timingsRequestRef.current !== null || timingsRef.current !== null) {
       return
     }
 
     const controller = new AbortController()
     timingsRequestRef.current = controller
     setTimingsError(false)
-    void client.getAudioTimings(weekKey, audio.version, controller.signal)
+    void client.getAudioTimings(weekKey, version, controller.signal)
       .then((value) => {
         if (controller.signal.aborted) {
           return
         }
-        timingsRef.current = validateAudioTimings(value, audio.version, title, body)
+        timingsRef.current = validateAudioTimings(value, version, title, body)
         setTimingsError(timingsRef.current === null)
+        onTimingsChange?.(timingsRef.current)
         updateWord()
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          timingsRequestRef.current = null
           setTimingsError(true)
         }
       })
-  }
+      .finally(() => {
+        if (timingsRequestRef.current === controller) {
+          timingsRequestRef.current = null
+        }
+      })
+  }, [body, client, onTimingsChange, title, updateWord, version, weekKey])
+
+  useEffect(() => {
+    const element = audioRef.current
+    timingsRef.current = null
+    pendingSeekRef.current = null
+    hasInteractedRef.current = false
+    onTimingsChange?.(null)
+    if (currentWordRef.current !== null) {
+      currentWordRef.current = null
+      onWordChange(null)
+    }
+    if (element !== null && version !== undefined) {
+      // Warm the authenticated recording and manifest together, without starting playback.
+      element.src = client.getAudioUrl(weekKey, version)
+      element.load()
+      loadTimings()
+    }
+    return () => {
+      requestIdRef.current += 1
+      timingsRequestRef.current?.abort()
+      timingsRequestRef.current = null
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current)
+        frameRef.current = null
+      }
+      if (element !== null) {
+        element.pause()
+        element.removeAttribute('src')
+        element.load()
+      }
+    }
+  }, [client, loadTimings, onTimingsChange, onWordChange, version, weekKey])
+
+  useImperativeHandle(ref, () => ({
+    seekToWord(word) {
+      if (timingsRef.current?.words.includes(word)) {
+        startPlayback(word.audioOffsetMs / 1000)
+      }
+    },
+  }))
 
   function togglePlayback() {
     const element = audioRef.current
@@ -107,15 +152,26 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
       return
     }
 
+    startPlayback()
+  }
+
+  function startPlayback(seconds?: number) {
+    const element = audioRef.current
+    if (element === null || audio === null) {
+      return
+    }
     const requestId = ++requestIdRef.current
+    hasInteractedRef.current = true
     setPlaybackError(null)
-    setPlaybackState('loading')
+    setPlaybackState((current) => current === 'playing' ? current : 'loading')
     if (!element.hasAttribute('src') || playbackState === 'error') {
       element.src = client.getAudioUrl(weekKey, audio.version)
       element.load()
     }
-    if (element.ended) {
-      element.currentTime = 0
+    if (seconds !== undefined) {
+      seek(seconds)
+    } else if (element.ended) {
+      seek(0)
     }
     element.playbackRate = Number(playbackRate)
 
@@ -130,6 +186,7 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
 
   function failPlayback() {
     stopAnimation()
+    hasInteractedRef.current = false
     setPlaybackState('error')
     setPlaybackError('The recording could not be played. Try again, or sign in again if your session expired.')
     currentWordRef.current = null
@@ -137,17 +194,29 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
   }
 
   function updatePosition() {
-    setPosition(audioRef.current?.currentTime ?? 0)
+    setPosition(pendingSeekRef.current ?? audioRef.current?.currentTime ?? 0)
     updateWord()
   }
 
   function seek(seconds: number) {
     const element = audioRef.current
-    if (element === null || !element.hasAttribute('src')) {
+    if (element === null || audio === null || !element.hasAttribute('src') || !Number.isFinite(seconds)) {
       return
     }
-    element.currentTime = seconds
+    const position = Math.max(0, Math.min(seconds, audio.durationMs / 1000))
+    hasInteractedRef.current = true
+    pendingSeekRef.current = position
+    if (element.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      element.currentTime = position
+      pendingSeekRef.current = null
+    }
     updatePosition()
+  }
+
+  function applyPendingSeek() {
+    if (pendingSeekRef.current !== null) {
+      seek(pendingSeekRef.current)
+    }
   }
 
   if (audio === null) {
@@ -161,7 +230,8 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
 
   return (
     <section className="mx-auto w-full max-w-[54rem] rounded-2xl border border-line bg-paper px-3 py-2 shadow-[0_-4px_24px_-12px_rgba(20,37,59,0.18)] sm:px-5 sm:py-3" aria-label="Dvar Torah audio player">
-      <audio ref={audioRef} crossOrigin="use-credentials" preload="none" aria-label="Dvar Torah recording" onPlaying={() => {
+      <audio ref={audioRef} crossOrigin="use-credentials" preload="auto" aria-label="Dvar Torah recording" onLoadedMetadata={applyPendingSeek} onPlaying={() => {
+        applyPendingSeek()
         setPlaybackState('playing')
         stopAnimation()
         animateWord()
@@ -171,6 +241,8 @@ export function DvarTorahReadAloud({ audio, weekKey, title, body, client, onWord
       }} onWaiting={() => setPlaybackState((current) => current === 'playing' ? 'loading' : current)} onTimeUpdate={updatePosition} onSeeked={updatePosition} onEnded={() => {
         stopAnimation()
         setPlaybackState('idle')
+        hasInteractedRef.current = false
+        pendingSeekRef.current = null
         currentWordRef.current = null
         onWordChange(null)
       }} onError={failPlayback} />

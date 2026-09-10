@@ -165,10 +165,12 @@ describe('WeeklyDvarTorahPage', () => {
     expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'false')
     await user.click(screen.getByRole('button', { name: 'Follow text' }))
     const audio = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
-    expect(audio).toHaveAttribute('preload', 'none')
+    expect(audio).toHaveAttribute('preload', 'auto')
     expect(audio).toHaveAttribute('crossorigin', 'use-credentials')
-    expect(audio).not.toHaveAttribute('src')
-    expect(client.getAudioTimings).not.toHaveBeenCalled()
+    expect(audio.src).toContain('/audio?version=v1')
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
+    expect(play).not.toHaveBeenCalled()
+    expect(document.querySelector('mark')).toBeNull()
     await user.click(listen)
 
     expect(play).toHaveBeenCalledTimes(1)
@@ -195,6 +197,46 @@ describe('WeeklyDvarTorahPage', () => {
     unmount()
     expect(pause).toHaveBeenCalledTimes(2)
     expect(audio).not.toHaveAttribute('src')
+  })
+
+  it('starts at a clicked title or body word and keeps seeking available during playback and pause', async () => {
+    const user = userEvent.setup()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      if (play.mock.calls.length !== 2) {
+        this.dispatchEvent(new Event('playing'))
+      }
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+    const article = Publication.dvarTorah!
+    const title = normalizeDvarTorahText(article.title)
+    const body = normalizeDvarTorahText(article.body)
+    const client = createClient({ ...Publication, dvarTorah: { ...article, audio: { version: 'v1', voice: 'Andrew', durationMs: 20_000, audioUrl: '', timingsUrl: '' } } })
+    client.getAudioTimings = vi.fn().mockResolvedValue({ schemaVersion: 1, version: 'v1', title, body, durationMs: 20_000, words: [
+      { section: 'title', text: 'Life', textOffset: title.indexOf('Life'), textLength: 4, audioOffsetMs: 200, durationMs: 300 },
+      { section: 'body', text: 'God’s', textOffset: body.indexOf('God’s'), textLength: 5, audioOffsetMs: 1000, durationMs: 700 },
+      { section: 'body', text: 'Experts', textOffset: body.indexOf('Experts'), textLength: 7, audioOffsetMs: 2000, durationMs: 700 },
+    ] })
+    render(<WeeklyDvarTorahPage client={client} />)
+    const firstWord = await screen.findByRole('button', { name: 'God’s' })
+    const audio = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
+    Object.defineProperty(audio, 'readyState', { configurable: true, value: HTMLMediaElement.HAVE_METADATA })
+    expect(play).not.toHaveBeenCalled()
+
+    await user.click(firstWord)
+    expect(audio.currentTime).toBe(1)
+    expect(document.querySelector('mark')).toHaveTextContent('God’s')
+    await user.click(screen.getByRole('button', { name: 'Experts' }))
+    expect(audio.currentTime).toBe(2)
+    expect(screen.queryByText('Loading audio…')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Pause recording' }))
+    await user.click(screen.getByRole('button', { name: 'Life' }))
+    expect(audio.currentTime).toBe(0.2)
+    expect(document.querySelector('mark')).toHaveTextContent('Life')
+    expect(screen.getByRole('button', { name: 'Pause recording' })).toBeVisible()
+    expect(play).toHaveBeenCalledTimes(3)
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
   })
 
   it('removes the bottom player when browsing the archive', async () => {
@@ -227,7 +269,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(duration).toHaveTextContent('About 7 min read')
     expect(duration).toHaveAttribute('title', 'Based on 6:43 of audio at 1× speed, rounded up to the next minute.')
     expect(duration.compareDocumentPosition(screen.getByText(/God’s domain/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(client.getAudioTimings).not.toHaveBeenCalled()
+    expect(client.getAudioTimings).toHaveBeenCalledWith('diaspora:2026-08-29', 'archived', expect.any(AbortSignal))
   })
 
   it('loads the newest ten archive records, shows their metadata, searches, and pages', async () => {

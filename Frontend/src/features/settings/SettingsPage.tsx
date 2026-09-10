@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, Bell, BookOpenText, Database, Gauge, KeyRound, Save, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Bell, BookOpenText, Database, Gauge, KeyRound, Save, ShieldCheck, Smartphone } from 'lucide-react'
 import { UserDataControls } from './UserDataControls.tsx'
 import { Toast } from '../../components/Toast.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import { formatUsagePercent, type UsageSummary, type UserSettings } from './settingsTypes.ts'
+import { InstallAppPanel } from '../pwa/PwaInstall.tsx'
+import { OfflineLearningSettings } from '../pwa/OfflineLearning.tsx'
 
 interface SettingsPageProps {
   user: AuthenticatedUser
@@ -142,6 +144,14 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
                 {isSaving ? 'Saving…' : 'Save settings'}
               </button>
             </div>
+          </SettingsSection>
+
+          <SettingsSection icon={<Smartphone aria-hidden="true" />} title="Install AskRabbi" description="Keep your learning a tap away on mobile or desktop.">
+            <InstallAppPanel />
+          </SettingsSection>
+
+          <SettingsSection icon={<BookOpenText aria-hidden="true" />} title="Offline learning" description="Keep this week’s D’var Torah with you, even without a connection.">
+            <OfflineLearningSettings />
           </SettingsSection>
 
           <SettingsSection icon={<Database aria-hidden="true" />} title="Your data" description="You’re in control of what you keep. Manage your conversations or permanently leave AskRabbi.">

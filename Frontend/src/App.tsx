@@ -14,6 +14,8 @@ import { OnboardingFlow } from './features/onboarding/OnboardingFlow.tsx'
 import { createBackendConversationSettingsClient, type ConversationSettingsClient } from './features/personalization/conversationSettingsClient.ts'
 import { createDefaultPersonalizationProfile, type PersonalizationProfile } from './features/personalization/personalizationTypes.ts'
 import type { UserSettings } from './features/settings/settingsTypes.ts'
+import { PwaInstallProvider } from './features/pwa/PwaInstall.tsx'
+import { OfflineLearningProvider } from './features/pwa/OfflineLearning.tsx'
 
 const DefaultApiClient = createApiClient()
 const DefaultAuthClient = createBackendAuthClient({ apiClient: DefaultApiClient })
@@ -30,9 +32,11 @@ interface AppProps {
 
 export function App({ authClient = DefaultAuthClient, conversationClient = DefaultConversationClient, conversationSettingsClient = DefaultConversationSettingsClient, dvarTorahClient = DefaultDvarTorahClient }: AppProps) {
   return (
-    <AuthProvider client={authClient}>
-      <AuthenticatedApplication conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} />
-    </AuthProvider>
+    <PwaInstallProvider>
+      <AuthProvider client={authClient}>
+        <AuthenticatedApplication conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} />
+      </AuthProvider>
+    </PwaInstallProvider>
   )
 }
 
@@ -53,7 +57,7 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
     return <LoginPage isCheckingSession={isInitializing} />
   }
 
-  return <SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} onLogout={signOut} />
+  return <OfflineLearningProvider key={user.id} client={dvarTorahClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} onLogout={signOut} /></OfflineLearningProvider>
 }
 
 function readAndRemovePasswordResetToken() {

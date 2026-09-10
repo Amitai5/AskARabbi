@@ -45,6 +45,9 @@ describe('App', () => {
     await renderApp()
 
     await user.tab()
+    if (screen.queryByRole('button', { name: 'Install app' }) === document.activeElement) {
+      await user.tab()
+    }
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toHaveFocus()
 
     await user.tab()
@@ -732,8 +735,8 @@ describe('App', () => {
     expect(screen.getByRole('progressbar', { name: 'Monthly token usage' })).toHaveAttribute('aria-valuenow', '0')
 
     await user.click(screen.getByRole('button', { name: 'Reset password' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Password reset requested')
-    expect(screen.getByRole('status')).toHaveTextContent('secure reset email')
+    expect(await screen.findByText('Password reset requested')).toBeVisible()
+    expect(screen.getByText(/secure reset email/)).toBeVisible()
 
     const productUpdates = screen.getByRole('switch', { name: 'Email me product updates' })
     expect(productUpdates).toHaveAttribute('aria-checked', 'false')
@@ -741,7 +744,7 @@ describe('App', () => {
     expect(productUpdates).toHaveAttribute('aria-checked', 'true')
 
     await user.click(screen.getByRole('button', { name: 'Save settings' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Settings saved')
+    expect(await screen.findByText('Settings saved')).toBeVisible()
   })
 })
 

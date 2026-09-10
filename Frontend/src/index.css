@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-.deletion-dialog::backdrop {
+.deletion-dialog::backdrop,
+.pwa-install-dialog::backdrop {
   background: rgb(16 35 63 / 0.4);
   backdrop-filter: blur(3px);
 }

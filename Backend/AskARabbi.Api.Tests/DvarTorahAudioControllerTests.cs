@@ -1,11 +1,15 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using AskARabbi.Api.Contracts.DvarTorah;
 using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.DvarTorah.Audio;
 using Azure;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AskARabbi.Api.Tests;
@@ -287,6 +291,48 @@ public sealed class DvarTorahAudioControllerTests
     }
 
     [TestMethod]
+    [DataRow("Development")]
+    [DataRow("Production")]
+    [TestCategory("Integration")]
+    public async Task GetTimings_JsonSerialization_IsCompactAndPreservesText(string environmentName)
+    {
+        await using var application = CreateApplication(environmentName);
+        Assert.IsNotNull(application.DvarTorahAudio.Timings);
+        const string body = "First paragraph.\n\nHebrew: שלום. Quoted: \"keep these spaces\".";
+        application.DvarTorahAudio.Timings = application.DvarTorahAudio.Timings with { Body = body };
+        using var client = await application.CreateAuthenticatedClientAsync(new Uri(environmentName == "Production" ? "https://api.askarabbi.ai" : "https://localhost"));
+        var mvcOptions = application.Services.GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions;
+
+        using var response = await client.GetAsync($"{AudioPath}/timings?version={Version}");
+        var json = await response.Content.ReadAsStringAsync();
+        var timings = JsonSerializer.Deserialize<DvarTorahAudioTimings>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.AreEqual(body, timings?.Body);
+        AssertMinifiedJson(json);
+        Assert.IsFalse(mvcOptions.WriteIndented);
+        Assert.IsFalse(application.Services.GetRequiredService<IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>().Value.SerializerOptions.WriteIndented);
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task GetTimings_UnexpectedFailure_ReturnsCompactHttpProblemJson()
+    {
+        await using var application = CreateApplication();
+        application.DvarTorahAudio.Failure = new Exception("Private storage diagnostic");
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        using var response = await client.GetAsync(AudioPath + "/timings");
+        var json = await response.Content.ReadAsStringAsync();
+
+        Assert.AreEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.AreEqual("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        AssertMinifiedJson(json);
+        Assert.IsFalse(json.Contains("Private storage diagnostic", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     [TestCategory("Integration")]
     public async Task GetTimings_MissingManifest_ReturnsNotFound()
     {
@@ -331,9 +377,17 @@ public sealed class DvarTorahAudioControllerTests
         Assert.IsNull(publication.DvarTorah.Audio);
     }
 
-    private static TestApplicationFactory CreateApplication()
+    private static void AssertMinifiedJson(string json)
     {
-        var application = new TestApplicationFactory();
+        using var document = JsonDocument.Parse(json);
+        // Ignore whitespace inside string values without depending on the formatter's Unicode escape style.
+        var structure = Regex.Replace(json, "\"(?:[^\"\\\\]|\\\\.)*\"", string.Empty);
+        Assert.IsFalse(structure.Any(char.IsWhiteSpace), "JSON responses must omit whitespace outside string values.");
+    }
+
+    private static TestApplicationFactory CreateApplication(string environmentName = "Testing")
+    {
+        var application = new TestApplicationFactory(environmentName: environmentName);
         var prefix = $"diaspora/2026-08-29/{Version}/{new string('b', 64)}";
         var audio = new WeeklyDvarTorahAudioMetadata
         {

@@ -3,6 +3,7 @@ import { AuthContext, type AuthContextValue } from './authContext.ts'
 import { Toast } from '../../components/Toast.tsx'
 import { publishUserDataEvent, subscribeToUserDataEvents } from '../settings/userDataEvents.ts'
 import type { AuthClient, AuthenticatedUser, SocialAuthProvider } from './authTypes.ts'
+import { clearOfflineTeaching } from '../pwa/offlineLibrary.ts'
 
 interface AuthProviderProps {
   children: ReactNode
@@ -20,6 +21,7 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
     if (!user) { return }
     return subscribeToUserDataEvents(user.id, (event) => {
       if (event.kind === 'account-deleted') {
+        void clearOfflineTeaching()
         setUser(null)
         setDeletionStatus(event.status === 'pending' ? 'pending' : 'deleted')
       }
@@ -104,6 +106,7 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
   }, [])
 
   const signOut = useCallback(async () => {
+    await clearOfflineTeaching()
     await client.signOut()
     setUser(null)
   }, [client])
@@ -111,6 +114,7 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
   const requestPasswordReset = useCallback((email: string) => client.requestPasswordReset(email), [client])
   const deleteAccount = useCallback(async () => {
     const result = await client.deleteAccount()
+    await clearOfflineTeaching()
     if (user) { publishUserDataEvent({ userId: user.id, kind: 'account-deleted', status: result.status }) }
     setUser(null)
     setDeletionStatus(result.status)

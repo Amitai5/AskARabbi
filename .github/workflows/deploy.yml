@@ -121,6 +121,20 @@ jobs:
             exit 1
           fi
 
+          # Verify job access before changing either image. The CLI can report a forbidden job as missing.
+          job_resource="https://management.azure.com/subscriptions/$subscription_id/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.App/jobs/$DVAR_TORAH_JOB_NAME"
+          if ! job_environment="$(az rest --method get \
+            --url "$job_resource?api-version=2025-01-01" \
+            --query properties.environmentId \
+            --output tsv)"; then
+            echo "Cannot read the production generator. The deployment identity needs Container Apps Jobs Contributor on this job; Container Apps Contributor does not grant job access." >&2
+            exit 1
+          fi
+          if [ "${job_environment,,}" != "${expected_environment,,}" ]; then
+            echo "The generator must use the consolidated production environment before either image is deployed." >&2
+            exit 1
+          fi
+
       - name: Deploy immutable API image to Container Apps
         env:
           API_IMAGE_DIGEST: ${{ steps.build-api.outputs.digest }}

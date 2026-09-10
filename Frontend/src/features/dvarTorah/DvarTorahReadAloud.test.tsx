@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef, StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DvarTorahReadAloud } from './DvarTorahReadAloud.tsx'
+import { DvarTorahReadAloud, type DvarTorahPlaybackHandle } from './DvarTorahReadAloud.tsx'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import type { DvarTorahAudioTimings, WeeklyDvarTorahAudio } from './dvarTorahTypes.ts'
 
@@ -48,6 +49,67 @@ describe('DvarTorahReadAloud', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('preloads the recording and validates timings before Listen without playing or highlighting', async () => {
+    const client = createClient()
+    const onTimingsChange = vi.fn()
+    const onWordChange = vi.fn()
+    client.getAudioTimings = vi.fn().mockResolvedValue({ ...Timings, words: [{ ...Timings.words[0], audioOffsetMs: 0 }] })
+    render(<DvarTorahReadAloud audio={Audio} weekKey="week" title={Timings.title} body={Timings.body} client={client} onWordChange={onWordChange} onTimingsChange={onTimingsChange} />)
+
+    await waitFor(() => expect(onTimingsChange).toHaveBeenLastCalledWith(expect.objectContaining({ version: 'v1' })))
+    const element = screen.getByLabelText('Dvar Torah recording')
+    expect(element).toHaveAttribute('preload', 'auto')
+    expect(element).toHaveAttribute('src', 'https://api.askarabbi.test/audio?version=v1')
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
+    expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1)
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled()
+    expect(onWordChange).not.toHaveBeenCalled()
+  })
+
+  it('seeks to a validated word before metadata is ready and applies only the latest selection', async () => {
+    const client = createClient()
+    const secondWord = { ...Timings.words[0], text: 'together', textOffset: 6, textLength: 8, audioOffsetMs: 3_000 }
+    client.getAudioTimings = vi.fn().mockResolvedValue({ ...Timings, words: [...Timings.words, secondWord] })
+    const ref = createRef<DvarTorahPlaybackHandle>()
+    const onTimingsChange = vi.fn()
+    const onWordChange = vi.fn()
+    render(<DvarTorahReadAloud ref={ref} audio={Audio} weekKey="week" title={Timings.title} body={Timings.body} client={client} onWordChange={onWordChange} onTimingsChange={onTimingsChange} />)
+    await waitFor(() => expect(onTimingsChange).toHaveBeenLastCalledWith(expect.objectContaining({ version: 'v1' })))
+    const element = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
+
+    act(() => {
+      ref.current?.seekToWord(Timings.words[0])
+      ref.current?.seekToWord(secondWord)
+    })
+    expect(element.currentTime).toBe(0)
+    expect(screen.getByRole('slider', { name: 'Recording position' })).toHaveValue('3')
+    expect(onWordChange).toHaveBeenLastCalledWith(secondWord)
+    Object.defineProperty(element, 'readyState', { configurable: true, value: HTMLMediaElement.HAVE_METADATA })
+    fireEvent.loadedMetadata(element)
+
+    expect(element.currentTime).toBe(3)
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2)
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
+    act(() => ref.current?.seekToWord({ ...secondWord, audioOffsetMs: 9_000 }))
+    expect(element.currentTime).toBe(3)
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2)
+  })
+
+  it('restarts the aborted preload during Strict Mode setup without accepting its stale result', async () => {
+    const client = createClient()
+    let resolveFirst: (value: unknown) => void = () => {}
+    client.getAudioTimings = vi.fn().mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve })).mockResolvedValue(Timings)
+    const onTimingsChange = vi.fn()
+    render(<StrictMode><DvarTorahReadAloud audio={Audio} weekKey="week" title={Timings.title} body={Timings.body} client={client} onWordChange={vi.fn()} onTimingsChange={onTimingsChange} /></StrictMode>)
+
+    await waitFor(() => expect(onTimingsChange).toHaveBeenLastCalledWith(Timings))
+    expect(vi.mocked(client.getAudioTimings).mock.calls[0][2]?.aborted).toBe(true)
+    await act(async () => resolveFirst({ ...Timings, version: 'stale' }))
+    expect(onTimingsChange).toHaveBeenLastCalledWith(Timings)
+    expect(screen.getByLabelText('Dvar Torah recording')).toHaveAttribute('src')
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled()
+  })
+
   it('never highlights mismatched article or recording versions', async () => {
     const user = userEvent.setup()
     const client = createClient()
@@ -86,7 +148,7 @@ describe('DvarTorahReadAloud', () => {
     const user = userEvent.setup()
     vi.mocked(HTMLMediaElement.prototype.play).mockRejectedValueOnce(new Error('Temporary network failure'))
     const client = createClient()
-    client.getAudioTimings = vi.fn().mockRejectedValueOnce(new Error('Temporary network failure')).mockResolvedValue(Timings)
+    client.getAudioTimings = vi.fn().mockRejectedValueOnce(new Error('Temporary network failure')).mockRejectedValueOnce(new Error('Temporary network failure')).mockResolvedValue(Timings)
     const onWordChange = vi.fn()
     renderPlayer(client, Audio, onWordChange)
 
@@ -94,7 +156,7 @@ describe('DvarTorahReadAloud', () => {
     expect(await screen.findByText(/Word highlighting is unavailable/)).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Retry recording' }))
 
-    expect(client.getAudioTimings).toHaveBeenCalledTimes(2)
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(3)
     await waitFor(() => expect(screen.queryByText(/Word highlighting is unavailable/)).not.toBeInTheDocument())
     const element = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
     act(() => {
@@ -104,7 +166,7 @@ describe('DvarTorahReadAloud', () => {
     await waitFor(() => expect(onWordChange).toHaveBeenLastCalledWith(Timings.words[0]))
     await user.click(screen.getByRole('button', { name: 'Pause recording' }))
     await user.click(screen.getByRole('button', { name: 'Resume recording' }))
-    expect(client.getAudioTimings).toHaveBeenCalledTimes(2)
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(3)
   })
 
   it('clears the highlight on completion and restarts at the beginning', async () => {
@@ -121,6 +183,7 @@ describe('DvarTorahReadAloud', () => {
     fireEvent.ended(element)
     expect(onWordChange).toHaveBeenLastCalledWith(null)
     Object.defineProperty(element, 'ended', { value: true })
+    Object.defineProperty(element, 'readyState', { configurable: true, value: HTMLMediaElement.HAVE_METADATA })
     await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
     expect(element.currentTime).toBe(0)
     await user.click(screen.getByRole('button', { name: 'Restart recording' }))

@@ -112,7 +112,8 @@ try {
         Grant-Role $api.identity.principalId 'Storage Blob Data Reader' $blobScope
         Grant-Role $job.identity.principalId 'Storage Blob Data Contributor' $blobScope
         Grant-Role $job.identity.principalId 'Cognitive Services Speech User' "$prefix/providers/Microsoft.CognitiveServices/accounts/askarabbi-speech-prod"
-        foreach ($scope in @($apiId, $jobId)) { Grant-Role 'da6ab1ec-6800-42d9-923d-8e2cdcd73228' 'Container Apps Contributor' $scope }
+        Grant-Role 'da6ab1ec-6800-42d9-923d-8e2cdcd73228' 'Container Apps Contributor' $apiId
+        Grant-Role 'da6ab1ec-6800-42d9-923d-8e2cdcd73228' 'Container Apps Jobs Contributor' $jobId
         Grant-Role 'da6ab1ec-6800-42d9-923d-8e2cdcd73228' 'Reader' $environmentId
         Write-Output 'Bootstrap complete. Old runtime and DNS remain unchanged.'
         return

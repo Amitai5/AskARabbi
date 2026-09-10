@@ -125,9 +125,13 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
         BaseAddress = new Uri("https://localhost"),
     });
 
-    internal async Task<HttpClient> CreateAuthenticatedClientAsync()
+    internal async Task<HttpClient> CreateAuthenticatedClientAsync(Uri? baseAddress = null)
     {
         var client = CreateNonRedirectingClient();
+        if (baseAddress is not null)
+        {
+            client.BaseAddress = baseAddress;
+        }
         using var loginResponse = await client.GetAsync("/api/user/login");
         var state = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(loginResponse.Headers.Location!.Query)["state"].ToString();
         using var callbackResponse = await client.GetAsync($"/api/user/callback?code=test-code&state={Uri.EscapeDataString(state)}");
