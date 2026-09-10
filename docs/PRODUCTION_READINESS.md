@@ -1,6 +1,6 @@
 # Production readiness checklist
 
-This checklist reflects the deployed Azure resources and the current repository behavior as of September 1, 2026.
+This is the historical September 1, 2026 readiness baseline, not the current deployment target. Production now runs `askarabbi-api-production` and `askarabbi-dvar-torah-production` in `askarabbi-containerapps-production`; use [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) and [PRODUCTION_NETWORK.md](PRODUCTION_NETWORK.md) for current configuration. The former question-count allowance is replaced by the [10M-token monthly quota](TOKEN_USAGE.md). Old resource names and pending checks below describe that earlier checkpoint only.
 
 ## Completed foundation
 

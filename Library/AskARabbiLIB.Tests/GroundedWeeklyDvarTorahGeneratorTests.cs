@@ -99,6 +99,48 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
     }
 
     [TestMethod]
+    [DataRow(false, true, "abrupt hook-to-Torah transition")]
+    [DataRow(true, false, "unnatural spoken flow")]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_SpeechReviewFails_RepairsAndRechecksBeforeReturningArticle(bool hookTorahBridgeNatural, bool spokenFlowNatural, string expectedRepairInstruction)
+    {
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("Disconnected draft"), CreateArticleDraft("Connected speech"));
+        var review = new QueueEngine(CreatePassingReview() with { HookTorahBridgeNatural = hookTorahBridgeNatural, SpokenFlowNatural = spokenFlowNatural }, CreatePassingReview());
+        var generator = CreateGenerator(CreateTorahHits(), generation, review);
+
+        var result = await generator.GenerateAsync(Week);
+
+        Assert.AreEqual("Connected speech", result.Title);
+        Assert.AreEqual(3, generation.Calls);
+        Assert.AreEqual(2, review.Calls);
+        StringAssert.Contains(generation.Requests[2].Last().Content, expectedRepairInstruction);
+        StringAssert.Contains(review.Requests[1].Last().Content, "Connected speech");
+        Assert.AreEqual("weekly_dvar_torah_review_v5", result.Metadata?.SafetyReviewVersion);
+        Assert.AreEqual(result.Body.IndexOf(WeeklyDvarTorahIntroduction.Text, StringComparison.Ordinal), result.Body.LastIndexOf(WeeklyDvarTorahIntroduction.Text, StringComparison.Ordinal));
+        Assert.IsFalse(result.Body.Contains("{{quote:", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow(false, true, "HookTorahBridgeNatural")]
+    [DataRow(true, false, "SpokenFlowNatural")]
+    [TestCategory("Regression")]
+    public async Task GenerateAsync_SpeechReviewRejectsRepair_FailsClosedWithoutAdditionalCalls(bool hookTorahBridgeNatural, bool spokenFlowNatural, string expectedCheck)
+    {
+        var rejected = CreatePassingReview() with { HookTorahBridgeNatural = hookTorahBridgeNatural, SpokenFlowNatural = spokenFlowNatural };
+        var generation = new QueueEngine(CreateResearchDraft(), CreateArticleDraft("First draft"), CreateArticleDraft("Still disconnected"));
+        var review = new QueueEngine(rejected, rejected);
+        var generator = CreateGenerator(CreateTorahHits(), generation, review);
+
+        var exception = await Assert.ThrowsExactlyAsync<WeeklyDvarTorahGenerationException>(() => generator.GenerateAsync(Week));
+
+        Assert.AreEqual("CandidateValidationFailed", exception.FailureCode);
+        Assert.AreEqual("IndependentReview", exception.DiagnosticCategory);
+        CollectionAssert.Contains(exception.FailedChecks.ToArray(), expectedCheck);
+        Assert.AreEqual(3, generation.Calls);
+        Assert.AreEqual(2, review.Calls);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task GenerateAsync_DraftGroundingFailsBothAttempts_ReportsSafeDiagnosticCategory()
     {
@@ -162,9 +204,9 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         Assert.IsFalse(result.Body.Contains("Torah text", StringComparison.Ordinal));
         Assert.IsFalse(result.Body.Contains("{{", StringComparison.Ordinal));
         Assert.IsFalse(result.Body.Contains("“Publisher one reports", StringComparison.Ordinal));
-        Assert.AreEqual("weekly-dvar-torah-v4", result.GeneratorVersion);
+        Assert.AreEqual("weekly-dvar-torah-v5", result.GeneratorVersion);
         StringAssert.StartsWith(result.Body, WeeklyDvarTorahIntroduction.Text + "\n\n");
-        Assert.AreEqual("weekly_dvar_torah_review_v4", result.Metadata?.SafetyReviewVersion);
+        Assert.AreEqual("weekly_dvar_torah_review_v5", result.Metadata?.SafetyReviewVersion);
         StringAssert.Contains(generationEngine.Requests[1].Single(message => message.Role == AIMessageRole.User).Content, "\"featuredTorahQuotationCount\":3");
         var reviewRequest = reviewEngine.Requests[0].Single(message => message.Role == AIMessageRole.User).Content;
         StringAssert.Contains(reviewRequest, "Deuteronomy 29:16");
@@ -521,6 +563,8 @@ public sealed class GroundedWeeklyDvarTorahGeneratorTests
         ConclusionReturnsToOpening = true,
         OpeningHookGrounded = true,
         QuotationsIntegrated = true,
+        HookTorahBridgeNatural = true,
+        SpokenFlowNatural = true,
         DoesNotEncourageViolence = true,
         DoesNotGlorifyOrGraphicallyDescribeViolence = true,
         DoesNotContainHateOrDehumanization = true,

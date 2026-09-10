@@ -97,6 +97,12 @@ internal sealed record WeeklyDvarTorahReviewDraft
     [JsonPropertyName("quotationsIntegrated")]
     public required bool QuotationsIntegrated { get; init; }
 
+    [JsonPropertyName("hookTorahBridgeNatural")]
+    public required bool HookTorahBridgeNatural { get; init; }
+
+    [JsonPropertyName("spokenFlowNatural")]
+    public required bool SpokenFlowNatural { get; init; }
+
     [JsonPropertyName("doesNotEncourageViolence")]
     public required bool DoesNotEncourageViolence { get; init; }
 

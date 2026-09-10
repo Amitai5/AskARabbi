@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AskARabbiLIB.DvarTorah;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -48,6 +49,8 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
     [DataRow("conclusion", "opening question")]
     [DataRow("hook", "modern opening hook")]
     [DataRow("quotations", "quotations disconnected")]
+    [DataRow("bridge", "abrupt hook-to-Torah transition")]
+    [DataRow("flow", "unnatural spoken flow")]
     [TestCategory("Regression")]
     public void Validate_EditorialCheckFails_BlocksOtherwiseSupportedArticle(string check, string expectedError)
     {
@@ -58,12 +61,49 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
             ConclusionReturnsToOpening = check != "conclusion",
             OpeningHookGrounded = check != "hook",
             QuotationsIntegrated = check != "quotations",
+            HookTorahBridgeNatural = check != "bridge",
+            SpokenFlowNatural = check != "flow",
         };
 
         var errors = WeeklyDvarTorahReviewValidator.Validate(review);
 
         Assert.HasCount(1, errors);
         StringAssert.Contains(errors[0], expectedError);
+    }
+
+    [TestMethod]
+    [DataRow("hookTorahBridgeNatural")]
+    [DataRow("spokenFlowNatural")]
+    [TestCategory("Regression")]
+    public void Deserialize_MissingSpeechCheck_RejectsIncompleteReview(string property)
+    {
+        var serialized = JsonSerializer.SerializeToNode(CreatePassingReview());
+        Assert.IsNotNull(serialized);
+        Assert.IsTrue(serialized.AsObject().Remove(property));
+
+        Assert.ThrowsExactly<JsonException>(() => serialized.Deserialize<WeeklyDvarTorahReviewDraft>());
+    }
+
+    [TestMethod]
+    [DataRow(true, "HookTorahBridgeNatural", "paragraph 3")]
+    [DataRow(false, "SpokenFlowNatural", "paragraph 3")]
+    [TestCategory("Regression")]
+    public void Validate_SpeechConcern_ReturnsTargetedRepairAndSafeLocation(bool bridgeFailed, string expectedCheck, string expectedLocation)
+    {
+        var review = CreatePassingReview() with
+        {
+            HookTorahBridgeNatural = !bridgeFailed,
+            SpokenFlowNatural = bridgeFailed,
+            Concerns = [new() { Check = bridgeFailed ? WeeklyDvarTorahReviewCheck.HookTorahBridgeNatural : WeeklyDvarTorahReviewCheck.SpokenFlowNatural, EvidenceIds = [], ParagraphIndex = 3 }],
+        };
+        var codes = new List<string>();
+
+        var errors = WeeklyDvarTorahReviewValidator.Validate(review, codes);
+
+        CollectionAssert.AreEqual(new[] { expectedCheck, "Concerns" }, codes);
+        Assert.HasCount(2, errors);
+        StringAssert.Contains(errors[1], expectedCheck);
+        StringAssert.Contains(errors[1], expectedLocation);
     }
 
     [TestMethod]
@@ -120,6 +160,8 @@ public sealed class WeeklyDvarTorahReviewValidatorTests
         ConclusionReturnsToOpening = true,
         OpeningHookGrounded = true,
         QuotationsIntegrated = true,
+        HookTorahBridgeNatural = true,
+        SpokenFlowNatural = true,
         DoesNotEncourageViolence = true,
         DoesNotGlorifyOrGraphicallyDescribeViolence = true,
         DoesNotContainHateOrDehumanization = true,

@@ -6,6 +6,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Retained only as a record of the pre-consolidation migration; never recreate its retired resources.
+throw 'This private-audio staging script is retired. Production uses askarabbi-containerapps-production. Follow docs/PRODUCTION_NETWORK.md for reconstruction and the production deployment workflow for image updates.'
+
 # The stable 2025-01-01 schema omits runtime.dotnet and silently loses managed session keys.
 $apiVersion = '2025-02-02-preview'
 $resourcePrefix = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup"

@@ -49,6 +49,7 @@ internal static class JobDependencyFactory
             ContainerName = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__ContainerName") ?? "dvar-torah-audio",
             SpeechRegion = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__SpeechRegion") ?? "eastus2",
             SpeechResourceId = DvarTorahJobEnvironment.GetRequired("DvarTorahAudio__SpeechResourceId"),
+            SpeechServiceUri = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__SpeechServiceUri"),
             Voice = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__Voice") ?? "en-US-AndrewMultilingualNeural",
             FfmpegPath = DvarTorahJobEnvironment.GetOptional("DvarTorahAudio__FfmpegPath") ?? "ffmpeg",
             LeaseDuration = TimeSpan.FromMinutes(DvarTorahJobEnvironment.GetInteger("DvarTorahAudio__LeaseMinutes", 30)),
@@ -98,7 +99,7 @@ internal static class JobDependencyFactory
             MinimumBodyCharacters = DvarTorahJobEnvironment.GetInteger("DvarTorah__MinimumBodyCharacters", 2_500),
             MaximumBodyCharacters = DvarTorahJobEnvironment.GetInteger("DvarTorah__MaximumBodyCharacters", 15_000),
             OverallTimeout = TimeSpan.FromMinutes(DvarTorahJobEnvironment.GetInteger("DvarTorah__ResearchTimeoutMinutes", 25)),
-            GeneratorVersion = DvarTorahJobEnvironment.GetOptional("DvarTorah__GeneratorVersion") ?? "weekly-dvar-torah-v4",
+            GeneratorVersion = DvarTorahJobEnvironment.GetOptional("DvarTorah__GeneratorVersion") ?? "weekly-dvar-torah-v5",
         };
         contentOptions.Validate();
 

@@ -49,41 +49,27 @@ The top of each current or opened archive article shows **About N min read**, de
 | Private endpoint | `askarabbiaudioprod-blob-pe` |
 | Private DNS | `privatelink.blob.core.windows.net` linked to the application VNet |
 | VNet | `askarabbi-production-vnet`, `10.82.0.0/16` |
-| Container Apps subnet | `10.82.0.0/23`, delegated to `Microsoft.App/environments` |
+| Container Apps subnet | `container-apps-production`, `10.82.4.0/23`, delegated to `Microsoft.App/environments` |
 | Private endpoint subnet | `10.82.2.0/27` |
-| Replacement Consumption environment | `askarabbi-production-private-env` |
-| Replacement API | `askarabbi-api-vnet` |
-| Replacement weekly job | `askarabbi-weekly-dvar-torah-vnet` |
+| Consumption environment | `askarabbi-containerapps-production` |
+| API | `askarabbi-api-production` |
+| Weekly job | `askarabbi-dvar-torah-production` |
 
 The storage account has public network access disabled, anonymous Blob access disabled, shared-key access disabled, and HTTPS/TLS 1.2 required. Storage DNS resolves to its private endpoint from the VNet. The API has **Storage Blob Data Reader**; the generator has **Storage Blob Data Contributor**, both scoped to the audio container. The generator also has **Cognitive Services Speech User** on the Speech resource. Production uses managed identities, not Speech keys or storage connection strings.
 
 Privileged Azure administrators can still manage these resources and role assignments. “Private” means no public storage data-plane route and only explicitly authorized runtime identities, not isolation from subscription administrators.
 
-Private networking adds a billed private endpoint, DNS, and the load balancer/public IP managed by Container Apps. Hot LRS storage and Speech usage are additional; monitor the subscription budget and Speech F0 allowance. The API itself remains public and authenticated. Do not disable TLS checks, turn public storage back on, or add a public SAS to make local debugging easier.
+The consolidated environment reuses the existing Blob private endpoint and DNS. No new gateway, private endpoint, or DNS zone was added during consolidation; ordinary runtime, storage, network, logging, and Speech usage charges still apply. The API remains public and authenticated. Do not disable TLS checks, turn public storage back on, or add a public SAS to make local debugging easier.
 
 ## Provisioning and cutover
 
-The original environment cannot be retrofitted with a custom VNet. `infrastructure/dvar-torah-audio.json` therefore creates the private network and a replacement Consumption environment, without touching the original runtime. It references the existing Log Analytics workspace key inside ARM; no credential is saved in the template.
+Consolidation and DNS/TLS cutover completed on September 10, 2026; both earlier environments and their API/job resources are retired. `infrastructure/production-containerapps.json` and [PRODUCTION_NETWORK.md](PRODUCTION_NETWORK.md) describe the consolidated environment and approved reconstruction procedure. Do not deploy the historical `infrastructure/dvar-torah-audio.json` template: it describes the old environment and would replace the shared VNet subnet configuration. The retired `Stage-PrivateAudioRuntime.ps1` and `Activate-PrivateAudioSchedule.ps1` helpers now stop before any Azure operation.
 
-```powershell
-az deployment group create --resource-group AARProduction --name askarabbi-private-audio-network --template-file infrastructure/dvar-torah-audio.json --mode Incremental
-./scripts/Stage-PrivateAudioRuntime.ps1 -Phase Bootstrap
-./scripts/Stage-PrivateAudioRuntime.ps1 -Phase Configure
-```
-
-The staging script copies existing API/job secrets directly in memory and keeps the replacement job **Manual**. It does not change DNS or the original Sunday schedule. Bootstrap refuses to overwrite existing replacements. Configure refuses to overwrite an API that already has a custom domain.
-
-Before cutover:
-
-1. Deploy verified images to the replacements. Check the provider `/health`, authenticated audio behavior, and a successful one-off narration backfill.
-2. Update only the `api.askarabbi.ai` CNAME and Azure ownership TXT record in the approved DNS account. Keep the CNAME DNS-only and pointing directly to the new Container App for Azure-managed certificate issuance/renewal. Bind and validate the new TLS certificate; never bypass a certificate warning.
-3. Validate WorkOS login, existing Mongo data, streaming, seeking, and highlighting through the public domain. A runtime migration can require users to sign in again; account data remains in the same Mongo database.
-4. Disable the old job timer before enabling the new job's Sunday `5 8 * * 0` UTC timer. Preserve retry limit 2, parallelism 1, completion count 1, and use a 3600-second replica timeout for text plus narration.
-5. Point the production deployment workflow at the replacement API/job. Keep the old environment available for rollback until the migration is confirmed. Do not delete it as part of an automated retry.
+Routine releases use the [production deployment workflow](PRODUCTION_DEPLOYMENT.md), which updates the new API and job to verified immutable images without changing DNS, data, secrets, or timer ownership. The new generator is the only owner of Sunday `5 8 * * 0` UTC, with a 3600-second timeout, retry limit 2, parallelism 1, and completion count 1. Preserve API scale-to-zero and managed Data Protection. Do not recreate an old environment for a routine release.
 
 ## Configuration and backfill
 
-Non-secret generator settings use `DvarTorahAudio__Enabled`, `StorageServiceUri`, `ContainerName`, `SpeechRegion`, `SpeechResourceId`, `Voice`, `FfmpegPath`, and `LeaseMinutes` under the `DvarTorahAudio__` prefix. The API only needs enabled/storage settings. See the job README and API example configuration for exact defaults. Credentials remain in managed identity or the existing runtime secret store.
+Non-secret generator settings use `Enabled`, `StorageServiceUri`, `ContainerName`, `SpeechRegion`, `SpeechResourceId`, `SpeechServiceUri`, `Voice`, `FfmpegPath`, and `LeaseMinutes` under the `DvarTorahAudio__` prefix. Subnet-restricted production requires `DvarTorahAudio__SpeechServiceUri=https://askarabbi-speech-prod.cognitiveservices.azure.com/` on the unchanged F0 Speech account. The narrator uses that custom host's synthesis WebSocket route and waits for completed word metadata before assembling highlights. The API only needs enabled/storage settings. See the job README and API example configuration for exact defaults. Credentials remain in managed identity or the existing runtime secret store.
 
 For a one-off backfill set `DvarTorahAudio__BackfillWeekKey` **on that execution only**. For the existing September 5, 2026 Nitzavim publication the key is `diaspora:2026-09-05`. Do not leave this override on the scheduled job, or it will keep targeting the old article. Download the finished recording through the authenticated API, not by enabling public Blob access.
 
@@ -91,7 +77,7 @@ For a one-off backfill set `DvarTorahAudio__BackfillWeekKey` **on that execution
 ./scripts/Start-DvarTorahAudioBackfill.ps1 -WeekKey diaspora:2026-09-05
 ```
 
-The helper validates the selected subscription and Saturday date, preserves the complete job execution template and secret references, and adds the selector only to the one-off start request. It does not modify the job definition or retrieve secret values. Use `-WhatIf` to inspect the target without starting synthesis.
+The helper defaults to `askarabbi-dvar-torah-production` and validates the selected subscription, Saturday date, consolidated environment, enabled narration, and custom Speech endpoint. It preserves the complete job execution template and secret references and adds the selector only to the one-off start request. It does not modify the job definition or retrieve secret values. Use `-WhatIf` to inspect the target without starting synthesis.
 
 ## Dependencies and verification
 
@@ -109,6 +95,6 @@ Tests cover leases/retries, text/version alignment, malformed manifests, trusted
 - Backfill execution `askarabbi-weekly-dvar-torah-vnet-desdo22` succeeded for `diaspora:2026-09-05`. It reused the published Nitzavim text and generated 403,012.5 ms of narration (4,837,293 MP3 bytes), then persisted audio metadata in Mongo. No backfill selector remained on the job definition.
 - Replacement API health returned `200`; an unauthenticated audio request returned `401`. Storage remained Hot with public network, anonymous Blob, and shared-key access disabled.
 
-At this checkpoint the original public API and Sunday timer are unchanged. DNS/TLS cutover, authenticated live playback/download, frontend publication, and final scheduler/workflow switch remain separate acceptance steps requiring the approved DNS change.
+At this historical checkpoint the original public API and Sunday timer were unchanged. The later completed DNS/TLS cutover, authenticated playback checks, scheduler/workflow switch, and retired-resource cleanup are recorded in [PRODUCTION_NETWORK.md](PRODUCTION_NETWORK.md).
 
 References: [Container Apps VNet configuration](https://learn.microsoft.com/en-us/azure/container-apps/custom-virtual-networks), [Storage private endpoints](https://learn.microsoft.com/en-us/azure/storage/common/storage-private-endpoints), [Speech Entra authentication](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-configure-azure-ad-auth), [managed certificates](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates).

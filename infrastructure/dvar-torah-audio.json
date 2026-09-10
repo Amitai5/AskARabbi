@@ -1,6 +1,9 @@
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Historical private-audio bootstrap only. Do not deploy against current production: it describes retired resources and would replace the shared VNet subnet configuration. Use production-containerapps.json and docs/PRODUCTION_NETWORK.md for the consolidated topology."
+  },
   "parameters": {
     "location": { "type": "string", "defaultValue": "centralus" },
     "environmentName": { "type": "string", "defaultValue": "askarabbi-production-private-env" },

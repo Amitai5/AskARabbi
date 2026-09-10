@@ -26,4 +26,6 @@ internal enum WeeklyDvarTorahReviewCheck
     DoesNotClaimDivinePunishment,
     RespectfulAndInclusive,
     SafeToPublish,
+    HookTorahBridgeNatural,
+    SpokenFlowNatural,
 }

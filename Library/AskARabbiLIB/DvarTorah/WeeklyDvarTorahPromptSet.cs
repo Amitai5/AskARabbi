@@ -12,7 +12,7 @@ public sealed record WeeklyDvarTorahPromptSet
     public string DraftSchemaName { get; init; } = "weekly_dvar_torah_draft_v2";
 
     /// <summary>Gets the stable structured schema name for independent safety and quality review.</summary>
-    public string ReviewSchemaName { get; init; } = "weekly_dvar_torah_review_v4";
+    public string ReviewSchemaName { get; init; } = "weekly_dvar_torah_review_v5";
 
     /// <summary>Gets the current-events selection instructions.</summary>
     public required string ResearchSystemPrompt { get; init; }

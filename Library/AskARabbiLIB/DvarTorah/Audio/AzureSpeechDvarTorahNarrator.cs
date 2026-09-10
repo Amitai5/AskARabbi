@@ -100,10 +100,15 @@ public sealed class AzureSpeechDvarTorahNarrator : IDvarTorahNarrator
     private static async Task<DvarTorahSpeechAudio> SynthesizeAsync(string ssml, DvarTorahAudioOptions options, TokenCredential credential, CancellationToken cancellationToken)
     {
         var accessToken = await credential.GetTokenAsync(new TokenRequestContext(["https://cognitiveservices.azure.com/.default"]), cancellationToken).ConfigureAwait(false);
-        var configuration = SpeechConfig.FromAuthorizationToken($"aad#{options.SpeechResourceId}#{accessToken.Token}", options.SpeechRegion);
+        // Service-endpoint firewalls require the resource's custom host, not the regional Speech host.
+        var authorizationToken = $"aad#{options.SpeechResourceId}#{accessToken.Token}";
+        var endpoint = options.GetSpeechEndpoint();
+        var configuration = endpoint is null ? SpeechConfig.FromAuthorizationToken(authorizationToken, options.SpeechRegion) : SpeechConfig.FromEndpoint(endpoint);
+        configuration.AuthorizationToken = authorizationToken;
         configuration.SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.Raw24Khz16BitMonoPcm);
-        configuration.SetProperty(PropertyId.SpeechServiceResponse_RequestWordBoundary, "true");
+        ConfigureWordBoundaryEvents(configuration.SetProperty);
         var boundaries = new ConcurrentQueue<DvarTorahSpeechWord>();
+        var metadataCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var synthesizer = new SpeechSynthesizer(configuration, audioConfig: null);
         synthesizer.WordBoundary += (_, boundary) =>
         {
@@ -112,27 +117,38 @@ public sealed class AzureSpeechDvarTorahNarrator : IDvarTorahNarrator
                 boundaries.Enqueue(new(boundary.Text, boundary.TextOffset, boundary.AudioOffset / (double)TimeSpan.TicksPerMillisecond, boundary.Duration.TotalMilliseconds));
             }
         };
+        synthesizer.SynthesisCompleted += (_, _) => metadataCompleted.TrySetResult();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromMinutes(3));
-        SpeechSynthesisResult result;
         try
         {
-            result = await synthesizer.SpeakSsmlAsync(ssml).WaitAsync(deadline.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            await synthesizer.StopSpeakingAsync().ConfigureAwait(false);
-            throw;
-        }
-        using (result)
-        {
+            using var result = await synthesizer.SpeakSsmlAsync(ssml).WaitAsync(deadline.Token).ConfigureAwait(false);
             if (result.Reason != ResultReason.SynthesizingAudioCompleted)
             {
                 var failure = SpeechSynthesisCancellationDetails.FromResult(result);
                 // SDK diagnostics can include resource URLs and text; expose only the stable error code.
                 throw new DvarTorahAudioException($"Speech{failure.ErrorCode}", "synthesis");
             }
-            return new DvarTorahSpeechAudio(result.AudioData, boundaries.ToArray());
+            return await CompleteSynthesisAsync(result.AudioData, boundaries, metadataCompleted.Task, deadline.Token).ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+        {
+            await synthesizer.StopSpeakingAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    internal static async Task<DvarTorahSpeechAudio> CompleteSynthesisAsync(byte[] pcm, ConcurrentQueue<DvarTorahSpeechWord> boundaries, Task metadataCompleted, CancellationToken cancellationToken)
+    {
+        // The audio-result task and native event callbacks complete independently, especially for short chunks.
+        await metadataCompleted.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new DvarTorahSpeechAudio(pcm, boundaries.ToArray());
+    }
+
+    internal static void ConfigureWordBoundaryEvents(Action<PropertyId, string> setProperty)
+    {
+        setProperty(PropertyId.SpeechServiceResponse_RequestWordBoundary, "true");
+        // This worker saves audio instead of playing it. Receive metadata immediately, before disposing the synthesizer.
+        setProperty(PropertyId.SpeechServiceResponse_SynthesisEventsSyncToAudio, "false");
     }
 }

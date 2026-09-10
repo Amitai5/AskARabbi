@@ -1,6 +1,6 @@
 # Weekly Dvar Torah Container Apps Job
 
-This .NET 10 executable is the isolated weekly write path for the `WeeklyAIDvarTorahs` MongoDB collection. The VNet-integrated `askarabbi-weekly-dvar-torah-vnet` Azure Container Apps Job supports private narration and currently has a Manual trigger. The existing `askarabbi-weekly-dvar-torah` job still owns the `5 8 * * 0` schedule (Sunday at 08:05 UTC); transferring that schedule requires a separate rollout decision. Each execution performs at most one text-generation attempt, then generates or recovers that publication's narration and exits; it does not run an internal timer or HTTP server.
+This .NET 10 executable is the isolated weekly write path for the `WeeklyAIDvarTorahs` MongoDB collection. The `askarabbi-dvar-torah-production` Azure Container Apps Job runs in the VNet-integrated `askarabbi-containerapps-production` environment and is the sole owner of the `5 8 * * 0` schedule (Sunday at 08:05 UTC). Each execution checks for the exact published week before constructing generation dependencies, then generates or recovers that publication's narration and exits; it does not run an internal timer or HTTP server. Retired jobs are not deployment targets.
 
 The job calculates the upcoming Shabbat with the same pinned calendar service as the API, acquires a recoverable MongoDB lease, researches current events, retrieves passages from the approved Sefaria Torah corpus, drafts a structured teaching, runs deterministic grounding checks plus an independent safety/inclusion review, and atomically publishes once. Platform retries either return `AlreadyPublished`, observe `GenerationInProgress`, or recover an expired lease.
 
@@ -28,14 +28,14 @@ The [writing guide](../../docs/DVAR_TORAH_WRITING.md) defines a beginner-friendl
 - A separate model pass blocks unsupported claims, irresponsible Torah interpretation, political persuasion, violence advocacy or glorification, graphic violence, hate or dehumanization, racism, sexism, targeting or alienation of protected/minority groups, exploitation of suffering, and claims that tragedy is divine punishment.
 - One editorial/grounding repair is allowed. A second validation failure leaves the week unpublished. A provider-blocked completion stops immediately rather than being replayed or retried as an editorial defect; Azure protections remain enabled.
 - Generation failures log fixed review check names and safe provider response IDs/completion categories, never draft text, source text, or model-generated review concerns. If the repair request fails, the original failed review checks are retained.
-- The v4 internal review schema adds grounded-opening and integrated-quotation checks and returns only enumerated checks, packet-scoped source IDs, and paragraph numbers, not free-form feedback that could copy source material. Application code formats repair instructions. All prior publication checks remain required; API and Mongo schemas do not change.
+- The v5 internal review schema includes grounded-opening, integrated-quotation, transition, and spoken-flow checks and returns only enumerated checks, packet-scoped source IDs, and paragraph numbers, not free-form feedback that could copy source material. Application code formats repair instructions. All prior publication checks remain required; API and Mongo schemas do not change.
 - Published records include tags, the central moral teaching, deterministic Torah-grounding percentage, model/review versions, the news research window, and complete bounded Torah/news source provenance. MongoDB indexes the tag array for future archive search.
 
 ## Safe pre-generation state
 
 `DvarTorah__GenerationEnabled` defaults to `false`. Without an explicit audio backfill key, the scheduled container writes one structured `WeeklyDvarTorahGenerationDisabled` log and exits successfully without reading MongoDB configuration or constructing a client. `DvarTorahAudio__Enabled` independently defaults to `false`; text publication remains available while narration is disabled.
 
-The generator is implemented, but activation remains fail-closed. Before setting `DvarTorah__GenerationEnabled=true`, configure the existing MongoDB, Azure model, and managed Torah corpus values; grant the job identity access to those resources; run a non-production research/publication smoke test; and complete the activation checklist in [`docs/PRODUCTION_READINESS.md`](../../docs/PRODUCTION_READINESS.md).
+New installations remain fail-closed. Before setting `DvarTorah__GenerationEnabled=true`, configure MongoDB, the Azure model, and the managed Torah corpus; grant the job identity access; and run a non-production research/publication smoke test. Production is already activated: preserve its generation/narration settings when updating images and follow [`docs/PRODUCTION_DEPLOYMENT.md`](../../docs/PRODUCTION_DEPLOYMENT.md).
 
 ## Runtime configuration
 
@@ -57,7 +57,7 @@ The generator is implemented, but activation remains fail-closed. Before setting
 | `DvarTorah__MinimumTorahGroundingPercent` | No | `80` (cannot be configured lower) |
 | `DvarTorah__MinimumBodyCharacters` | No | `2500` |
 | `DvarTorah__MaximumBodyCharacters` | No | `15000` |
-| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v4` |
+| `DvarTorah__GeneratorVersion` | No | `weekly-dvar-torah-v5` |
 | `AI__ProjectEndpoint` | When generation is enabled | None |
 | `AI__ModelName` | When generation is enabled | None |
 | `AI__VectorStoreId` | When generation is enabled | None |
@@ -74,6 +74,7 @@ The generator is implemented, but activation remains fail-closed. Before setting
 | `DvarTorahAudio__ContainerName` | No | `dvar-torah-audio` |
 | `DvarTorahAudio__SpeechRegion` | No | `eastus2` |
 | `DvarTorahAudio__SpeechResourceId` | When narration is enabled | Full Azure resource ID of the Speech account |
+| `DvarTorahAudio__SpeechServiceUri` | In subnet-restricted production | `https://askarabbi-speech-prod.cognitiveservices.azure.com/`; omit only for a deployment using regional Speech access |
 | `DvarTorahAudio__Voice` | No | `en-US-AndrewMultilingualNeural` |
 | `DvarTorahAudio__FfmpegPath` | No | `ffmpeg`, installed in the job image |
 | `DvarTorahAudio__LeaseMinutes` | No | `30` (range `5`–`120`) |
@@ -94,4 +95,4 @@ docker build --file Backend/AskARabbi.DvarTorahJob/Dockerfile --tag askarabbi-dv
 docker run --rm askarabbi-dvar-torah-job:local
 ```
 
-Both local runs use the safe disabled default and should exit with code `0`. The production workflow builds this Dockerfile, pushes `askarabbi-dvar-torah-job:<verified-commit>` to ACR, resolves its immutable digest, updates the existing scheduled Container Apps Job, and verifies the job image, schedule trigger, cron expression, and provisioning state. Until the private job is part of that deployment workflow, update its image explicitly to the same verified digest without changing either job's trigger.
+Both local runs use the safe disabled default and should exit with code `0`. The production workflow builds this Dockerfile, pushes `askarabbi-dvar-torah-job:<verified-commit>` to ACR, resolves its immutable digest, and updates only `askarabbi-dvar-torah-production`. It verifies the new environment, narration/custom Speech endpoint, job image, schedule, execution policy, and provisioning state. Registry repository names are unchanged; runtime resource names use the consolidated production targets.

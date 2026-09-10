@@ -11,6 +11,8 @@ public sealed class DvarTorahAudioOptions
     public string ContainerName { get; init; } = "dvar-torah-audio";
     public string SpeechRegion { get; init; } = "eastus2";
     public string SpeechResourceId { get; init; } = string.Empty;
+    /// <summary>Optional HTTPS custom Speech service root required for subnet-restricted resources; null preserves regional access.</summary>
+    public string? SpeechServiceUri { get; init; }
     public string Voice { get; init; } = "en-US-AndrewMultilingualNeural";
     public string FfmpegPath { get; init; } = "ffmpeg";
     public TimeSpan LeaseDuration { get; init; } = TimeSpan.FromMinutes(30);
@@ -32,6 +34,7 @@ public sealed class DvarTorahAudioOptions
     public void ValidateGeneration()
     {
         ValidateStorage();
+        _ = GetSpeechEndpoint();
         if (!Regex.IsMatch(SpeechRegion, "^[a-z0-9]{2,40}$", RegexOptions.CultureInvariant) || !Regex.IsMatch(SpeechResourceId, "^/subscriptions/[a-fA-F0-9-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.CognitiveServices/accounts/[^/]+$", RegexOptions.CultureInvariant))
         {
             throw new InvalidOperationException($"{SectionName}:SpeechRegion and SpeechResourceId must identify the managed-identity Speech resource.");
@@ -44,5 +47,20 @@ public sealed class DvarTorahAudioOptions
         {
             throw new InvalidOperationException($"{SectionName}:LeaseDuration must be between five minutes and two hours.");
         }
+    }
+
+    internal Uri? GetSpeechEndpoint()
+    {
+        if (SpeechServiceUri is null)
+        {
+            return null;
+        }
+        if (!Uri.TryCreate(SpeechServiceUri, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || !Regex.IsMatch(uri.Host, "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.cognitiveservices\\.azure\\.com$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) || uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) || !string.IsNullOrEmpty(uri.UserInfo) || !uri.IsDefaultPort)
+        {
+            throw new InvalidOperationException($"{SectionName}:SpeechServiceUri must be an HTTPS custom Azure Speech service URI without credentials or paths.");
+        }
+
+        // Preserve the custom resource host and explicitly select its streaming synthesis route.
+        return new UriBuilder(uri) { Scheme = "wss", Port = -1, Path = "/tts/cognitiveservices/websocket/v1" }.Uri;
     }
 }

@@ -9,6 +9,51 @@ public sealed class DvarTorahAudioOptionsTests
 {
     [TestMethod]
     [DataRow("")]
+    [DataRow(" ")]
+    [DataRow("http://test.cognitiveservices.azure.com/")]
+    [DataRow("wss://test.cognitiveservices.azure.com/")]
+    [DataRow("https://attacker.example/")]
+    [DataRow("https://test.cognitiveservices.azure.com.attacker.example/")]
+    [DataRow("https://test.cognitiveservices.azure.com/path")]
+    [DataRow("https://test.cognitiveservices.azure.com/?token=secret")]
+    [DataRow("https://test.cognitiveservices.azure.com/#fragment")]
+    [DataRow("https://user:password@test.cognitiveservices.azure.com/")]
+    [DataRow("https://test.cognitiveservices.azure.com:8443/")]
+    [TestCategory("Regression")]
+    public void ValidateGeneration_UntrustedSpeechEndpoint_RejectsBeforeSendingIdentityToken(string endpoint)
+    {
+        var options = new DvarTorahAudioOptions { StorageServiceUri = "https://test.blob.core.windows.net/", SpeechResourceId = DvarTorahAudioTestData.Options().SpeechResourceId, SpeechServiceUri = endpoint };
+
+        var failure = Assert.ThrowsExactly<InvalidOperationException>(options.ValidateGeneration);
+
+        StringAssert.Contains(failure.Message, "SpeechServiceUri");
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetSpeechEndpoint_CustomServiceRoot_UsesStreamingTtsRouteForWordBoundaries()
+    {
+        var options = new DvarTorahAudioOptions { StorageServiceUri = "https://test.blob.core.windows.net/", SpeechResourceId = DvarTorahAudioTestData.Options().SpeechResourceId, SpeechServiceUri = "https://test-speech.cognitiveservices.azure.com/" };
+
+        options.ValidateGeneration();
+        var endpoint = options.GetSpeechEndpoint();
+
+        Assert.AreEqual(new Uri("wss://test-speech.cognitiveservices.azure.com/tts/cognitiveservices/websocket/v1"), endpoint);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void GetSpeechEndpoint_NotConfigured_PreservesExistingRegionalMode()
+    {
+        var options = DvarTorahAudioTestData.Options();
+
+        options.ValidateGeneration();
+
+        Assert.IsNull(options.GetSpeechEndpoint());
+    }
+
+    [TestMethod]
+    [DataRow("")]
     [DataRow("http://test.blob.core.windows.net/")]
     [DataRow("https://attacker.example/")]
     [DataRow("https://test.blob.core.windows.net/path")]

@@ -1,5 +1,7 @@
 using AskARabbiLIB.DvarTorah.Audio;
+using Microsoft.CognitiveServices.Speech;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -8,6 +10,47 @@ namespace AskARabbiLIB.Tests;
 [TestClass]
 public sealed class AzureSpeechDvarTorahNarratorTests
 {
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task CompleteSynthesisAsync_AudioFinishesBeforeMetadata_WaitsForFinalWordEvents()
+    {
+        var pcm = new byte[48_000];
+        var boundaries = new ConcurrentQueue<DvarTorahSpeechWord>();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var capture = AzureSpeechDvarTorahNarrator.CompleteSynthesisAsync(pcm, boundaries, completion.Task, CancellationToken.None);
+        Assert.IsFalse(capture.IsCompleted);
+        boundaries.Enqueue(new("Hello", 0, 0, 500));
+        completion.SetResult();
+        var result = await capture;
+
+        CollectionAssert.AreEqual(pcm, result.Pcm.ToArray());
+        Assert.HasCount(1, result.Words);
+        Assert.AreEqual("Hello", result.Words[0].Text);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task CompleteSynthesisAsync_MetadataNeverCompletes_ObservesCancellation()
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => AzureSpeechDvarTorahNarrator.CompleteSynthesisAsync(new byte[48_000], new(), completion.Task, new CancellationToken(true)));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void ConfigureWordBoundaryEvents_ServerSideSynthesis_RequestsImmediateWordMetadata()
+    {
+        var properties = new Dictionary<PropertyId, string>();
+
+        AzureSpeechDvarTorahNarrator.ConfigureWordBoundaryEvents((id, value) => properties.Add(id, value));
+
+        Assert.HasCount(2, properties);
+        Assert.AreEqual("true", properties[PropertyId.SpeechServiceResponse_RequestWordBoundary]);
+        Assert.AreEqual("false", properties[PropertyId.SpeechServiceResponse_SynthesisEventsSyncToAudio]);
+    }
+
     [TestMethod]
     [TestCategory("Unit")]
     public async Task GenerateAsync_MultipleChunks_ConcatenatesSamplesAndOffsetsWithoutTruncation()

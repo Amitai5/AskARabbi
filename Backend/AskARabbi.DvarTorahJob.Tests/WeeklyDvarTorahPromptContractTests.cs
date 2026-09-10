@@ -13,6 +13,8 @@ public sealed class WeeklyDvarTorahPromptContractTests
     [DataRow("conclusionReturnsToOpening")]
     [DataRow("openingHookGrounded")]
     [DataRow("quotationsIntegrated")]
+    [DataRow("hookTorahBridgeNatural")]
+    [DataRow("spokenFlowNatural")]
     [TestCategory("Regression")]
     public void ReviewSchema_EditorialGate_IsRequiredBooleanWithMatchingInstruction(string property)
     {
@@ -20,9 +22,11 @@ public sealed class WeeklyDvarTorahPromptContractTests
 
         var definition = schema.RootElement.GetProperty("properties").GetProperty(property);
         var required = schema.RootElement.GetProperty("required").EnumerateArray().Select(item => item.GetString()).ToArray();
+        var concernChecks = schema.RootElement.GetProperty("properties").GetProperty("concerns").GetProperty("items").GetProperty("properties").GetProperty("check").GetProperty("enum").EnumerateArray().Select(item => item.GetString()).ToArray();
 
         Assert.AreEqual("boolean", definition.GetProperty("type").GetString());
         CollectionAssert.Contains(required, property);
+        CollectionAssert.Contains(concernChecks, char.ToUpperInvariant(property[0]) + property[1..]);
         StringAssert.Contains(ReadPrompt("review-system.txt"), $"Set {property} true only when");
     }
 
@@ -36,7 +40,7 @@ public sealed class WeeklyDvarTorahPromptContractTests
         StringAssert.Contains(draft, "has NOT read the parashah");
         StringAssert.Contains(draft, "BEGINNING:");
         StringAssert.Contains(draft, "first model-generated paragraph must open with a compelling modern hook");
-        StringAssert.Contains(draft, "By that second model-generated paragraph, explicitly name");
+        StringAssert.Contains(draft, "By the second or third model-generated paragraph, explicitly name");
         StringAssert.Contains(draft, "Do not substitute vague labels");
         StringAssert.Contains(draft, "MIDDLE:");
         StringAssert.Contains(draft, "END:");
@@ -100,11 +104,55 @@ public sealed class WeeklyDvarTorahPromptContractTests
 
         Assert.AreEqual(3, properties.EnumerateObject().Count());
         Assert.AreEqual("string", properties.GetProperty("check").GetProperty("type").GetString());
-        Assert.AreEqual(24, properties.GetProperty("check").GetProperty("enum").GetArrayLength());
+        Assert.AreEqual(26, properties.GetProperty("check").GetProperty("enum").GetArrayLength());
         Assert.AreEqual("array", properties.GetProperty("evidenceIds").GetProperty("type").GetString());
         Assert.IsTrue(properties.GetProperty("evidenceIds").GetProperty("items").TryGetProperty("enum", out _));
         Assert.AreEqual("integer", properties.GetProperty("paragraphIndex").GetProperty("type").GetString());
         Assert.IsFalse(concern.GetProperty("additionalProperties").GetBoolean());
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void WritingContract_ContinuousSpeech_RequiresBridgeProgressionAndReadAloudPass()
+    {
+        var draft = ReadPrompt("draft-system.txt");
+        var research = ReadPrompt("research-system.txt");
+        var repair = ReadPrompt("repair.txt");
+
+        StringAssert.Contains(research, "concrete human decision shared by the contemporary situation and the Torah question");
+        StringAssert.Contains(research, "proposed directions for retrieval, not established Torah interpretations");
+        StringAssert.Contains(draft, "carry that SAME question into the Torah scene before the first quotation");
+        StringAssert.Contains(draft, "A news report followed by");
+        StringAssert.Contains(draft, "brief Torah scene that sharpens it");
+        StringAssert.Contains(draft, "not an outline to copy into the body paragraph by paragraph");
+        StringAssert.Contains(draft, "previous paragraph's discovery or unresolved question");
+        StringAssert.Contains(draft, "never invent a commentator's position");
+        StringAssert.Contains(draft, "plain explanations of what people face or do");
+        StringAssert.Contains(draft, "not an academic describing a text's argument");
+        StringAssert.Contains(draft, "not worksheet labels");
+        StringAssert.Contains(draft, "Do not reserve a paragraph for summarizing all remaining verses");
+        StringAssert.Contains(draft, "not a claim that a Torah verse specifically commands");
+        StringAssert.Contains(draft, "Keep exact quotation wording unchanged");
+        StringAssert.Contains(draft, "silent read-aloud editing pass from the fixed welcome through the closing");
+        StringAssert.Contains(repair, "revise the connected passage, not just a transition word");
+        StringAssert.Contains(repair, "all grounding, safety, source, and count requirements");
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void ReviewContract_GroundedButDisconnectedSpeech_StillFailsEditorialChecks()
+    {
+        var review = ReadPrompt("review-system.txt");
+
+        StringAssert.Contains(review, "accurate news alone cannot pass that check");
+        StringAssert.Contains(review, "A shared abstract topic is not enough");
+        StringAssert.Contains(review, "a connection explained only near the end");
+        StringAssert.Contains(review, "individually sound but disconnected verse summaries");
+        StringAssert.Contains(review, "Having an introduction, body, and conclusion alone is not enough to pass");
+        StringAssert.Contains(review, "without demanding that the quotation be modernized");
+        StringAssert.Contains(review, "even if it has a bridge and sound citations");
+        StringAssert.Contains(review, "a paragraph that lists leftover verses solely to meet source counts also fail");
+        StringAssert.Contains(review, "Judge patterns that materially burden a first-time listener");
     }
 
     private static string ReadPrompt(string fileName)

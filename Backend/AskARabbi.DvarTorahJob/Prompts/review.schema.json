@@ -14,6 +14,8 @@
     "conclusionReturnsToOpening": { "type": "boolean" },
     "openingHookGrounded": { "type": "boolean" },
     "quotationsIntegrated": { "type": "boolean" },
+    "hookTorahBridgeNatural": { "type": "boolean" },
+    "spokenFlowNatural": { "type": "boolean" },
     "doesNotEncourageViolence": { "type": "boolean" },
     "doesNotGlorifyOrGraphicallyDescribeViolence": { "type": "boolean" },
     "doesNotContainHateOrDehumanization": { "type": "boolean" },
@@ -58,7 +60,9 @@
               "DoesNotExploitSuffering",
               "DoesNotClaimDivinePunishment",
               "RespectfulAndInclusive",
-              "SafeToPublish"
+              "SafeToPublish",
+              "HookTorahBridgeNatural",
+              "SpokenFlowNatural"
             ]
           },
           "evidenceIds": {
@@ -95,6 +99,8 @@
     "conclusionReturnsToOpening",
     "openingHookGrounded",
     "quotationsIntegrated",
+    "hookTorahBridgeNatural",
+    "spokenFlowNatural",
     "doesNotEncourageViolence",
     "doesNotGlorifyOrGraphicallyDescribeViolence",
     "doesNotContainHateOrDehumanization",

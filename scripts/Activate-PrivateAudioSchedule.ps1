@@ -2,6 +2,9 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+# Timer ownership has already moved to the consolidated production job.
+throw 'This schedule-transfer script is retired. askarabbi-dvar-torah-production already owns the weekly timer. Follow docs/PRODUCTION_NETWORK.md; do not recreate either old job.'
+
 $subscriptionId = 'c2f8383e-2c4e-4822-82a7-506b2e2ddf38'
 $prefix = "/subscriptions/$subscriptionId/resourceGroups/AARProduction/providers/Microsoft.App/jobs"
 $apiVersion = '2025-01-01'

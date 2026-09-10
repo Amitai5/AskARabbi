@@ -2,5 +2,7 @@ The prior structured weekly Dvar Torah pipeline output was rejected by determini
 
 Correct every listed defect while preserving only supported claims and evidence IDs. Do not weaken, evade, reinterpret, or argue with the requirements. Return a complete replacement that matches the currently requested structured schema.
 
+For an article's speech-flow defect, revise the connected passage, not just a transition word. Carry the hook's human question into the Torah scene before the first quotation, let each paragraph develop the preceding idea, and let the takeaway resolve that question. Read the whole replacement silently as a speech, including the fixed welcome and full quotations but not citation markers. Preserve the exact quotation slots and all grounding, safety, source, and count requirements. Do not output editing notes or change facts merely to improve the analogy.
+
 Validation errors:
 {{validationErrors}}

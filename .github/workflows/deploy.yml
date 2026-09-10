@@ -24,11 +24,11 @@ env:
   ACR_LOGIN_SERVER: askarabbiacrprod.azurecr.io
   API_IMAGE_REPOSITORY: askarabbi-api
   DVAR_TORAH_IMAGE_REPOSITORY: askarabbi-dvar-torah-job
-  CONTAINER_APP_NAME: askarabbi-api-vnet
-  # Keep the existing timer owner until the separately approved schedule cutover.
-  DVAR_TORAH_JOB_NAME: askarabbi-weekly-dvar-torah
+  CONTAINER_APPS_ENVIRONMENT_NAME: askarabbi-containerapps-production
+  CONTAINER_APP_NAME: askarabbi-api-production
+  DVAR_TORAH_JOB_NAME: askarabbi-dvar-torah-production
   DVAR_TORAH_JOB_CRON: "5 8 * * 0"
-  DVAR_TORAH_JOB_REPLICA_TIMEOUT: "2100"
+  DVAR_TORAH_JOB_REPLICA_TIMEOUT: "3600"
 
 jobs:
   deploy:
@@ -93,7 +93,7 @@ jobs:
       - name: Enable the Azure Container Apps CLI extension
         run: az config set extension.use_dynamic_install=yes_without_prompt
 
-      - name: Verify managed session-key configuration before deployment
+      - name: Verify production runtime configuration before deployment
         run: |
           set -euo pipefail
           subscription_id="$(az account show --query id --output tsv)"
@@ -104,6 +104,20 @@ jobs:
             --output tsv)"
           if [ "$enabled" != "true" ]; then
             echo "Azure-managed Data Protection must be enabled before deploying the API. A key-directory environment variable alone is not sufficient." >&2
+            exit 1
+          fi
+
+          expected_environment="/subscriptions/$subscription_id/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.App/managedEnvironments/$CONTAINER_APPS_ENVIRONMENT_NAME"
+          configured_environment="$(az rest --method get \
+            --url "$api_resource?api-version=2025-02-02-preview" \
+            --query 'properties.environmentId || properties.managedEnvironmentId' \
+            --output tsv)"
+          minimum_replicas="$(az rest --method get \
+            --url "$api_resource?api-version=2025-02-02-preview" \
+            --query properties.template.scale.minReplicas \
+            --output tsv)"
+          if [ "${configured_environment,,}" != "${expected_environment,,}" ] || [ "$minimum_replicas" != "0" ]; then
+            echo "The API must use the consolidated production environment and retain scale-to-zero." >&2
             exit 1
           fi
 
@@ -142,6 +156,15 @@ jobs:
             --output tsv)"
           if [ "$enabled" != "true" ]; then
             echo "The deployment lost Azure-managed Data Protection; Google sign-in cannot safely create application sessions." >&2
+            exit 1
+          fi
+
+          minimum_replicas="$(az rest --method get \
+            --url "$api_resource?api-version=2025-02-02-preview" \
+            --query properties.template.scale.minReplicas \
+            --output tsv)"
+          if [ "$minimum_replicas" != "0" ]; then
+            echo "The API deployment must preserve the approved scale-to-zero configuration." >&2
             exit 1
           fi
 
@@ -244,6 +267,23 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --query properties.configuration.scheduleTriggerConfig.replicaCompletionCount \
             --output tsv)"
+          subscription_id="$(az account show --query id --output tsv)"
+          expected_environment="/subscriptions/$subscription_id/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.App/managedEnvironments/$CONTAINER_APPS_ENVIRONMENT_NAME"
+          configured_environment="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.environmentId \
+            --output tsv)"
+          audio_enabled="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.template.containers[0].env[?name=='DvarTorahAudio__Enabled'].value | [0]" \
+            --output tsv)"
+          speech_endpoint="$(az containerapp job show \
+            --name "$DVAR_TORAH_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.template.containers[0].env[?name=='DvarTorahAudio__SpeechServiceUri'].value | [0]" \
+            --output tsv)"
 
           if [ "$configured_image" != "$expected_image" ]; then
             echo "Scheduled job image mismatch. Expected $expected_image but found $configured_image." >&2
@@ -270,6 +310,16 @@ jobs:
             exit 1
           fi
 
+          if [ "${configured_environment,,}" != "${expected_environment,,}" ] || [ "${audio_enabled,,}" != "true" ]; then
+            echo "The weekly job must use the consolidated production environment with narration enabled." >&2
+            exit 1
+          fi
+
+          if [ "$speech_endpoint" != "https://askarabbi-speech-prod.cognitiveservices.azure.com/" ]; then
+            echo "The subnet-restricted Speech account requires its existing custom endpoint." >&2
+            exit 1
+          fi
+
           echo "job-image=$configured_image" >> "$GITHUB_OUTPUT"
           echo "job-cron=$cron_expression" >> "$GITHUB_OUTPUT"
 
@@ -285,6 +335,7 @@ jobs:
             echo "### AskARabbi backend deployment"
             echo
             echo "- Commit: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "- Container Apps environment: \`$CONTAINER_APPS_ENVIRONMENT_NAME\`"
             echo "- API image: \`$ACR_LOGIN_SERVER/$API_IMAGE_REPOSITORY@$API_IMAGE_DIGEST\`"
             echo "- API revision: \`$REVISION_NAME\`"
             echo "- API health: https://$API_FQDN/health"
