@@ -24,25 +24,27 @@ public sealed class AzureOpenAIEngine : IAIEngine
     /// <summary>Creates an Azure OpenAI engine without performing network work.</summary>
     /// <param name="options">Validated Azure endpoint, model, and request limits.</param>
     /// <param name="credential">Optional Entra credential; defaults to DefaultAzureCredential.</param>
-    public AzureOpenAIEngine(AIEngineOptions options, TokenCredential? credential = null)
+    /// <param name="usageObserver">Optional request admission and token-accounting boundary.</param>
+    public AzureOpenAIEngine(AIEngineOptions options, TokenCredential? credential = null, IAIUsageObserver? usageObserver = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
         this.options = options;
-        transport = new AzureResponsesTransport(options, credential ?? new DefaultAzureCredential());
+        transport = new AzureResponsesTransport(options, credential ?? new DefaultAzureCredential(), usageObserver);
         delayAsync = Task.Delay;
     }
 
     /// <summary>Creates an Azure OpenAI engine that authenticates with an API-key credential without performing network work.</summary>
     /// <param name="options">Validated Azure endpoint, model, and request limits.</param>
     /// <param name="credential">API-key credential for the configured Azure OpenAI resource.</param>
-    public AzureOpenAIEngine(AIEngineOptions options, ApiKeyCredential credential)
+    /// <param name="usageObserver">Optional request admission and token-accounting boundary.</param>
+    public AzureOpenAIEngine(AIEngineOptions options, ApiKeyCredential credential, IAIUsageObserver? usageObserver = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(credential);
         options.Validate();
         this.options = options;
-        transport = new AzureResponsesTransport(options, credential);
+        transport = new AzureResponsesTransport(options, credential, usageObserver);
         delayAsync = Task.Delay;
     }
 

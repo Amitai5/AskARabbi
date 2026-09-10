@@ -6,4 +6,8 @@ namespace AskARabbi.Api.Contracts.Conversations;
 /// <param name="Messages">User and assistant messages involved in this turn.</param>
 /// <param name="CreatedAtUtc">UTC creation instant needed when the client has no prior conversation context.</param>
 /// <param name="Message">Safe user-facing failure detail when no answer was generated.</param>
-public sealed record ConversationTurnDeltaResponse(string Status, ConversationSummaryResponse Conversation, IReadOnlyList<ConversationMessageResponse> Messages, DateTimeOffset CreatedAtUtc, string? Message);
+public sealed record ConversationTurnDeltaResponse(string Status, ConversationSummaryResponse Conversation, IReadOnlyList<ConversationMessageResponse> Messages, DateTimeOffset CreatedAtUtc, string? Message)
+{
+    /// <summary>Gets updated token usage, including unsuccessful generation attempts.</summary>
+    public ConversationSettings.UsageResponse? Usage { get; init; }
+}

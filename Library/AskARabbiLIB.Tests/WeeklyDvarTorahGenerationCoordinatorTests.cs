@@ -178,6 +178,41 @@ public sealed class WeeklyDvarTorahGenerationCoordinatorTests
 
     private static WeeklyDvarTorahArticle CreateArticle() => new(Week, "A weekly teaching", "First paragraph.", "test-v1", CurrentUtc, CurrentUtc);
 
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task RunAsync_SameWeekWithNewInvocation_DoesNotGenerateAgain()
+    {
+        var store = new GenerationStore();
+        var generator = new RecordingGenerator();
+        var coordinator = CreateCoordinator(store, generator);
+
+        var first = await coordinator.RunAsync("first-run");
+        var repeated = await coordinator.RunAsync("next-run");
+
+        Assert.AreEqual(WeeklyDvarTorahGenerationStatus.Published, first.Status);
+        Assert.AreEqual(WeeklyDvarTorahGenerationStatus.AlreadyPublished, repeated.Status);
+        Assert.AreEqual(first.Article, repeated.Article);
+        Assert.AreEqual(1, generator.Calls);
+        Assert.AreEqual(1, store.AcquireCalls);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task RunAsync_SameParashahFromAnotherYear_GeneratesCurrentWeek()
+    {
+        var previousWeek = new WeeklyDvarTorahWeek(new DateOnly(2025, 9, 20), "27 Elul, 5785", Week.Parashah, null, false);
+        var previousArticle = new WeeklyDvarTorahArticle(previousWeek, "Last year's teaching", "A different year's text.", "old-version", CurrentUtc.AddYears(-1), CurrentUtc.AddYears(-1));
+        var store = new GenerationStore { Published = previousArticle };
+        var generator = new RecordingGenerator();
+
+        var result = await CreateCoordinator(store, generator).RunAsync("new-year");
+
+        Assert.AreEqual(WeeklyDvarTorahGenerationStatus.Published, result.Status);
+        Assert.AreEqual(Week.WeekKey, result.Article?.Week.WeekKey);
+        Assert.AreNotEqual(previousWeek.WeekKey, result.Article?.Week.WeekKey);
+        Assert.AreEqual(1, generator.Calls);
+    }
+
     private sealed class RecordingGenerator : IWeeklyDvarTorahGenerator
     {
         internal Exception? Exception { get; init; }
@@ -215,7 +250,7 @@ public sealed class WeeklyDvarTorahGenerationCoordinatorTests
 
         internal Exception? FailureException { get; init; }
 
-        public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default) => Task.FromResult(Published);
+        public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default) => Task.FromResult(Published?.Week.WeekKey == week.WeekKey ? Published : null);
 
         public Task<WeeklyDvarTorahArticle?> GetLatestPublishedAsync(bool inIsrael, DateOnly notAfter, CancellationToken cancellationToken = default) => Task.FromResult(Published);
 

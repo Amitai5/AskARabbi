@@ -1,20 +1,20 @@
 namespace AskARabbi.Api.Usage;
 
-/// <summary>Configures included answer usage for the current account tier.</summary>
+/// <summary>Configures the monthly chat token allowance for each account.</summary>
 public sealed record MonthlyUsageOptions
 {
     /// <summary>Gets the configuration section name.</summary>
     public const string SectionName = "Usage";
 
-    /// <summary>Gets the included answers in each UTC calendar month.</summary>
-    public int MonthlyAnswerLimit { get; init; } = 50;
+    /// <summary>Gets the included input and output tokens in each UTC calendar month.</summary>
+    public long MonthlyTokenLimit { get; init; } = 10_000_000;
 
     /// <summary>Validates usage configuration.</summary>
     public void Validate()
     {
-        if (MonthlyAnswerLimit < 1)
+        if (MonthlyTokenLimit < 1)
         {
-            throw new InvalidOperationException($"{SectionName}:{nameof(MonthlyAnswerLimit)} must be positive.");
+            throw new InvalidOperationException($"{SectionName}:{nameof(MonthlyTokenLimit)} must be positive.");
         }
     }
 }

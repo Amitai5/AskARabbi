@@ -54,6 +54,10 @@ public sealed class UserDataControllerTests
         using var client = await application.CreateAuthenticatedClientAsync();
         var userId = application.Store.UserId;
         await SeedAsync(application.Store, userId, 70);
+        var usageLease = new AskARabbiLIB.Usage.ChatUsageLease(userId, OperationId, Now, Now.AddMonths(1), Now.AddMinutes(10), 10_000_000);
+        Assert.IsTrue(await application.Store.TryAcquireChatAsync(usageLease, Now));
+        Assert.IsTrue(await application.Store.RecordTokensAsync(usageLease, 7_000));
+        await application.Store.ReleaseChatAsync(usageLease);
         await SeedAsync(application.Store, OtherUser, 2);
         await application.Store.UpsertPreferencesAsync(userId, new ConversationPreferences { EmailProductUpdates = true }, Now);
 
@@ -66,7 +70,7 @@ public sealed class UserDataControllerTests
         Assert.HasCount(2, await application.Store.ListAsync(OtherUser, 100));
         Assert.IsNotNull(await application.Store.GetByIdAsync(userId));
         Assert.IsTrue((await application.Store.GetPreferencesAsync(userId))?.EmailProductUpdates);
-        Assert.AreEqual(7, await application.Store.GetAnswerCountAsync(userId, Now, Now));
+        Assert.AreEqual(7_000L, await application.Store.GetTokenCountAsync(userId, Now, Now.AddMonths(1)));
         Assert.IsNull(application.Authentication.DeletedProviderUserId);
     }
 
@@ -92,7 +96,7 @@ public sealed class UserDataControllerTests
         Assert.IsNull(await application.Store.GetByIdAsync(userId));
         Assert.IsNull(await application.Store.GetPreferencesAsync(userId));
         Assert.IsNull(await application.Store.GetPersonalizationAsync(userId));
-        Assert.AreEqual(0, await application.Store.GetAnswerCountAsync(userId, Now, Now));
+        Assert.AreEqual(0L, await application.Store.GetTokenCountAsync(userId, Now, Now));
         Assert.HasCount(0, await application.Store.ListAsync(userId, 100));
         Assert.HasCount(1, await application.Store.ListAsync(OtherUser, 100));
         Assert.AreEqual(HttpStatusCode.Unauthorized, staleSession.StatusCode);

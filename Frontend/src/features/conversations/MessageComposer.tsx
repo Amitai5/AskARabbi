@@ -8,17 +8,18 @@ interface MessageComposerProps {
   conversationLanguage: string
   quotationLanguage: string
   isSending: boolean
+  isChatDisabled?: boolean
   onDraftChange(value: string): void
   onSelectedSourceKeysChange(sourceKeys: string[]): void
   onSubmit(): void
 }
 
-export function MessageComposer({ draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, onDraftChange, onSelectedSourceKeysChange, onSubmit }: MessageComposerProps) {
+export function MessageComposer({ draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, isChatDisabled = false, onDraftChange, onSelectedSourceKeysChange, onSubmit }: MessageComposerProps) {
   const formRef = useRef<HTMLFormElement>(null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (draft.trim().length > 0 && selectedSourceKeys.length > 0) {
+    if (!isChatDisabled && !isSending && draft.trim().length > 0 && selectedSourceKeys.length > 0) {
       onSubmit()
     }
   }
@@ -37,6 +38,8 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
         <textarea
           id="message"
           value={draft}
+          readOnly={isChatDisabled}
+          aria-describedby={isChatDisabled ? 'chat-allowance-notice' : undefined}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
@@ -49,7 +52,7 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
             <SourceFilterMenu key={isSending ? 'source-filter-sending' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending} onChange={onSelectedSourceKeysChange} />
             <span className="hidden truncate text-sm leading-4 text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
           </div>
-          <button type="submit" disabled={isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">
+          <button type="submit" disabled={isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">
             <ArrowUp aria-hidden="true" className="size-4" strokeWidth={1.9} />
           </button>
         </div>

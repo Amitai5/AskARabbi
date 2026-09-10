@@ -3,6 +3,7 @@ using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Usage;
+using AskARabbiLIB.Persistence.InMemory;
 
 namespace AskARabbi.Api.Development;
 
@@ -14,7 +15,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     private readonly Dictionary<Guid, Conversation> conversations = [];
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
-    private readonly Dictionary<(Guid UserId, DateTimeOffset PeriodStartUtc), int> answerCounts = [];
+    internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly IReadOnlyList<WeeklyDvarTorahArticle> weeklyDvarTorahs = CreateWeeklyDvarTorahs();
     private UserAccount? account;
     private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
@@ -98,10 +99,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
         {
             personalization.Remove(userId);
             preferences.Remove(userId);
-            foreach (var key in answerCounts.Keys.Where(key => key.UserId == userId).ToArray())
-            {
-                answerCounts.Remove(key);
-            }
+            TokenUsage.DeleteAccount(userId);
             account = null;
             nextAccountId = Guid.NewGuid();
             dataOperations.Clear();
@@ -298,29 +296,16 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     }
 
     /// <inheritdoc/>
-    public Task<int> GetAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        lock (synchronization)
-        {
-            answerCounts.TryGetValue((userId, periodStartUtc), out var value);
-            return Task.FromResult(value);
-        }
-    }
+    public Task<long> GetTokenCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => TokenUsage.GetTokenCountAsync(userId, periodStartUtc, periodEndUtc, cancellationToken);
 
     /// <inheritdoc/>
-    public Task<int> IncrementAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        lock (synchronization)
-        {
-            var key = (userId, periodStartUtc);
-            answerCounts.TryGetValue(key, out var value);
-            value++;
-            answerCounts[key] = value;
-            return Task.FromResult(value);
-        }
-    }
+    public Task<bool> TryAcquireChatAsync(ChatUsageLease lease, DateTimeOffset now, CancellationToken cancellationToken = default) => TokenUsage.TryAcquireChatAsync(lease, now, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<bool> RecordTokensAsync(ChatUsageLease lease, long cumulativeTokens, CancellationToken cancellationToken = default) => TokenUsage.RecordTokensAsync(lease, cumulativeTokens, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task ReleaseChatAsync(ChatUsageLease lease, CancellationToken cancellationToken = default) => TokenUsage.ReleaseChatAsync(lease, cancellationToken);
 
     /// <inheritdoc/>
     public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default)

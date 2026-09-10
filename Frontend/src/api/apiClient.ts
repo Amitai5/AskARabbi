@@ -1,15 +1,19 @@
+import type { UsageSummary } from '../features/settings/settingsTypes.ts'
+
 export interface ApiProblemDetails {
   title?: string
   detail?: string
   status?: number
   code?: string
   traceId?: string
+  usage?: UsageSummary
 }
 
 export class ApiError extends Error {
   readonly status: number
   readonly code?: string
   readonly traceId?: string
+  readonly usage?: UsageSummary
 
   constructor(status: number, problem: ApiProblemDetails) {
     super(problem.detail ?? problem.title ?? `The AskRabbi API returned HTTP ${status}.`)
@@ -17,6 +21,7 @@ export class ApiError extends Error {
     this.status = status
     this.code = problem.code
     this.traceId = problem.traceId
+    this.usage = problem.usage
   }
 }
 

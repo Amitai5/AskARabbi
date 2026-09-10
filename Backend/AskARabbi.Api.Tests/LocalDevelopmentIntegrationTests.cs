@@ -133,7 +133,7 @@ public sealed class LocalDevelopmentIntegrationTests
         var usage = await usageResponse.Content.ReadFromJsonAsync<UsageResponse>();
 
         Assert.AreEqual(HttpStatusCode.OK, usageResponse.StatusCode);
-        Assert.AreEqual(1, usage?.AnswersUsed);
+        Assert.AreEqual(30L, usage?.TokensUsed);
         Assert.AreEqual(new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero), usage?.PeriodStartUtc);
     }
 

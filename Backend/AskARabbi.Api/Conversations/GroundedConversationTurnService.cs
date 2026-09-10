@@ -17,6 +17,7 @@ public sealed class GroundedConversationTurnService
     private readonly ConversationService conversations;
     private readonly ConversationSettingsService settings;
     private readonly MonthlyUsageService usage;
+    private readonly ChatUsageContext usageContext;
     private readonly IGroundedAnswerService groundedAnswers;
     private readonly GroundedAnswerTextRenderer renderer;
     private readonly ILogger<GroundedConversationTurnService> logger;
@@ -24,15 +25,17 @@ public sealed class GroundedConversationTurnService
     /// <summary>Initializes the production conversation-turn orchestrator.</summary>
     /// <param name="conversations">Canonical conversation service.</param>
     /// <param name="settings">Account personalization service.</param>
-    /// <param name="usage">Calendar-month answer usage service.</param>
+    /// <param name="usage">Calendar-month token usage service.</param>
     /// <param name="groundedAnswers">Fail-closed grounded-answer service.</param>
     /// <param name="renderer">Validated answer renderer.</param>
     /// <param name="logger">Structured boundary logger.</param>
-    public GroundedConversationTurnService(ConversationService conversations, ConversationSettingsService settings, MonthlyUsageService usage, IGroundedAnswerService groundedAnswers, GroundedAnswerTextRenderer renderer, ILogger<GroundedConversationTurnService> logger)
+    /// <param name="usageContext">Provider usage routing for the active chat.</param>
+    public GroundedConversationTurnService(ConversationService conversations, ConversationSettingsService settings, MonthlyUsageService usage, IGroundedAnswerService groundedAnswers, GroundedAnswerTextRenderer renderer, ILogger<GroundedConversationTurnService> logger, ChatUsageContext usageContext)
     {
         this.conversations = conversations ?? throw new ArgumentNullException(nameof(conversations));
         this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         this.usage = usage ?? throw new ArgumentNullException(nameof(usage));
+        this.usageContext = usageContext ?? throw new ArgumentNullException(nameof(usageContext));
         this.groundedAnswers = groundedAnswers ?? throw new ArgumentNullException(nameof(groundedAnswers));
         this.renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -47,8 +50,11 @@ public sealed class GroundedConversationTurnService
     /// <returns>A stored, answered, limited, or fail-closed first-turn result.</returns>
     public async Task<GroundedConversationTurnResult> CreateAsync(Guid userId, Guid userMessageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default)
     {
-        var conversation = await conversations.CreateWithUserMessageAsync(userId, userMessageId, content, sourceKeys, cancellationToken).ConfigureAwait(false);
-        return await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
+        return await WithUsageAsync(userId, async () =>
+        {
+            var conversation = await conversations.CreateWithUserMessageAsync(userId, userMessageId, content, sourceKeys, cancellationToken).ConfigureAwait(false);
+            return await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Processes one idempotent user message and returns canonical persisted context.</summary>
@@ -66,13 +72,43 @@ public sealed class GroundedConversationTurnService
             return new GroundedConversationTurnResult("not_found", null, null);
         }
 
-        var conversation = await conversations.AppendUserMessageAsync(existing, userMessageId, content, cancellationToken).ConfigureAwait(false);
-        if (conversation is null)
+        if (existing.Messages.Any(message => message.Id == CreateAssistantMessageId(userMessageId) && message.Role == ConversationMessageRole.Assistant)
+            && existing.Messages.Any(message => message.Id == userMessageId && message.Role == ConversationMessageRole.User && message.Content == content.Trim()))
         {
-            return new GroundedConversationTurnResult("not_found", null, null);
+            return new GroundedConversationTurnResult("answered", existing, null) { Usage = await usage.GetCurrentAsync(userId, cancellationToken).ConfigureAwait(false) };
         }
 
-        return await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
+        return await WithUsageAsync(userId, async () =>
+        {
+            // Reload under the account's chat lease so a just-completed answer is not lost.
+            var conversation = await conversations.AppendUserMessageAsync(userId, conversationId, userMessageId, content, cancellationToken).ConfigureAwait(false);
+            return conversation is null
+                ? new GroundedConversationTurnResult("not_found", null, null)
+                : await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<GroundedConversationTurnResult> WithUsageAsync(Guid userId, Func<Task<GroundedConversationTurnResult>> process, CancellationToken cancellationToken)
+    {
+        var lease = await usage.BeginChatAsync(userId, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var scope = usageContext.Begin(lease, usage);
+            var result = await process().ConfigureAwait(false);
+            return result with { Usage = await usage.GetCurrentAsync(userId, cancellationToken).ConfigureAwait(false) };
+        }
+        finally
+        {
+            using var releaseTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try
+            {
+                await usage.EndChatAsync(lease, releaseTimeout.Token).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Could not release chat usage lease for {UserId}; crash-recovery expiry remains in effect.", userId);
+            }
+        }
     }
 
     private async Task<GroundedConversationTurnResult> ProcessStoredMessageAsync(Guid userId, Conversation conversation, Guid userMessageId, string content, CancellationToken cancellationToken)
@@ -90,14 +126,7 @@ public sealed class GroundedConversationTurnService
             return new GroundedConversationTurnResult("answered", conversation, null, null, processingStopwatch.Elapsed);
         }
         var shouldGenerateConversationTitle = string.Equals(conversation.Title, Conversation.DefaultTitle, StringComparison.Ordinal) && conversation.Messages.All(message => message.Role != ConversationMessageRole.Assistant);
-        var currentUsageTask = usage.GetCurrentAsync(userId, cancellationToken);
         var personalizationTask = settings.GetPersonalizationAsync(userId, cancellationToken);
-        await Task.WhenAll(currentUsageTask, personalizationTask).ConfigureAwait(false);
-        var currentUsage = await currentUsageTask.ConfigureAwait(false);
-        if (currentUsage.AnswersRemaining <= 0)
-        {
-            return new GroundedConversationTurnResult("usage_limit_reached", conversation, "You have reached the answer limit for this billing period. Your question was saved, but the model was not called.", null, processingStopwatch.Elapsed);
-        }
 
         GroundedAnswerResult answerResult;
         try
@@ -106,6 +135,16 @@ public sealed class GroundedConversationTurnService
             var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization, shouldGenerateConversationTitle);
             var recentTurns = CreateRecentTurns(conversation.Messages, userMessageId);
             answerResult = await groundedAnswers.AnswerAsync(question, recentTurns, cancellationToken).ConfigureAwait(false);
+            // Custom/local engines may supply only aggregate diagnostics. Real Azure clients
+            // report each response immediately; never count those diagnostics a second time.
+            if (!usageContext.HasReportedUsage && answerResult.Trace.Usage is { } reportedUsage)
+            {
+                await usageContext.RecordAsync(answerResult.Trace.ResponseId, reportedUsage).ConfigureAwait(false);
+            }
+        }
+        catch (ChatUsageException exception) when (exception.Code == "usage_limit_reached")
+        {
+            return new GroundedConversationTurnResult(exception.Code, conversation, exception.Message, null, processingStopwatch.Elapsed);
         }
         catch (OperationCanceledException)
         {
@@ -140,7 +179,6 @@ public sealed class GroundedConversationTurnService
         {
             throw new InvalidOperationException("Conversation disappeared before its validated answer could be saved.");
         }
-        await usage.RecordAnswerAsync(userId, cancellationToken).ConfigureAwait(false);
         processingStopwatch.Stop();
         LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, true);
         return new GroundedConversationTurnResult("answered", updated, null, answerResult.Trace, processingStopwatch.Elapsed);

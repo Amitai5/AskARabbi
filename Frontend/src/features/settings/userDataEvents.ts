@@ -1,5 +1,6 @@
-type UserDataEvent = { userId: string; kind: 'chats-deleted' | 'account-deleted'; status?: 'deleted' | 'pending' }
+type UserDataEvent = { userId: string; kind: 'chats-deleted' | 'account-deleted' | 'usage-changed'; status?: 'deleted' | 'pending' }
 const ChannelName = 'askrabbi-user-data'
+const EventOrigin = crypto.randomUUID()
 
 function openChannel() {
   if (typeof BroadcastChannel === 'undefined') { return null }
@@ -18,7 +19,7 @@ export function publishUserDataEvent(event: UserDataEvent) {
   const channel = openChannel()
   if (!channel) { return }
   try {
-    channel.postMessage(event)
+    channel.postMessage({ ...event, origin: EventOrigin })
   } finally {
     channel.close()
   }
@@ -30,7 +31,9 @@ export function subscribeToUserDataEvents(userId: string, onEvent: (event: UserD
   channel.onmessage = (message: MessageEvent<unknown>) => {
     const value = message.data
     if (typeof value !== 'object' || value === null || !('userId' in value) || value.userId !== userId || !('kind' in value)) { return }
-    if (value.kind === 'chats-deleted' || value.kind === 'account-deleted') {
+    // The sending tab already applied the turn's usage; only other tabs need a refresh.
+    if (value.kind === 'usage-changed' && 'origin' in value && value.origin === EventOrigin) { return }
+    if (value.kind === 'chats-deleted' || value.kind === 'account-deleted' || value.kind === 'usage-changed') {
       onEvent(value as UserDataEvent)
     }
   }

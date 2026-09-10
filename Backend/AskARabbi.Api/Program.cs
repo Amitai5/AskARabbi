@@ -66,7 +66,8 @@ builder.Services.AddCors(options => options.AddPolicy(FrontendCorsOptions.Policy
 var usageOptions = builder.Configuration.GetSection(MonthlyUsageOptions.SectionName).Get<MonthlyUsageOptions>() ?? new MonthlyUsageOptions();
 usageOptions.Validate();
 builder.Services.AddSingleton(usageOptions);
-builder.Services.AddScoped(provider => new MonthlyUsageService(provider.GetRequiredService<IUsageStore>(), usageOptions.MonthlyAnswerLimit, provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddScoped(provider => new MonthlyUsageService(provider.GetRequiredService<IUsageStore>(), usageOptions.MonthlyTokenLimit, provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<ChatUsageContext>();
 
 var groundedChatOptions = builder.Configuration.GetSection(GroundedChatOptions.SectionName).Get<GroundedChatOptions>() ?? new GroundedChatOptions();
 groundedChatOptions.Validate();
@@ -99,7 +100,8 @@ if (groundedChatOptions.IsConfigured)
             Timeout = TimeSpan.FromSeconds(groundedChatOptions.TimeoutSeconds),
         },
         provider.GetRequiredService<TokenCredential>(),
-        provider.GetRequiredService<IHttpClientFactory>().CreateClient("AzureOpenAIVectorStore")));
+        provider.GetRequiredService<IHttpClientFactory>().CreateClient("AzureOpenAIVectorStore"),
+        provider.GetRequiredService<ChatUsageContext>()));
     builder.Services.AddSingleton<IAzureOpenAIVectorStoreSearchClient>(provider => provider.GetRequiredService<AzureOpenAIVectorStoreClient>());
     builder.Services.AddSingleton<ISourceRetriever>(provider => new CachingSourceRetriever(
         new AzureOpenAIVectorStoreRetriever(
@@ -124,7 +126,8 @@ if (groundedChatOptions.IsConfigured)
             ServiceTier = groundedChatOptions.ServiceTier,
             MaximumRetryCount = groundedChatOptions.MaximumRetryCount,
         },
-        provider.GetRequiredService<TokenCredential>()));
+        provider.GetRequiredService<TokenCredential>(),
+        provider.GetRequiredService<ChatUsageContext>()));
     var groundedPrompts = GroundedPromptDirectoryLoader.Load(Path.Combine(AppContext.BaseDirectory, "Prompts"));
     builder.Services.AddSingleton(groundedPrompts);
     builder.Services.AddSingleton<IGroundedAnswerService>(provider =>
@@ -140,7 +143,8 @@ if (groundedChatOptions.IsConfigured)
                 ServiceTier = groundedChatOptions.ServiceTier,
                 MaximumRetryCount = groundedChatOptions.MaximumRetryCount,
             },
-            provider.GetRequiredService<TokenCredential>());
+            provider.GetRequiredService<TokenCredential>(),
+            provider.GetRequiredService<ChatUsageContext>());
         return new GroundedAnswerService(
             provider.GetRequiredService<ISourceRetriever>(),
             provider.GetRequiredService<IAIEngine>(),

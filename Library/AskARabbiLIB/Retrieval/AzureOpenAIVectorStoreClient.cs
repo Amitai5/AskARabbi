@@ -25,16 +25,18 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
     private readonly TokenCredential credential;
     private readonly HttpClient httpClient;
     private readonly Func<TimeSpan, CancellationToken, Task> delayAsync;
+    private readonly IAIUsageObserver? usageObserver;
 
     /// <summary>Creates a client without performing network work.</summary>
     /// <param name="options">Validated endpoint and timeout.</param>
     /// <param name="credential">Entra credential used for data-plane requests.</param>
     /// <param name="httpClient">Caller-owned HTTP client.</param>
-    public AzureOpenAIVectorStoreClient(AzureOpenAIVectorStoreClientOptions options, TokenCredential credential, HttpClient httpClient) : this(options, credential, httpClient, Task.Delay)
+    /// <param name="usageObserver">Optional request admission and token-accounting boundary.</param>
+    public AzureOpenAIVectorStoreClient(AzureOpenAIVectorStoreClientOptions options, TokenCredential credential, HttpClient httpClient, IAIUsageObserver? usageObserver = null) : this(options, credential, httpClient, Task.Delay, usageObserver)
     {
     }
 
-    internal AzureOpenAIVectorStoreClient(AzureOpenAIVectorStoreClientOptions options, TokenCredential credential, HttpClient httpClient, Func<TimeSpan, CancellationToken, Task> delayAsync)
+    internal AzureOpenAIVectorStoreClient(AzureOpenAIVectorStoreClientOptions options, TokenCredential credential, HttpClient httpClient, Func<TimeSpan, CancellationToken, Task> delayAsync, IAIUsageObserver? usageObserver = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(credential);
@@ -45,6 +47,7 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
         this.credential = credential;
         this.httpClient = httpClient;
         this.delayAsync = delayAsync;
+        this.usageObserver = usageObserver;
     }
 
     /// <inheritdoc/>
@@ -97,8 +100,17 @@ public sealed class AzureOpenAIVectorStoreClient : IAzureOpenAIVectorStoreSearch
 
         for (var attempt = 1; ; attempt++)
         {
+            if (usageObserver is not null)
+            {
+                await usageObserver.BeforeRequestAsync(cancellationToken).ConfigureAwait(false);
+            }
             using var httpRequest = CreateJsonRequest(HttpMethod.Post, "responses", payload);
             using var document = await SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+            if (usageObserver is not null && document.RootElement.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
+            {
+                var responseId = document.RootElement.TryGetProperty("id", out var id) ? id.GetString() : null;
+                await usageObserver.RecordAsync(responseId, new AIUsage(usage.GetProperty("input_tokens").GetInt32(), usage.GetProperty("output_tokens").GetInt32(), usage.GetProperty("total_tokens").GetInt32())).ConfigureAwait(false);
+            }
             try
             {
                 return ParseFileSearchResponse(document.RootElement);

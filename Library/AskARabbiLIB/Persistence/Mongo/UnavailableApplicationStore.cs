@@ -67,10 +67,16 @@ public sealed class UnavailableApplicationStore : IUserAccountStore, IConversati
     public Task UpsertPreferencesAsync(Guid userId, ConversationPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
 
     /// <inheritdoc/>
-    public Task<int> GetAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => Task.FromException<int>(CreateException());
+    public Task<long> GetTokenCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => Task.FromException<long>(CreateException());
 
     /// <inheritdoc/>
-    public Task<int> IncrementAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => Task.FromException<int>(CreateException());
+    public Task<bool> TryAcquireChatAsync(ChatUsageLease lease, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromException<bool>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<bool> RecordTokensAsync(ChatUsageLease lease, long cumulativeTokens, CancellationToken cancellationToken = default) => Task.FromException<bool>(CreateException());
+
+    /// <inheritdoc/>
+    public Task ReleaseChatAsync(ChatUsageLease lease, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
 
     /// <inheritdoc/>
     public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(WeeklyDvarTorahWeek week, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArticle?>(CreateException());

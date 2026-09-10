@@ -81,16 +81,19 @@ describe('Background conversation navigation', () => {
     expect(conversationClient.get).not.toHaveBeenCalledWith(expect.stringContaining('pending:'))
   })
 
-  it('keeps simultaneous replies, progress, and drafts in their own conversations', async () => {
+  it('waits for the active answer before starting another chat and preserves each draft', async () => {
     const { user, releaseCreate, releaseAppend } = await renderPendingApp()
     const followUp = 'Explain this source further'
     await user.type(screen.getByLabelText('Message AskRabbi'), followUp)
     await user.click(screen.getByRole('button', { name: 'Send message' }))
     await startNewConversation(user)
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue(Question)
 
     await act(async () => releaseAppend(null))
 
     await waitFor(() => expect(screen.queryByRole('status', { name: 'Generating answer for Chicken and dairy' })).not.toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
     expect(screen.getByRole('button', { name: Question, current: 'page' })).toBeVisible()
     expect(screen.getByTestId('answer-progress-dots')).toBeVisible()
     expect(screen.queryByText(/local demo follow-up remains grounded/)).not.toBeInTheDocument()

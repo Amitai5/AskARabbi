@@ -1,4 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ApiError } from '../../api/apiClient.ts'
+import { ChatUsageNotice } from './ChatUsageNotice.tsx'
+import { useMonthlyUsage } from '../settings/useMonthlyUsage.ts'
 import { Menu } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
@@ -9,7 +12,7 @@ import { PersonalizationPage } from '../personalization/PersonalizationPage.tsx'
 import type { PersonalizationProfile } from '../personalization/personalizationTypes.ts'
 import { SettingsPage } from '../settings/SettingsPage.tsx'
 import { publishUserDataEvent, subscribeToUserDataEvents } from '../settings/userDataEvents.ts'
-import type { UsageSummary, UserSettings } from '../settings/settingsTypes.ts'
+import type { UserSettings } from '../settings/settingsTypes.ts'
 import type { ConversationClient, ConversationTurn } from './conversationClient.ts'
 import type { ConversationDetails, ConversationMessage, ConversationSummary } from './conversationData.ts'
 import { normalizeConversationTitle } from './conversationData.ts'
@@ -66,14 +69,13 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const [activeView, setActiveView] = useState<ActiveView>('conversation')
   const [personalizationProfile, setPersonalizationProfile] = useState(initialPersonalizationProfile)
   const [userSettings, setUserSettings] = useState(initialUserSettings)
-  const [usage, setUsage] = useState<UsageSummary | null>(null)
-  const [usageError, setUsageError] = useState<string | null>(null)
+  const { usage, error: usageError, isLoading: isLoadingUsage, refresh: loadUsage, update: updateUsage } = useMonthlyUsage(conversationSettingsClient, user.id)
+  const isChatDisabled = usage === null || usage.isLimitReached
   const [conversationStarterIndex, setConversationStarterIndex] = useState(getInitialConversationStarterIndex)
   const [unsavedSourceKeys, setUnsavedSourceKeys] = useState<string[]>(() => [...AllSourceKeys])
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
   const [pendingQuestions, setPendingQuestions] = useState<ReadonlyMap<string, ConversationMessage>>(() => new Map())
-  const [isLoadingUsage, setIsLoadingUsage] = useState(false)
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [sourceReaderSelection, setSourceReaderSelection] = useState<SourceReaderSelection | null>(null)
   const selectionRequestId = useRef(0)
@@ -304,18 +306,6 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     setActiveView('conversation')
   }
 
-  async function loadUsage() {
-    setIsLoadingUsage(true)
-    setUsageError(null)
-    try {
-      setUsage(await conversationSettingsClient.getUsage())
-    } catch (error) {
-      setUsageError(getErrorMessage(error, 'Usage could not be loaded.'))
-    } finally {
-      setIsLoadingUsage(false)
-    }
-  }
-
   async function handleSavePersonalization(profile: PersonalizationProfile) {
     await onSavePersonalization(profile)
     setPersonalizationProfile(profile)
@@ -396,14 +386,14 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   async function handleSubmit() {
     const generation = dataGeneration.current
     const question = draft.trim()
-    if (question.length === 0 || selectedSourceKeys.length === 0 || isSending || isLoadingConversation || isLoadingConversations || selectedId !== selectedIdRef.current) {
+    if (isChatDisabled || pendingQuestions.size > 0 || question.length === 0 || selectedSourceKeys.length === 0 || isSending || isLoadingConversation || isLoadingConversations || selectedId !== selectedIdRef.current) {
       return
     }
 
     const messageId = crypto.randomUUID()
     const timestamp = new Date().toISOString()
     const conversationId = selectedId ?? `pending:${messageId}`
-    if (sendingConversationIds.current.has(conversationId)) {
+    if (sendingConversationIds.current.size > 0) {
       return
     }
 
@@ -441,13 +431,18 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         ? await conversationClient.createWithMessage(messageId, question, selectedSourceKeys)
         : await conversationClient.appendMessage(conversationId, messageId, question)
       if (dataGeneration.current !== generation) { return }
+      if (turn.usage) { updateUsage(turn.usage) }
+      else { void loadUsage() }
       const conversation = mergeConversationTurn(conversationBeforeSend, turn)
 
-      session.conversation = conversation
-      session.isNew = false
-      session.error = turn.status === 'answered' ? null : turn.message ?? 'AskRabbi could not create a validated source-grounded answer. Please try again.'
+      const completedSession: ConversationSession = {
+        ...session,
+        conversation,
+        isNew: false,
+        error: turn.status === 'answered' ? null : turn.message ?? 'AskRabbi could not create a validated source-grounded answer. Please try again.',
+      }
       conversationSessions.current.delete(conversationId)
-      conversationSessions.current.set(conversation.id, session)
+      conversationSessions.current.set(conversation.id, completedSession)
       setConversations((current) => [toSummary(conversation), ...current.filter((value) => value.id !== conversationId && value.id !== conversation.id)])
       if (selectedIdRef.current === conversationId) {
         selectionRequestId.current += 1
@@ -455,15 +450,33 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         selectedIdRef.current = conversation.id
         setSelectedId(conversation.id)
         setSelectedConversation(conversation)
-        setConversationError(session.error)
+        setConversationError(completedSession.error)
         setIsLoadingConversation(false)
       }
     } catch (error) {
-      session.draft = session.draft.length === 0 ? question : session.draft
-      session.error = getErrorMessage(error, 'Your message could not be saved.')
+      if (dataGeneration.current !== generation) { return }
+      if (error instanceof ApiError && error.usage) { updateUsage(error.usage) }
+      else { void loadUsage() }
+      const failedSession: ConversationSession = {
+        ...session,
+        draft: session.draft.length === 0 ? question : session.draft,
+        error: getErrorMessage(error, 'Your message could not be saved.'),
+      }
+      const wasNotSaved = session.isNew && error instanceof ApiError && (error.code === 'usage_limit_reached' || error.code === 'chat_in_progress')
+      if (wasNotSaved) {
+        conversationSessions.current.delete(conversationId)
+        setConversations((current) => current.filter((value) => value.id !== conversationId))
+      } else {
+        conversationSessions.current.set(conversationId, failedSession)
+      }
       if (selectedIdRef.current === conversationId) {
-        setDraft(session.draft)
-        setConversationError(session.error)
+        if (wasNotSaved) {
+          selectedIdRef.current = null
+          setSelectedId(null)
+          setSelectedConversation(null)
+        }
+        setDraft(failedSession.draft)
+        setConversationError(failedSession.error)
       }
     } finally {
       sendingConversationIds.current.delete(conversationId)
@@ -626,8 +639,9 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
               </section>
 
               <div className="relative z-10 shrink-0 border-t border-line/60 bg-parchment px-4 pb-2 pt-2 sm:px-8 sm:pb-3" data-chat-composer>
+                <ChatUsageNotice usage={usage} error={usageError} onRetry={() => void loadUsage()} onOpenDvarTorah={handleOpenDvarTorah} />
                 <div className="mx-auto flex w-full max-w-[62rem] justify-center">
-                  <MessageComposer draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} isSending={isSending || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
+                  <MessageComposer draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
                 </div>
               </div>
             </div>

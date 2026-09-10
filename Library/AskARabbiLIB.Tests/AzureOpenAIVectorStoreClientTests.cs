@@ -4,6 +4,7 @@ using System.Text;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.Models;
 using AskARabbiLIB.Retrieval;
+using AskARabbiLIB.Usage;
 using Azure.Core;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -12,6 +13,40 @@ namespace AskARabbiLIB.Tests;
 [TestClass]
 public sealed class AzureOpenAIVectorStoreClientTests
 {
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task SearchAsync_IncompleteThenSuccessfulResponse_AccountsForBothProviderCalls()
+    {
+        var observer = new RecordingUsageObserver();
+        var handler = new QueueHandler(
+            _ => Json(HttpStatusCode.OK, """{"id":"first","status":"incomplete","usage":{"input_tokens":100,"output_tokens":200,"total_tokens":300},"output":[]}"""),
+            _ => Json(HttpStatusCode.OK, """{"id":"second","status":"completed","usage":{"input_tokens":150,"output_tokens":250,"total_tokens":400},"output":[{"type":"file_search_call","status":"completed","results":[]}]}"""));
+        using var httpClient = new HttpClient(handler);
+        var client = CreateClient(httpClient, (_, _) => Task.CompletedTask, usageObserver: observer);
+
+        await client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"] });
+
+        Assert.AreEqual(2, observer.Checks);
+        CollectionAssert.AreEqual(new[] { "first", "second" }, observer.Reports.Select(report => report.Id).ToArray());
+        Assert.AreEqual(700, observer.Reports.Sum(report => report.Usage.TotalTokens));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task SearchAsync_QuotaReachedBeforeRetry_DoesNotMakeAnotherProviderCall()
+    {
+        var observer = new RecordingUsageObserver { BlockAfterFirstReport = true };
+        var handler = new QueueHandler(_ => Json(HttpStatusCode.OK, """{"id":"first","status":"incomplete","usage":{"input_tokens":100,"output_tokens":200,"total_tokens":300},"output":[]}"""));
+        using var httpClient = new HttpClient(handler);
+        var client = CreateClient(httpClient, (_, _) => Task.CompletedTask, usageObserver: observer);
+
+        var exception = await Assert.ThrowsExactlyAsync<ChatUsageException>(() => client.SearchAsync("vs_test", new AzureOpenAIVectorStoreSearchRequest { Queries = ["question"] }));
+
+        Assert.AreEqual("usage_limit_reached", exception.Code);
+        Assert.HasCount(1, handler.Requests);
+        Assert.HasCount(1, observer.Reports);
+    }
+
     [TestMethod]
     [DataRow("relative-endpoint")]
     [DataRow("http-endpoint")]
@@ -847,7 +882,7 @@ public sealed class AzureOpenAIVectorStoreClientTests
         Assert.HasCount(0, handler.Requests);
     }
 
-    private static AzureOpenAIVectorStoreClient CreateClient(HttpClient httpClient, Func<TimeSpan, CancellationToken, Task>? delayAsync = null, AIServiceTier serviceTier = AIServiceTier.Auto)
+    private static AzureOpenAIVectorStoreClient CreateClient(HttpClient httpClient, Func<TimeSpan, CancellationToken, Task>? delayAsync = null, AIServiceTier serviceTier = AIServiceTier.Auto, IAIUsageObserver? usageObserver = null)
     {
         var options = new AzureOpenAIVectorStoreClientOptions
         {
@@ -856,8 +891,8 @@ public sealed class AzureOpenAIVectorStoreClientTests
             ServiceTier = serviceTier,
         };
         return delayAsync is null
-            ? new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient)
-            : new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient, delayAsync);
+            ? new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient, usageObserver)
+            : new AzureOpenAIVectorStoreClient(options, new FakeTokenCredential(), httpClient, delayAsync, usageObserver);
     }
 
     private static string StoreJson(string id, string fingerprint, string status = "completed", int completed = 1, int failed = 0, long usageBytes = 123, int documentCount = 1, int fileCount = 1, long segmentCount = 1) => $$"""
@@ -896,6 +931,29 @@ public sealed class AzureOpenAIVectorStoreClientTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(markdown);
+        }
+    }
+
+    private sealed class RecordingUsageObserver : IAIUsageObserver
+    {
+        internal int Checks { get; private set; }
+        internal bool BlockAfterFirstReport { get; init; }
+        internal List<(string? Id, AIUsage Usage)> Reports { get; } = [];
+
+        public Task BeforeRequestAsync(CancellationToken cancellationToken = default)
+        {
+            Checks++;
+            if (BlockAfterFirstReport && Reports.Count > 0)
+            {
+                throw new ChatUsageException("usage_limit_reached", "Monthly limit reached.");
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task RecordAsync(string? responseId, AIUsage usage)
+        {
+            Reports.Add((responseId, usage));
+            return Task.CompletedTask;
         }
     }
 

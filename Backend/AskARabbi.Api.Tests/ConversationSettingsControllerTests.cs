@@ -22,9 +22,11 @@ public sealed class ConversationSettingsControllerTests
         Assert.IsNotNull(usage);
         Assert.AreEqual(new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero), usage.PeriodStartUtc);
         Assert.AreEqual(new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero), usage.PeriodEndUtc);
-        Assert.AreEqual(7, usage.AnswersUsed);
-        Assert.AreEqual(50, usage.AnswerLimit);
-        Assert.AreEqual(43, usage.AnswersRemaining);
+        Assert.AreEqual(0L, usage.TokensUsed);
+        Assert.AreEqual(10_000_000L, usage.TokenLimit);
+        Assert.AreEqual(10_000_000L, usage.TokensRemaining);
+        Assert.AreEqual(0m, usage.UsedPercent);
+        Assert.IsFalse(usage.IsLimitReached);
     }
 
     [TestMethod]

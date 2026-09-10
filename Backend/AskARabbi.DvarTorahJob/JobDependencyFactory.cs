@@ -64,8 +64,9 @@ internal static class JobDependencyFactory
         return await coordinator.RunAsync(article, invocationId, cancellationToken).ConfigureAwait(false);
     }
 
-    internal static async Task<WeeklyDvarTorahGenerationCoordinator> CreateCoordinatorAsync(CancellationToken cancellationToken)
+    internal static Task<WeeklyDvarTorahGenerationCoordinator> CreateCoordinatorAsync(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var dvarTorahOptions = new WeeklyDvarTorahOptions
         {
             InIsrael = DvarTorahJobEnvironment.GetBoolean("DvarTorah__InIsrael", false),
@@ -73,12 +74,14 @@ internal static class JobDependencyFactory
         };
         dvarTorahOptions.Validate();
 
-        var generator = await CreateGeneratorAsync(cancellationToken).ConfigureAwait(false);
+        // Check MongoDB's exact Shabbat key and acquire its exclusive lease before
+        // loading the corpus, checking AI credentials, or starting research.
+        var generator = new DeferredWeeklyDvarTorahGenerator(async token => await CreateGeneratorAsync(token).ConfigureAwait(false));
         var database = CreateDatabase(out var databaseOptions);
         var store = new MongoWeeklyDvarTorahStore(database, databaseOptions);
         var timeProvider = TimeProvider.System;
         var weeklyService = new WeeklyDvarTorahService(new HebrewCalendarService(), store, timeProvider, dvarTorahOptions);
-        return new WeeklyDvarTorahGenerationCoordinator(store, generator, weeklyService, timeProvider, dvarTorahOptions);
+        return Task.FromResult(new WeeklyDvarTorahGenerationCoordinator(store, generator, weeklyService, timeProvider, dvarTorahOptions));
     }
 
     internal static async Task<GroundedWeeklyDvarTorahGenerator> CreateGeneratorAsync(CancellationToken cancellationToken)

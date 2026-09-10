@@ -9,4 +9,8 @@ namespace AskARabbi.Api.Conversations;
 /// <param name="Message">Safe user-facing failure detail when no answer was persisted.</param>
 /// <param name="Trace">Non-persistent retrieval and model diagnostics when grounding ran.</param>
 /// <param name="ProcessingLatency">End-to-end warm request processing time measured by the turn service.</param>
-public sealed record GroundedConversationTurnResult(string Status, Conversation? Conversation, string? Message, GroundedAnswerTrace? Trace = null, TimeSpan? ProcessingLatency = null);
+public sealed record GroundedConversationTurnResult(string Status, Conversation? Conversation, string? Message, GroundedAnswerTrace? Trace = null, TimeSpan? ProcessingLatency = null)
+{
+    /// <summary>Gets the account's updated monthly token allowance.</summary>
+    public AskARabbiLIB.Usage.BillingPeriodUsage? Usage { get; init; }
+}

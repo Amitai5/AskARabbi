@@ -1,6 +1,8 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
 import { normalizeConversationTitle, type ConversationDetails, type ConversationMessage, type ConversationSummary } from './conversationData.ts'
 
+import type { UsageSummary } from '../settings/settingsTypes.ts'
+
 export interface ConversationClient {
   list(): Promise<ConversationSummary[]>
   createWithMessage(messageId: string, content: string, enabledSourceKeys: readonly string[]): Promise<ConversationTurn>
@@ -15,6 +17,7 @@ export interface ConversationClient {
 interface ConversationTurnBase {
   status: string
   message: string | null
+  usage?: UsageSummary | null
 }
 
 export interface CompactConversationTurn extends ConversationTurnBase {

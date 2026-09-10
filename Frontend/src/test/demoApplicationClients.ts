@@ -159,9 +159,11 @@ export function createDemoApplicationClients(): DemoApplicationClients {
     getUsage: () => Promise.resolve({
       periodStartUtc: '2026-08-01T00:00:00Z',
       periodEndUtc: '2026-09-01T00:00:00Z',
-      answersUsed: 0,
-      answerLimit: 50,
-      answersRemaining: 50,
+      tokensUsed: 0,
+      tokenLimit: 10_000_000,
+      tokensRemaining: 10_000_000,
+      usedPercent: 0,
+      isLimitReached: false,
     }),
   }
 

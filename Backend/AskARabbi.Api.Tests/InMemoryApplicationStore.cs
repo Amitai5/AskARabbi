@@ -2,6 +2,7 @@ using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.Usage;
+using AskARabbiLIB.Persistence.InMemory;
 
 namespace AskARabbi.Api.Tests;
 
@@ -13,7 +14,7 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
     private UserAccount? account;
-    private int answerCount = 7;
+    internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
     private Guid nextAccountId = StableUserId;
 
@@ -95,7 +96,7 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
         {
             personalization.Remove(userId);
             preferences.Remove(userId);
-            answerCount = 0;
+            TokenUsage.DeleteAccount(userId);
             account = null;
             nextAccountId = Guid.NewGuid();
             dataOperations.Clear();
@@ -223,11 +224,14 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
         return Task.CompletedTask;
     }
 
-    public Task<int> GetAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => Task.FromResult(answerCount);
+    public Task<long> GetTokenCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default) => TokenUsage.GetTokenCountAsync(userId, periodStartUtc, periodEndUtc, cancellationToken);
 
-    public Task<int> IncrementAnswerCountAsync(Guid userId, DateTimeOffset periodStartUtc, DateTimeOffset periodEndUtc, CancellationToken cancellationToken = default)
-    {
-        answerCount++;
-        return Task.FromResult(answerCount);
-    }
+    /// <inheritdoc/>
+    public Task<bool> TryAcquireChatAsync(ChatUsageLease lease, DateTimeOffset now, CancellationToken cancellationToken = default) => TokenUsage.TryAcquireChatAsync(lease, now, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<bool> RecordTokensAsync(ChatUsageLease lease, long cumulativeTokens, CancellationToken cancellationToken = default) => TokenUsage.RecordTokensAsync(lease, cumulativeTokens, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task ReleaseChatAsync(ChatUsageLease lease, CancellationToken cancellationToken = default) => TokenUsage.ReleaseChatAsync(lease, cancellationToken);
 }

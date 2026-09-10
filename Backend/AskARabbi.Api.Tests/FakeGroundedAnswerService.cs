@@ -40,7 +40,7 @@ internal sealed class FakeGroundedAnswerService : IGroundedAnswerService
             Status = GroundedAnswerStatus.Success,
             Answer = answer,
             Evidence = new EvidencePacket([new EvidenceItem("E1", CreateSourceSegment(), "The surrounding tested source context includes the exact statement: The tested source text. It also includes the next line of context.", false, 128)], 128),
-            Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.Zero, 1, 1, 23, null, GroundedValidationStatus.Passed, false, "test-response", "test-model"),
+            Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.Zero, 1, 1, 23, new AskARabbiLIB.AI.AIUsage(20, 10, 30), GroundedValidationStatus.Passed, false, "test-response", "test-model"),
         });
     }
 

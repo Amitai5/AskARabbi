@@ -1,5 +1,6 @@
 using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Contracts.Conversations;
+using AskARabbi.Api.Contracts.ConversationSettings;
 using AskARabbi.Api.Conversations;
 using AskARabbiLIB.Conversations;
 using Microsoft.AspNetCore.Authorization;
@@ -48,6 +49,9 @@ public sealed class ConversationsController : ControllerBase
     [HttpPost]
     [ProducesResponseType<ConversationTurnResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ConversationTurnDeltaResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Create(CreateConversationRequest request, [FromQuery] bool compact = false, CancellationToken cancellationToken = default)
     {
         var result = await conversationTurns.CreateAsync(currentUser.UserId, request.MessageId, request.Content, request.EnabledSourceKeys, cancellationToken).ConfigureAwait(false);
@@ -55,7 +59,7 @@ public sealed class ConversationsController : ControllerBase
         ApplyServerTiming(result);
         var response = compact
             ? (object)CreateCompactTurnResponse(result, request.MessageId)
-            : new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(conversation), result.Message);
+            : new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(conversation), result.Message) { Usage = result.Usage is null ? null : UsageResponse.FromUsage(result.Usage) };
         return CreatedAtAction(nameof(Get), new { conversationId = conversation.Id }, response);
     }
 
@@ -82,6 +86,9 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType<ConversationTurnResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ConversationTurnDeltaResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> AppendMessage(Guid conversationId, AppendMessageRequest request, [FromQuery] bool compact = false, CancellationToken cancellationToken = default)
     {
         var result = await conversationTurns.ProcessAsync(currentUser.UserId, conversationId, request.MessageId, request.Content, cancellationToken).ConfigureAwait(false);
@@ -93,7 +100,7 @@ public sealed class ConversationsController : ControllerBase
         ApplyServerTiming(result);
         return compact
             ? Ok(CreateCompactTurnResponse(result, request.MessageId))
-            : Ok(new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(result.Conversation), result.Message));
+            : Ok(new ConversationTurnResponse(result.Status, ConversationContractMapper.ToResponse(result.Conversation), result.Message) { Usage = result.Usage is null ? null : UsageResponse.FromUsage(result.Usage) });
     }
 
     /// <summary>Renames a saved conversation.</summary>
@@ -145,7 +152,7 @@ public sealed class ConversationsController : ControllerBase
             .Where(message => message.Id == userMessageId || message.Id == assistantMessageId)
             .Select(ConversationContractMapper.ToResponse)
             .ToArray();
-        return new ConversationTurnDeltaResponse(result.Status, ConversationContractMapper.ToSummaryResponse(conversation), messages, conversation.CreatedAtUtc, result.Message);
+        return new ConversationTurnDeltaResponse(result.Status, ConversationContractMapper.ToSummaryResponse(conversation), messages, conversation.CreatedAtUtc, result.Message) { Usage = result.Usage is null ? null : UsageResponse.FromUsage(result.Usage) };
     }
 
     private void ApplyServerTiming(GroundedConversationTurnResult result)

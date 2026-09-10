@@ -3,7 +3,7 @@ import { ArrowLeft, Bell, BookOpenText, Database, Gauge, KeyRound, Save, ShieldC
 import { UserDataControls } from './UserDataControls.tsx'
 import { Toast } from '../../components/Toast.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
-import type { UsageSummary, UserSettings } from './settingsTypes.ts'
+import { formatUsagePercent, type UsageSummary, type UserSettings } from './settingsTypes.ts'
 
 interface SettingsPageProps {
   user: AuthenticatedUser
@@ -169,23 +169,25 @@ function UsagePanel({ usage, error, isLoading, onRetry }: { usage: UsageSummary 
     return <div className="border-y border-line py-5 text-muted">Usage is not available.</div>
   }
 
-  const percentage = usage.answerLimit === 0 ? 0 : Math.min(100, (usage.answersUsed / usage.answerLimit) * 100)
+  const percentage = Math.min(100, Math.max(0, usage.usedPercent))
   return (
     <div className="border-y border-line py-5">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="font-semibold text-ink">Free preview</p>
-          <p className="mt-1 text-muted">Grounded answers this billing period</p>
+          <p className="font-semibold text-ink">Monthly chat allowance</p>
+          <p className="mt-1 text-muted">Input and output tokens across all your chats</p>
         </div>
-        <p className="shrink-0 font-display text-3xl text-ink"><span className="font-semibold">{usage.answersUsed}</span> / {usage.answerLimit}</p>
+        <p className="shrink-0 font-display text-3xl text-ink"><span className="font-semibold">{formatUsagePercent(usage)}%</span> used</p>
       </div>
-      <div className="mt-5 h-2 overflow-hidden rounded-full bg-stone-deep" role="progressbar" aria-label="Monthly grounded answer usage" aria-valuemin={0} aria-valuemax={usage.answerLimit} aria-valuenow={usage.answersUsed}>
+      <div className="mt-5 h-2 overflow-hidden rounded-full bg-stone-deep" role="progressbar" aria-label="Monthly token usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
         <div className="h-full rounded-full bg-pomegranate" style={{ width: `${percentage}%` }} />
       </div>
       <div className="mt-3 flex flex-col gap-1 text-sm leading-6 text-muted sm:flex-row sm:items-center sm:justify-between sm:text-base">
         <span>{formatUtcDate(usage.periodStartUtc)} – {formatUtcDate(usage.periodEndUtc)} UTC</span>
-        <span>{usage.answersRemaining} answers remaining</span>
+        <span>{usage.tokensUsed.toLocaleString()} / {usage.tokenLimit.toLocaleString()} tokens</span>
       </div>
+      <p className="mt-3 text-sm text-muted">Includes reasoning, source lookup, and answer checks. Deleting chats does not reset usage.</p>
+      {usage.isLimitReached ? <p className="mt-3 font-medium text-pomegranate" role="status">Your chat allowance is used up until the next reset. Dvar Torah reading and audio remain available.</p> : null}
     </div>
   )
 }

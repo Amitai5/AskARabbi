@@ -19,4 +19,16 @@ internal sealed class MongoUsageDocument
 
     [BsonElement("answerCount")]
     public int AnswerCount { get; init; }
+
+    [BsonElement("tokenCount")]
+    public long TokenCount { get; init; }
+
+    [BsonElement("chatLeaseId")]
+    public string? ChatLeaseId { get; init; }
+
+    [BsonElement("chatLeaseExpiresAtUtc")]
+    public DateTime? ChatLeaseExpiresAtUtc { get; init; }
+
+    [BsonElement("chatLeaseTokens")]
+    public long ChatLeaseTokens { get; init; }
 }

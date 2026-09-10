@@ -729,7 +729,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'Account and usage.' })).toBeVisible()
     expect(screen.getByText('amitai@example.com')).toBeVisible()
-    expect(screen.getByRole('progressbar', { name: 'Monthly grounded answer usage' })).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.getByRole('progressbar', { name: 'Monthly token usage' })).toHaveAttribute('aria-valuenow', '0')
 
     await user.click(screen.getByRole('button', { name: 'Reset password' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Password reset requested')

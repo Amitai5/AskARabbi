@@ -11,23 +11,32 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
 {
     private readonly ResponsesClient client;
     private readonly bool usesApiKey;
+    private readonly IAIUsageObserver? usageObserver;
 
-    internal AzureResponsesTransport(AIEngineOptions options, TokenCredential credential)
+    internal AzureResponsesTransport(ResponsesClient client, IAIUsageObserver usageObserver)
+    {
+        this.client = client ?? throw new ArgumentNullException(nameof(client));
+        this.usageObserver = usageObserver ?? throw new ArgumentNullException(nameof(usageObserver));
+    }
+
+    internal AzureResponsesTransport(AIEngineOptions options, TokenCredential credential, IAIUsageObserver? usageObserver = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(credential);
         var azureClient = new AzureOpenAIClient(options.ProjectEndpoint, credential, new AzureOpenAIClientOptions { NetworkTimeout = options.Timeout });
         client = azureClient.GetResponsesClient();
         usesApiKey = false;
+        this.usageObserver = usageObserver;
     }
 
-    internal AzureResponsesTransport(AIEngineOptions options, ApiKeyCredential credential)
+    internal AzureResponsesTransport(AIEngineOptions options, ApiKeyCredential credential, IAIUsageObserver? usageObserver = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(credential);
         var azureClient = new AzureOpenAIClient(options.ProjectEndpoint, credential, new AzureOpenAIClientOptions { NetworkTimeout = options.Timeout });
         client = azureClient.GetResponsesClient();
         usesApiKey = true;
+        this.usageObserver = usageObserver;
     }
 
     /// <inheritdoc cref="IAIResponseTransport.SendAsync"/>
@@ -40,9 +49,17 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
             AIUsage? aggregateUsage = null;
             while (true)
             {
+                if (usageObserver is not null)
+                {
+                    await usageObserver.BeforeRequestAsync(cancellationToken).ConfigureAwait(false);
+                }
                 ClientResult<ResponseResult> response = await client.CreateResponseAsync(responseOptions, cancellationToken).ConfigureAwait(false);
                 var value = response.Value;
                 var responseUsage = value.Usage is null ? null : new AIUsage(value.Usage.InputTokenCount, value.Usage.OutputTokenCount, value.Usage.TotalTokenCount);
+                if (usageObserver is not null && responseUsage is not null)
+                {
+                    await usageObserver.RecordAsync(value.Id, responseUsage).ConfigureAwait(false);
+                }
                 aggregateUsage = CombineUsage(aggregateUsage, responseUsage);
                 var responseId = value.Id;
                 var responseModel = string.IsNullOrWhiteSpace(value.Model) ? request.Model : value.Model;
@@ -141,7 +158,7 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
         {
             return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, true, "network_error");
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not Usage.ChatUsageException)
         {
             return new AITransportResult(AIEngineStatus.ProviderFailure, null, exception.Message, null, request.Model, null, false, "provider_exception");
         }

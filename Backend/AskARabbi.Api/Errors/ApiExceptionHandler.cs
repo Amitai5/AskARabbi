@@ -1,5 +1,7 @@
 using AskARabbi.Api.Authentication;
 using AskARabbiLIB.Persistence.Mongo;
+using AskARabbiLIB.Usage;
+using AskARabbi.Api.Contracts.ConversationSettings;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,6 +27,9 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         var (status, title, detail, code) = exception switch
         {
+            ChatUsageException { Code: "usage_limit_reached" } limited => (StatusCodes.Status429TooManyRequests, "Monthly chat allowance reached", limited.Message, limited.Code),
+            ChatUsageException { Code: "chat_in_progress" } busy => (StatusCodes.Status409Conflict, "Answer in progress", busy.Message, busy.Code),
+            ChatUsageException accounting => (StatusCodes.Status503ServiceUnavailable, "Chat usage unavailable", accounting.Message, accounting.Code),
             UnauthenticatedRequestException => (StatusCodes.Status401Unauthorized, "Authentication required", "Sign in before using this endpoint.", "authentication_required"),
             IdentityRequestRejectedException rejected => (StatusCodes.Status400BadRequest, "Authentication request rejected", rejected.Message, "authentication_rejected"),
             IdentityProviderUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Authentication unavailable", "The identity service is unavailable or not configured.", "authentication_unavailable"),
@@ -56,6 +61,14 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         };
         problem.Extensions["code"] = code;
         problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+        if (exception is ChatUsageException { Usage: { } usage })
+        {
+            problem.Extensions["usage"] = UsageResponse.FromUsage(usage);
+            if (usage.IsLimitReached)
+            {
+                httpContext.Response.Headers.RetryAfter = usage.PeriodEndUtc.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
         await httpContext.Response.WriteAsJsonAsync(problem, options: null, contentType: "application/problem+json", cancellationToken).ConfigureAwait(false);
         return true;
     }

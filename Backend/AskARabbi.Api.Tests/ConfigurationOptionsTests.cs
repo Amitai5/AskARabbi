@@ -79,7 +79,7 @@ public sealed class ConfigurationOptionsTests
     [TestCategory("Unit")]
     public void Validate_NonPositiveUsageLimit_Throws()
     {
-        var options = new MonthlyUsageOptions { MonthlyAnswerLimit = 0 };
+        var options = new MonthlyUsageOptions { MonthlyTokenLimit = 0 };
 
         Assert.ThrowsExactly<InvalidOperationException>(options.Validate);
     }

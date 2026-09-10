@@ -36,7 +36,7 @@ public sealed class ConversationSettingsController : ControllerBase
     public async Task<ActionResult<UsageResponse>> GetUsage(CancellationToken cancellationToken)
     {
         var value = await usage.GetCurrentAsync(currentUser.UserId, cancellationToken).ConfigureAwait(false);
-        return Ok(new UsageResponse(value.PeriodStartUtc, value.PeriodEndUtc, value.AnswersUsed, value.AnswerLimit, value.AnswersRemaining));
+        return Ok(UsageResponse.FromUsage(value));
     }
 
     /// <summary>Gets the current personalization settings.</summary>
