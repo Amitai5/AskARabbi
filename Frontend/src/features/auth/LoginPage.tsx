@@ -3,7 +3,6 @@ import { ArrowRight, LoaderCircle, Mail } from 'lucide-react'
 import manuscriptArtwork from '../../assets/library-manuscript.webp'
 import { Brand } from '../../components/Brand.tsx'
 import { useAuth } from './useAuth.ts'
-import { InstallAppButton } from '../pwa/PwaInstall.tsx'
 
 const EmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const AuthenticationFeedbackDurationMs = 300
@@ -102,10 +101,7 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
       {isCheckingSession ? <span className="sr-only" role="status">Checking for an existing session.</span> : null}
       {pendingAuthentication === null ? null : <span className="sr-only" role="status">{pendingAuthentication === 'email' ? 'Continuing with email.' : 'Continuing with Google.'}</span>}
       <section className="flex min-h-dvh flex-col px-6 py-7 sm:px-10 lg:px-16 lg:py-10 xl:px-20">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Brand />
-          <InstallAppButton disabled={isAuthenticationPending} />
-        </div>
+        <Brand />
 
         <div className="flex flex-1 items-center py-8">
           <div className="enter-softly w-full max-w-[39rem]">
