@@ -140,6 +140,57 @@ public sealed class ConversationSettingsServiceTests
         Assert.AreEqual(Now, store.UpdatedAtUtc);
     }
 
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task GetReadingPreferencesAsync_UnconfiguredAccount_ReturnsDefaults()
+    {
+        var service = new ConversationSettingsService(new FakeSettingsStore(), new FixedTimeProvider(Now));
+
+        var value = await service.GetReadingPreferencesAsync(UserId);
+
+        Assert.AreEqual(new ReadingPreferences(), value);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
+    public async Task UpdateReadingPreferencesAsync_ValidPresets_PersistsWithOwnerAndTime()
+    {
+        var store = new FakeSettingsStore();
+        var service = new ConversationSettingsService(store, new FixedTimeProvider(Now));
+        var expected = new ReadingPreferences { TextSize = "large", LineSpacing = "compact", Theme = "dark", FocusLongContent = true };
+
+        var saved = await service.UpdateReadingPreferencesAsync(UserId, expected);
+
+        Assert.AreEqual(expected, saved);
+        Assert.AreEqual(expected, await service.GetReadingPreferencesAsync(UserId));
+        Assert.AreEqual(UserId, store.LastUserId);
+        Assert.AreEqual(Now, store.UpdatedAtUtc);
+    }
+
+    [TestMethod]
+    [DataRow("invalid", "default", "system")]
+    [DataRow("default", "invalid", "system")]
+    [DataRow("default", "default", "invalid")]
+    [TestCategory("Unit")]
+    public async Task UpdateReadingPreferencesAsync_InvalidPreset_DoesNotWrite(string size, string spacing, string theme)
+    {
+        var store = new FakeSettingsStore();
+        var service = new ConversationSettingsService(store, new FixedTimeProvider(Now));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.UpdateReadingPreferencesAsync(UserId, new() { TextSize = size, LineSpacing = spacing, Theme = theme }));
+
+        Assert.IsNull(store.Reading);
+    }
+
+    [TestMethod]
+    public async Task ReadingPreferences_EmptyUserId_RejectsReadAndWrite()
+    {
+        var service = new ConversationSettingsService(new FakeSettingsStore(), new FixedTimeProvider(Now));
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.GetReadingPreferencesAsync(Guid.Empty));
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.UpdateReadingPreferencesAsync(Guid.Empty, new()));
+    }
+
     private static PersonalizationSettings CreateValidSettings() => new()
     {
         FullName = "Amitai Erfanian",
@@ -171,6 +222,17 @@ public sealed class ConversationSettingsServiceTests
         internal DateTimeOffset UpdatedAtUtc { get; private set; }
         internal Guid LastUserId { get; private set; }
         internal ConversationPreferences? Preferences { get; private set; }
+        internal ReadingPreferences? Reading { get; private set; }
+
+        public Task<ReadingPreferences?> GetReadingPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(Reading);
+
+        public Task UpsertReadingPreferencesAsync(Guid userId, ReadingPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            LastUserId = userId;
+            Reading = preferences;
+            UpdatedAtUtc = updatedAtUtc;
+            return Task.CompletedTask;
+        }
 
         public Task<PersonalizationSettings?> GetPersonalizationAsync(Guid userId, CancellationToken cancellationToken = default)
         {

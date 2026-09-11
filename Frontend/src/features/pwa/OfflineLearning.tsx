@@ -104,7 +104,7 @@ export function OfflineLearningSettings() {
       <p className="mt-3 text-sm leading-6 text-muted">Saved automatically on this device, not in your account. Only the latest teaching is kept—never chats or account details. Anyone using this browser can read it; logging out removes it.</p>
       <OfflineLearningStatus />
       {state?.error ? <div className="mt-3"><p role="alert" className="text-sm text-pomegranate">{state.error}</p><button type="button" onClick={state.refresh} className="mt-2 min-h-11 text-sm font-semibold text-pomegranate">Try offline download again</button></div> : null}
-      <a href="/offline.html" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-pomegranate hover:underline"><Download aria-hidden="true" className="size-4" />Open saved teaching</a>
+      <a id="setting-saved-teaching" href="/offline.html" className="settings-target mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-pomegranate hover:underline"><Download aria-hidden="true" className="size-4" />Open saved teaching</a>
     </div>
   )
 }

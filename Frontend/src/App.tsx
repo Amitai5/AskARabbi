@@ -10,13 +10,15 @@ import { useAuth } from './features/auth/useAuth.ts'
 import { ConversationDashboard } from './features/conversations/ConversationDashboard.tsx'
 import { createBackendConversationClient, type ConversationClient } from './features/conversations/conversationClient.ts'
 import { createBackendDvarTorahClient, type DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
-import { createBackendCalendarClient, type CalendarClient } from './features/calendar/calendarClient.ts'
+import { CalendarPreferencesChanged, createBackendCalendarClient, type CalendarClient } from './features/calendar/calendarClient.ts'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow.tsx'
 import { createBackendConversationSettingsClient, type ConversationSettingsClient } from './features/personalization/conversationSettingsClient.ts'
 import { createDefaultPersonalizationProfile, type PersonalizationProfile } from './features/personalization/personalizationTypes.ts'
 import type { UserSettings } from './features/settings/settingsTypes.ts'
 import { PwaInstallProvider } from './features/pwa/PwaInstall.tsx'
 import { OfflineLearningProvider } from './features/pwa/OfflineLearning.tsx'
+import { ReadingPreferencesProvider } from './features/reading/ReadingPreferencesProvider.tsx'
+import { clearActiveReadingUser } from './features/reading/readingPreferences.ts'
 
 const DefaultApiClient = createApiClient()
 const DefaultAuthClient = createBackendAuthClient({ apiClient: DefaultApiClient })
@@ -54,6 +56,10 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
   const { isInitializing, signOut, user } = useAuth()
   const [resetToken] = useState(readAndRemovePasswordResetToken)
 
+  useEffect(() => {
+    if (!isInitializing && user === null) { clearActiveReadingUser() }
+  }, [isInitializing, user])
+
   if (resetToken !== null) {
     return <PasswordResetPage token={resetToken} onReturnToLogin={returnToLogin} />
   }
@@ -61,7 +67,7 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
     return <LoginPage isCheckingSession={isInitializing} />
   }
 
-  return <OfflineLearningProvider key={user.id} client={dvarTorahClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} onLogout={signOut} /></OfflineLearningProvider>
+  return <ReadingPreferencesProvider key={user.id} userId={user.id} client={conversationSettingsClient}><OfflineLearningProvider client={dvarTorahClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} onLogout={signOut} /></OfflineLearningProvider></ReadingPreferencesProvider>
 }
 
 function readAndRemovePasswordResetToken() {
@@ -131,8 +137,10 @@ function SignedInApplication({ user, conversationClient, conversationSettingsCli
 
   async function savePersonalization(nextProfile: PersonalizationProfile) {
     const saved = await conversationSettingsClient.updatePersonalization(nextProfile)
+    window.dispatchEvent(new Event(CalendarPreferencesChanged))
     setProfile(saved)
     setIsConfigured(true)
+    return saved
   }
 
   async function saveUserSettings(nextSettings: UserSettings) {
@@ -154,7 +162,7 @@ function SignedInApplication({ user, conversationClient, conversationSettingsCli
     return <AccountLoadError message={loadError ?? 'Your personalization response was incomplete.'} onRetry={retryLoad} onLogout={onLogout} />
   }
   if (!isConfigured) {
-    return <OnboardingFlow profile={profile} onComplete={savePersonalization} onLogout={onLogout} />
+    return <OnboardingFlow profile={profile} onComplete={async (next) => { await savePersonalization(next) }} onLogout={onLogout} client={conversationSettingsClient} />
   }
 
   return <ConversationDashboard user={user} initialPersonalizationProfile={profile} initialUserSettings={userSettings} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} onSavePersonalization={savePersonalization} onSaveSettings={saveUserSettings} />

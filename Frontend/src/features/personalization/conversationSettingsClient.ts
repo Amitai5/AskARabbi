@@ -1,6 +1,8 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
 import type { UsageSummary, UserSettings } from '../settings/settingsTypes.ts'
 import type { PersonalizationProfile } from './personalizationTypes.ts'
+import type { CalendarLocation } from '../calendar/calendarTypes.ts'
+import type { ReadingPreferences } from '../reading/readingPreferences.ts'
 
 export interface PersonalizationEnvelope {
   isConfigured: boolean
@@ -8,6 +10,9 @@ export interface PersonalizationEnvelope {
 }
 
 export interface ConversationSettingsClient {
+  getReadingPreferences(signal?: AbortSignal): Promise<ReadingPreferences>
+  updateReadingPreferences(preferences: ReadingPreferences): Promise<ReadingPreferences>
+  getLocations(signal?: AbortSignal): Promise<CalendarLocation[]>
   getPersonalization(): Promise<PersonalizationEnvelope>
   updatePersonalization(profile: PersonalizationProfile): Promise<PersonalizationProfile>
   getPreferences(): Promise<UserSettings>
@@ -24,6 +29,8 @@ interface PersonalizationApiResponse {
   fullName: string
   birthDateTime: string
   birthTimeZone: string
+  birthLocation?: CalendarLocation | null
+  currentLocation?: CalendarLocation | null
   conversationLanguage: string
   quotationLanguage: string
   religiousMovement: string
@@ -33,6 +40,9 @@ interface PersonalizationApiResponse {
 
 export function createBackendConversationSettingsClient(apiClient: ApiClient = createApiClient()): ConversationSettingsClient {
   return {
+    getReadingPreferences: (signal) => apiClient.request<ReadingPreferences>('/api/conversation-settings/reading', { signal }),
+    updateReadingPreferences: (preferences) => apiClient.request<ReadingPreferences>('/api/conversation-settings/reading', { method: 'PUT', body: JSON.stringify(preferences) }),
+    getLocations: (signal) => apiClient.request<CalendarLocation[]>('/api/conversation-settings/locations', { signal }),
     async getPersonalization() {
       return mapEnvelope(await apiClient.request<PersonalizationApiEnvelope>('/api/conversation-settings/personalization'))
     },
@@ -42,6 +52,8 @@ export function createBackendConversationSettingsClient(apiClient: ApiClient = c
         body: JSON.stringify({
           ...profile,
           birthDateTime: normalizeBirthDateTimeForApi(profile.birthDateTime),
+          birthLocation: profile.birthLocation ? { kind: profile.birthLocation.kind, id: profile.birthLocation.id } : null,
+          currentLocation: profile.currentLocation ? { kind: profile.currentLocation.kind, id: profile.currentLocation.id } : null,
           additionalContext: profile.additionalContext.trim() || null,
         }),
       })

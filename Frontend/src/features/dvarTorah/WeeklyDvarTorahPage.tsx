@@ -12,6 +12,8 @@ import { normalizeDvarTorahText } from './dvarTorahText.ts'
 import { useNarrationFollow } from './useNarrationFollow.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
 import { OfflineLearningStatus } from '../pwa/OfflineLearning.tsx'
+import { FocusReadingButton } from '../reading/FocusedReading.tsx'
+import { useReadingTarget } from '../reading/focusedReadingContext.ts'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
@@ -209,9 +211,9 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <section ref={scrollAreaRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-labelledby="weekly-dvar-torah-title">
-          <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 sm:pt-9">
-            <div className="max-w-[46rem]">
+        <section ref={scrollAreaRef} data-reading-scroll className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-label="Weekly Dvar Torah">
+          <div className="reading-column enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 sm:pt-9">
+            <div className="reading-nonessential max-w-[46rem]">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pomegranate">Weekly Dvar Torah</p>
               <h1 id="weekly-dvar-torah-title" className="mt-2 font-display text-[clamp(2.15rem,4vw,3.1rem)] leading-[1.04] tracking-[-0.04em] text-ink">
                 {offlineSavedAt ? 'Your saved weekly teaching.' : 'A teaching for the week.'}
@@ -222,7 +224,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
               {offlineSavedAt ? null : <><OfflineLearningStatus /><a href="/offline.html" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-pomegranate hover:underline">Open saved teaching</a></>}
             </div>
 
-            {offlineSavedAt ? null : <nav className="mt-7 flex w-fit rounded-xl border border-line bg-stone/55 p-1" aria-label="Weekly learning">
+            {offlineSavedAt ? null : <nav className="reading-nonessential mt-7 flex w-fit rounded-xl border border-line bg-stone/55 p-1" aria-label="Weekly learning">
               <button type="button" aria-pressed={view === 'current'} onClick={showCurrentTeaching} className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition ${view === 'current' ? 'bg-paper text-ink shadow-sm' : 'text-ink-soft hover:text-pomegranate'}`}>
                 <BookOpenText aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 This week
@@ -237,7 +239,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
               <DvarTorahArchive archive={archive} searchDraft={archiveSearchDraft} activeSearch={archiveSearch} isLoading={isArchiveLoading} loadError={archiveError} articleError={archivedArticleError} loadingArticleKey={archivedArticleLoadingKey} onSearchDraftChange={setArchiveSearchDraft} onSearch={searchArchive} onPageChange={changeArchivePage} onRetry={retryArchive} onOpenArticle={(weekKey) => void openArchivedArticle(weekKey)} />
             ) : view === 'archivedArticle' && archivedArticle !== null ? (
               <div>
-                <button type="button" onClick={showArchive} className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-ink-soft transition hover:text-pomegranate">
+                <button type="button" onClick={showArchive} className="reading-nonessential mt-8 inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-ink-soft transition hover:text-pomegranate">
                   <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
                   Back to past teachings
                 </button>
@@ -275,6 +277,8 @@ interface PublishedArticleProps {
 }
 
 function PublishedArticle({ article, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef }: PublishedArticleProps) {
+  const readingId = `teaching:${article.week.weekKey}`
+  const reading = useReadingTarget(readingId, article.body)
   const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
   const [timings, setTimings] = useState<DvarTorahAudioTimings | null>(null)
   const playerRef = useRef<DvarTorahPlaybackHandle | null>(null)
@@ -289,7 +293,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
   const sourceNumbersById = useMemo(() => new Map(article.sources.map((source, index) => [source.sourceId, index + 1])), [article.sources])
   const readingMinutes = estimateReadingMinutes(article.audio?.durationMs)
   return (
-    <article ref={articleRef} className="mt-9 border-t border-line pt-7" aria-label={normalizeDvarTorahText(article.title)}>
+    <article ref={articleRef} data-reading-target={readingId} data-reading-focused={reading.isFocused} className="teaching-article mt-9 border-t border-line pt-7" aria-label={normalizeDvarTorahText(article.title)}>
       {!showFallbackNotice ? null : (
         <p className="mb-6 rounded-lg border border-brass/40 bg-brass/5 px-4 py-3 text-sm leading-6 text-ink-soft">
           This week’s teaching is still being prepared. Here is the latest available Dvar Torah.
@@ -297,6 +301,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
       )}
 
       <WeekDetails week={article.week} />
+      {reading.isLong ? <div className="mt-3 flex justify-end"><FocusReadingButton id={readingId} label="Focus teaching" /></div> : null}
       <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} words={titleWords} onSelectWord={selectWord} /></h2>
       {readingMinutes === null ? null : (
         <p aria-label="Estimated reading time" title={`Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -307,7 +312,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
       {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
       {article.audio == null ? <p className="mt-5 text-sm text-muted">Audio is not available for this teaching yet.</p> : null}
       {timings === null ? null : <p className="mt-4 text-sm text-muted">Click any word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
-      <div className="mt-8 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-5 sm:pl-7">
+      <div className="reading-content teaching-body mt-8 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-5 sm:pl-7">
         {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} words={bodyWords} onSelectWord={selectWord} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}

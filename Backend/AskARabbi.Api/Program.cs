@@ -87,6 +87,8 @@ builder.Services.AddHttpClient("HebcalCalendar", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("AskARabbi-Calendar/1.0 (+https://askarabbi.ai)");
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton<IHebcalCalendarClient, HebcalCalendarClient>();
+builder.Services.AddSingleton<PersonalizationLocationResolver>();
+builder.Services.AddSingleton<ICalendarSolarTimesProvider, HebcalSolarTimesProvider>();
 builder.Services.AddScoped<CalendarPreferencesService>();
 builder.Services.AddScoped<CalendarOverviewService>();
 builder.Services.AddSingleton<CalendarAITools>();

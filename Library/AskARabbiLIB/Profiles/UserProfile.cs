@@ -1,3 +1,5 @@
+using AskARabbiLIB.Calendar;
+
 namespace AskARabbiLIB.Profiles;
 
 /// <summary>Contains user-provided context for tailoring an AskARabbi conversation.</summary>
@@ -14,6 +16,12 @@ public sealed record UserProfile
 
     /// <summary>Gets the optional birth time-zone identifier used only by server-side calendar tools.</summary>
     public string? BirthTimeZone { get; init; }
+
+    /// <summary>Gets the private birthplace used by server-side Hebrew-birthday tools.</summary>
+    public CalendarLocation? BirthLocation { get; init; }
+
+    /// <summary>Gets the current location used by the calendar and current-date tools.</summary>
+    public CalendarLocation? CurrentLocation { get; init; }
 
     /// <summary>Gets optional user-provided background context.</summary>
     public string? Bio { get; init; }

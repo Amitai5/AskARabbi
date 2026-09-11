@@ -1,6 +1,8 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
 import type { CalendarOverview, CalendarPreferences, CalendarPreferencesResponse, CalendarRange } from './calendarTypes.ts'
 
+export const CalendarPreferencesChanged = 'askarabbi-calendar-preferences-changed'
+
 export interface CalendarClient {
   getOverview(days: CalendarRange, signal?: AbortSignal): Promise<CalendarOverview>
   getPreferences(signal?: AbortSignal): Promise<CalendarPreferencesResponse>

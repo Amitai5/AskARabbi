@@ -9,6 +9,8 @@ const ValidProfile: PersonalizationProfile = {
   fullName: 'Amitai Erfanian',
   birthDateTime: '2001-12-17T09:30',
   birthTimeZone: 'America/Los_Angeles',
+  birthLocation: { kind: 'zip', id: '91302' },
+  currentLocation: { kind: 'city', id: '281184' },
   conversationLanguage: 'English',
   quotationLanguage: 'English',
   religiousMovement: 'Conservadox',
@@ -23,15 +25,15 @@ describe('personalization validation', () => {
     expect(errors).toEqual({})
   })
 
-  it('rejects unsafe date ranges and malformed time zones', () => {
+  it('rejects unsafe date ranges and malformed ZIP codes', () => {
     const errors = validatePersonalizationProfile({
       ...ValidProfile,
       birthDateTime: '2100-01-01T10:00',
-      birthTimeZone: 'Etc/UTC',
+      birthLocation: { kind: 'zip', id: '123' },
     }, CurrentDate)
 
     expect(errors.birthDateTime).toBe('Birth date and time cannot be in the future.')
-    expect(errors.birthTimeZone).toBe('Choose a time zone from the U.S. list.')
+    expect(errors.birthLocation).toBe('Enter a five-digit U.S. ZIP code.')
   })
 
   it('rejects implausible ages and context beyond the profile limit', () => {

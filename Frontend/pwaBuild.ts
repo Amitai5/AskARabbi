@@ -14,7 +14,7 @@ export function pwaBuild(): Plugin {
       // Vite must finish emitting the root offline.html entry before it is hashed.
       order: 'post',
       handler(_, bundle) {
-        const assets = ['/offline.html', '/favicon.svg', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
+        const assets = ['/offline.html', '/reading-bootstrap.js', '/favicon.svg', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
           ...Object.keys(bundle).filter(path => path.startsWith('assets/') && !path.endsWith('.map')).map(path => `/${path}`)].sort()
         const template = readFileSync(resolve(root, 'public/sw.js'), 'utf8')
         const hash = createHash('sha256').update(template)

@@ -41,6 +41,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
 
     internal InMemoryApplicationStore Store { get; } = new();
 
+    internal TimeProvider Clock { get; init; } = new FixedTimeProvider(FixedUtcNow);
+
     internal FakeGroundedAnswerService GroundedAnswers { get; } = new();
     internal FakeCalendarProvider Calendar { get; } = new();
 
@@ -120,7 +122,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.AddSingleton(new DvarTorahAudioOptions { Enabled = IsAudioEnabled });
             }
 
-            services.AddSingleton<TimeProvider>(new FixedTimeProvider(FixedUtcNow));
+            services.AddSingleton(Clock);
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
         });
     }

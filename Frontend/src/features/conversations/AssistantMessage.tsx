@@ -2,8 +2,11 @@ import { Check, Copy } from 'lucide-react'
 import { memo, useEffect, useMemo, useState } from 'react'
 import { normalizeDisplayText } from '../../displayText.ts'
 import type { ConversationMessage, ConversationSource } from './conversationData.ts'
+import { FocusReadingButton } from '../reading/FocusedReading.tsx'
+import { useReadingTarget } from '../reading/focusedReadingContext.ts'
 
 interface AssistantMessageProps {
+  autoFocusEligible?: boolean
   message: ConversationMessage
   selectedSourceNumber: number | null
   onSelectSource(messageId: string, sourceNumber: number, trigger: HTMLButtonElement): void
@@ -12,10 +15,12 @@ interface AssistantMessageProps {
 const EmptySources: readonly ConversationSource[] = []
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
-export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource }: AssistantMessageProps) {
+export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource, autoFocusEligible = false }: AssistantMessageProps) {
   const sources = message.sources ?? EmptySources
   const sourceNumbers = useMemo(() => new Set(sources.map((source) => source.number)), [sources])
   const normalizedContent = useMemo(() => normalizeDisplayText(message.content), [message.content])
+  const readingId = `answer:${message.id}`
+  const reading = useReadingTarget(readingId, normalizedContent, autoFocusEligible)
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
 
   useEffect(() => {
@@ -42,9 +47,9 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
     : 'opacity-100'
 
   return (
-    <div className="conversation-message group relative border-l-2 border-pomegranate pl-5" data-message-role="assistant">
-      <p className="mb-3 font-display text-xl text-ink">AskRabbi</p>
-      <div className="space-y-4 text-base leading-7 text-ink sm:text-lg">
+    <div className="conversation-message group relative border-l-2 border-pomegranate pl-5" data-message-role="assistant" data-reading-target={readingId} data-reading-focused={reading.isFocused}>
+      <div className="mb-3 flex items-center justify-between gap-3"><p className="font-display text-xl text-ink">AskRabbi</p>{reading.isLong ? <FocusReadingButton id={readingId} /> : null}</div>
+      <div className="reading-content space-y-4 text-base leading-7 text-ink sm:text-lg">
         {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
           <p key={`${message.id}-paragraph-${index}`} dir="auto" className="last:min-h-9 last:pr-12">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}

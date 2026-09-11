@@ -341,7 +341,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
     private static ParashahToolRequest CreateParashahToolRequest(string intentQuestion, AIToolExecutionContext context)
     {
-        var inIsrael = SearchTextNormalizer.Tokenize(intentQuestion).Contains("israel", StringComparer.Ordinal);
+        var tokens = SearchTextNormalizer.Tokenize(intentQuestion).ToHashSet(StringComparer.Ordinal);
+        var inIsrael = tokens.Contains("diaspora") ? false : tokens.Contains("israel") || context.UserProfile?.CurrentLocation?.UsesIsraelSchedule() == true;
         if (TryGetMitzvahAnniversaryAge(intentQuestion, out var anniversaryAge))
         {
             var arguments = BinaryData.FromString(JsonSerializer.Serialize(new { hebrewAnniversaryAge = anniversaryAge, inIsrael }, PromptJsonOptions));
@@ -396,7 +397,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
     private static DateTime GetCurrentLocalDateTime(AIToolExecutionContext context)
     {
-        var timeZoneId = string.IsNullOrWhiteSpace(context.UserProfile?.BirthTimeZone) ? TimeZoneInfo.Utc.Id : context.UserProfile.BirthTimeZone.Trim();
+        var timeZoneId = string.IsNullOrWhiteSpace(context.UserProfile?.CurrentLocation?.TimeZone) ? TimeZoneInfo.Utc.Id : context.UserProfile.CurrentLocation.TimeZone.Trim();
         var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
         return TimeZoneInfo.ConvertTime(context.CurrentUtc, timeZone).DateTime;
     }

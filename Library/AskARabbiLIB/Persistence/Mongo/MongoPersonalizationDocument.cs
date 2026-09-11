@@ -1,4 +1,5 @@
 using MongoDB.Bson.Serialization.Attributes;
+using AskARabbiLIB.Calendar;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
@@ -18,6 +19,12 @@ internal sealed class MongoPersonalizationDocument
 
     [BsonElement("birthTimeZone")]
     public required string BirthTimeZone { get; init; }
+
+    [BsonElement("birthLocation")]
+    public CalendarLocation? BirthLocation { get; init; }
+
+    [BsonElement("currentLocation")]
+    public CalendarLocation? CurrentLocation { get; init; }
 
     [BsonElement("conversationLanguage")]
     public required string ConversationLanguage { get; init; }

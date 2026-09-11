@@ -1,6 +1,5 @@
-import type { PersonalizationProfile } from './personalizationTypes.ts'
+import type { PersonalizationLocation, PersonalizationProfile } from './personalizationTypes.ts'
 import { LanguageValues } from './languageOptions.ts'
-import { UsTimeZoneValues } from './usTimeZoneOptions.ts'
 
 export type PersonalizationErrors = Partial<Record<keyof PersonalizationProfile, string>>
 
@@ -11,7 +10,8 @@ export function validatePersonalizationProfile(profile: PersonalizationProfile, 
 
   validateRequiredText(profile.fullName, 120, 'Enter your full name.', 'Full name cannot exceed 120 characters.', (message) => { errors.fullName = message })
   validateBirthDateTime(profile.birthDateTime, currentDate, (message) => { errors.birthDateTime = message })
-  validateTimeZone(profile.birthTimeZone, (message) => { errors.birthTimeZone = message })
+  validateLocation(profile.birthLocation, (message) => { errors.birthLocation = message })
+  validateLocation(profile.currentLocation, (message) => { errors.currentLocation = message })
   validateLanguage(profile.conversationLanguage, 'Choose a supported conversation language.', (message) => { errors.conversationLanguage = message })
   validateLanguage(profile.quotationLanguage, 'Choose a supported quotation language.', (message) => { errors.quotationLanguage = message })
   validateRequiredText(profile.religiousMovement, 100, 'Choose the background that fits best.', 'Religious background cannot exceed 100 characters.', (message) => { errors.religiousMovement = message })
@@ -29,6 +29,8 @@ export function normalizePersonalizationProfile(profile: PersonalizationProfile)
     ...profile,
     fullName: profile.fullName.trim(),
     birthTimeZone: profile.birthTimeZone.trim(),
+    birthLocation: normalizeLocation(profile.birthLocation),
+    currentLocation: normalizeLocation(profile.currentLocation),
     conversationLanguage: profile.conversationLanguage.trim(),
     quotationLanguage: profile.quotationLanguage.trim(),
     religiousMovement: profile.religiousMovement.trim(),
@@ -73,16 +75,18 @@ function validateBirthDateTime(value: string, currentDate: Date, addError: (mess
   }
 }
 
-function validateTimeZone(value: string, addError: (message: string) => void) {
-  const normalized = value.trim()
-  if (normalized.length === 0) {
-    addError('Choose the U.S. time zone where you were born.')
-    return
+function validateLocation(value: PersonalizationLocation | null | undefined, addError: (message: string) => void) {
+  if (!value || !value.id.trim()) {
+    addError('Enter a U.S. ZIP code or choose a supported city.')
+  } else if (value.kind === 'zip' && !/^[0-9]{5}$/.test(value.id.trim())) {
+    addError('Enter a five-digit U.S. ZIP code.')
+  } else if (value.kind !== 'zip' && (value.kind !== 'city' || !/^[0-9]{1,10}$/.test(value.id))) {
+    addError('Choose a supported city.')
   }
+}
 
-  if (!UsTimeZoneValues.has(normalized)) {
-    addError('Choose a time zone from the U.S. list.')
-  }
+function normalizeLocation(value: PersonalizationLocation | null | undefined) {
+  return value ? { ...value, id: value.id.trim() } : null
 }
 
 function validateLanguage(value: string, message: string, addError: (message: string) => void) {

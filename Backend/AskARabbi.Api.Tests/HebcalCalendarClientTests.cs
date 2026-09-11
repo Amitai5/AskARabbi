@@ -11,7 +11,7 @@ namespace AskARabbi.Api.Tests;
 public sealed class HebcalCalendarClientTests
 {
     private const string Schedule = """{"items":[{"title":"Rosh Hashana 5787","date":"2026-09-12","category":"holiday","subcat":"major","link":"https://hebcal.com/h/rosh-hashana-2026"}]}""";
-    private const string Solar = """{"location":{"title":"New York, United States","tzid":"America/New_York","geonameid":5128581},"times":{"sunset":{"2026-09-10":"2026-09-10T19:00:00-04:00"},"tzeit85deg":{"2026-09-10":"2026-09-10T19:40:00-04:00"}}}""";
+    private const string Solar = """{"location":{"title":"New York, United States","tzid":"America/New_York","geonameid":5128581,"latitude":40.71427,"longitude":-74.00597},"times":{"sunset":{"2026-09-10":"2026-09-10T19:00:00-04:00"},"tzeit85deg":{"2026-09-10":"2026-09-10T19:40:00-04:00"}}}""";
     private readonly MutableCalendarClock clock = new();
 
     [TestMethod]
@@ -112,6 +112,8 @@ public sealed class HebcalCalendarClientTests
         Assert.AreEqual(TimeSpan.FromHours(-4), result.Data.SolarDays[new(2026, 9, 10)].Sunset?.Offset);
         Assert.IsNull(result.Data.SolarDays[new(2026, 9, 11)].Sunset);
         Assert.AreEqual("America/New_York", result.Data.Location?.TimeZone);
+        Assert.AreEqual(40.71427, result.Data.Location?.Latitude);
+        Assert.AreEqual(-74.00597, result.Data.Location?.Longitude);
         StringAssert.Contains(handler.Requests[0], "geo=geoname&geonameid=5128581");
         Assert.IsFalse(handler.Requests[0].Contains("user", StringComparison.OrdinalIgnoreCase));
     }

@@ -1,14 +1,15 @@
 # Conversation personalization
 
-Saved personalization is read again for every new answer, including replies in an existing conversation. Changing a preference does not rewrite previously saved answers. The settings HTTP contract and MongoDB schema are unchanged.
+Saved personalization is read again for every new answer, including replies in an existing conversation. Changing a preference does not rewrite previously saved answers. Current location and birthplace are now shared, server-resolved settings used by both calendar and chat; see the additive contract and migration notes below.
 
 ## What each setting controls
 
 | Setting | Effect and boundary |
 |---|---|
 | Full name | The first name token is available for occasional natural address. An explicit preferred name can be supplied in Additional information. The full profile name is not included in the ordinary answer prompt. |
-| Birth date and time | The ordinary prompt receives only a child, teenager, or adult audience group. Calendar calculations can privately use the original birth fields; the model must not expose the saved Gregorian birth date. Birth time does not prove whether birth occurred after sunset. |
-| Birth time zone | Passed to private calendar calculations, including the existing local-current-date calculation. All ten UI time-zone choices round-trip through settings and the next chat request. It is not used to infer heritage or included in ordinary prose prompts. |
+| Birth date and time | Entered in the birthplace's local clock. The ordinary prompt receives only a child, teenager, or adult audience group. Private calendar tools use the birth time and resolved birthplace to calculate sea-level sunset; an unknown boundary is explicitly qualified. |
+| Birthplace | A five-digit U.S. ZIP or supported city, resolved to coordinates and an IANA time zone on save. Used privately for Hebrew birthdays and bar/bat mitzvah anniversaries, never for today's date. A one-time copy button can copy current location without linking future moves. |
+| Current location | A five-digit U.S. ZIP or supported city. Supplies the calendar and current-date chat tools with local timezone/sunset, and selects Israel/Diaspora automatically. Explicit user-requested reading-cycle overrides remain possible in chat. |
 | Conversation language | Explanations, generated chat titles, quotation roles, and follow-ups use this language independently of the question's language and earlier answers. Application-written navigation replies and answer transitions are localized too. |
 | Torah and source quotation language | Selects approved wording in that language for the same passage, independently of explanation language. English quotations stay English even when the explanation is Hebrew, Persian, or another language. A specifically requested comparison can include both editions. |
 | Religious movement or practice | Supplies the user's self-described perspective when relevant. It is not a score for literacy, observance, or Jewishness, and does not establish a religious ruling. All 13 visible choices are preserved. |
@@ -18,6 +19,15 @@ Saved personalization is read again for every new answer, including replies in a
 The ten languages are English, French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The separate account setting for opening source context remains a presentation preference; email-update consent is not a model instruction.
 
 ## Enforcement
+
+### Location contract and compatibility
+
+- `GET /api/conversation-settings/locations` returns the authenticated, reviewed city catalog (U.S. ZIP input is also supported).
+- `PUT /api/conversation-settings/personalization` accepts optional `birthLocation` and `currentLocation`, each containing only `{ "kind": "zip" | "city", "id": "..." }`. Labels, timezones, and coordinates are resolved by the server. The response includes resolved metadata and the legacy `birthTimeZone` derived from the birthplace.
+- New signup onboarding requires both locations. Personalization replaces the old standalone birth-timezone dropdown with the same shared controls. City-list failures leave ZIP entry available; failed location resolution returns 503 without changing the saved profile.
+- The Mongo personalization object gains nullable `birthLocation` and `currentLocation`. Existing clients/documents remain readable; missing request locations preserve saved values. An existing calendar location is offered as current location until the profile is next saved. It is never assumed to be a birthplace. No bulk migration or production data rewrite is required.
+- Only location identifiers are sent to Hebcal, never names, birth dates/times, or chat text. Birth sunset calculations use the existing local Zmanim library. Approximate ZIP/city coordinates and unknown/ambiguous birth times are not a substitute for checking near-sunset cases with a qualified rabbi.
+- Current-date tools share the calendar's bounded solar-data provider/cache. No current location means an explicitly labeled UTC fallback; missing solar data means an explicitly labeled daytime Hebrew date. Ordinary model prompts exclude both locations and exact birth details.
 
 `ConversationPersonalization` is the shared contract for drafting, repair, and the existing independent answer audit. User-provided context remains JSON data, not an interpolated system instruction. The auditor sees the current preferences as evaluation criteria, including response language, quotation language, safe style preferences, and understandable wording.
 
@@ -35,7 +45,7 @@ Chat paragraphs and source quotations/context use independent native `dir="auto"
 - Privacy: only a preferred-name token, broad audience group, background, and relevant user-supplied context enter the ordinary model prompt; exact birth details stay in server-side calendar context.
 - Performance: no new model-validation stage was added. Prompts contain additional bounded instructions/context, and generic translation selection can add bounded local archive reads. Non-English or explicitly personalized date answers use the existing calendar-capable model path instead of returning a fixed English answer.
 - Maintenance: one shared preference contract and centralized application-written language strings prevent drafting, auditing, and rendering from diverging. No new production dependencies or infrastructure changes are required.
-- Compatibility: `GroundedAnswer` has additive `ResponseLanguage` and `QuotationLanguage` presentation properties. Existing constructors remain compatible, and HTTP response DTOs and persisted documents need no migration.
+- Compatibility: `GroundedAnswer` has additive `ResponseLanguage` and `QuotationLanguage` presentation properties. Location request/response fields and Mongo fields are additive; old profiles retain their birth timezone until their location setup is completed. Deploy the backend before or together with the frontend; old frontends remain supported.
 - Deployment: rebuild and deploy the backend and frontend through the normal workflow. The API Docker build already copies `Prototype/Prompts`. This implementation does not modify production profiles or rewrite saved messages.
 
 ## Verification — 2026-09-05

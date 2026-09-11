@@ -1,22 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronUp, LogOut, SlidersHorizontal, UserRound, Wrench } from 'lucide-react'
+import { ChevronUp, LogOut, UserRound, Wrench } from 'lucide-react'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 
 interface ProfileMenuProps {
   user: AuthenticatedUser
   onOpenSettings(): void
-  onOpenPersonalization(): void
   onLogout(): Promise<void>
 }
 
-export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLogout }: ProfileMenuProps) {
+export function ProfileMenu({ user, onOpenSettings, onLogout }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!isOpen) {
       return
     }
+    containerRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
 
     function handlePointerDown(event: PointerEvent) {
       if (containerRef.current?.contains(event.target as Node) === false) {
@@ -26,7 +27,14 @@ export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLog
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        event.preventDefault()
         setIsOpen(false)
+        triggerRef.current?.focus()
+      } else if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+        const items = Array.from(containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])
+        const index = items.findIndex(item => item === document.activeElement)
+        event.preventDefault()
+        items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus()
       }
     }
 
@@ -53,19 +61,7 @@ export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLog
             role="menuitem"
           >
             <Wrench aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
-            Settings
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen(false)
-              onOpenPersonalization()
-            }}
-            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone"
-            role="menuitem"
-          >
-            <SlidersHorizontal aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
-            Personalization
+            Settings &amp; Personalization
           </button>
           <div className="my-1 h-px bg-line" />
           <button type="button" onClick={() => void onLogout()} className="flex h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone" role="menuitem">
@@ -76,6 +72,7 @@ export function ProfileMenu({ user, onOpenSettings, onOpenPersonalization, onLog
       ) : null}
 
       <button
+        ref={triggerRef}
         type="button"
         aria-expanded={isOpen}
         aria-haspopup="menu"

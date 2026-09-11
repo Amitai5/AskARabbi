@@ -1,3 +1,5 @@
+using AskARabbiLIB.Calendar;
+
 namespace AskARabbiLIB.ConversationSettings;
 
 /// <summary>Contains user-owned context used to tailor conversations without treating it as evidence.</summary>
@@ -14,6 +16,12 @@ public sealed record PersonalizationSettings
 
     /// <summary>Gets the IANA time-zone identifier for the birthplace.</summary>
     public required string BirthTimeZone { get; init; }
+
+    /// <summary>Gets the resolved birthplace; older profiles may contain only a birth time zone.</summary>
+    public CalendarLocation? BirthLocation { get; init; }
+
+    /// <summary>Gets the current location shared by the calendar and chat date tools.</summary>
+    public CalendarLocation? CurrentLocation { get; init; }
 
     /// <summary>Gets the preferred conversation language.</summary>
     public required string ConversationLanguage { get; init; }
@@ -38,7 +46,7 @@ public sealed record PersonalizationSettings
         var normalized = this with
         {
             FullName = FullName?.Trim() ?? string.Empty,
-            BirthTimeZone = BirthTimeZone?.Trim() ?? string.Empty,
+            BirthTimeZone = BirthLocation?.TimeZone ?? BirthTimeZone?.Trim() ?? string.Empty,
             ConversationLanguage = ConversationLanguage?.Trim() ?? string.Empty,
             QuotationLanguage = QuotationLanguage?.Trim() ?? string.Empty,
             ReligiousMovement = ReligiousMovement?.Trim() ?? string.Empty,
@@ -63,7 +71,7 @@ public sealed record PersonalizationSettings
         {
             throw new ArgumentOutOfRangeException(nameof(BirthDate), "Birth date cannot represent an age greater than 130 years.");
         }
-        if (!PersonalizationCatalog.UnitedStatesTimeZones.Contains(normalized.BirthTimeZone, StringComparer.Ordinal))
+        if (!PersonalizationCatalog.UnitedStatesTimeZones.Contains(normalized.BirthTimeZone, StringComparer.Ordinal) && (normalized.BirthLocation is null || !TimeZoneInfo.TryFindSystemTimeZoneById(normalized.BirthTimeZone, out _)))
         {
             throw new ArgumentException("Birth time zone is not currently supported.", nameof(BirthTimeZone));
         }

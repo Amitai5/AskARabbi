@@ -24,14 +24,14 @@ export function UserDataControls({ isBusy, onDeleteChats, onDeleteAccount }: Use
         <h3 className="mb-3 font-semibold">Chat history and AI privacy</h3>
         <ChatPrivacyNotice />
       </div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div id="setting-delete-chats" tabIndex={-1} className="settings-target flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-[27rem]">
           <h3 className="font-semibold">Delete all chats</h3>
           <p className="mt-1 text-muted">Clear your entire conversation history and messages. Your account, preferences, and current usage stay the same.</p>
         </div>
         <button type="button" disabled={isBusy} onClick={() => setAction('chats')} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line-strong px-4 font-semibold transition hover:border-pomegranate/40 hover:bg-pomegranate/5 hover:text-pomegranate disabled:cursor-wait disabled:opacity-50"><Trash2 aria-hidden="true" className="size-4" />Delete all chats</button>
       </div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div id="setting-delete-account" tabIndex={-1} className="settings-target flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-[27rem]">
           <h3 className="font-semibold">Delete account</h3>
           <p className="mt-1 text-muted">Permanently delete your AskRabbi account, chats, personal profile, preferences, usage history, and sign-in identity.</p>

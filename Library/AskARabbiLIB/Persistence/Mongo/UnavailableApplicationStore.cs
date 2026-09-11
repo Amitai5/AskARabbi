@@ -62,6 +62,12 @@ public sealed class UnavailableApplicationStore : IUserAccountStore, IConversati
     public Task UpsertPersonalizationAsync(Guid userId, PersonalizationSettings personalization, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
 
     /// <inheritdoc/>
+    public Task<ReadingPreferences?> GetReadingPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException<ReadingPreferences?>(CreateException());
+
+    /// <inheritdoc/>
+    public Task UpsertReadingPreferencesAsync(Guid userId, ReadingPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
+
+    /// <inheritdoc/>
     public Task<ConversationPreferences?> GetPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException<ConversationPreferences?>(CreateException());
 
     /// <inheritdoc/>

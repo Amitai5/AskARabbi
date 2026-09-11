@@ -2,25 +2,22 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, BookOpenText, CalendarDays, ChevronDown, ExternalLink, MapPin, RefreshCw, Settings2 } from 'lucide-react'
 import type { CalendarClient } from './calendarClient.ts'
 import { CalendarCategories, type CalendarAvailability, type CalendarCategorySetting, type CalendarEvent, type CalendarOverview, type CalendarPreferences, type CalendarPreferencesResponse, type CalendarRange } from './calendarTypes.ts'
-import { CalendarPreferencesForm } from './CalendarPreferencesForm.tsx'
 import { formatBeginning, formatCivilDate, formatEventRange } from './calendarFormatting.ts'
 import { useOnlineStatus } from '../pwa/useOnlineStatus.ts'
 import './calendar.css'
 
-interface Props { client: CalendarClient; onOpenDvarTorah(): void; onBackToConversation?(): void }
+interface Props { client: CalendarClient; onOpenDvarTorah(): void; onBackToConversation?(): void; onOpenPersonalization?(): void }
 const ButtonClass = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line-strong bg-paper px-4 text-sm font-semibold text-ink transition hover:bg-stone disabled:opacity-50'
 
-export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation }: Props) {
+export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, onOpenPersonalization }: Props) {
   const [days, setDays] = useState<CalendarRange>(90)
   const [data, setData] = useState<CalendarOverview | null>(null)
   const [settings, setSettings] = useState<CalendarPreferencesResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [revision, setRevision] = useState(0)
-  const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
-  const preferencesButton = useRef<HTMLButtonElement>(null)
   const isOnline = useOnlineStatus()
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
   useEffect(() => { heading.current?.focus() }, [])
@@ -28,11 +25,11 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation }: 
   useEffect(() => {
     if (!isOnline) { return }
     const controller = new AbortController()
-    void Promise.all([client.getOverview(days, controller.signal), client.getPreferences(controller.signal)])
-      .then(([overview, preferences]) => {
+    void client.getOverview(days, controller.signal)
+      .then((overview) => {
         if (controller.signal.aborted) { return }
         setData(overview)
-        setSettings({ ...preferences, preferences: overview.preferences })
+        setSettings({ cities: [], preferences: overview.preferences })
         setError(null)
       }).catch((cause: unknown) => {
         if (!controller.signal.aborted) { setError(cause instanceof Error ? cause.message : 'The calendar could not be loaded.') }
@@ -41,14 +38,14 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation }: 
   }, [client, days, revision, isOnline])
 
   useEffect(() => {
-    if (!data || !isOnline || error || editing || saving) { return }
+    if (!data || !isOnline || error || saving) { return }
     const boundary = Date.parse(data.nextRefreshAtUtc)
     if (!Number.isFinite(boundary)) { return }
     const timer = window.setTimeout(refresh, Math.min(2_147_483_647, Math.max(1000, boundary - Date.now() + 100)))
     function onFocus() { if (Date.now() >= boundary) { refresh() } }
     window.addEventListener('focus', onFocus)
     return () => { window.clearTimeout(timer); window.removeEventListener('focus', onFocus) }
-  }, [data, error, isOnline, editing, saving, refresh])
+  }, [data, error, isOnline, saving, refresh])
 
   async function savePreferences(preferences: CalendarPreferences) {
     if (!navigator.onLine) { throw new Error('Reconnect to save calendar preferences.') }
@@ -73,7 +70,6 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation }: 
     finally { setSaving(false) }
   }
 
-  function closePreferences() { setEditing(false); preferencesButton.current?.focus() }
   function changeRange(value: CalendarRange) {
     if (value === days) { return }
     setDays(value); setData(null); setLoading(true)
@@ -85,10 +81,9 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation }: 
       {onBackToConversation ? <button type="button" onClick={onBackToConversation} className="mb-4 inline-flex min-h-10 items-center gap-2 text-sm text-ink-soft hover:text-pomegranate"><ArrowLeft className="size-4" />Back to conversation</button> : null}
       <header className="flex flex-wrap items-start justify-between gap-5 border-b border-line pb-6">
         <div><h1 id="calendar-title" ref={heading} tabIndex={-1} className="font-display text-[clamp(2.5rem,4vw,3.6rem)] leading-[1.08] tracking-[-0.035em] outline-none">Jewish Calendar</h1><p className="mt-3 text-base leading-7 text-ink-soft">Dates, holidays, and the rhythm of the Jewish year.</p></div>
-        <button ref={preferencesButton} type="button" disabled={!settings || !isOnline || saving} onClick={() => setEditing(!editing)} aria-expanded={editing} className={ButtonClass}><Settings2 aria-hidden="true" className="size-4" />Location & preferences</button>
+        {onOpenPersonalization ? <button type="button" onClick={onOpenPersonalization} className={ButtonClass}><Settings2 aria-hidden="true" className="size-4" />Edit location in Personalization</button> : null}
       </header>
       {!isOnline ? <p role="status" className="my-6 rounded-lg bg-stone p-4 text-sm">You’re offline. Reconnect for current calendar dates and local times. Saved Dvar Torah remains available from Learning & Tools.</p> : null}
-      {editing && settings ? <CalendarPreferencesForm preferences={settings.preferences} cities={settings.cities} onSave={savePreferences} onClose={closePreferences} /> : null}
       {error ? <div role="alert" className="my-6 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-pomegranate/5 p-4 text-sm text-pomegranate"><p>{error}</p><button type="button" onClick={retry} disabled={!isOnline} className={ButtonClass}><RefreshCw className="size-4" />Retry calendar</button></div> : null}
       {loading && !data && isOnline ? <p role="status" className="py-10 text-muted">Loading calendar…</p> : null}
       {data ? <>
@@ -107,7 +102,7 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation }: 
             <div className="px-5 pb-5">
               <section className="border-t border-line pt-4"><p className="text-sm leading-6 text-ink-soft">{data.shabbat.parashah ? `Parashat ${data.shabbat.parashah}` : `Festival reading · ${data.shabbat.holiday ?? 'No regular weekly portion'}`}</p><p className="mt-1 text-xs text-muted">{data.shabbat.inIsrael ? 'Israel' : 'Diaspora'} reading cycle</p><button type="button" onClick={onOpenDvarTorah} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border border-pomegranate px-4 text-sm font-semibold text-pomegranate hover:bg-pomegranate/5"><BookOpenText className="size-4" />Read Dvar Torah</button><p className="mt-2 text-xs leading-5 text-muted">Browse our published teachings; the publication’s own date and cycle apply.</p></section>
               <section className="mt-6 border-t border-line pt-6"><h3 className="flex items-center gap-2 font-display text-2xl"><MapPin className="size-5" />Local times</h3><AvailabilityNotice value={data.timing} onRetry={data.preferences.location && data.preferences.showLocalTimes ? retry : undefined} disabled={!isOnline} />
-                {data.localTimes.length ? <ol className="mt-3 space-y-4">{data.localTimes.map((time) => <li key={`${time.title}-${time.at}`} className="text-sm"><div className="flex items-baseline justify-between gap-2"><span className="font-semibold">{time.title}</span><time dateTime={time.at} className="whitespace-nowrap font-semibold">{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: time.timeZone }).format(new Date(time.at))}</time></div><p className="mt-1 text-xs leading-5 text-muted">{formatCivilDate(time.date)} · {time.location}<br />{time.timeZone}{time.context ? ` · ${time.context}` : ''}</p></li>)}</ol> : <button type="button" onClick={() => setEditing(true)} disabled={!isOnline} className={`${ButtonClass} mt-4 w-full`}>{data.preferences.location ? 'Edit timing preferences' : 'Select location'}</button>}
+                {data.localTimes.length ? <ol className="mt-3 space-y-4">{data.localTimes.map((time) => <li key={`${time.title}-${time.at}`} className="text-sm"><div className="flex items-baseline justify-between gap-2"><span className="font-semibold">{time.title}</span><time dateTime={time.at} className="whitespace-nowrap font-semibold">{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: time.timeZone }).format(new Date(time.at))}</time></div><p className="mt-1 text-xs leading-5 text-muted">{formatCivilDate(time.date)} · {time.location}<br />{time.timeZone}{time.context ? ` · ${time.context}` : ''}</p></li>)}</ol> : onOpenPersonalization && !data.preferences.location ? <button type="button" onClick={onOpenPersonalization} className={`${ButtonClass} mt-4 w-full`}>Set location in Personalization</button> : null}
                 {data.preferences.location ? <p className="mt-4 text-xs leading-5 text-muted">{data.timingConvention}</p> : null}
               </section>
               <p className="mt-6 border-t border-line pt-5 text-xs leading-6 text-muted">Calendar data by <a href="https://www.hebcal.com/home/developer-apis" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-pomegranate underline">Hebcal<ExternalLink className="size-3" /></a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" className="underline">CC BY 4.0</a></p>
@@ -141,6 +136,6 @@ function AvailabilityNotice({ value, onRetry, disabled }: { value: CalendarAvail
 function AgendaEntry({ event }: { event: CalendarEvent }) {
   return <details id={`event-${event.id}`} className="group border-t border-line py-1">
     <summary className="flex cursor-pointer list-none items-center gap-4 py-4 [&::-webkit-details-marker]:hidden"><div aria-hidden="true" className="w-14 shrink-0 self-start pt-1 text-center"><p className="text-xs uppercase tracking-widest text-muted">{formatCivilDate(event.startDate, { month: 'short' })}</p><p className="font-display text-3xl">{formatCivilDate(event.startDate, { day: 'numeric' })}</p><p className="text-xs text-muted">{formatCivilDate(event.startDate, { year: 'numeric' })}</p></div><div className="min-w-0 flex-1"><h3 className="font-display text-2xl leading-tight">{event.title}{event.isOngoing ? <span className="ml-2 align-middle font-sans text-xs font-normal text-pomegranate">Happening now</span> : null}</h3><p className="mt-1 text-sm text-ink-soft">{formatEventRange(event)}</p><p className="mt-1 text-xs leading-5 text-muted">{formatBeginning(event)}</p></div><ChevronDown className="size-4 shrink-0 transition group-open:rotate-180" aria-hidden="true" /></summary>
-    <div className="pb-5 pl-[4.5rem] text-sm leading-7 text-ink-soft"><p>{event.explanation}</p><ul className="my-3 space-y-1">{event.occurrences.map((occurrence) => <li key={`${occurrence.title}-${occurrence.date}`}><time dateTime={occurrence.date}>{formatCivilDate(occurrence.date)}</time> — {occurrence.title}</li>)}</ul><a href={event.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1 text-pomegranate underline">Read about {event.title}<ExternalLink className="size-3" /></a></div>
+    <div className="pb-5 pl-[4.5rem] text-sm leading-7 text-ink-soft"><p>{event.explanation}</p><ul className="my-3 space-y-1">{event.occurrences.map((occurrence) => <li key={`${occurrence.title}-${occurrence.date}`}><time dateTime={occurrence.date}>{formatCivilDate(occurrence.date)}</time> — {occurrence.title}</li>)}</ul></div>
   </details>
 }

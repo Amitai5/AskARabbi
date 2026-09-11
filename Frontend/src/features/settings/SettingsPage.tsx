@@ -6,8 +6,11 @@ import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import { formatUsageRemainingPercent, type UsageSummary, type UserSettings } from './settingsTypes.ts'
 import { InstallAppPanel } from '../pwa/PwaInstall.tsx'
 import { OfflineLearningSettings } from '../pwa/OfflineLearning.tsx'
+import { SettingAnchor } from './SettingAnchor.tsx'
+import { settingDefinition, SettingsSections, type SettingsSectionId } from './settingsRegistry.ts'
 
-interface SettingsPageProps {
+export interface SettingsPageProps {
+  section?: SettingsSectionId
   user: AuthenticatedUser
   settings: UserSettings
   usage: UsageSummary | null
@@ -24,7 +27,7 @@ interface SettingsPageProps {
 
 type NotificationKind = 'settings' | 'password'
 
-export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage, isDataBusy, onDeleteChats, onDeleteAccount, onBack, onSave, onRequestPasswordReset, onRetryUsage }: SettingsPageProps) {
+export function SettingsPage({ section, user, settings, usage, usageError, isLoadingUsage, isDataBusy, onDeleteChats, onDeleteAccount, onBack, onSave, onRequestPasswordReset, onRetryUsage }: SettingsPageProps) {
   const [draft, setDraft] = useState(settings)
   const [notificationKind, setNotificationKind] = useState<NotificationKind | null>(null)
   const [notificationId, setNotificationId] = useState(0)
@@ -80,12 +83,13 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
   }
 
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-labelledby="settings-title">
+    <section className={section ? '' : 'min-h-0 flex-1 overflow-y-auto px-4 sm:px-8'} aria-label={section ? `${SettingsSections.find(value => value.id === section)?.label} options` : undefined} aria-labelledby={section ? undefined : 'settings-title'}>
       {notificationKind !== null ? (
         <Toast notificationId={notificationId} title={notification.title} message={notification.message} onDismiss={() => setNotificationKind(null)} />
       ) : null}
 
-      <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 text-base leading-7 sm:pt-9 sm:text-lg">
+      <div className={section ? '' : 'enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 text-base leading-7 sm:pt-9 sm:text-lg'}>
+        {section ? null : <>
         <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 font-semibold text-ink-soft transition hover:text-pomegranate">
           <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
           Back to conversation
@@ -101,17 +105,19 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
           </p>
         </div>
 
-        <div className="mt-7">
+        </>}
+        <div className={section ? '' : 'mt-7'}>
+          <div hidden={section !== undefined && section !== 'account'}>
           <SettingsSection icon={<ShieldCheck aria-hidden="true" />} title="Account security" description="Manage the email and password associated with your account.">
             <div className="space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <SettingAnchor id="account-email"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink">Account email</p>
                   <p className="mt-1 break-words text-muted">{user.email}</p>
                 </div>
                 <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-line-strong bg-stone px-3 py-1 text-sm font-semibold leading-5 text-ink-soft sm:text-base">{user.isEmailVerified ? 'Verified email' : 'Email not verified'}</span>
-              </div>
-              <div>
+              </div></SettingAnchor>
+              <SettingAnchor id="password">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="max-w-[28rem]">
                     <p className="font-semibold text-ink">Password</p>
@@ -123,18 +129,20 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
                   </button>
                 </div>
                 {passwordResetError ? <p className="mt-3 font-medium text-pomegranate" role="alert">{passwordResetError}</p> : null}
-              </div>
+              </SettingAnchor>
             </div>
           </SettingsSection>
 
           <SettingsSection icon={<Gauge aria-hidden="true" />} title="Usage" description="Your chat allowance resets each month.">
-            <UsagePanel usage={usage} error={usageError} isLoading={isLoadingUsage} onRetry={onRetryUsage} />
+            <SettingAnchor id="usage"><UsagePanel usage={usage} error={usageError} isLoading={isLoadingUsage} onRetry={onRetryUsage} /></SettingAnchor>
           </SettingsSection>
+          </div>
 
-          <SettingsSection icon={<BookOpenText aria-hidden="true" />} title="Conversation defaults" description="Choose how new AskRabbi conversations should begin.">
+          <div hidden={section !== undefined && section !== 'reading' && section !== 'notifications'}>
+          <SettingsSection icon={section === 'notifications' ? <Bell aria-hidden="true" /> : <BookOpenText aria-hidden="true" />} title={section === 'notifications' ? 'Product updates' : 'Conversation defaults'} description={section === 'notifications' ? 'Control optional emails from AskRabbi.' : 'Choose how new AskRabbi conversations should begin.'}>
             <div className="space-y-5">
-              <PreferenceToggle label="Show source context by default" description="Open the supporting quotations and surrounding text with each answer." icon={<BookOpenText aria-hidden="true" />} isChecked={draft.showSourceContextByDefault} onChange={(value) => updateSetting('showSourceContextByDefault', value)} />
-              <PreferenceToggle label="Email me product updates" description="Receive occasional AskRabbi development and feature announcements." icon={<Bell aria-hidden="true" />} isChecked={draft.emailProductUpdates} onChange={(value) => updateSetting('emailProductUpdates', value)} />
+              <div hidden={section === 'notifications'}><SettingAnchor id="source-context"><PreferenceToggle label={settingDefinition('source-context').label} description={settingDefinition('source-context').description} icon={<BookOpenText aria-hidden="true" />} isChecked={draft.showSourceContextByDefault} onChange={(value) => updateSetting('showSourceContextByDefault', value)} /></SettingAnchor></div>
+              <div hidden={section === 'reading'}><SettingAnchor id="product-updates"><PreferenceToggle label={settingDefinition('product-updates').label} description={settingDefinition('product-updates').description} icon={<Bell aria-hidden="true" />} isChecked={draft.emailProductUpdates} onChange={(value) => updateSetting('emailProductUpdates', value)} /></SettingAnchor></div>
             </div>
 
             <div className="mt-7 flex justify-end">
@@ -145,15 +153,20 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
               </button>
             </div>
           </SettingsSection>
+          </div>
 
+          <div hidden={section !== undefined && section !== 'app'}>
           <SettingsSection icon={<Smartphone aria-hidden="true" />} title="App and offline" description="Keep your learning close, with or without a connection.">
-            <InstallAppPanel />
-            <div className="mt-7"><OfflineLearningSettings /></div>
+            <SettingAnchor id="install-app"><InstallAppPanel /></SettingAnchor>
+            <div className="mt-7"><SettingAnchor id="offline-audio"><OfflineLearningSettings /></SettingAnchor></div>
           </SettingsSection>
+          </div>
 
+          <div hidden={section !== undefined && section !== 'data'}>
           <SettingsSection icon={<Database aria-hidden="true" />} title="Your data" description="You’re in control of what you keep. Manage your conversations or permanently leave AskRabbi.">
             <UserDataControls isBusy={isDataBusy || isSaving || isRequestingPasswordReset} onDeleteChats={onDeleteChats} onDeleteAccount={onDeleteAccount} />
           </SettingsSection>
+          </div>
         </div>
       </div>
     </section>

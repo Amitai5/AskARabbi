@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
-import { fakeCalendarClient } from './features/calendar/calendarTestData.ts'
+import { fakeCalendarClient, Jerusalem } from './features/calendar/calendarTestData.ts'
 import type { ConversationTurn } from './features/conversations/conversationClient.ts'
 import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
 
@@ -36,6 +36,29 @@ describe('Calendar navigation', () => {
     await user.click(screen.getByRole('button', { name: 'Chicken and dairy' }))
     expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('Keep my calendar question')
     expect(screen.getByRole('button', { name: 'Chicken and dairy' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('opens shared personalization from the calendar and reloads its location after saving', async () => {
+    const clients = createDemoApplicationClients()
+    const { user, calendar } = await signIn(clients)
+    const originalOverview = calendar.getOverview
+    calendar.getOverview = vi.fn(async (...args: Parameters<typeof originalOverview>) => {
+      const overview = await originalOverview(...args)
+      const { personalization } = await clients.conversationSettingsClient.getPersonalization()
+      return { ...overview, preferences: { ...overview.preferences, location: personalization?.currentLocation?.id === Jerusalem.id ? Jerusalem : null } }
+    })
+    await user.click(screen.getByRole('button', { name: 'Jewish Calendar' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit location in Personalization' }))
+    await user.selectOptions(screen.getByLabelText('Current location location type'), 'city')
+    await user.selectOptions(screen.getByLabelText('Current location city'), Jerusalem.id)
+    await user.click(screen.getByRole('button', { name: 'Save personalization' }))
+    await screen.findByText('Saved to your account')
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(await screen.findByText(/Jerusalem, Israel ·/)).toBeVisible()
+    expect(calendar.getOverview).toHaveBeenCalledTimes(2)
+    expect(calendar.getPreferences).not.toHaveBeenCalled()
+    const { personalization } = await clients.conversationSettingsClient.getPersonalization()
+    expect(personalization?.birthLocation?.id).toBe('91302')
   })
 
   it('finishes a background answer without leaving the calendar and retains it in its chat', async () => {

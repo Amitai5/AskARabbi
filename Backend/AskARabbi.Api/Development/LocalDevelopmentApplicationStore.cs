@@ -16,6 +16,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     private readonly Dictionary<Guid, Conversation> conversations = [];
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
+    private readonly Dictionary<Guid, ReadingPreferences> readingPreferences = [];
     private readonly Dictionary<Guid, CalendarPreferences> calendarPreferences = [];
     internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly IReadOnlyList<WeeklyDvarTorahArticle> weeklyDvarTorahs = CreateWeeklyDvarTorahs();
@@ -101,6 +102,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
         {
             personalization.Remove(userId);
             preferences.Remove(userId);
+            readingPreferences.Remove(userId);
             calendarPreferences.Remove(userId);
             TokenUsage.DeleteAccount(userId);
             account = null;
@@ -292,6 +294,28 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
         lock (synchronization)
         {
             calendarPreferences[userId] = preferences;
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<ReadingPreferences?> GetReadingPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            return Task.FromResult(readingPreferences.GetValueOrDefault(userId));
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task UpsertReadingPreferencesAsync(Guid userId, ReadingPreferences value, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            readingPreferences[userId] = value;
         }
         return Task.CompletedTask;
     }

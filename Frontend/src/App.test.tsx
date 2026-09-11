@@ -160,8 +160,8 @@ describe('App', () => {
     await expectConversationStarter()
 
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
-    expect(screen.getByRole('menuitem', { name: 'Settings' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: 'Personalization' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'Settings & Personalization' })).toBeEnabled()
+    expect(screen.queryByRole('menuitem', { name: 'Personalization' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('menuitem', { name: 'Log out' }))
     expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeVisible()
@@ -207,7 +207,7 @@ describe('App', () => {
     await expectConversationStarter()
     expect(screen.queryByText('Loading conversation…')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
-    const personalization = screen.getByRole('menuitem', { name: 'Personalization' })
+    const personalization = screen.getByRole('menuitem', { name: 'Settings & Personalization' })
     expect(personalization).toHaveClass('h-11')
     expect(personalization).not.toHaveClass('text-sm')
   })
@@ -253,20 +253,25 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: /Welcome, Amitai.*Let’s make AskRabbi yours/ })).toBeVisible()
     expect(screen.queryByLabelText('Message AskRabbi')).not.toBeInTheDocument()
-    expect(screen.getByText('Step 1 of 3')).toBeVisible()
-    expect(screen.getByLabelText(/Birth time zone/)).toHaveValue('')
+    expect(screen.getByText('Step 1 of 4')).toBeVisible()
+    expect(screen.queryByLabelText(/Birth time zone/)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(screen.getByText('Enter your birth date and time.')).toBeVisible()
-    expect(screen.getByText('Choose the U.S. time zone where you were born.')).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Choose your languages.' })).not.toBeInTheDocument()
 
     const fullName = screen.getByLabelText(/Full name/)
     await user.clear(fullName)
     await user.type(fullName, 'Amitai Ben Erfanian')
     fireEvent.input(screen.getByLabelText(/Birth date and time/), { target: { value: '2001-12-17T09:30' } })
-    await user.selectOptions(screen.getByLabelText(/Birth time zone/), 'America/Los_Angeles')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(screen.getByRole('heading', { name: 'Where are you based?' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(screen.getAllByText('Enter a U.S. ZIP code or choose a supported city.')).toHaveLength(2)
+    await user.type(screen.getByLabelText('Current location U.S. ZIP code'), '91302')
+    await user.click(screen.getByRole('button', { name: 'Use current location as birthplace' }))
+    expect(screen.getByLabelText('Birthplace U.S. ZIP code')).toHaveValue('91302')
     await user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(screen.getByRole('heading', { name: 'Choose your languages.' })).toBeVisible()
@@ -685,19 +690,20 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
     await user.click(await screen.findByRole('button', { name: 'Open profile menu' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Personalization' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
+    await user.click(screen.getByRole('tab', { name: 'Personalization' }))
 
-    expect(screen.getByRole('heading', { name: 'Make AskRabbi yours.' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Personalization' })).toBeVisible()
     expect(screen.getByLabelText('Conversation language')).toHaveValue('English')
     expect(screen.getByLabelText('Torah and source quotations')).toHaveValue('English')
 
     fireEvent.input(screen.getByLabelText('Birth date and time'), { target: { value: '' } })
-    await user.selectOptions(screen.getByLabelText('Birth time zone'), '')
+    await user.clear(screen.getByLabelText('Birthplace U.S. ZIP code'))
     await user.selectOptions(screen.getByLabelText('Religious movement or practice'), '')
     await user.selectOptions(screen.getByLabelText('Heritage or community'), '')
     await user.click(screen.getByRole('button', { name: 'Save personalization' }))
     expect(screen.getByText('Enter your birth date and time.')).toBeVisible()
-    expect(screen.getByText('Choose the U.S. time zone where you were born.')).toBeVisible()
+    expect(screen.getByText('Enter a U.S. ZIP code or choose a supported city.')).toBeVisible()
     expect(screen.getByText('Choose the background that fits best.')).toBeVisible()
     expect(screen.getByText('Choose the heritage or community that fits best.')).toBeVisible()
 
@@ -705,7 +711,7 @@ describe('App', () => {
     await user.clear(fullName)
     await user.type(fullName, 'Amitai Ben Erfanian')
     fireEvent.input(screen.getByLabelText('Birth date and time'), { target: { value: '2001-12-17T09:30' } })
-    await user.selectOptions(screen.getByLabelText('Birth time zone'), 'America/Los_Angeles')
+    await user.type(screen.getByLabelText('Birthplace U.S. ZIP code'), '91302')
     await user.selectOptions(screen.getByLabelText('Conversation language'), 'Persian')
     await user.selectOptions(screen.getByLabelText('Torah and source quotations'), 'Hebrew')
     await user.selectOptions(screen.getByLabelText('Religious movement or practice'), 'Conservadox')
@@ -715,9 +721,8 @@ describe('App', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Saved to your account')
     expect(screen.getByRole('status')).toHaveTextContent('next replies, including in existing conversations')
+    await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(screen.getByText('Amitai Ben Erfanian')).toBeVisible()
-
-    await user.click(screen.getByRole('button', { name: 'Back to conversation' }))
     await expectConversationStarter()
     expect(screen.getByText('Persian · quotes in Hebrew')).toBeVisible()
   })
@@ -728,9 +733,9 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Continue with Google' }))
     await user.click(await screen.findByRole('button', { name: 'Open profile menu' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Settings' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
 
-    expect(screen.getByRole('heading', { name: 'Account and usage.' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Account' })).toBeVisible()
     expect(screen.getByText('amitai@example.com')).toBeVisible()
     expect(screen.getByRole('progressbar', { name: 'Monthly chat allowance remaining' })).toHaveAttribute('aria-valuenow', '100')
 
@@ -738,6 +743,7 @@ describe('App', () => {
     expect(await screen.findByText('Password reset requested')).toBeVisible()
     expect(screen.getByText(/secure reset email/)).toBeVisible()
 
+    await user.click(screen.getByRole('tab', { name: 'Notifications' }))
     const productUpdates = screen.getByRole('switch', { name: 'Email me product updates' })
     expect(productUpdates).toHaveAttribute('aria-checked', 'false')
     await user.click(productUpdates)

@@ -14,9 +14,14 @@ public sealed record PersonalizationRequest
     public DateTime BirthDateTime { get; init; }
 
     /// <summary>Gets the IANA time-zone identifier for the birthplace.</summary>
-    [Required]
     [StringLength(100)]
-    public required string BirthTimeZone { get; init; }
+    public string BirthTimeZone { get; init; } = string.Empty;
+
+    /// <summary>Gets the birthplace selection; timezone and coordinates are resolved server-side.</summary>
+    public PersonalizationLocationRequest? BirthLocation { get; init; }
+
+    /// <summary>Gets the current location shared by the calendar and chat date tools.</summary>
+    public PersonalizationLocationRequest? CurrentLocation { get; init; }
 
     /// <summary>Gets the preferred response language.</summary>
     [Required]

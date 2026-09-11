@@ -4,6 +4,8 @@ import { Brand } from '../../components/Brand.tsx'
 import { WeeklyDvarTorahPage } from '../dvarTorah/WeeklyDvarTorahPage.tsx'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import { OfflineLibraryChanged, readOfflineLibrary, type SavedTeaching } from './offlineLibrary.ts'
+import { FocusedReadingToolbar } from '../reading/FocusedReading.tsx'
+import { useFocusedReading } from '../reading/focusedReadingContext.ts'
 
 interface OfflineReader {
   client: DvarTorahClient
@@ -12,6 +14,7 @@ interface OfflineReader {
 }
 
 export function OfflineDvarTorahPage() {
+  const { target } = useFocusedReading()
   const [reader, setReader] = useState<OfflineReader | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,12 +44,13 @@ export function OfflineDvarTorahPage() {
   }, [revision])
 
   return (
-    <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-parchment text-ink">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-8">
+    <main className={`flex h-dvh min-h-0 flex-col overflow-hidden bg-parchment text-ink ${target ? 'focused-reading' : ''}`}>
+      <FocusedReadingToolbar />
+      <header className="reading-nonessential flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-8">
         <Brand compact />
         <a href="/" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-ink-soft hover:text-pomegranate"><ArrowLeft aria-hidden="true" className="size-4" />Back to AskRabbi online</a>
       </header>
-      <div className="shrink-0 border-b border-line px-4 py-2 text-center text-sm leading-6 text-muted" role="status"><WifiOff aria-hidden="true" className="mr-2 inline size-4" />Offline library · {reader?.hasAudio ? 'Text, references, and audio saved on this device.' : 'Audio is only available here after its offline download finishes. Change this in Settings.'}</div>
+      <div className="reading-nonessential shrink-0 border-b border-line px-4 py-2 text-center text-sm leading-6 text-muted" role="status"><WifiOff aria-hidden="true" className="mr-2 inline size-4" />Offline library · {reader?.hasAudio ? 'Text, references, and audio saved on this device.' : 'Audio is only available here after its offline download finishes. Change this in Settings.'}</div>
       {reader ? <WeeklyDvarTorahPage key={reader.savedAt} client={reader.client} offlineSavedAt={reader.savedAt} /> : <section className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6 text-center"><div className="max-w-md"><h1 className="font-display text-3xl">{isLoading ? 'Opening your saved teaching…' : 'No teaching saved yet.'}</h1><p className="mt-4 text-base leading-7 text-ink-soft">{error ?? 'Connect and sign in to AskRabbi to save this week’s D’var Torah. Chats and account details are not stored in the offline library.'}</p></div></section>}
     </main>
   )

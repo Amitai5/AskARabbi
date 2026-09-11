@@ -7,6 +7,8 @@ internal sealed class FakeCalendarProvider : IHebcalCalendarClient
 {
     internal List<(int Year, bool InIsrael)> HolidayRequests { get; } = [];
     internal List<CalendarPreferences> TimingRequests { get; } = [];
+    internal List<(CalendarLocation Location, DateOnly Start, DateOnly End)> SolarRequests { get; } = [];
+    internal Func<CalendarLocation, DateOnly, DateOnly, CalendarProviderResult>? SolarLookup { get; set; }
     internal CalendarProviderResult Holidays { get; set; } = Result(new([], new Dictionary<DateOnly, HebcalData.SunTimes>(), null));
     internal CalendarProviderResult Solar { get; set; } = Result(null);
     internal CalendarProviderResult Local { get; set; } = Result(null);
@@ -16,7 +18,12 @@ internal sealed class FakeCalendarProvider : IHebcalCalendarClient
         HolidayRequests.Add((year, inIsrael));
         return Task.FromResult(Holidays);
     }
-    public Task<CalendarProviderResult> GetSolarTimesAsync(CalendarLocation location, DateOnly start, DateOnly end, CancellationToken cancellationToken) => Task.FromResult(Solar);
+    public Task<CalendarProviderResult> GetSolarTimesAsync(CalendarLocation location, DateOnly start, DateOnly end, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        SolarRequests.Add((location, start, end));
+        return Task.FromResult(SolarLookup?.Invoke(location, start, end) ?? Solar);
+    }
     public Task<CalendarProviderResult> GetLocalEventsAsync(CalendarPreferences preferences, DateOnly start, DateOnly end, CancellationToken cancellationToken)
     {
         TimingRequests.Add(preferences);

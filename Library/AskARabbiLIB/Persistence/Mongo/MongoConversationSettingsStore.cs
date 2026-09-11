@@ -77,12 +77,33 @@ public sealed class MongoConversationSettingsStore : IConversationSettingsStore,
         return collection.UpdateOneAsync(value => value.UserId == owner, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<ReadingPreferences?> GetReadingPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var document = await collection.Find(item => item.UserId == userId.ToString("D")).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return document?.ReadingPreferences;
+    }
+
+    /// <inheritdoc/>
+    public Task UpsertReadingPreferencesAsync(Guid userId, ReadingPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        var owner = userId.ToString("D");
+        var update = Builders<MongoConversationSettingsDocument>.Update
+            .SetOnInsert(value => value.UserId, owner)
+            .Set(value => value.ReadingPreferences, preferences)
+            .Set(value => value.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
+        return collection.UpdateOneAsync(value => value.UserId == owner, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
     private static MongoPersonalizationDocument ToDocument(PersonalizationSettings personalization) => new()
     {
         FullName = personalization.FullName,
         BirthDate = personalization.BirthDate,
         BirthTime = personalization.BirthTime,
         BirthTimeZone = personalization.BirthTimeZone,
+        BirthLocation = personalization.BirthLocation,
+        CurrentLocation = personalization.CurrentLocation,
         ConversationLanguage = personalization.ConversationLanguage,
         QuotationLanguage = personalization.QuotationLanguage,
         ReligiousMovement = personalization.ReligiousMovement,
@@ -96,6 +117,8 @@ public sealed class MongoConversationSettingsStore : IConversationSettingsStore,
         BirthDate = document.BirthDate,
         BirthTime = document.BirthTime,
         BirthTimeZone = document.BirthTimeZone,
+        BirthLocation = document.BirthLocation,
+        CurrentLocation = document.CurrentLocation,
         ConversationLanguage = document.ConversationLanguage,
         QuotationLanguage = document.QuotationLanguage,
         ReligiousMovement = document.ReligiousMovement,

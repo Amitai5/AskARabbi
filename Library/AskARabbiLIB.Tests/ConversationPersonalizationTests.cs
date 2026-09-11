@@ -50,6 +50,8 @@ public sealed class ConversationPersonalizationTests
             {
                 Name = "  Learner Example  ", DateOfBirth = DateOnly.ParseExact(birthDate, "yyyy-MM-dd"), JewishHeritage = "Mizrahi",
                 BirthTimeZone = "America/New_York", TimeOfBirth = new TimeOnly(9, 45), Bio = "  Explain new terms.  ", ReligiousBackground = "Conservadox",
+                BirthLocation = new() { Kind = "zip", Id = "91302", Label = "Private birthplace", TimeZone = "America/Los_Angeles", Latitude = 34.15778, Longitude = -118.63842 },
+                CurrentLocation = new() { Kind = "city", Id = "281184", Label = "Jerusalem", TimeZone = "Asia/Jerusalem" },
             },
         };
 
@@ -64,6 +66,11 @@ public sealed class ConversationPersonalizationTests
         Assert.IsFalse(context.ToString().Contains("America/New_York", StringComparison.Ordinal));
         Assert.IsFalse(context.ToString().Contains("09:45", StringComparison.Ordinal));
         Assert.IsFalse(context.ToString().Contains("Example", StringComparison.Ordinal));
+        Assert.IsFalse(context.ToString().Contains("91302", StringComparison.Ordinal));
+        Assert.IsFalse(context.ToString().Contains("281184", StringComparison.Ordinal));
+        Assert.IsFalse(context.ToString().Contains("Private birthplace", StringComparison.Ordinal));
+        Assert.IsFalse(context.ToString().Contains("34.15778", StringComparison.Ordinal));
+        Assert.IsFalse(context.ToString().Contains("Jerusalem", StringComparison.Ordinal));
     }
 
     [TestMethod]

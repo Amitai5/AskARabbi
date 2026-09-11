@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CalendarPage } from './CalendarPage.tsx'
-import { calendarOverview, fakeCalendarClient, Jerusalem, RoshHashanah } from './calendarTestData.ts'
+import { calendarOverview, fakeCalendarClient, RoshHashanah } from './calendarTestData.ts'
 
 describe('Jewish Calendar', () => {
   beforeEach(() => {
@@ -25,7 +25,8 @@ describe('Jewish Calendar', () => {
     expect(screen.getByText('Festival reading · Rosh Hashanah')).not.toBeVisible()
     expect(screen.getByRole('button', { name: 'Next 90 days' })).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'View dates & meaning' }))
-    expect(screen.getByRole('link', { name: 'Read about Rosh Hashanah' }).closest('details')).toHaveAttribute('open')
+    expect(screen.getByRole('heading', { name: 'Rosh Hashanah', level: 3 }).closest('details')).toHaveAttribute('open')
+    expect(screen.queryByRole('link', { name: /Read about/ })).not.toBeInTheDocument()
     expect(screen.getByText(/— Rosh Hashana II/)).toBeVisible()
     await user.click(screen.getByText('This Shabbat'))
     expect(screen.getByText('Festival reading · Rosh Hashanah')).toBeVisible()
@@ -96,24 +97,19 @@ describe('Jewish Calendar', () => {
     expect(screen.getByText(/Last updated/)).toBeVisible()
   })
 
-  it('saves a searched city, explicit Israel cycle and timing convention then restores focus', async () => {
+  it('opens Personalization instead of exposing a separate calendar settings form', async () => {
     const client = fakeCalendarClient()
     const user = userEvent.setup()
-    render(<CalendarPage client={client} onOpenDvarTorah={vi.fn()} />)
+    const openPersonalization = vi.fn()
+    render(<CalendarPage client={client} onOpenDvarTorah={vi.fn()} onOpenPersonalization={openPersonalization} />)
     await screen.findByText('Next holiday')
-    await user.click(screen.getByRole('button', { name: 'Location & preferences' }))
-    expect(screen.getByRole('heading', { name: 'Location & preferences' })).toHaveFocus()
-    await user.type(screen.getByLabelText('Search supported cities'), 'Jerusalem')
-    expect(screen.queryByRole('option', { name: 'New York, United States' })).not.toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('City'), Jerusalem.id)
-    expect(screen.getByLabelText('Holiday and reading schedule')).toHaveValue('diaspora')
-    await user.selectOptions(screen.getByLabelText('Holiday and reading schedule'), 'israel')
-    await user.selectOptions(screen.getByLabelText('Havdalah calculation'), '72')
-    await user.click(screen.getByRole('button', { name: 'Save calendar preferences' }))
-    expect(client.updatePreferences).toHaveBeenCalledWith(expect.objectContaining({ location: Jerusalem, inIsrael: true, havdalah: 'fixed', havdalahMinutes: 72, candleLightingMinutes: null }))
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Location & preferences' })).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: 'Location & preferences' })).toHaveFocus()
-    expect(await screen.findByText('Jerusalem, Israel · Israel')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Edit location in Personalization' }))
+    expect(openPersonalization).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Location & preferences' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Havdalah calculation')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Show local candle/)).not.toBeInTheDocument()
+    expect(client.getPreferences).not.toHaveBeenCalled()
+    expect(client.updatePreferences).not.toHaveBeenCalled()
   })
 
   it('rolls back an optimistic category toggle when saving fails', async () => {
@@ -126,22 +122,16 @@ describe('Jewish Calendar', () => {
     expect(screen.getByRole('checkbox', { name: 'Special Shabbatot' })).not.toBeChecked()
   })
 
-  it('resolves a ZIP on save and keeps the form editable after a failed save', async () => {
+  it('directs an account with no location to Personalization from local times', async () => {
     const client = fakeCalendarClient()
-    vi.mocked(client.updatePreferences).mockRejectedValueOnce(new Error('Location lookup unavailable.'))
     const user = userEvent.setup()
-    render(<CalendarPage client={client} onOpenDvarTorah={vi.fn()} />)
+    const openPersonalization = vi.fn()
+    render(<CalendarPage client={client} onOpenDvarTorah={vi.fn()} onOpenPersonalization={openPersonalization} />)
     await screen.findByText('Next holiday')
-    await user.click(screen.getByRole('button', { name: 'Location & preferences' }))
-    await user.selectOptions(screen.getByLabelText('Location type'), 'zip')
-    const form = screen.getByRole('region', { name: 'Location & preferences' })
-    await user.type(within(form).getByRole('textbox'), '10001')
-    await user.click(screen.getByRole('button', { name: 'Save calendar preferences' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Location lookup unavailable.')
-    expect(within(form).getByRole('textbox')).toHaveValue('10001')
-    await user.click(screen.getByRole('button', { name: 'Save calendar preferences' }))
-    await waitFor(() => expect(client.updatePreferences).toHaveBeenCalledTimes(2))
-    expect(client.updatePreferences).toHaveBeenLastCalledWith(expect.objectContaining({ location: expect.objectContaining({ kind: 'zip', id: '10001' }) }))
+    await user.click(screen.getByText('This Shabbat'))
+    await user.click(screen.getByRole('button', { name: 'Set location in Personalization' }))
+    expect(openPersonalization).toHaveBeenCalledOnce()
+    expect(client.updatePreferences).not.toHaveBeenCalled()
   })
 
   it('shows ongoing events, stale provenance and offset-aware local times', async () => {

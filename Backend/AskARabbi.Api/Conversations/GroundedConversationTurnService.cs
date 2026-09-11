@@ -234,6 +234,8 @@ public sealed class GroundedConversationTurnService
                 DateOfBirth = personalization.BirthDate,
                 TimeOfBirth = personalization.BirthTime,
                 BirthTimeZone = personalization.BirthTimeZone,
+                BirthLocation = personalization.BirthLocation,
+                CurrentLocation = personalization.CurrentLocation,
                 Bio = personalization.AdditionalContext,
                 ReligiousBackground = personalization.ReligiousMovement,
                 JewishHeritage = personalization.JewishHeritage,

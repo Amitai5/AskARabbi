@@ -3,6 +3,20 @@ namespace AskARabbiLIB.ConversationSettings;
 /// <summary>Persists user-owned conversation personalization settings.</summary>
 public interface IConversationSettingsStore
 {
+    /// <summary>Gets a user's reading preferences.</summary>
+    /// <param name="userId">Owning user ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Saved reading preferences, or null for an unconfigured account.</returns>
+    Task<ReadingPreferences?> GetReadingPreferencesAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Updates only reading preferences, preserving other settings.</summary>
+    /// <param name="userId">Owning user ID.</param>
+    /// <param name="preferences">Validated reading preferences.</param>
+    /// <param name="updatedAtUtc">UTC update time.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The persistence operation.</returns>
+    Task UpsertReadingPreferencesAsync(Guid userId, ReadingPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default);
+
     /// <summary>Gets personalization for a user.</summary>
     /// <param name="userId">Owning user ID.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>

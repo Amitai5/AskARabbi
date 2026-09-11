@@ -69,7 +69,7 @@ public sealed class CalendarOverviewServiceTests
     }
 
     [TestMethod]
-    public async Task GetAsync_CachedSolarTimesWithLocalTimesDisabled_ExposesBoundaryFreshness()
+    public async Task GetAsync_LegacyLocalTimesDisabled_UsesAutomaticTimesAndExposesBoundaryFreshness()
     {
         await store.UpsertCalendarPreferencesAsync(Owner, new() { Location = CalendarLocationCatalog.Cities.Single(city => city.Id == "5368361"), ShowLocalTimes = false }, clock.Now);
         provider.Solar = SolarDay("2026-09-10", "2026-09-10T19:07:00-07:00", "2026-09-10T19:44:00-07:00") with { IsStale = true, Problem = "unavailable" };
@@ -81,7 +81,8 @@ public sealed class CalendarOverviewServiceTests
         Assert.IsTrue(result.Today.SolarData.IsAvailable);
         Assert.AreEqual(provider.Solar.FetchedAtUtc, result.Today.SolarData.FetchedAtUtc);
         StringAssert.Contains(result.Today.SolarData.Message, "saved solar times");
-        Assert.HasCount(0, provider.TimingRequests);
+        Assert.HasCount(1, provider.TimingRequests);
+        Assert.IsTrue(result.Preferences.ShowLocalTimes);
     }
 
     [TestMethod]

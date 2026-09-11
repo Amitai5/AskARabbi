@@ -28,8 +28,8 @@ describe('Background conversation navigation', () => {
 
   it.each([
     ['Dvar Torah', 'A teaching for the week.'],
-    ['Personalization', 'Make AskRabbi yours.'],
-    ['Settings', 'Account and usage.'],
+    ['Personalization', 'Personalization'],
+    ['Settings', 'Account'],
   ])('finishes a new conversation while visiting %s without navigating away', async (destination, heading) => {
     const { user, releaseCreate, conversationClient } = await renderPendingApp()
     await startNewConversation(user)
@@ -41,7 +41,8 @@ describe('Background conversation navigation', () => {
       await user.click(screen.getByRole('button', { name: 'This week’s Dvar Torah' }))
     } else {
       await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
-      await user.click(screen.getByRole('menuitem', { name: destination }))
+      await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
+      if (destination === 'Personalization') { await user.click(screen.getByRole('tab', { name: 'Personalization' })) }
     }
     expect(await screen.findByRole('heading', { name: heading })).toBeVisible()
     expect(screen.queryByLabelText('Message AskRabbi')).not.toBeInTheDocument()
@@ -50,6 +51,7 @@ describe('Background conversation navigation', () => {
 
     await waitFor(() => expect(screen.queryByRole('status', { name: `Generating answer for ${Question}` })).not.toBeInTheDocument())
     expect(screen.getByRole('heading', { name: heading })).toBeVisible()
+    if (destination !== 'Dvar Torah') { await user.click(screen.getByRole('button', { name: 'Back' })) }
     expect(screen.getAllByRole('button', { name: Question })).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: Question }))
     expect(await screen.findByText(/this local demo represents a validated grounded response/)).toBeVisible()
@@ -116,11 +118,12 @@ describe('Background conversation navigation', () => {
     const { user, releaseCreate } = await renderPendingApp()
     await startNewConversation(user)
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Personalization' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
+    await user.click(screen.getByRole('tab', { name: 'Personalization' }))
     const scrollTo = vi.mocked(HTMLElement.prototype.scrollTo)
     scrollTo.mockClear()
 
-    await user.click(screen.getByRole('button', { name: 'Back to conversation' }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(screen.getByTestId('answer-progress-dots')).toBeVisible()
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' })

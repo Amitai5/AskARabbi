@@ -85,7 +85,7 @@ describe('Monthly token allowance', () => {
     const user = await signIn(clients)
     expect(screen.queryByText(/monthly|25%|75%|tokens/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Settings' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
 
     const progress = await screen.findByRole('progressbar', { name: 'Monthly chat allowance remaining' })
     expect(progress).toHaveAttribute('aria-valuenow', '75')

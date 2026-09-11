@@ -4,6 +4,7 @@ import { InitialConversations, type ConversationDetails, type ConversationSource
 import type { ConversationSettingsClient } from '../features/personalization/conversationSettingsClient.ts'
 import type { PersonalizationProfile } from '../features/personalization/personalizationTypes.ts'
 import { createDefaultUserSettings, type UserSettings } from '../features/settings/settingsTypes.ts'
+import { DefaultReadingPreferences, type ReadingPreferences } from '../features/reading/readingPreferences.ts'
 
 const FixedTimestamp = '2026-08-25T12:30:00Z'
 const DemoSources: ConversationSource[] = [
@@ -51,6 +52,8 @@ const DemoProfile: PersonalizationProfile = {
   fullName: DemoUser.name,
   birthDateTime: '2001-12-17T09:30',
   birthTimeZone: 'America/Los_Angeles',
+  birthLocation: { kind: 'zip', id: '91302', label: 'Calabasas, CA', timeZone: 'America/Los_Angeles' },
+  currentLocation: { kind: 'zip', id: '91302', label: 'Calabasas, CA', timeZone: 'America/Los_Angeles' },
   conversationLanguage: 'English',
   quotationLanguage: 'English',
   religiousMovement: 'Conservadox',
@@ -67,6 +70,7 @@ export interface DemoApplicationClients {
 export function createDemoApplicationClients(): DemoApplicationClients {
   let profile: PersonalizationProfile | null = { ...DemoProfile }
   let settings: UserSettings = createDefaultUserSettings()
+  let reading: ReadingPreferences = { ...DefaultReadingPreferences }
   const conversations = new Map<string, ConversationDetails>(InitialConversations.map((summary) => [summary.id, {
     ...summary,
     enabledSourceKeys: [...summary.enabledSourceKeys],
@@ -146,6 +150,12 @@ export function createDemoApplicationClients(): DemoApplicationClients {
   }
 
   const conversationSettingsClient: ConversationSettingsClient = {
+    getReadingPreferences: () => Promise.resolve({ ...reading }),
+    updateReadingPreferences: (value) => { reading = { ...value }; return Promise.resolve({ ...reading }) },
+    getLocations: () => Promise.resolve([
+      { kind: 'city', id: '5368361', label: 'Los Angeles, United States', timeZone: 'America/Los_Angeles', defaultCandleLightingMinutes: 18 },
+      { kind: 'city', id: '281184', label: 'Jerusalem, Israel', timeZone: 'Asia/Jerusalem', defaultCandleLightingMinutes: 40 },
+    ]),
     getPersonalization: () => Promise.resolve({ isConfigured: profile !== null, personalization: profile === null ? null : { ...profile } }),
     updatePersonalization: (value) => {
       profile = { ...value }

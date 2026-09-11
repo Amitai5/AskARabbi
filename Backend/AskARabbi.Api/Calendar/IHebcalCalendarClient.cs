@@ -2,7 +2,7 @@ using AskARabbiLIB.Calendar;
 
 namespace AskARabbi.Api.Calendar;
 
-/// <summary>External calendar boundary; no identity, birth details, chat text, or AI requests cross it.</summary>
+/// <summary>External location/calendar boundary; no names, birth dates, chat text, or AI requests cross it.</summary>
 public interface IHebcalCalendarClient
 {
     /// <summary>Gets common holiday dates for a Gregorian year and reading cycle.</summary>

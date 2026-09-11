@@ -14,6 +14,7 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
     private readonly Dictionary<Guid, Conversation> conversations = [];
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
+    private readonly Dictionary<Guid, ReadingPreferences> readingPreferences = [];
     private readonly Dictionary<Guid, CalendarPreferences> calendarPreferences = [];
     private UserAccount? account;
     internal InMemoryUsageStore TokenUsage { get; } = new();
@@ -105,6 +106,7 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
         {
             personalization.Remove(userId);
             preferences.Remove(userId);
+            readingPreferences.Remove(userId);
             calendarPreferences.Remove(userId);
             TokenUsage.DeleteAccount(userId);
             account = null;
@@ -222,6 +224,28 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
         return Task.CompletedTask;
     }
 
+    public Task<ReadingPreferences?> GetReadingPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            return Task.FromResult(readingPreferences.GetValueOrDefault(userId));
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task UpsertReadingPreferencesAsync(Guid userId, ReadingPreferences value, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            readingPreferences[userId] = value;
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
     public Task<ConversationPreferences?> GetPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         preferences.TryGetValue(userId, out var value);

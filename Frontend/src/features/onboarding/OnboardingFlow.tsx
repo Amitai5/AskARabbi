@@ -5,15 +5,17 @@ import { LanguageOptions } from '../personalization/languageOptions.ts'
 import { JewishHeritageOptions, ReligiousMovementOptions } from '../personalization/personalizationOptions.ts'
 import type { PersonalizationProfile } from '../personalization/personalizationTypes.ts'
 import { normalizePersonalizationProfile, validatePersonalizationProfile, type PersonalizationErrors } from '../personalization/personalizationValidation.ts'
-import { UsTimeZoneOptions } from '../personalization/usTimeZoneOptions.ts'
+import { PersonalizationLocationFields } from '../personalization/PersonalizationLocationFields.tsx'
+import type { ConversationSettingsClient } from '../personalization/conversationSettingsClient.ts'
 
 interface OnboardingFlowProps {
   profile: PersonalizationProfile
   onComplete(profile: PersonalizationProfile): Promise<void>
   onLogout(): Promise<void>
+  client: ConversationSettingsClient
 }
 
-type OnboardingStep = 0 | 1 | 2
+type OnboardingStep = 0 | 1 | 2 | 3
 
 interface StepDefinition {
   label: string
@@ -21,14 +23,15 @@ interface StepDefinition {
 }
 
 const Steps: readonly StepDefinition[] = [
-  { label: 'About you', fields: ['fullName', 'birthDateTime', 'birthTimeZone'] },
+  { label: 'About you', fields: ['fullName', 'birthDateTime'] },
+  { label: 'Location & time zone', fields: ['currentLocation', 'birthLocation'] },
   { label: 'Language', fields: ['conversationLanguage', 'quotationLanguage'] },
   { label: 'Jewish background', fields: ['religiousMovement', 'jewishHeritage', 'additionalContext'] },
 ]
 
 const InputClassName = 'mt-2 h-14 w-full rounded-lg border border-line-strong bg-paper px-4 text-base text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15'
 
-export function OnboardingFlow({ profile, onComplete, onLogout }: OnboardingFlowProps) {
+export function OnboardingFlow({ profile, onComplete, onLogout, client }: OnboardingFlowProps) {
   const [draft, setDraft] = useState(profile)
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(0)
   const [errors, setErrors] = useState<PersonalizationErrors>({})
@@ -36,7 +39,7 @@ export function OnboardingFlow({ profile, onComplete, onLogout }: OnboardingFlow
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  function updateField(field: keyof PersonalizationProfile, value: string) {
+  function updateField<K extends keyof PersonalizationProfile>(field: K, value: PersonalizationProfile[K]) {
     setDraft((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: undefined }))
   }
@@ -56,7 +59,7 @@ export function OnboardingFlow({ profile, onComplete, onLogout }: OnboardingFlow
       return
     }
 
-    if (currentStep < 2) {
+    if (currentStep < 3) {
       moveToStep((currentStep + 1) as OnboardingStep)
       return
     }
@@ -107,8 +110,9 @@ export function OnboardingFlow({ profile, onComplete, onLogout }: OnboardingFlow
 
             <div className="mt-8 sm:mt-10">
               {currentStep === 0 ? <AboutYouStep draft={draft} errors={errors} onChange={updateField} /> : null}
-              {currentStep === 1 ? <LanguageStep draft={draft} errors={errors} onChange={updateField} /> : null}
-              {currentStep === 2 ? <JewishBackgroundStep draft={draft} errors={errors} onChange={updateField} /> : null}
+              {currentStep === 1 ? <PersonalizationLocationFields profile={draft} errors={errors} client={client} onChange={updateField} /> : null}
+              {currentStep === 2 ? <LanguageStep draft={draft} errors={errors} onChange={updateField} /> : null}
+              {currentStep === 3 ? <JewishBackgroundStep draft={draft} errors={errors} onChange={updateField} /> : null}
             </div>
 
             <div className="mt-8 flex items-center justify-between gap-4 border-t border-line pt-7 sm:mt-10">
@@ -121,7 +125,7 @@ export function OnboardingFlow({ profile, onComplete, onLogout }: OnboardingFlow
                 </button>
               )}
               <button type="submit" disabled={isSaving} className="group inline-flex h-14 items-center justify-center gap-3 rounded-lg bg-pomegranate px-6 text-sm font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60 sm:min-w-48">
-                {isSaving ? 'Saving…' : currentStep === 2 ? 'Start a conversation' : 'Continue'}
+                {isSaving ? 'Saving…' : currentStep === 3 ? 'Start a conversation' : 'Continue'}
                 <ArrowRight aria-hidden="true" className="size-[1.1rem] transition-transform group-hover:translate-x-0.5" strokeWidth={1.8} />
               </button>
             </div>
@@ -191,6 +195,8 @@ function StepHeader({ currentStep, fullName }: { currentStep: OnboardingStep; fu
   const content = currentStep === 0
     ? { title: <><span className="block">Welcome, {firstName}.</span><span className="block">Let’s make AskRabbi yours.</span></>, description: 'A few details help tailor explanations and traditions to you. You can update these anytime.' }
     : currentStep === 1
+      ? { title: 'Where are you based?', description: 'Choose your current location and birthplace. We’ll resolve the time zones for you.' }
+    : currentStep === 2
       ? { title: 'Choose your languages.', description: 'Choose how AskRabbi speaks with you and quotes Jewish texts.' }
       : { title: 'Your Jewish background.', description: 'These details help surface customs that may matter to you, without defining your identity.' }
 
@@ -222,12 +228,6 @@ function AboutYouStep({ draft, errors, onChange }: StepProps) {
         <input id="onboarding-birth-date-time" name="birthDateTime" type="datetime-local" required value={draft.birthDateTime} onInput={(event) => onChange('birthDateTime', event.currentTarget.value)} className={InputClassName} aria-invalid={errors.birthDateTime !== undefined} aria-describedby={errors.birthDateTime ? 'onboarding-birth-date-time-error onboarding-birth-date-time-hint' : 'onboarding-birth-date-time-hint'} />
       </FormField>
 
-      <FormField label="Birth time zone" htmlFor="onboarding-birth-time-zone" error={errors.birthTimeZone} hint="Choose the time zone that applied where you were born." isRequired>
-        <select id="onboarding-birth-time-zone" name="birthTimeZone" required value={draft.birthTimeZone} onChange={(event) => onChange('birthTimeZone', event.target.value)} className={InputClassName} aria-invalid={errors.birthTimeZone !== undefined} aria-describedby={errors.birthTimeZone ? 'onboarding-birth-time-zone-error onboarding-birth-time-zone-hint' : 'onboarding-birth-time-zone-hint'}>
-          <option value="">Select a U.S. time zone</option>
-          {UsTimeZoneOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </FormField>
     </div>
   )
 }

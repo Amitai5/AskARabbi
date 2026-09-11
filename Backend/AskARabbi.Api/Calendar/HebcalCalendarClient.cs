@@ -236,7 +236,13 @@ public sealed class HebcalCalendarClient(IHttpClientFactory clients, TimeProvide
             {
                 throw new InvalidDataException("Location or timezone did not match the request.");
             }
-            resolved = selected with { Label = Text(place, "title") ?? selected.Label, TimeZone = timeZone, DefaultCandleLightingMinutes = selected.DefaultCandleLightingMinutes };
+            resolved = selected with
+            {
+                Label = Text(place, "title") ?? Text(place, "name") ?? selected.Label,
+                TimeZone = timeZone,
+                Latitude = Coordinate(place, "latitude", 90),
+                Longitude = Coordinate(place, "longitude", 180),
+            };
         }
         if (solar)
         {
@@ -299,6 +305,7 @@ public sealed class HebcalCalendarClient(IHttpClientFactory clients, TimeProvide
     }
 
     private static DateTimeOffset? ParseInstant(string? text) => text is { Length: >= 20 } && (text.EndsWith('Z') || text[^6] is '+' or '-') && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
+    private static double? Coordinate(JsonElement value, string name, int limit) => value.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out var coordinate) && double.IsFinite(coordinate) && Math.Abs(coordinate) <= limit ? coordinate : null;
     private static string? Text(JsonElement value, string name) => value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String ? property.GetString() : null;
     private sealed record CacheEntry(HebcalData? Data, DateTimeOffset? FetchedAt, DateTimeOffset RefreshAt, string? Problem, bool AllowStale);
 }

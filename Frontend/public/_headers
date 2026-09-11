@@ -8,3 +8,6 @@
 
 /offline.html
   Cache-Control: no-cache
+
+/reading-bootstrap.js
+  Cache-Control: no-cache

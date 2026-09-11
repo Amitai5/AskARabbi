@@ -158,7 +158,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('About 1 min read')
     expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('Based on audio at 1×')
     const player = screen.getByRole('region', { name: 'Dvar Torah audio player' })
-    const readingArea = screen.getByRole('region', { name: 'A teaching for the week.' })
+    const readingArea = screen.getByRole('region', { name: 'Weekly Dvar Torah' })
     expect(readingArea).not.toContainElement(player)
     expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.wheel(readingArea)

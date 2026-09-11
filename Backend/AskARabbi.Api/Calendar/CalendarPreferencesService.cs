@@ -1,16 +1,23 @@
 using System.Text.RegularExpressions;
 using AskARabbiLIB.Calendar;
+using AskARabbiLIB.ConversationSettings;
 
 namespace AskARabbi.Api.Calendar;
 
 /// <summary>Validates current-location calendar choices without altering other account settings.</summary>
-public sealed class CalendarPreferencesService(ICalendarPreferencesStore store, IHebcalCalendarClient provider, TimeProvider clock)
+public sealed class CalendarPreferencesService(ICalendarPreferencesStore store, IHebcalCalendarClient provider, TimeProvider clock, ConversationSettingsService? personalization = null)
 {
     /// <summary>Gets saved preferences or explicit defaults for an older account.</summary>
     /// <param name="userId">Authenticated owner.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Calendar preferences.</returns>
-    public async Task<CalendarPreferences> GetAsync(Guid userId, CancellationToken cancellationToken) => await store.GetCalendarPreferencesAsync(userId, cancellationToken).ConfigureAwait(false) ?? new();
+    public async Task<CalendarPreferences> GetAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var saved = await store.GetCalendarPreferencesAsync(userId, cancellationToken).ConfigureAwait(false) ?? new();
+        var profile = personalization is null ? null : await personalization.GetPersonalizationAsync(userId, cancellationToken).ConfigureAwait(false);
+        var location = profile?.CurrentLocation ?? saved.Location;
+        return saved with { Location = location, InIsrael = location?.UsesIsraelSchedule() ?? saved.InIsrael, ShowLocalTimes = true, CandleLightingMinutes = null, Havdalah = "nightfall", HavdalahMinutes = 42 };
+    }
 
     /// <summary>Resolves and atomically saves a validated calendar object.</summary>
     /// <param name="userId">Authenticated owner.</param>

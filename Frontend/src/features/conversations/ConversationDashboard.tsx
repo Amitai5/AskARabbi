@@ -9,9 +9,12 @@ import { useAuth } from '../auth/useAuth.ts'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import type { CalendarClient } from '../calendar/calendarClient.ts'
 import type { ConversationSettingsClient } from '../personalization/conversationSettingsClient.ts'
-import { PersonalizationPage } from '../personalization/PersonalizationPage.tsx'
 import type { PersonalizationProfile } from '../personalization/personalizationTypes.ts'
-import { SettingsPage } from '../settings/SettingsPage.tsx'
+import { UnifiedSettingsPage } from '../settings/UnifiedSettingsPage.tsx'
+import { SettingsSidebar } from '../settings/SettingsSidebar.tsx'
+import { readSettingsRoute, SettingsRegistry, type SettingsSectionId } from '../settings/settingsRegistry.ts'
+import { FocusedReadingProvider, FocusedReadingToolbar } from '../reading/FocusedReading.tsx'
+import { useFocusedReading } from '../reading/focusedReadingContext.ts'
 import { publishUserDataEvent, subscribeToUserDataEvents } from '../settings/userDataEvents.ts'
 import type { UserSettings } from '../settings/settingsTypes.ts'
 import type { ConversationClient, ConversationTurn } from './conversationClient.ts'
@@ -39,11 +42,11 @@ interface ConversationDashboardProps {
   conversationSettingsClient: ConversationSettingsClient
   dvarTorahClient: DvarTorahClient
   calendarClient: CalendarClient
-  onSavePersonalization(profile: PersonalizationProfile): Promise<void>
+  onSavePersonalization(profile: PersonalizationProfile): Promise<PersonalizationProfile>
   onSaveSettings(settings: UserSettings): Promise<UserSettings>
 }
 
-type ActiveView = 'conversation' | 'dvarTorah' | 'calendar' | 'personalization' | 'settings'
+type ActiveView = 'conversation' | 'dvarTorah' | 'calendar' | 'settings'
 
 interface SourceReaderSelection {
   messageId: string
@@ -63,7 +66,11 @@ interface ConversationSession {
   error: string | null
 }
 
-export function ConversationDashboard({ user, initialPersonalizationProfile, initialUserSettings, conversationClient, conversationSettingsClient, dvarTorahClient, calendarClient, onSavePersonalization, onSaveSettings }: ConversationDashboardProps) {
+export function ConversationDashboard(props: ConversationDashboardProps) {
+  return <FocusedReadingProvider><DashboardContent {...props} /></FocusedReadingProvider>
+}
+
+function DashboardContent({ user, initialPersonalizationProfile, initialUserSettings, conversationClient, conversationSettingsClient, dvarTorahClient, calendarClient, onSavePersonalization, onSaveSettings }: ConversationDashboardProps) {
   const { requestPasswordReset, signOut, deleteAccount } = useAuth()
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -71,7 +78,13 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const [draft, setDraft] = useState('')
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), [])
-  const [activeView, setActiveView] = useState<ActiveView>('conversation')
+  const [activeView, setActiveView] = useState<ActiveView>(() => readSettingsRoute() ? 'settings' : 'conversation')
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(() => readSettingsRoute() ?? 'account')
+  const [targetSetting, setTargetSetting] = useState<string | null>(readSettingHash)
+  const [settingsNavigationKey, setSettingsNavigationKey] = useState(0)
+  const settingsReturnView = useRef<ActiveView>('conversation')
+  const focusedReading = useFocusedReading()
+  const { exit: exitFocusedReading } = focusedReading
   const [personalizationProfile, setPersonalizationProfile] = useState(initialPersonalizationProfile)
   const [userSettings, setUserSettings] = useState(initialUserSettings)
   const { usage, error: usageError, isLoading: isLoadingUsage, refresh: loadUsage, update: updateUsage } = useMonthlyUsage(conversationSettingsClient, user.id)
@@ -94,6 +107,55 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const sourceReaderTriggerRef = useRef<HTMLButtonElement | null>(null)
   const conversationScrollRef = useRef<HTMLElement | null>(null)
   const shouldScrollToLatestRef = useRef(true)
+
+  useEffect(() => {
+    const desktop = window.matchMedia?.('(min-width: 64rem)')
+    const closeDrawerOnDesktop = () => { if (desktop?.matches) { setIsMobileSidebarOpen(false) } }
+    desktop?.addEventListener('change', closeDrawerOnDesktop)
+    return () => desktop?.removeEventListener('change', closeDrawerOnDesktop)
+  }, [])
+
+  useEffect(() => {
+    const section = readSettingsRoute()
+    if (section) { window.history.replaceState(window.history.state, '', `/settings/${section}${window.location.hash}`) }
+    function navigateHistory() {
+      exitFocusedReading()
+      const next = readSettingsRoute()
+      if (next) {
+        setSettingsSection(next)
+        setTargetSetting(readSettingHash())
+        setSettingsNavigationKey(key => key + 1)
+        setActiveView('settings')
+      } else {
+        const view = window.history.state?.askarabbiView
+        setActiveView(view === 'calendar' || view === 'dvarTorah' ? view : 'conversation')
+        shouldScrollToLatestRef.current = true
+      }
+      setIsMobileSidebarOpen(false)
+    }
+    window.addEventListener('popstate', navigateHistory)
+    return () => window.removeEventListener('popstate', navigateHistory)
+  }, [exitFocusedReading])
+
+  function navigateView(view: Exclude<ActiveView, 'settings'>) {
+    if (readSettingsRoute() || window.history.state?.askarabbiView !== view) {
+      window.history.pushState({ ...window.history.state, askarabbiView: view }, '', '/')
+    }
+    focusedReading.exit()
+    setActiveView(view)
+  }
+
+  function navigateSettings(section: SettingsSectionId, settingId?: string, keepNavigationOpen = false) {
+    if (activeView !== 'settings') { settingsReturnView.current = activeView }
+    focusedReading.exit()
+    window.history.pushState(window.history.state, '', `/settings/${section}${settingId ? `#${settingId}` : ''}`)
+    setSettingsSection(section)
+    setTargetSetting(settingId ?? null)
+    setSettingsNavigationKey(key => key + 1)
+    setActiveView('settings')
+    if (!keepNavigationOpen) { setIsMobileSidebarOpen(false) }
+    setSourceReaderSelection(null)
+  }
 
   const clearChatState = useCallback(() => {
     dataGeneration.current += 1
@@ -201,7 +263,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   const activeSourceReader = resolveActiveSourceReader(displayedMessages, sourceReaderSelection)
 
   useLayoutEffect(() => {
-    if (!shouldScrollToLatestRef.current || activeView !== 'conversation' || isLoadingConversations || isLoadingConversation) {
+    if (!shouldScrollToLatestRef.current || focusedReading.target !== null || activeView !== 'conversation' || isLoadingConversations || isLoadingConversation) {
       return
     }
 
@@ -223,7 +285,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
       window.cancelAnimationFrame(layoutFrame)
       window.cancelAnimationFrame(finalFrame)
     }
-  }, [activeView, isLoadingConversation, isLoadingConversations, latestDisplayedMessageId, selectedId])
+  }, [activeView, focusedReading.target, isLoadingConversation, isLoadingConversations, latestDisplayedMessageId, selectedId])
 
   function handleNewConversation() {
     if (!navigator.onLine || isLoadingConversations) {
@@ -242,7 +304,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     setUnsavedSourceKeys([...AllSourceKeys])
     setDraft('')
     setIsMobileSidebarOpen(false)
-    setActiveView('conversation')
+    navigateView('conversation')
     setConversationStarterIndex((current) => advanceConversationStarterIndex(current))
   }
 
@@ -260,7 +322,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     setIsLoadingConversation(true)
     setDraft('')
     setIsMobileSidebarOpen(false)
-    setActiveView('conversation')
+    navigateView('conversation')
     const session = conversationSessions.current.get(id)
     if (session !== undefined) {
       setSelectedConversation(session.conversation)
@@ -290,7 +352,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   function handleOpenPersonalization() {
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
-    setActiveView('personalization')
+    navigateSettings('personalization')
   }
 
   function handleOpenDvarTorah() {
@@ -300,13 +362,13 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     }
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
-    setActiveView('dvarTorah')
+    navigateView('dvarTorah')
   }
 
   function handleOpenSettings() {
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
-    setActiveView('settings')
+    navigateSettings('account')
     if (usage === null && !isLoadingUsage) {
       void loadUsage()
     }
@@ -315,17 +377,18 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   function handleOpenCalendar() {
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
-    setActiveView('calendar')
+    navigateView('calendar')
   }
 
   function handleBackToConversation() {
     shouldScrollToLatestRef.current = true
-    setActiveView('conversation')
+    navigateView('conversation')
   }
 
   async function handleSavePersonalization(profile: PersonalizationProfile) {
-    await onSavePersonalization(profile)
-    setPersonalizationProfile(profile)
+    const saved = await onSavePersonalization(profile)
+    setPersonalizationProfile(saved)
+    return saved
   }
 
   async function handleSaveSettings(settings: UserSettings) {
@@ -590,7 +653,9 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }
 
   return (
-    <div className="fixed inset-0 flex h-dvh min-h-0 w-full overflow-hidden overscroll-none bg-parchment">
+    <div className={`fixed inset-0 flex h-dvh min-h-0 w-full overflow-hidden overscroll-none bg-parchment ${focusedReading.target ? 'focused-reading' : ''}`}>
+      {activeView === 'settings' ? <SettingsSidebar section={settingsSection} isMobileOpen={isMobileSidebarOpen} onClose={closeMobileSidebar} onNavigate={navigateSettings} onBack={() => { shouldScrollToLatestRef.current = true; navigateView(settingsReturnView.current === 'settings' ? 'conversation' : settingsReturnView.current); setIsMobileSidebarOpen(false) }} /> :
+      <div className="reading-nonessential flex shrink-0">
       <ConversationSidebar
         conversations={conversations}
         selectedId={activeView === 'conversation' ? selectedId : null}
@@ -609,23 +674,25 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         onOpenDvarTorah={handleOpenDvarTorah}
         onOpenCalendar={handleOpenCalendar}
         onOpenSettings={handleOpenSettings}
-        onOpenPersonalization={handleOpenPersonalization}
         onLogout={signOut}
       />
+      </div>}
 
       {isMobileSidebarOpen ? <button type="button" aria-label="Close conversation navigation" onClick={() => setIsMobileSidebarOpen(false)} className="fixed inset-0 z-30 bg-ink/45 lg:hidden" /> : null}
 
-      <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-parchment">
-        <header className="flex h-16 shrink-0 items-center border-b border-line px-4 sm:px-5 lg:hidden">
-          <button type="button" onClick={() => { setSourceReaderSelection(null); setIsMobileSidebarOpen(true) }} className="flex size-11 items-center justify-center rounded-lg text-ink transition hover:bg-stone lg:hidden" aria-label="Open conversation navigation">
+      <main inert={isMobileSidebarOpen} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-parchment">
+        <header className="reading-nonessential flex h-16 shrink-0 items-center border-b border-line px-4 sm:px-5 lg:hidden">
+          <button type="button" onClick={() => { setSourceReaderSelection(null); setIsMobileSidebarOpen(true) }} className="flex size-11 items-center justify-center rounded-lg text-ink transition hover:bg-stone lg:hidden" aria-label={activeView === 'settings' ? 'Open settings navigation' : 'Open conversation navigation'}>
             <Menu aria-hidden="true" className="size-5" strokeWidth={1.75} />
           </button>
           <div className="mx-auto lg:hidden"><Brand compact /></div>
           <div className="size-11 lg:hidden" aria-hidden="true" />
         </header>
 
-        <span className="pointer-events-none absolute right-4 top-20 hidden size-8 border-r border-t border-brass/60 sm:block lg:top-4" aria-hidden="true" />
-        <span className="pointer-events-none absolute bottom-4 left-4 hidden size-8 border-b border-l border-brass/60 sm:block" aria-hidden="true" />
+        <FocusedReadingToolbar />
+
+        <span className="reading-nonessential pointer-events-none absolute right-4 top-20 hidden size-8 border-r border-t border-brass/60 sm:block lg:top-4" aria-hidden="true" />
+        <span className="reading-nonessential pointer-events-none absolute bottom-4 left-4 hidden size-8 border-b border-l border-brass/60 sm:block" aria-hidden="true" />
 
         {activeView === 'dvarTorah' ? (
           <Suspense fallback={<DvarTorahLoading />}>
@@ -633,16 +700,14 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
           </Suspense>
         ) : activeView === 'calendar' ? (
           <Suspense fallback={<p role="status" className="p-8 text-muted">Loading calendar…</p>}>
-            <CalendarPage client={calendarClient} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} />
+            <CalendarPage client={calendarClient} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} onOpenPersonalization={handleOpenPersonalization} />
           </Suspense>
         ) : activeView === 'settings' ? (
-          <SettingsPage user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} isDataBusy={pendingQuestions.size > 0 || isLoadingConversations} onDeleteChats={handleDeleteAllChats} onDeleteAccount={deleteAccount} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />
-        ) : activeView === 'personalization' ? (
-          <PersonalizationPage profile={personalizationProfile} onBack={handleBackToConversation} onSave={handleSavePersonalization} />
+          <UnifiedSettingsPage section={settingsSection} targetSetting={targetSetting} navigationKey={settingsNavigationKey} profile={personalizationProfile} client={conversationSettingsClient} onSavePersonalization={handleSavePersonalization} user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} isDataBusy={pendingQuestions.size > 0 || isLoadingConversations} onDeleteChats={handleDeleteAllChats} onDeleteAccount={deleteAccount} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />
         ) : (
           <div className="flex min-h-0 flex-1 overflow-hidden overscroll-none">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <section ref={conversationScrollRef} className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6" aria-label="Current conversation">
+              <section ref={conversationScrollRef} data-reading-scroll className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6" aria-label="Current conversation">
                 <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
                   {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
                   {isLoadingConversations || isLoadingConversation ? (
@@ -654,10 +719,10 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
                     </div>
                   ) : (
                     <div className="flex-1 py-10 sm:py-14">
-                      <article className="mx-auto max-w-[46rem] space-y-7 sm:space-y-9">
+                      <article className="reading-column mx-auto max-w-[46rem] space-y-7 sm:space-y-9">
                         {displayedMessages.map((message) => (
                           message.role === 'Assistant'
-                            ? <AssistantMessage key={message.id} message={message} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} />
+                            ? <AssistantMessage key={message.id} message={message} autoFocusEligible={message.id === latestDisplayedMessageId} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} />
                             : <UserMessage key={message.id} message={message} />
                         ))}
                         {isSending && isOnline ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
@@ -680,6 +745,11 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
       </main>
     </div>
   )
+}
+
+function readSettingHash() {
+  const id = window.location.hash.slice(1)
+  return SettingsRegistry.some(value => value.id === id && value.section === readSettingsRoute()) ? id : null
 }
 
 function DvarTorahLoading() {

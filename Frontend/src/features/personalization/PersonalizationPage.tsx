@@ -1,28 +1,33 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowLeft, Clock3, Languages, Save, UserRound, UsersRound } from 'lucide-react'
+import { ArrowLeft, MapPin, Languages, Save, UserRound, UsersRound } from 'lucide-react'
 import { Toast } from '../../components/Toast.tsx'
 import { LanguageOptions } from './languageOptions.ts'
 import { JewishHeritageOptions, ReligiousMovementOptions } from './personalizationOptions.ts'
 import type { PersonalizationProfile } from './personalizationTypes.ts'
 import { normalizePersonalizationProfile, validatePersonalizationProfile, type PersonalizationErrors } from './personalizationValidation.ts'
-import { UsTimeZoneOptions } from './usTimeZoneOptions.ts'
+import { PersonalizationLocationFields } from './PersonalizationLocationFields.tsx'
+import type { ConversationSettingsClient } from './conversationSettingsClient.ts'
+import { SettingAnchor } from '../settings/SettingAnchor.tsx'
+import { settingDefinition } from '../settings/settingsRegistry.ts'
 
 interface PersonalizationPageProps {
+  embedded?: boolean
   profile: PersonalizationProfile
   onBack(): void
-  onSave(profile: PersonalizationProfile): Promise<void>
+  onSave(profile: PersonalizationProfile): Promise<PersonalizationProfile>
+  client: ConversationSettingsClient
 }
 
 const InputClassName = 'mt-2 h-12 w-full rounded-lg border border-line-strong bg-paper px-3.5 text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15'
 
-export function PersonalizationPage({ profile, onBack, onSave }: PersonalizationPageProps) {
+export function PersonalizationPage({ embedded = false, profile, onBack, onSave, client }: PersonalizationPageProps) {
   const [draft, setDraft] = useState(profile)
   const [errors, setErrors] = useState<PersonalizationErrors>({})
   const [saveNotificationId, setSaveNotificationId] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  function updateField(field: keyof PersonalizationProfile, value: string) {
+  function updateField<K extends keyof PersonalizationProfile>(field: K, value: PersonalizationProfile[K]) {
     setDraft((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: undefined }))
     setSaveNotificationId(0)
@@ -41,8 +46,9 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
     const normalized = normalizePersonalizationProfile(draft)
     setDraft(normalized)
     setIsSaving(true)
+    setSaveError(null)
     try {
-      await onSave(normalized)
+      setDraft(await onSave(normalized))
       setSaveNotificationId((current) => current + 1)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Your personalization could not be saved.')
@@ -52,12 +58,13 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
   }
 
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-labelledby="personalization-title">
+    <section className={embedded ? '' : 'min-h-0 flex-1 overflow-y-auto px-4 sm:px-8'} aria-label={embedded ? 'Personalization options' : undefined} aria-labelledby={embedded ? undefined : 'personalization-title'}>
       {saveNotificationId > 0 ? (
         <Toast notificationId={saveNotificationId} title="Saved to your account" message="AskRabbi will use these preferences for your next replies, including in existing conversations." onDismiss={() => setSaveNotificationId(0)} />
       ) : null}
 
-      <div className="enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 text-base leading-7 sm:pt-9 sm:text-lg">
+      <div className={embedded ? '' : 'enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 text-base leading-7 sm:pt-9 sm:text-lg'}>
+        {embedded ? null : <>
         <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 font-semibold text-ink-soft transition hover:text-pomegranate">
           <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
           Back to conversation
@@ -73,7 +80,8 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
           </p>
         </div>
 
-        <form className="mt-7" onSubmit={handleSubmit} noValidate>
+        </>}
+        <form className={embedded ? '' : 'mt-7'} onSubmit={handleSubmit} noValidate>
           <FormSection icon={<UserRound aria-hidden="true" />} title="About you" description="For your preferred name, age-appropriate explanations, and Hebrew-calendar calculations.">
             <div className="grid gap-6 sm:grid-cols-2">
               <FormField label="Full name" htmlFor="full-name" error={errors.fullName}>
@@ -84,22 +92,11 @@ export function PersonalizationPage({ profile, onBack, onSave }: Personalization
                 <input id="birth-date-time" name="birthDateTime" type="datetime-local" required value={draft.birthDateTime} onInput={(event) => updateField('birthDateTime', event.currentTarget.value)} className={InputClassName} aria-invalid={errors.birthDateTime !== undefined} aria-describedby={errors.birthDateTime ? 'birth-date-time-error birth-date-time-hint' : 'birth-date-time-hint'} />
               </FormField>
 
-              <div className="sm:col-span-2">
-                <FormField label="Birth time zone" htmlFor="birth-time-zone" error={errors.birthTimeZone} hint="Choose the time zone that applied where you were born.">
-                  <div className="relative">
-                    <Clock3 aria-hidden="true" className="pointer-events-none absolute left-3.5 top-[1.1rem] size-[1.1rem] text-muted" strokeWidth={1.7} />
-                    <select id="birth-time-zone" name="birthTimeZone" required value={draft.birthTimeZone} onChange={(event) => updateField('birthTimeZone', event.target.value)} className={`${InputClassName} pl-10`} aria-invalid={errors.birthTimeZone !== undefined} aria-describedby={errors.birthTimeZone ? 'birth-time-zone-error birth-time-zone-hint' : 'birth-time-zone-hint'}>
-                      <option value="">Select a U.S. time zone</option>
-                      {UsTimeZoneOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </div>
-                </FormField>
-              </div>
             </div>
+          </FormSection>
 
-            <div className="mt-6 border-l-2 border-brass bg-stone/55 px-4 py-3 text-ink-soft">
-              A time zone gives us the regional date context. If your birth was near sunset, an exact Hebrew-date calculation may still ask for your birthplace later.
-            </div>
+          <FormSection icon={<MapPin aria-hidden="true" />} title="Location & time zone" description="One place to manage your calendar and chat’s local date calculations.">
+            <SettingAnchor id="locations"><fieldset disabled={isSaving}><legend className="sr-only">Location details</legend><PersonalizationLocationFields profile={draft} errors={errors} client={client} onChange={updateField} /></fieldset></SettingAnchor>
           </FormSection>
 
           <FormSection icon={<Languages aria-hidden="true" />} title="Language" description="Choose how AskRabbi speaks and quotes Jewish texts.">
@@ -192,13 +189,13 @@ interface FormFieldProps {
   children: ReactNode
 }
 
-function FormField({ label, htmlFor, error, hint, children }: FormFieldProps) {
+function FormField({ htmlFor, error, hint, children }: FormFieldProps) {
   return (
-    <div>
-      <label htmlFor={htmlFor} className="font-semibold text-ink">{label}</label>
+    <SettingAnchor id={htmlFor}>
+      <label htmlFor={htmlFor} className="font-semibold text-ink">{settingDefinition(htmlFor).label}</label>
       {children}
       {hint ? <p id={`${htmlFor}-hint`} className="mt-2 text-sm leading-6 text-muted sm:text-base">{hint}</p> : null}
       {error ? <p id={`${htmlFor}-error`} className="mt-2 font-medium text-pomegranate" role="alert">{error}</p> : null}
-    </div>
+    </SettingAnchor>
   )
 }

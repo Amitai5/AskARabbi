@@ -25,11 +25,10 @@ interface ConversationSidebarProps {
   onOpenDvarTorah(): void
   onOpenCalendar(): void
   onOpenSettings(): void
-  onOpenPersonalization(): void
   onLogout(): Promise<void>
 }
 
-export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, isOffline = false, pendingConversationIds, isDvarTorahSelected, isCalendarSelected, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenCalendar, onOpenSettings, onOpenPersonalization, onLogout }: ConversationSidebarProps) {
+export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, isOffline = false, pendingConversationIds, isDvarTorahSelected, isCalendarSelected, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenCalendar, onOpenSettings, onLogout }: ConversationSidebarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -211,7 +210,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
       {!isOffline && menuConversation && menuAnchor ? <ConversationActionMenu anchor={menuAnchor} title={menuConversation.title} onRename={() => startRename(menuConversation)} onDelete={() => { setOpenMenuId(null); setDeleteConfirmationId(menuConversation.id) }} onClose={() => setOpenMenuId(null)} /> : null}
       {!isOffline && deleteConversation ? <ConfirmDeletionDialog title={`Delete "${deleteConversation.title}" Conversation?`} description="This permanently removes this conversation and its messages from your account. This cannot be undone." confirmLabel="Delete" onConfirm={() => onDeleteConversation(deleteConversation.id)} onClose={() => setDeleteConfirmationId(null)} /> : null}
 
-      <ProfileMenu user={user} onOpenSettings={onOpenSettings} onOpenPersonalization={onOpenPersonalization} onLogout={onLogout} />
+      <ProfileMenu user={user} onOpenSettings={onOpenSettings} onLogout={onLogout} />
     </aside>
   )
 }
