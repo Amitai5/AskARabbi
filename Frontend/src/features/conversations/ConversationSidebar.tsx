@@ -6,6 +6,7 @@ import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import type { ConversationSummary } from './conversationData.ts'
 import { ProfileMenu } from './ProfileMenu.tsx'
+import type { UsageSummary } from '../settings/settingsTypes.ts'
 
 interface ConversationSidebarProps {
   conversations: ConversationSummary[]
@@ -17,6 +18,10 @@ interface ConversationSidebarProps {
   isDvarTorahSelected: boolean
   isCalendarSelected: boolean
   user: AuthenticatedUser
+  usage: UsageSummary | null
+  isLoadingUsage: boolean
+  usageError: string | null
+  onOpenUsage(): void
   onCloseMobile(): void
   onNewConversation(): void
   onSelectConversation(id: string): void
@@ -28,7 +33,7 @@ interface ConversationSidebarProps {
   onLogout(): Promise<void>
 }
 
-export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, isOffline = false, pendingConversationIds, isDvarTorahSelected, isCalendarSelected, user, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenCalendar, onOpenSettings, onLogout }: ConversationSidebarProps) {
+export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, isOffline = false, pendingConversationIds, isDvarTorahSelected, isCalendarSelected, user, usage, isLoadingUsage, usageError, onOpenUsage, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenCalendar, onOpenSettings, onLogout }: ConversationSidebarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -210,7 +215,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
       {!isOffline && menuConversation && menuAnchor ? <ConversationActionMenu anchor={menuAnchor} title={menuConversation.title} onRename={() => startRename(menuConversation)} onDelete={() => { setOpenMenuId(null); setDeleteConfirmationId(menuConversation.id) }} onClose={() => setOpenMenuId(null)} /> : null}
       {!isOffline && deleteConversation ? <ConfirmDeletionDialog title={`Delete "${deleteConversation.title}" Conversation?`} description="This permanently removes this conversation and its messages from your account. This cannot be undone." confirmLabel="Delete" onConfirm={() => onDeleteConversation(deleteConversation.id)} onClose={() => setDeleteConfirmationId(null)} /> : null}
 
-      <ProfileMenu user={user} onOpenSettings={onOpenSettings} onLogout={onLogout} />
+      <ProfileMenu user={user} usage={usage} isLoadingUsage={isLoadingUsage} usageError={usageError} isOffline={isOffline} onOpenUsage={onOpenUsage} onOpenSettings={onOpenSettings} onLogout={onLogout} />
     </aside>
   )
 }

@@ -41,6 +41,17 @@ describe('saved holiday calendar', () => {
     expect(screen.queryByRole('heading', { name: 'Upcoming holidays' })).not.toBeInTheDocument()
   })
 
+  it('searches the saved 360-day schedule and expands the range without a network connection', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch')
+    const user = userEvent.setup()
+    render(<OfflineHolidayCalendar />)
+    await user.type(await screen.findByRole('searchbox', { name: 'Search upcoming holidays' }), 'spring')
+    expect(screen.getByRole('heading', { name: 'Spring holiday' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '360 days' })).toHaveAttribute('aria-pressed', 'true')
+    expect(fetch).not.toHaveBeenCalled()
+    fetch.mockRestore()
+  })
+
   it('handles unavailable storage as an empty offline library', async () => {
     vi.mocked(readOfflineLibrary).mockRejectedValue(new Error('unavailable'))
     render(<OfflineHolidayCalendar />)

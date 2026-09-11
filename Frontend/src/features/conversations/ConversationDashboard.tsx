@@ -365,10 +365,10 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     navigateView('dvarTorah')
   }
 
-  function handleOpenSettings() {
+  function handleOpenSettings(settingId?: string) {
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
-    navigateSettings('account')
+    navigateSettings('account', settingId)
     if (usage === null && !isLoadingUsage) {
       void loadUsage()
     }
@@ -666,6 +666,10 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         isDvarTorahSelected={activeView === 'dvarTorah'}
         isCalendarSelected={activeView === 'calendar'}
         user={personalizedUser}
+        usage={usage}
+        isLoadingUsage={isLoadingUsage}
+        usageError={usageError}
+        onOpenUsage={() => handleOpenSettings('usage')}
         onCloseMobile={closeMobileSidebar}
         onNewConversation={handleNewConversation}
         onSelectConversation={(id) => void handleSelectConversation(id)}

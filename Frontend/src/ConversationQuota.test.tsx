@@ -61,6 +61,8 @@ describe('Monthly token allowance', () => {
     expect(await screen.findByText('Monthly chat limit reached')).toBeVisible()
     expect(screen.getByText(/local demo follow-up remains grounded/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Usage, 0% left' })).toBeVisible()
   })
 
   it('handles an exhausted response from another tab without leaving an unsaved sidebar chat', async () => {
@@ -79,13 +81,15 @@ describe('Monthly token allowance', () => {
     expect(clients.conversationClient.createWithMessage).toHaveBeenCalledTimes(1)
   })
 
-  it('shows only the remaining monthly percentage and reset in settings, never in available chats', async () => {
+  it('shows the remaining allowance in the profile menu and links directly to usage settings', async () => {
     const clients = createDemoApplicationClients()
-    clients.conversationSettingsClient.getUsage = () => Promise.resolve(Available)
+    clients.conversationSettingsClient.getUsage = vi.fn(() => Promise.resolve(Available))
     const user = await signIn(clients)
     expect(screen.queryByText(/monthly|25%|75%|tokens/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Usage, 75% left' }))
+    expect(window.location.pathname + window.location.hash).toBe('/settings/account#usage')
+    expect(clients.conversationSettingsClient.getUsage).toHaveBeenCalledOnce()
 
     const progress = await screen.findByRole('progressbar', { name: 'Monthly chat allowance remaining' })
     expect(progress).toHaveAttribute('aria-valuenow', '75')

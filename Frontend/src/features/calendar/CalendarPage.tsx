@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, BookOpenText, CalendarDays, ChevronDown, ExternalLink, MapPin, RefreshCw, Settings2 } from 'lucide-react'
+import { ArrowLeft, BookOpenText, CalendarDays, ChevronDown, ExternalLink, MapPin, RefreshCw, Settings2 } from 'lucide-react'
 import type { CalendarClient } from './calendarClient.ts'
 import { AllCalendarFilters, type CalendarAvailability, type CalendarFilters, type CalendarOverview, type CalendarPreferencesResponse, type CalendarRange } from './calendarTypes.ts'
 import { formatBeginning, formatCivilDate, formatEventRange } from './calendarFormatting.ts'
 import { useOnlineStatus } from '../pwa/useOnlineStatus.ts'
 import { HolidayAgenda } from './HolidayAgenda.tsx'
+import { HolidayDetails } from './HolidayDetails.tsx'
 import { selectCalendarEvents } from './calendarAgenda.ts'
 import { OfflineHolidayCalendar } from '../pwa/OfflineHolidayCalendar.tsx'
 import './calendar.css'
@@ -14,19 +15,18 @@ const ButtonClass = 'inline-flex min-h-11 items-center justify-center gap-2 roun
 
 export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, onOpenPersonalization }: Props) {
   const [days, setDays] = useState<CalendarRange>(90)
-  const [overview, setData] = useState<CalendarOverview | null>(() => client.getCachedOverview?.(90) ?? null)
-  const [settings, setSettings] = useState<CalendarPreferencesResponse | null>(() => { const cached = client.getCachedOverview?.(90); return cached ? { cities: [], preferences: cached.preferences } : null })
+  const [overview, setData] = useState<CalendarOverview | null>(() => client.getCachedOverview?.(360) ?? null)
+  const [settings, setSettings] = useState<CalendarPreferencesResponse | null>(() => { const cached = client.getCachedOverview?.(360); return cached ? { cities: [], preferences: cached.preferences } : null })
   const data = useMemo(() => {
     if (!overview) { return null }
-    const events = selectCalendarEvents(overview.events, overview.today.gregorianDate, days, settings?.preferences ?? AllCalendarFilters)
+    const events = selectCalendarEvents(overview.events, overview.today.gregorianDate, 360, settings?.preferences ?? AllCalendarFilters)
     return { ...overview, events, highlight: events.find(event => event.isOngoing) ?? events[0] ?? null }
-  }, [overview, days, settings])
+  }, [overview, settings])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [revision, setRevision] = useState(0)
   const [saving, setSaving] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
-  const scrollContainer = useRef<HTMLElement>(null)
   const isOnline = useOnlineStatus()
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
   useEffect(() => { heading.current?.focus({ preventScroll: true }) }, [])
@@ -34,7 +34,7 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
   useEffect(() => {
     if (!isOnline) { return }
     const controller = new AbortController()
-    void client.getOverview(days, controller.signal)
+    void client.getOverview(360, controller.signal)
       .then((overview) => {
         if (controller.signal.aborted) { return }
         setData(overview)
@@ -44,7 +44,7 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
         if (!controller.signal.aborted) { setError(cause instanceof Error ? cause.message : 'The calendar could not be loaded.') }
       }).finally(() => { if (!controller.signal.aborted) { setLoading(false) } })
     return () => controller.abort()
-  }, [client, days, revision, isOnline])
+  }, [client, revision, isOnline])
 
   useEffect(() => {
     if (!data || !isOnline || error || saving) { return }
@@ -76,23 +76,9 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
     finally { setSaving(false) }
   }
 
-  function changeRange(value: CalendarRange) {
-    if (value === days) { return }
-    setDays(value); setData(client.getCachedOverview?.(value) ?? null); setLoading(true)
-  }
   function retry() { client.invalidate?.(); setLoading(true); refresh() }
 
-  function showHighlightedHoliday() {
-    const container = scrollContainer.current
-    const target = document.getElementById(`event-${data?.highlight?.id}`)
-    if (!container || !(target instanceof HTMLDetailsElement)) { return }
-    target.open = true
-    // scrollIntoView can also scroll the shell's overflow-hidden main and hide its mobile header.
-    container.scrollTo({ top: container.scrollTop + target.getBoundingClientRect().top - container.getBoundingClientRect().top - 20, behavior: 'auto' })
-    target.querySelector('summary')?.focus({ preventScroll: true })
-  }
-
-  return <section ref={scrollContainer} className="calendar-page min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-7 text-ink sm:px-8 sm:py-10 xl:px-10" aria-labelledby="calendar-title">
+  return <section className="calendar-page min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-7 text-ink sm:px-8 sm:py-10 xl:px-10" aria-labelledby="calendar-title">
     <div className="mx-auto max-w-[82rem]">
       {onBackToConversation ? <button type="button" onClick={onBackToConversation} className="mb-4 inline-flex min-h-10 items-center gap-2 text-sm text-ink-soft hover:text-pomegranate"><ArrowLeft className="size-4" />Back to conversation</button> : null}
       <header className="flex flex-wrap items-start justify-between gap-5 border-b border-line pb-6">
@@ -124,10 +110,10 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
               <p className="mt-6 border-t border-line pt-5 text-xs leading-6 text-muted">Calendar data by <a href="https://www.hebcal.com/home/developer-apis" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-pomegranate underline">Hebcal<ExternalLink className="size-3" /></a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" className="underline">CC BY 4.0</a></p>
             </div>
           </details>
-          {data.highlight ? <section aria-labelledby="calendar-highlight" className="rounded-xl bg-stone/80 p-5 sm:p-6 xl:col-span-2"><p className="flex items-center gap-2 text-sm text-ink-soft"><CalendarDays className="size-5 text-pomegranate" />{data.highlight.isOngoing ? 'Happening now' : 'Next holiday'}</p><h2 id="calendar-highlight" className="mt-2 font-display text-3xl">{data.highlight.title}</h2><p className="mt-3 text-base">{formatEventRange(data.highlight)}</p><p className="mt-1 text-sm text-muted">{formatBeginning(data.highlight)}</p><p className="mt-3 text-sm leading-6 text-ink-soft">{data.highlight.explanation}</p><button type="button" onClick={showHighlightedHoliday} className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-pomegranate">View dates & meaning<ArrowRight className="size-4" /></button></section> : <div className="text-sm text-muted xl:col-span-2">{data.holidays.isAvailable ? 'No upcoming events match your filters.' : 'Holiday information is temporarily unavailable.'}</div>}
+          {data.highlight ? <section aria-labelledby="calendar-highlight" className="rounded-xl bg-stone/80 p-5 sm:p-6 xl:col-span-2"><p className="flex items-center gap-2 text-sm text-ink-soft"><CalendarDays className="size-5 text-pomegranate" />{data.highlight.isOngoing ? 'Happening now' : 'Next holiday'}</p><h2 id="calendar-highlight" className="mt-2 font-display text-3xl">{data.highlight.title}</h2><p className="mt-3 text-base">{formatEventRange(data.highlight)}</p><p className="mt-1 text-sm text-muted">{formatBeginning(data.highlight)}</p><div className="mt-3"><HolidayDetails event={data.highlight} /></div></section> : <div className="text-sm text-muted xl:col-span-2">{data.holidays.isAvailable ? 'No upcoming events match your filters.' : 'Holiday information is temporarily unavailable.'}</div>}
         </div>
         <div className="mt-7">
-          <HolidayAgenda days={days} onRange={changeRange} events={data.events} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
+          <HolidayAgenda days={days} onRange={setDays} events={data.events} startDate={data.today.gregorianDate} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
         </div>
       </> : null}
     </div>

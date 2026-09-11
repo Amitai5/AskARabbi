@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronUp, LogOut, UserRound, Wrench } from 'lucide-react'
+import { ChevronUp, Gauge, LogOut, UserRound, Wrench } from 'lucide-react'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
+import { formatUsageRemainingPercent, type UsageSummary } from '../settings/settingsTypes.ts'
 
 interface ProfileMenuProps {
   user: AuthenticatedUser
+  usage: UsageSummary | null
+  isLoadingUsage: boolean
+  usageError: string | null
+  isOffline: boolean
+  onOpenUsage(): void
   onOpenSettings(): void
   onLogout(): Promise<void>
 }
 
-export function ProfileMenu({ user, onOpenSettings, onLogout }: ProfileMenuProps) {
+export function ProfileMenu({ user, usage, isLoadingUsage, usageError, isOffline, onOpenUsage, onOpenSettings, onLogout }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const usageLabel = isOffline ? 'Offline' : usageError ? 'Unavailable' : usage ? `${formatUsageRemainingPercent(usage)}% left` : isLoadingUsage ? 'Loading…' : 'Unavailable'
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,6 +58,12 @@ export function ProfileMenu({ user, onOpenSettings, onLogout }: ProfileMenuProps
     <div ref={containerRef} className="relative border-t border-line px-4 py-4">
       {isOpen ? (
         <div className="absolute bottom-[calc(100%+0.5rem)] left-4 right-4 z-20 rounded-xl border border-line bg-paper p-2 shadow-menu" role="menu" aria-label="Profile options">
+          <button type="button" role="menuitem" aria-label={`Usage, ${usageLabel}`} onClick={() => { setIsOpen(false); onOpenUsage() }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone">
+            <Gauge aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.75} />
+            <span className="flex-1 text-left">Usage</span>
+            <span className="text-sm tabular-nums text-muted">{usageLabel}</span>
+          </button>
+          <div className="my-1 h-px bg-line" />
           <button
             type="button"
             onClick={() => {

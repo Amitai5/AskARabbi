@@ -69,5 +69,6 @@ export const CalendarCategories = [
 ] as const
 export type CalendarCategorySetting = typeof CalendarCategories[number][0]
 export type CalendarRange = 90 | 180 | 360
+export const CalendarRanges: readonly CalendarRange[] = [90, 180, 360]
 export type CalendarFilters = Record<CalendarCategorySetting, boolean>
 export const AllCalendarFilters: CalendarFilters = { majorHolidays: true, minorHolidays: true, fastDays: true, roshChodesh: true, specialShabbatot: true, modernObservances: true }
