@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createApiClient } from './api/apiClient.ts'
 import { Brand } from './components/Brand.tsx'
 import { AuthProvider } from './features/auth/AuthProvider.tsx'
@@ -11,6 +11,8 @@ import { ConversationDashboard } from './features/conversations/ConversationDash
 import { createBackendConversationClient, type ConversationClient } from './features/conversations/conversationClient.ts'
 import { createBackendDvarTorahClient, type DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
 import { CalendarPreferencesChanged, createBackendCalendarClient, type CalendarClient } from './features/calendar/calendarClient.ts'
+import { createCachedCalendarClient } from './features/calendar/cachedCalendarClient.ts'
+import { clearOfflineHolidays } from './features/pwa/offlineLibrary.ts'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow.tsx'
 import { createBackendConversationSettingsClient, type ConversationSettingsClient } from './features/personalization/conversationSettingsClient.ts'
 import { createDefaultPersonalizationProfile, type PersonalizationProfile } from './features/personalization/personalizationTypes.ts'
@@ -55,6 +57,9 @@ interface AuthenticatedApplicationProps {
 function AuthenticatedApplication({ conversationClient, conversationSettingsClient, dvarTorahClient, calendarClient }: AuthenticatedApplicationProps) {
   const { isInitializing, signOut, user } = useAuth()
   const [resetToken] = useState(readAndRemovePasswordResetToken)
+  const userId = user?.id
+  const accountCalendarClient = useMemo(() => userId ? createCachedCalendarClient(calendarClient) : calendarClient, [calendarClient, userId])
+  useEffect(() => () => accountCalendarClient.invalidate?.(), [accountCalendarClient])
 
   useEffect(() => {
     if (!isInitializing && user === null) { clearActiveReadingUser() }
@@ -67,7 +72,7 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
     return <LoginPage isCheckingSession={isInitializing} />
   }
 
-  return <ReadingPreferencesProvider key={user.id} userId={user.id} client={conversationSettingsClient}><OfflineLearningProvider client={dvarTorahClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} onLogout={signOut} /></OfflineLearningProvider></ReadingPreferencesProvider>
+  return <ReadingPreferencesProvider key={user.id} userId={user.id} client={conversationSettingsClient}><OfflineLearningProvider client={dvarTorahClient} calendarClient={accountCalendarClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={accountCalendarClient} onLogout={signOut} /></OfflineLearningProvider></ReadingPreferencesProvider>
 }
 
 function readAndRemovePasswordResetToken() {
@@ -137,6 +142,8 @@ function SignedInApplication({ user, conversationClient, conversationSettingsCli
 
   async function savePersonalization(nextProfile: PersonalizationProfile) {
     const saved = await conversationSettingsClient.updatePersonalization(nextProfile)
+    calendarClient.invalidate?.()
+    await clearOfflineHolidays()
     window.dispatchEvent(new Event(CalendarPreferencesChanged))
     setProfile(saved)
     setIsConfigured(true)

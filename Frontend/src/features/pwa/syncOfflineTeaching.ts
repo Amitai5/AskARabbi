@@ -7,7 +7,7 @@ export const MaximumOfflineAudioBytes = 64 * 1024 * 1024
 
 export async function syncOfflineTeaching(client: DvarTorahClient, signal: AbortSignal, onTextSaved: () => void) {
   const initial = await readOfflineLibrary()
-  const publication = await client.getCurrent()
+  const publication = await client.getCurrent(false, signal)
   if (signal.aborted) { return }
   const library = await saveOfflinePublication(publication, initial.revision, signal)
   if (signal.aborted || library.revision !== initial.revision) { return }

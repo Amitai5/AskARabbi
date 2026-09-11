@@ -1,4 +1,15 @@
 import type { DvarTorahAudioTimings, WeeklyDvarTorahResponse } from '../dvarTorah/dvarTorahTypes.ts'
+import type { CalendarEvent, CalendarOverview } from '../calendar/calendarTypes.ts'
+import { addCivilDays } from '../calendar/calendarAgenda.ts'
+
+export interface SavedHolidayCalendar {
+  version: 1
+  startDate: string
+  endDate: string
+  inIsrael: boolean
+  savedAt: string
+  events: CalendarEvent[]
+}
 
 export interface SavedTeaching {
   publication: WeeklyDvarTorahResponse
@@ -11,6 +22,7 @@ export interface OfflineLibrary {
   audioEnabled: boolean
   revision: number
   teaching: SavedTeaching | null
+  holidays?: SavedHolidayCalendar | null
 }
 
 export const OfflineLibraryChanged = 'askarabbi-offline-library-changed'
@@ -87,10 +99,29 @@ export function saveOfflineRecording(teaching: SavedTeaching, revision: number, 
   })
 }
 
+// Only public holiday fields are saved: never the overview's location, solar times or profile.
+export function saveOfflineHolidays(overview: CalendarOverview, revision: number, signal: AbortSignal) {
+  return accessLibrary(library => {
+    if (signal.aborted || library.revision !== revision || !overview.holidays.isAvailable || overview.holidays.isStale) { return library }
+    return { ...library, holidays: {
+      version: 1, startDate: overview.today.gregorianDate, endDate: addCivilDays(overview.today.gregorianDate, 359),
+      inIsrael: overview.preferences.inIsrael, savedAt: new Date().toISOString(),
+      events: overview.events.map(({ id, kind, title, category, startDate, endDate, beginningDate, beginningRule, explanation, sourceUrl, occurrences }) => ({ id, kind, title, category, startDate, endDate, beginningDate, beginningRule, explanation, sourceUrl, occurrences, isOngoing: false })),
+    } }
+  })
+}
+
+export async function clearOfflineHolidays() {
+  try {
+    await accessLibrary(library => ({ ...library, revision: library.revision + 1, holidays: null }))
+    window.dispatchEvent(new Event(OfflineLibraryChanged))
+  } catch { /* Unavailable browser storage must not prevent saving account preferences. */ }
+}
+
 export async function clearOfflineTeaching() {
   window.dispatchEvent(new Event(OfflineLibraryCleared))
   try {
-    await accessLibrary(library => ({ ...library, revision: library.revision + 1, teaching: null }))
+    await accessLibrary(library => ({ ...library, revision: library.revision + 1, teaching: null, holidays: null }))
     window.dispatchEvent(new Event(OfflineLibraryChanged))
   } catch {
     // An unavailable offline store must not prevent account logout/deletion.

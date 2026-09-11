@@ -8,11 +8,11 @@ describe('calendar transport and date presentation', () => {
     const request = vi.fn().mockResolvedValue({})
     const client = createBackendCalendarClient({ baseUrl: 'https://api.example.test', request })
     const signal = new AbortController().signal
-    await client.getOverview(365, signal)
+    await client.getOverview(360, signal)
     await client.getPreferences(signal)
     await client.updatePreferences(DefaultCalendarPreferences, signal)
     expect(request.mock.calls).toEqual([
-      ['/api/calendar/overview?days=365', { signal, cache: 'no-store' }],
+      ['/api/calendar/overview?days=360&includeAllCategories=true', { signal, cache: 'no-store' }],
       ['/api/calendar/preferences', { signal, cache: 'no-store' }],
       ['/api/calendar/preferences', { method: 'PUT', body: JSON.stringify(DefaultCalendarPreferences), signal, cache: 'no-store' }],
     ])

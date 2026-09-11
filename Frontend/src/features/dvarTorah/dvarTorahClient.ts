@@ -1,8 +1,10 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
+import { createSharedRequest } from '../../api/sharedRequest.ts'
 import type { WeeklyDvarTorahArchiveQuery, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse } from './dvarTorahTypes.ts'
 
 export interface DvarTorahClient {
-  getCurrent(forceRefresh?: boolean): Promise<WeeklyDvarTorahResponse>
+  getCurrent(forceRefresh?: boolean, signal?: AbortSignal): Promise<WeeklyDvarTorahResponse>
+  getCachedCurrent?(): WeeklyDvarTorahResponse | null
   getArchive(query?: WeeklyDvarTorahArchiveQuery): Promise<WeeklyDvarTorahArchiveResponse>
   getArchived(weekKey: string): Promise<WeeklyDvarTorahArticle>
   getAudioUrl(weekKey: string, version: string): string
@@ -19,26 +21,31 @@ const OneDayMilliseconds = 24 * 60 * 60 * 1000
 
 export function createBackendDvarTorahClient(apiClient: ApiClient = createApiClient()): DvarTorahClient {
   let cachedPublication: CachedPublication | null = null
-  let currentRequest: Promise<WeeklyDvarTorahResponse> | null = null
+  let currentRequest: ReturnType<typeof createSharedRequest<WeeklyDvarTorahResponse>> | null = null
 
   return {
-    getCurrent(forceRefresh = false) {
+    getCachedCurrent: () => cachedPublication !== null && cachedPublication.expiresAt > Date.now() ? cachedPublication.value : null,
+    getCurrent(forceRefresh = false, signal) {
+      if (signal?.aborted) { return Promise.reject(signal.reason) }
       if (!forceRefresh && cachedPublication !== null && cachedPublication.expiresAt > Date.now()) {
         return Promise.resolve(cachedPublication.value)
       }
-      if (currentRequest !== null) {
-        return currentRequest
+      if (currentRequest !== null && !currentRequest.signal.aborted) {
+        return currentRequest.read(signal)
       }
 
-      currentRequest = apiClient.request<WeeklyDvarTorahResponse>('/api/dvar-torah')
-        .then((value) => {
+      const request = createSharedRequest(async sharedSignal => {
+        try {
+          const value = await apiClient.request<WeeklyDvarTorahResponse>('/api/dvar-torah', { signal: sharedSignal })
+          sharedSignal.throwIfAborted()
           cachedPublication = { value, expiresAt: getCacheExpiration(value) }
           return value
-        })
-        .finally(() => {
-          currentRequest = null
-        })
-      return currentRequest
+        } finally {
+          if (currentRequest === request) { currentRequest = null }
+        }
+      })
+      currentRequest = request
+      return request.read(signal)
     },
     getArchive(query = {}) {
       const parameters = new URLSearchParams({

@@ -7,7 +7,7 @@ export const NewYork = { kind: 'city' as const, id: '5128581', label: 'New York,
 export const DefaultCalendarPreferences: CalendarPreferences = {
   location: null, inIsrael: false, showLocalTimes: true, candleLightingMinutes: null,
   havdalah: 'nightfall', havdalahMinutes: 42, majorHolidays: true, minorHolidays: true,
-  fastDays: true, roshChodesh: true, specialShabbatot: false, modernObservances: false,
+  fastDays: true, roshChodesh: true, specialShabbatot: true, modernObservances: true,
 }
 export const RoshHashanah: CalendarEvent = {
   id: 'rosh-hashanah:2026-09-12', kind: 'rosh-hashanah', title: 'Rosh Hashanah', category: 'major',

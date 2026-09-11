@@ -40,7 +40,7 @@ const ArchivePageSize = 10
 type WeeklyLearningView = 'current' | 'archive' | 'archivedArticle'
 
 export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahPageProps) {
-  const [publication, setPublication] = useState<WeeklyDvarTorahResponse | null>(null)
+  const [publication, setPublication] = useState<WeeklyDvarTorahResponse | null>(() => client.getCachedCurrent?.() ?? null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [view, setView] = useState<WeeklyLearningView>('current')
