@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Trash2, UserRoundX } from 'lucide-react'
 import { ConfirmDeletionDialog } from '../../components/ConfirmDeletionDialog.tsx'
+import { ChatPrivacyNotice } from '../../components/ChatPrivacyNotice.tsx'
 
 interface UserDataControlsProps {
   isBusy: boolean
@@ -19,6 +20,10 @@ export function UserDataControls({ isBusy, onDeleteChats, onDeleteAccount }: Use
 
   return <>
     <div className="space-y-7">
+      <div>
+        <h3 className="mb-3 font-semibold">Chat history and AI privacy</h3>
+        <ChatPrivacyNotice />
+      </div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-[27rem]">
           <h3 className="font-semibold">Delete all chats</h3>

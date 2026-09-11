@@ -70,14 +70,13 @@ The system will preserve source-language text—including Hebrew and Aramaic whe
 
 Each new conversation enables the core Torah, Tanakh, Mishnah, and Talmud collections by default. Users can add approved supplemental works, select every approved source, or narrow the set for that conversation; sending is disabled when no source remains selected.
 
-### Saved and private chats
+### Chat history and AI privacy
 
-AskRabbi will support two conversation modes:
+AskRabbi saves questions, answers, and their source references in the user's account so conversations can be reopened and continued. Users can delete saved chats or their account in **Settings → Your data**. A separate private-chat mode is a future design, not an available zero-retention feature.
 
-- **Saved chats** will appear in the user's account and can be continued later.
-- **Private chats** will not be written to AskRabbi's persistent chat history.
+Chats, source lookups, answer checks, repairs, and background Dvar Torah generation disable Azure OpenAI's stored-response feature with `store=false`. This does not disable AskRabbi's own chat history or Microsoft's separate abuse-monitoring storage. Microsoft may retain prompts and answers for abuse monitoring, including authorized human review, under its [Azure AI privacy terms](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy).
 
-Private requests still have to be processed in memory to generate a response. The production privacy notice will clearly disclose any transient processing by infrastructure or model providers; the product must not promise stronger privacy than its deployed systems can verify.
+The source corpus remains intentionally stored in Azure's files/vector store. Backups and operational/security logs have separate retention policies. Do not describe the application as “we never store chats” or “zero retention.” See [chat storage and provider retention](docs/CHAT_PRIVACY.md) for the verified boundaries and [account data deletion](docs/ACCOUNT_DATA.md) for deletion behavior.
 
 ### Accounts and responsible usage limits
 

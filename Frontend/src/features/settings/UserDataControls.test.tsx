@@ -4,6 +4,23 @@ import { describe, expect, it, vi } from 'vitest'
 import { UserDataControls } from './UserDataControls.tsx'
 
 describe('Your data controls', () => {
+  it('distinguishes saved chats from Azure response storage and Microsoft abuse monitoring', () => {
+    const deleteChats = vi.fn()
+    const deleteAccount = vi.fn()
+    render(<UserDataControls isBusy={false} onDeleteChats={deleteChats} onDeleteAccount={deleteAccount} />)
+
+    expect(screen.getByRole('heading', { name: 'Chat history and AI privacy' })).toBeVisible()
+    expect(screen.getByText(/AskRabbi saves your questions and answers in your account/)).toBeVisible()
+    expect(screen.getByText(/disable its stored-response feature/)).toHaveTextContent('Microsoft may still retain prompts and answers for abuse monitoring')
+    expect(screen.getByText(/Deleting chats from AskRabbi does not delete Microsoft’s abuse-monitoring records/)).toBeVisible()
+    expect(screen.getByText(/Service backups and security logs follow separate retention policies/)).toBeVisible()
+    const detailsLink = screen.getByRole('link', { name: /Microsoft’s Azure AI privacy details/ })
+    expect(detailsLink).toHaveAttribute('href', 'https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy')
+    expect(detailsLink).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(deleteChats).not.toHaveBeenCalled()
+    expect(deleteAccount).not.toHaveBeenCalled()
+  })
+
   it('requires the exact phrase and allows cancellation without deleting anything', async () => {
     const user = userEvent.setup()
     const deleteChats = vi.fn()

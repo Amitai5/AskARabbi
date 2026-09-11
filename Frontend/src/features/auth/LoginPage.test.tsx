@@ -16,6 +16,24 @@ async function renderLogin() {
 }
 
 describe('LoginPage', () => {
+  it('lets readers inspect chat storage and provider retention before signing in', async () => {
+    const user = userEvent.setup()
+    await renderLogin()
+    const disclosure = screen.getByText('Chat history and AI privacy')
+    expect(disclosure.closest('details')).not.toHaveAttribute('open')
+
+    await user.click(disclosure)
+
+    expect(disclosure.closest('details')).toHaveAttribute('open')
+    expect(screen.getByText(/AskRabbi saves your questions and answers in your account/)).toBeVisible()
+    expect(screen.getByText(/disable its stored-response feature/)).toHaveTextContent('Microsoft may still retain prompts and answers for abuse monitoring')
+    expect(screen.getByRole('link', { name: /Microsoft’s Azure AI privacy details/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
+
+    await user.click(disclosure)
+    expect(disclosure.closest('details')).not.toHaveAttribute('open')
+  })
+
   it('omits the install action even when installation is available and focuses Google first', async () => {
     const user = userEvent.setup()
     await renderLogin()

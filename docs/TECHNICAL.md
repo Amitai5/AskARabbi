@@ -277,6 +277,8 @@ The interface should describe the product as an educational tool, not a rabbi or
 
 ## Conversation privacy modes
 
+**Current implementation:** production conversations are saved in AskRabbi's MongoDB-backed history. The shared Azure model client and source-search client disable Responses API storage with `store=false`, but Microsoft's separate abuse-monitoring retention remains applicable. A private-chat mode is not implemented. The following saved/private comparison is a future design contract, not a statement that today's service offers zero retention. See [chat storage and provider retention](CHAT_PRIVACY.md).
+
 Saved and private conversations should be separate server-side policies represented by an explicit enum or value object, not a client-only flag.
 
 | Behavior | Saved chat | Private chat |

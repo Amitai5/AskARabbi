@@ -22,7 +22,11 @@ Missing/incorrect confirmation returns `400`; unauthenticated requests return `4
 
 ## Data scope and retention
 
+AskRabbi stores saved questions, answers, source references, and conversation metadata in its MongoDB-backed account history. Disabling Azure OpenAI response storage does not stop this application persistence. Settings and the sign-in screen distinguish saved history from Azure AI processing; see [chat storage and provider retention](CHAT_PRIVACY.md).
+
 Account deletion removes the owner's conversation headers, messages (including orphaned messages), settings/personalization, usage records, and account record, plus the corresponding WorkOS user in the configured environment. Settings are owner-scoped by their Mongo `_id`, while conversations, messages, and usage use `userId`.
+
+Chat, source-lookup, validation, repair, and background-generation requests use `store=false` with Azure OpenAI. Microsoft may still retain prompts and answers for abuse monitoring, including authorized human review. AskRabbi's deletion endpoints do not delete those provider-controlled records; see [Microsoft's data privacy details](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy#preventing-abuse).
 
 Shared weekly Dvar Torah publications, their audio blobs, and the approved source corpus are not personal account data and are retained. Deleting an AskRabbi identity does not delete the person's Google or other upstream provider account. Service backups and operational/security logs follow separate retention policies; this API does not promise immediate physical purge of provider backups or logs.
 

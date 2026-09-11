@@ -4,6 +4,8 @@ AskRabbi's first production retriever uses an Azure OpenAI managed vector store 
 
 ## Why this design
 
+**Storage boundary:** source-search requests disable Azure OpenAI's stored-response feature with `store=false`. The uploaded source corpus and vector index are intentionally persistent; this flag does not delete them, AskRabbi's saved chat history, or Microsoft's abuse-monitoring records. See [chat storage and provider retention](CHAT_PRIVACY.md).
+
 The managed store has no continuously provisioned Azure AI Search unit, which makes it a practical starting point for a low-traffic launch. Azure handles parsing, embeddings, keyword/semantic retrieval, and vector storage. AskRabbi keeps stable source IDs, filters, provenance, evidence budgets, answer generation, and validation in application code.
 
 The tradeoff is less ranking and index control than a dedicated hybrid search service, provider-managed chunking, usage-based file-search/storage charges, and an API surface that must be monitored for changes. Each answer also needs a small `gpt-5-mini` retrieval call before the separate grounded-answer generation call, adding token cost and latency. `ISourceRetriever` isolates that dependency so a future Azure AI Search or other retriever can replace it without changing the answer contract.
