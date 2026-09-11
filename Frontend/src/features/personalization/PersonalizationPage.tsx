@@ -166,8 +166,8 @@ interface FormSectionProps {
 
 function FormSection({ icon, title, description, children }: FormSectionProps) {
   return (
-    <section className="border-t border-line py-7 sm:py-8">
-      <div className="grid gap-6 md:grid-cols-[12rem_1fr] md:gap-10">
+    <section className="border-t border-line py-7 sm:py-8" aria-label={title}>
+      <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2.5 text-ink [&_svg]:size-[1.15rem] [&_svg]:text-pomegranate [&_svg]:stroke-[1.7]">
             {icon}
@@ -175,7 +175,7 @@ function FormSection({ icon, title, description, children }: FormSectionProps) {
           </div>
           <p className="mt-2 text-muted">{description}</p>
         </div>
-        <div>{children}</div>
+        <div className="min-w-0">{children}</div>
       </div>
     </section>
   )

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, Bell, BookOpenText, Database, Gauge, KeyRound, Save, ShieldCheck, Smartphone } from 'lucide-react'
+import { ArrowLeft, Bell, BookOpenText, KeyRound, Save } from 'lucide-react'
 import { UserDataControls } from './UserDataControls.tsx'
 import { Toast } from '../../components/Toast.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
@@ -108,7 +108,7 @@ export function SettingsPage({ section, user, settings, usage, usageError, isLoa
         </>}
         <div className={section ? '' : 'mt-7'}>
           <div hidden={section !== undefined && section !== 'account'}>
-          <SettingsSection icon={<ShieldCheck aria-hidden="true" />} title="Account security" description="Manage the email and password associated with your account.">
+          <SettingsSection title="Account security">
             <div className="space-y-6">
               <SettingAnchor id="account-email"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -133,13 +133,13 @@ export function SettingsPage({ section, user, settings, usage, usageError, isLoa
             </div>
           </SettingsSection>
 
-          <SettingsSection icon={<Gauge aria-hidden="true" />} title="Usage" description="Your chat allowance resets each month.">
+          <SettingsSection title="Usage">
             <SettingAnchor id="usage"><UsagePanel usage={usage} error={usageError} isLoading={isLoadingUsage} onRetry={onRetryUsage} /></SettingAnchor>
           </SettingsSection>
           </div>
 
           <div hidden={section !== undefined && section !== 'reading' && section !== 'notifications'}>
-          <SettingsSection icon={section === 'notifications' ? <Bell aria-hidden="true" /> : <BookOpenText aria-hidden="true" />} title={section === 'notifications' ? 'Product updates' : 'Conversation defaults'} description={section === 'notifications' ? 'Control optional emails from AskRabbi.' : 'Choose how new AskRabbi conversations should begin.'}>
+          <SettingsSection title={section === 'notifications' ? 'Product updates' : 'Conversation defaults'}>
             <div className="space-y-5">
               <div hidden={section === 'notifications'}><SettingAnchor id="source-context"><PreferenceToggle label={settingDefinition('source-context').label} description={settingDefinition('source-context').description} icon={<BookOpenText aria-hidden="true" />} isChecked={draft.showSourceContextByDefault} onChange={(value) => updateSetting('showSourceContextByDefault', value)} /></SettingAnchor></div>
               <div hidden={section === 'reading'}><SettingAnchor id="product-updates"><PreferenceToggle label={settingDefinition('product-updates').label} description={settingDefinition('product-updates').description} icon={<Bell aria-hidden="true" />} isChecked={draft.emailProductUpdates} onChange={(value) => updateSetting('emailProductUpdates', value)} /></SettingAnchor></div>
@@ -156,14 +156,14 @@ export function SettingsPage({ section, user, settings, usage, usageError, isLoa
           </div>
 
           <div hidden={section !== undefined && section !== 'app'}>
-          <SettingsSection icon={<Smartphone aria-hidden="true" />} title="App and offline" description="Keep your learning close, with or without a connection.">
+          <SettingsSection title="App and offline">
             <SettingAnchor id="install-app"><InstallAppPanel /></SettingAnchor>
             <div className="mt-7"><SettingAnchor id="offline-audio"><OfflineLearningSettings /></SettingAnchor></div>
           </SettingsSection>
           </div>
 
           <div hidden={section !== undefined && section !== 'data'}>
-          <SettingsSection icon={<Database aria-hidden="true" />} title="Your data" description="You’re in control of what you keep. Manage your conversations or permanently leave AskRabbi.">
+          <SettingsSection title="Your data">
             <UserDataControls isBusy={isDataBusy || isSaving || isRequestingPasswordReset} onDeleteChats={onDeleteChats} onDeleteAccount={onDeleteAccount} />
           </SettingsSection>
           </div>
@@ -214,25 +214,14 @@ function formatResetDate(value: string) {
 }
 
 interface SettingsSectionProps {
-  icon: ReactNode
   title: string
-  description: string
   children: ReactNode
 }
 
-function SettingsSection({ icon, title, description, children }: SettingsSectionProps) {
+function SettingsSection({ title, children }: SettingsSectionProps) {
   return (
     <section className="py-6 sm:py-7" aria-label={title}>
-      <div className="grid gap-6 md:grid-cols-[12rem_1fr] md:gap-10">
-        <div>
-          <div className="flex items-center gap-2.5 text-ink [&_svg]:size-[1.15rem] [&_svg]:text-pomegranate [&_svg]:stroke-[1.7]">
-            {icon}
-            <h2 className="font-display text-2xl">{title}</h2>
-          </div>
-          <p className="mt-2 text-muted">{description}</p>
-        </div>
-        <div className="min-w-0 rounded-2xl bg-stone/65 p-5 sm:p-6">{children}</div>
-      </div>
+      <div className="min-w-0 rounded-2xl bg-stone/65 p-5 sm:p-6">{children}</div>
     </section>
   )
 }

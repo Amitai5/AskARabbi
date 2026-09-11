@@ -11,7 +11,6 @@ import { createNarratedParagraphs, estimateReadingMinutes, formatAudioTime } fro
 import { normalizeDvarTorahText } from './dvarTorahText.ts'
 import { useNarrationFollow } from './useNarrationFollow.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
-import { OfflineLearningStatus } from '../pwa/OfflineLearning.tsx'
 import { FocusReadingButton } from '../reading/FocusedReading.tsx'
 import { useReadingTarget } from '../reading/focusedReadingContext.ts'
 
@@ -221,7 +220,6 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
               <p className="mt-3 max-w-[43rem] text-sm leading-6 text-ink-soft sm:text-base">
                 {offlineSavedAt ? `Offline copy saved ${formatSourceDate(offlineSavedAt)}. Reconnect to check for a newer teaching. Source excerpts are saved; original websites need a connection.` : 'A new reflection follows the upcoming Shabbat reading and appears here when it is ready.'}
               </p>
-              {offlineSavedAt ? null : <><OfflineLearningStatus /><a href="/offline.html" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-pomegranate hover:underline">Open saved teaching</a></>}
             </div>
 
             {offlineSavedAt ? null : <nav className="reading-nonessential mt-7 flex w-fit rounded-xl border border-line bg-stone/55 p-1" aria-label="Weekly learning">

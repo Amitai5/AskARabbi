@@ -112,6 +112,8 @@ describe('WeeklyDvarTorahPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Nitzavim—Choosing Life' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Back to conversation' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open saved teaching' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Saved on this device:|Preparing learning for offline use/)).not.toBeInTheDocument()
     expect(screen.getByText(/God’s domain/)).toBeVisible()
     expect(screen.getByText(/“clear guidance”—and acted/)).toBeVisible()
     expect(screen.getByText('Rosh Hashanah')).toBeVisible()

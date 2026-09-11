@@ -1,10 +1,9 @@
 export function ChatPrivacyNotice() {
   return (
     <div className="space-y-3 text-sm leading-6 text-muted sm:text-base">
-      <p>AskRabbi saves your questions and answers in your account so you can return to your conversations. You can delete saved chats or your account in Settings → Your data.</p>
-      <p>We use Azure OpenAI to generate answers and disable its stored-response feature for chats, source lookups, and background generation. Microsoft may still retain prompts and answers for abuse monitoring, including review by authorized Microsoft staff.</p>
-      <p>Deleting chats from AskRabbi does not delete Microsoft’s abuse-monitoring records.</p>
-      <a href="https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-sm font-semibold text-pomegranate underline decoration-pomegranate/40 underline-offset-4 hover:decoration-pomegranate focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pomegranate">Microsoft’s Azure AI privacy details<span className="sr-only"> (opens in a new tab)</span></a>
+      <p>AskRabbi saves your questions and answers in your account so you can return to your conversations. You can delete saved chats or your account in Settings &amp; Personalization → Your data.</p>
+      <p>We and our service providers may retain and review questions and answers to detect abuse, investigate safety issues, and protect the service. Access for these purposes is limited to authorized personnel.</p>
+      <p>Deleting saved chats removes them from your account, but records kept for security and abuse prevention may be retained separately.</p>
     </div>
   )
 }

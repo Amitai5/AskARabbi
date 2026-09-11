@@ -18,7 +18,7 @@ Microsoft documents [stateless Responses requests](https://learn.microsoft.com/e
 
 ## User-visible disclosure
 
-The sign-in screen has an expandable **Chat history and AI privacy** notice; **Settings → Your data** shows the same notice beside the deletion controls. Both render `Frontend/src/components/ChatPrivacyNotice.tsx` so the storage explanation and Microsoft documentation link stay consistent without new API calls.
+The sign-in screen has an expandable **Chat history and AI privacy** notice; **Settings & Personalization → Your data** shows the same notice beside the deletion controls. Both render `Frontend/src/components/ChatPrivacyNotice.tsx` so the provider-neutral storage and abuse-review explanation stays consistent without new API calls. The notice distinguishes saved chats from separately retained security and abuse-prevention records without naming providers or linking to provider documentation.
 
 Users can delete saved chats or their account. Chat deletion keeps the account, preferences, and usage counters. Account deletion covers the owned application records and configured WorkOS identity. Neither action deletes Microsoft's abuse-monitoring records or the user's upstream Google account. See [account data deletion](ACCOUNT_DATA.md) for confirmation, concurrency, and retry behavior.
 

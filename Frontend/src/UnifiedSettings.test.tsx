@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
@@ -73,6 +73,42 @@ describe('unified settings', () => {
     expect(screen.getByText('No settings found. Try a different word.')).toBeVisible()
     expect(searchSettings('ZIP')).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'locations' })]))
     expect(searchSettings('surrounding text')[0].id).toBe('source-context')
+  })
+
+  it('uses full-width settings cards without repeating section titles beside the controls', async () => {
+    const { user } = await signedIn('/settings/account')
+    const groups = [
+      { section: 'Account', titles: ['Account security', 'Usage'] },
+      { section: 'Reading', titles: ['Conversation defaults'] },
+      { section: 'Notifications', titles: ['Product updates'] },
+      { section: 'App & offline', titles: ['App and offline'] },
+      { section: 'Your data', titles: ['Your data'] },
+    ]
+    for (const group of groups) {
+      await user.click(screen.getByRole('tab', { name: group.section }))
+      const panel = screen.getByRole('tabpanel')
+      expect(within(panel).getByRole('heading', { name: group.section, level: 1 })).toBeVisible()
+      for (const title of group.titles) {
+        const region = within(panel).getByRole('region', { name: title })
+        expect(within(region).queryByRole('heading', { name: title })).not.toBeInTheDocument()
+        expect(region.firstElementChild).toHaveClass('min-w-0', 'rounded-2xl')
+        expect(region.firstElementChild).not.toHaveClass('grid')
+      }
+    }
+  })
+
+  it('keeps personalization subtitles above the full-width field groups', async () => {
+    await signedIn('/settings/personalization')
+    for (const title of ['About you', 'Location & time zone', 'Language', 'Jewish background', 'Anything else?']) {
+      const region = screen.getByRole('region', { name: title })
+      const heading = within(region).getByRole('heading', { name: title, level: 2 })
+      expect(heading).toBeVisible()
+      expect(region.firstElementChild).toHaveClass('space-y-6')
+      expect(region.firstElementChild?.firstElementChild).toContainElement(heading)
+      expect(region.firstElementChild?.lastElementChild).toHaveClass('min-w-0')
+    }
+    expect(screen.getByLabelText('Full name')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save personalization' })).toBeEnabled()
   })
 
   it('supports keyboard tab navigation and browser history without a reload', async () => {

@@ -26,8 +26,10 @@ describe('LoginPage', () => {
 
     expect(disclosure.closest('details')).toHaveAttribute('open')
     expect(screen.getByText(/AskRabbi saves your questions and answers in your account/)).toBeVisible()
-    expect(screen.getByText(/disable its stored-response feature/)).toHaveTextContent('Microsoft may still retain prompts and answers for abuse monitoring')
-    expect(screen.getByRole('link', { name: /Microsoft’s Azure AI privacy details/ })).toBeVisible()
+    expect(screen.getByText(/We and our service providers may retain and review questions and answers/)).toHaveTextContent('detect abuse, investigate safety issues, and protect the service')
+    expect(screen.getByText(/records kept for security and abuse prevention may be retained separately/)).toBeVisible()
+    expect(disclosure.closest('details')).not.toHaveTextContent(/Azure|OpenAI|Microsoft/i)
+    expect(disclosure.closest('details')?.querySelector('a')).toBeNull()
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
 
     await user.click(disclosure)

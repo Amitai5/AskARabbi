@@ -1,13 +1,13 @@
 import { StrictMode } from 'react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { OfflineLearningProvider } from './OfflineLearning.tsx'
-import { readOfflineLibrary, saveOfflineHolidays, OfflineLibraryCleared } from './offlineLibrary.ts'
+import { OfflineLearningProvider, OfflineLearningSettings } from './OfflineLearning.tsx'
+import { readOfflineLibrary, saveOfflineHolidays, setOfflineAudioEnabled, OfflineLibraryCleared, type OfflineLibrary } from './offlineLibrary.ts'
 import { syncOfflineTeaching } from './syncOfflineTeaching.ts'
 import { fakeCalendarClient } from '../calendar/calendarTestData.ts'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 
-vi.mock('./offlineLibrary.ts', async original => ({ ...await original<typeof import('./offlineLibrary.ts')>(), readOfflineLibrary: vi.fn(), saveOfflineHolidays: vi.fn() }))
+vi.mock('./offlineLibrary.ts', async original => ({ ...await original<typeof import('./offlineLibrary.ts')>(), readOfflineLibrary: vi.fn(), saveOfflineHolidays: vi.fn(), setOfflineAudioEnabled: vi.fn() }))
 vi.mock('./syncOfflineTeaching.ts', () => ({ syncOfflineTeaching: vi.fn() }))
 
 describe('signed-in background learning', () => {
@@ -90,7 +90,61 @@ describe('signed-in background learning', () => {
     expect(calendar.getOverview).toHaveBeenCalledOnce()
     expect(saveOfflineHolidays).not.toHaveBeenCalled()
   })
+
+  it('hides the saved-content recap while keeping library access and the audio preference', async () => {
+    const library = await savedLibrary()
+    vi.mocked(readOfflineLibrary).mockResolvedValue(library)
+    await act(async () => {
+      render(<OfflineLearningProvider client={fakeDvarClient()}><OfflineLearningSettings /></OfflineLearningProvider>)
+    })
+
+    const audio = screen.getByRole('switch', { name: 'Make weekly audio available offline' })
+    expect(audio).toBeEnabled()
+    expect(audio).toHaveAttribute('aria-checked', 'true')
+    expect(screen.queryByText(/Saved on this device:|Sign in on a good connection/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open saved teaching' })).toHaveAttribute('href', '/offline.html')
+    expect(screen.getByRole('link', { name: 'Open saved holidays' })).toHaveAttribute('href', '/offline.html#holidays')
+
+    const updated = { ...library, audioEnabled: false, teaching: library.teaching ? { ...library.teaching, audio: null, timings: null } : null }
+    vi.mocked(setOfflineAudioEnabled).mockResolvedValue(updated)
+    vi.mocked(readOfflineLibrary).mockResolvedValue(updated)
+    await act(async () => { fireEvent.click(audio) })
+    expect(setOfflineAudioEnabled).toHaveBeenCalledExactlyOnceWith(false)
+    expect(audio).toHaveAttribute('aria-checked', 'false')
+    expect(screen.queryByText(/Saved on this device:/)).not.toBeInTheDocument()
+  })
+
+  it('retains error and progress feedback without displaying a saved-content recap', async () => {
+    vi.mocked(readOfflineLibrary).mockResolvedValue(await savedLibrary())
+    vi.mocked(setOfflineAudioEnabled).mockRejectedValue(new Error('Storage unavailable'))
+    vi.mocked(syncOfflineTeaching).mockImplementation(() => new Promise(() => {}))
+    await act(async () => {
+      render(<OfflineLearningProvider client={fakeDvarClient()}><OfflineLearningSettings /></OfflineLearningProvider>)
+    })
+
+    await act(async () => { fireEvent.click(screen.getByRole('switch', { name: 'Make weekly audio available offline' })) })
+    expect(screen.getByRole('alert')).toHaveTextContent('This device’s offline preference could not be saved')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Try offline download again' })) })
+    expect(screen.getByRole('status')).toHaveTextContent('Preparing learning for offline use…')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Saved on this device:/)).not.toBeInTheDocument()
+  })
 })
+
+async function savedLibrary(): Promise<OfflineLibrary> {
+  const week = (await fakeDvarClient().getCurrent()).currentWeek
+  return {
+    revision: 3, audioEnabled: true,
+    teaching: {
+      savedAt: '2026-09-10T12:00:00Z', audio: new Blob(['recording'], { type: 'audio/mpeg' }), timings: null,
+      publication: {
+        currentWeek: week, isCurrentWeek: true,
+        dvarTorah: { week, title: 'A teaching for the new year', body: 'A weekly reflection.', centralTeaching: 'Reflect on the year.', tags: [], sources: [], torahGroundingPercent: 100, generatedAtUtc: '2026-09-10T12:00:00Z', publishedAtUtc: '2026-09-10T12:00:00Z' },
+      },
+    },
+  }
+}
 
 function fakeDvarClient(): DvarTorahClient {
   return {
