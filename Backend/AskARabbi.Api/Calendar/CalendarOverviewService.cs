@@ -7,14 +7,15 @@ public sealed class CalendarOverviewService(CalendarPreferencesService settings,
 {
     /// <summary>Builds a bounded agenda with local boundary and freshness information.</summary>
     /// <param name="userId">Authenticated owner.</param>
-    /// <param name="days">One of 30, 90, or 365 days.</param>
+    /// <param name="days">One of 30, 90, 180, 360, or 365 days.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="includeAllCategories">Returns an unfiltered schedule without modifying the owner's preferences.</param>
     /// <returns>A complete or explicitly partial overview.</returns>
-    public async Task<CalendarOverview> GetAsync(Guid userId, int days, CancellationToken cancellationToken)
+    public async Task<CalendarOverview> GetAsync(Guid userId, int days, CancellationToken cancellationToken, bool includeAllCategories = false)
     {
-        if (days is not (30 or 90 or 365))
+        if (days is not (30 or 90 or 180 or 360 or 365))
         {
-            throw new ArgumentOutOfRangeException(nameof(days), "Choose a 30-, 90-, or 365-day agenda.");
+            throw new ArgumentOutOfRangeException(nameof(days), "Choose a 90-, 180-, or 360-day agenda.");
         }
         var preferences = await settings.GetAsync(userId, cancellationToken).ConfigureAwait(false);
         var now = clock.GetUtcNow();
@@ -44,7 +45,7 @@ public sealed class CalendarOverviewService(CalendarPreferencesService settings,
         var occurrences = schedules.Where(result => result.Data is not null).SelectMany(result => result.Data!.Events)
             .Where(item => item.Instant is null && item.Category is "holiday" or "roshchodesh" && item.Date >= rangeStart && item.Date <= rangeEnd && !item.Title.StartsWith("Erev ", StringComparison.Ordinal))
             .DistinctBy(item => (item.Title, item.Date)).OrderBy(item => item.Date).ToArray();
-        var events = GroupEvents(occurrences, preferences, today, visibleEnd, now, solarDays);
+        var events = GroupEvents(occurrences, preferences, today, visibleEnd, now, solarDays, includeAllCategories);
         var highlight = events.FirstOrDefault(item => item.IsOngoing) ?? events.FirstOrDefault();
         var hasAllHolidays = schedules.All(result => result.Data is not null);
         var holidayStatus = new CalendarOverview.Availability(hasAllHolidays, schedules.Any(result => result.IsStale), OldestFetch(schedules), hasAllHolidays ? schedules.Any(result => result.IsStale) ? "Showing a saved schedule while Hebcal is unavailable." : null : "Some holiday dates are temporarily unavailable. Dates and weekly readings still work.");
@@ -84,7 +85,7 @@ public sealed class CalendarOverviewService(CalendarPreferencesService settings,
     private static DateTimeOffset? OldestFetch(IEnumerable<CalendarProviderResult> values) => values.Select(value => value.FetchedAtUtc).OfType<DateTimeOffset>().Select(value => (DateTimeOffset?)value).DefaultIfEmpty(null).Min();
     private static string TimingTitle(HebcalData.Event item) => item.Category switch { "candles" => "Candle-lighting", "havdalah" => "Havdalah", _ => item.Title };
 
-    private static IReadOnlyList<CalendarOverview.AgendaEvent> GroupEvents(IReadOnlyList<HebcalData.Event> occurrences, CalendarPreferences preferences, DateOnly today, DateOnly visibleEnd, DateTimeOffset now, IReadOnlyDictionary<DateOnly, HebcalData.SunTimes>? solarDays)
+    private static IReadOnlyList<CalendarOverview.AgendaEvent> GroupEvents(IReadOnlyList<HebcalData.Event> occurrences, CalendarPreferences preferences, DateOnly today, DateOnly visibleEnd, DateTimeOffset now, IReadOnlyDictionary<DateOnly, HebcalData.SunTimes>? solarDays, bool includeAllCategories)
     {
         List<CalendarOverview.AgendaEvent> result = [];
         foreach (var group in occurrences.GroupBy(item => CalendarEventDescriptions.Describe(item).Key))
@@ -102,7 +103,7 @@ public sealed class CalendarOverviewService(CalendarPreferencesService settings,
             foreach (var run in runs)
             {
                 var description = CalendarEventDescriptions.Describe(run[0]);
-                if (!IsCategoryEnabled(description.Category, preferences))
+                if (!includeAllCategories && !IsCategoryEnabled(description.Category, preferences))
                 {
                     continue;
                 }

@@ -34,7 +34,7 @@ public sealed class CalendarControllerTests
         Assert.IsNull(value.Preferences.Location);
         Assert.IsFalse(value.Preferences.InIsrael);
         Assert.IsTrue(value.Preferences.MajorHolidays && value.Preferences.MinorHolidays && value.Preferences.FastDays && value.Preferences.RoshChodesh);
-        Assert.IsFalse(value.Preferences.SpecialShabbatot || value.Preferences.ModernObservances);
+        Assert.IsTrue(value.Preferences.SpecialShabbatot && value.Preferences.ModernObservances);
         Assert.IsTrue(response.Headers.CacheControl?.NoStore);
         Assert.HasCount(10, value.Cities);
     }
@@ -67,6 +67,24 @@ public sealed class CalendarControllerTests
         using var response = await client.GetAsync($"/api/calendar/overview?days={days}");
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.HasCount(0, app.Calendar.HolidayRequests);
+    }
+
+    [TestMethod]
+    [DataRow(30)]
+    [DataRow(90)]
+    [DataRow(180)]
+    [DataRow(360)]
+    [DataRow(365)]
+    public async Task GetOverview_SupportedRangeWithAllCategories_ReturnsNoStoreCalendar(int days)
+    {
+        await using var app = new TestApplicationFactory();
+        using var client = await app.CreateAuthenticatedClientAsync();
+
+        using var response = await client.GetAsync($"/api/calendar/overview?days={days}&includeAllCategories=true");
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(response.Headers.CacheControl?.NoStore);
+        Assert.AreEqual(0, app.GroundedAnswers.CallCount);
     }
 
     [TestMethod]

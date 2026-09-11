@@ -16,11 +16,12 @@ public sealed class CalendarController(CalendarOverviewService overview, Calenda
     public sealed record PreferencesResponse(CalendarPreferences Preferences, IReadOnlyList<CalendarLocation> Cities);
 
     /// <summary>Gets deterministic dates and applicable external holiday/local timing data.</summary>
-    /// <param name="days">30, 90, or 365 days; defaults to 90.</param>
+    /// <param name="days">90, 180, or 360 days; legacy 30 and 365 remain supported.</param>
+    /// <param name="includeAllCategories">Includes all categories for client-side filtering and offline saving without changing preferences.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>An explicitly complete or partial overview.</returns>
     [HttpGet("overview")]
-    public async Task<ActionResult<CalendarOverview>> GetOverviewAsync(CancellationToken cancellationToken, [FromQuery] int days = 90) => Ok(await overview.GetAsync(currentUser.UserId, days, cancellationToken).ConfigureAwait(false));
+    public async Task<ActionResult<CalendarOverview>> GetOverviewAsync(CancellationToken cancellationToken, [FromQuery] int days = 90, [FromQuery] bool includeAllCategories = false) => Ok(await overview.GetAsync(currentUser.UserId, days, cancellationToken, includeAllCategories).ConfigureAwait(false));
 
     /// <summary>Gets saved preferences and the reviewed searchable city list.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>

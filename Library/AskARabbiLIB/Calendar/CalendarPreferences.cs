@@ -13,6 +13,6 @@ public sealed record CalendarPreferences
     public bool MinorHolidays { get; init; } = true;
     public bool FastDays { get; init; } = true;
     public bool RoshChodesh { get; init; } = true;
-    public bool SpecialShabbatot { get; init; }
-    public bool ModernObservances { get; init; }
+    public bool SpecialShabbatot { get; init; } = true;
+    public bool ModernObservances { get; init; } = true;
 }

@@ -185,6 +185,7 @@ public sealed class CalendarOverviewServiceTests
     [TestMethod]
     public async Task GetAsync_FiltersAndRepeatedAnnualHoliday_AppliesPreferencesWithoutMergingYears()
     {
+        await store.UpsertCalendarPreferencesAsync(Owner, new() { SpecialShabbatot = false }, clock.Now);
         provider.Holidays = Holidays(FakeCalendarProvider.Holiday("Tu BiShvat", "2026-09-12", "minor"), FakeCalendarProvider.Holiday("Tu BiShvat", "2027-09-01", "minor"), FakeCalendarProvider.Holiday("Shabbat Shuva", "2026-09-19", "shabbat"));
         var result = await CreateService().GetAsync(Owner, 365, default);
         Assert.HasCount(2, result.Events);
@@ -193,6 +194,35 @@ public sealed class CalendarOverviewServiceTests
         var filtered = await CreateService().GetAsync(Owner, 90, default);
         Assert.HasCount(1, filtered.Events);
         Assert.AreEqual("specialShabbat", filtered.Events[0].Category);
+    }
+
+    [TestMethod]
+    public async Task GetAsync_AllCategories_ReturnsCompleteScheduleWithoutChangingSavedFilters()
+    {
+        await store.UpsertCalendarPreferencesAsync(Owner, new() { MajorHolidays = false, SpecialShabbatot = false, ModernObservances = false }, clock.Now);
+        provider.Holidays = Holidays(FakeCalendarProvider.Holiday("Rosh Hashana 5787", "2026-09-12"), FakeCalendarProvider.Holiday("Shabbat Shuva", "2026-09-19", "shabbat"), FakeCalendarProvider.Holiday("Yom HaAtzma’ut", "2027-05-12", "modern"));
+
+        var result = await CreateService().GetAsync(Owner, 360, default, includeAllCategories: true);
+
+        Assert.HasCount(3, result.Events);
+        Assert.IsFalse(result.Preferences.MajorHolidays);
+        Assert.IsFalse(result.Preferences.SpecialShabbatot);
+        Assert.IsFalse((await store.GetCalendarPreferencesAsync(Owner))?.ModernObservances);
+    }
+
+    [TestMethod]
+    [DataRow(90)]
+    [DataRow(180)]
+    [DataRow(360)]
+    public async Task GetAsync_RangeBoundary_KeepsFinalDayAndExcludesFollowingDay(int days)
+    {
+        var end = DateOnly.FromDateTime(clock.Now.UtcDateTime).AddDays(days - 1);
+        provider.Holidays = Holidays(FakeCalendarProvider.Holiday("Yom HaAtzma’ut", end.ToString("yyyy-MM-dd"), "modern"), FakeCalendarProvider.Holiday("Yom HaShoah", end.AddDays(1).ToString("yyyy-MM-dd"), "modern"));
+
+        var result = await CreateService().GetAsync(Owner, days, default, includeAllCategories: true);
+
+        Assert.HasCount(1, result.Events);
+        Assert.AreEqual(end, result.Events[0].StartDate);
     }
 
     [TestMethod]
