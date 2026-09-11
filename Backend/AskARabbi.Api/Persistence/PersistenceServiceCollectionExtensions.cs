@@ -1,4 +1,5 @@
 using AskARabbiLIB.Accounts;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.DvarTorah;
@@ -22,6 +23,7 @@ internal static class PersistenceServiceCollectionExtensions
             services.AddSingleton<IUserDataStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             services.AddSingleton<IConversationStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             services.AddSingleton<IConversationSettingsStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
+            services.AddSingleton<ICalendarPreferencesStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             services.AddSingleton<IUsageStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             services.AddSingleton<IWeeklyDvarTorahStore>(provider => provider.GetRequiredService<UnavailableApplicationStore>());
             return services;
@@ -34,7 +36,9 @@ internal static class PersistenceServiceCollectionExtensions
         services.AddSingleton<IUserDataStore, MongoUserDataStore>();
         services.AddHostedService<AskARabbi.Api.Accounts.AccountDeletionWorker>();
         services.AddSingleton<IConversationStore, MongoConversationStore>();
-        services.AddSingleton<IConversationSettingsStore, MongoConversationSettingsStore>();
+        services.AddSingleton<MongoConversationSettingsStore>();
+        services.AddSingleton<IConversationSettingsStore>(provider => provider.GetRequiredService<MongoConversationSettingsStore>());
+        services.AddSingleton<ICalendarPreferencesStore>(provider => provider.GetRequiredService<MongoConversationSettingsStore>());
         services.AddSingleton<IUsageStore, MongoUsageStore>();
         services.AddSingleton<MongoWeeklyDvarTorahStore>();
         services.AddSingleton<IWeeklyDvarTorahStore>(provider => provider.GetRequiredService<MongoWeeklyDvarTorahStore>());

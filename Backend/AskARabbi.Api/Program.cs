@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using AskARabbi.Api.Authentication;
+using AskARabbi.Api.Calendar;
 using AskARabbi.Api.Configuration;
 using AskARabbi.Api.Conversations;
 using AskARabbi.Api.Development;
@@ -79,6 +80,15 @@ groundedChatOptions.Validate();
 builder.Services.AddSingleton(groundedChatOptions);
 builder.Services.AddSingleton<GroundedAnswerTextRenderer>();
 builder.Services.AddSingleton<IHebrewCalendarService, HebrewCalendarService>();
+builder.Services.AddHttpClient("HebcalCalendar", client =>
+{
+    client.BaseAddress = new Uri("https://www.hebcal.com/");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("AskARabbi-Calendar/1.0 (+https://askarabbi.ai)");
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddSingleton<IHebcalCalendarClient, HebcalCalendarClient>();
+builder.Services.AddScoped<CalendarPreferencesService>();
+builder.Services.AddScoped<CalendarOverviewService>();
 builder.Services.AddSingleton<CalendarAITools>();
 builder.Services.AddSingleton<IAIToolRegistry>(provider => new AIToolRegistry([provider.GetRequiredService<CalendarAITools>()]));
 var weeklyDvarTorahOptions = builder.Configuration.GetSection(WeeklyDvarTorahOptions.SectionName).Get<WeeklyDvarTorahOptions>() ?? new WeeklyDvarTorahOptions();

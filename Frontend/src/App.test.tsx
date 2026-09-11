@@ -185,8 +185,8 @@ describe('App', () => {
     expect(loading).toHaveClass('text-lg')
     const sidebar = screen.getByRole('complementary', { name: 'Conversation navigation' })
     expect(sidebar).toHaveClass('text-base', 'lg:text-lg', 'leading-6', 'lg:w-[22rem]')
-    expect(within(sidebar).getByText('Weekly learning')).toHaveClass('text-sm', 'leading-4')
-    expect(within(sidebar).getByText('Recent')).toHaveClass('text-sm', 'leading-4')
+    expect(within(sidebar).getByText('Learning & Tools')).toHaveClass('text-sm', 'leading-4')
+    expect(within(sidebar).getByText('Conversations')).toHaveClass('text-sm', 'leading-4')
     expect(within(sidebar).getByRole('button', { name: 'New conversation' })).toHaveClass('h-13')
     expect(await within(sidebar).findByRole('button', { name: 'Chicken and dairy' })).toHaveClass('min-h-11')
     const name = within(sidebar).getByText('Amitai Erfanian')
@@ -732,7 +732,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'Account and usage.' })).toBeVisible()
     expect(screen.getByText('amitai@example.com')).toBeVisible()
-    expect(screen.getByRole('progressbar', { name: 'Monthly token usage' })).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.getByRole('progressbar', { name: 'Monthly chat allowance remaining' })).toHaveAttribute('aria-valuenow', '100')
 
     await user.click(screen.getByRole('button', { name: 'Reset password' }))
     expect(await screen.findByText('Password reset requested')).toBeVisible()

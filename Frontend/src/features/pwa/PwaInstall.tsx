@@ -102,8 +102,9 @@ export function InstallAppButton({ disabled = false }: { disabled?: boolean }) {
 export function InstallAppPanel() {
   const context = useContext(InstallContext)
   return (
-    <div className="border-y border-line py-5">
-      <p className="text-ink-soft">Open AskRabbi from your home screen, Dock, or desktop in its own app window. Keep this week’s teaching with you offline; chats still need an internet connection.</p>
+    <div>
+      <p className="font-semibold text-ink">Install AskRabbi</p>
+      <p className="mt-1 text-muted">Open AskRabbi from your home screen or desktop. Chats need an internet connection.</p>
       <div className="mt-4">
         {context?.isInstalled ? <p className="inline-flex items-center gap-2 font-semibold text-ink" role="status"><CheckCircle2 aria-hidden="true" className="size-5 text-pomegranate" />You’re using the installed app.</p> : <InstallAppButton />}
       </div>

@@ -93,15 +93,15 @@ export function OfflineLearningSettings() {
   const state = useContext(OfflineLearningContext)
   const enabled = state?.library?.audioEnabled ?? true
   return (
-    <div className="border-y border-line py-5">
+    <div>
       <div className="flex items-start justify-between gap-5">
         <div>
           <p className="font-semibold text-ink">Make weekly audio available offline</p>
-          <p id="offline-audio-description" className="mt-1 text-muted">Automatically save this week’s recording and word timings on this device, including click-to-seek playback. Enabled by default; uses download data and storage. Turning it off removes audio and timings, but keeps the teaching and references.</p>
+          <p id="offline-audio-description" className="mt-1 text-muted">Save this week’s recording with word highlighting and tap-to-seek. Uses this device’s storage. Turn off to keep text and references only.</p>
         </div>
         <button type="button" role="switch" aria-checked={enabled} aria-label="Make weekly audio available offline" aria-describedby="offline-audio-description" disabled={!state?.library || state.isSaving && !state.library.teaching} onClick={() => void state?.changeAudio(!enabled)} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${enabled ? 'bg-pomegranate' : 'bg-stone-deep'}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition-all ${enabled ? 'left-6' : 'left-1'}`} /></button>
       </div>
-      <p className="mt-3 text-sm leading-6 text-muted">Saved automatically, separately from your account settings. Only the latest weekly teaching is kept; chats and account details are never saved here. Logging out removes the saved teaching. Anyone using this browser can open the offline copy.</p>
+      <p className="mt-3 text-sm leading-6 text-muted">Saved automatically on this device, not in your account. Only the latest teaching is kept—never chats or account details. Anyone using this browser can read it; logging out removes it.</p>
       <OfflineLearningStatus />
       {state?.error ? <div className="mt-3"><p role="alert" className="text-sm text-pomegranate">{state.error}</p><button type="button" onClick={state.refresh} className="mt-2 min-h-11 text-sm font-semibold text-pomegranate">Try offline download again</button></div> : null}
       <a href="/offline.html" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-pomegranate hover:underline"><Download aria-hidden="true" className="size-4" />Open saved teaching</a>

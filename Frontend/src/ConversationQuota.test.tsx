@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import { ApiError } from './api/apiClient.ts'
 import type { DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
@@ -20,6 +20,7 @@ const dvarTorahClient: DvarTorahClient = {
 }
 
 describe('Monthly token allowance', () => {
+  afterEach(() => vi.restoreAllMocks())
   beforeEach(() => {
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() })
     window.sessionStorage.clear()
@@ -34,7 +35,7 @@ describe('Monthly token allowance', () => {
     clients.conversationSettingsClient.getUsage = () => Promise.resolve(Exhausted)
     const user = await signIn(clients)
 
-    expect(await screen.findByText('100% used · Monthly chat limit reached')).toBeVisible()
+    expect(await screen.findByText('Monthly chat limit reached')).toBeVisible()
     await user.click(screen.getByRole('button', { name: old.conversation.title }))
     expect(await screen.findByText(/this local demo represents a validated grounded response/)).toBeVisible()
     expect(screen.getByLabelText('Message AskRabbi')).toHaveAttribute('readonly')
@@ -57,7 +58,7 @@ describe('Monthly token allowance', () => {
     await user.type(screen.getByLabelText('Message AskRabbi'), 'Explain further')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(await screen.findByText('100% used · Monthly chat limit reached')).toBeVisible()
+    expect(await screen.findByText('Monthly chat limit reached')).toBeVisible()
     expect(screen.getByText(/local demo follow-up remains grounded/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
   })
@@ -71,23 +72,26 @@ describe('Monthly token allowance', () => {
     await user.type(screen.getByLabelText('Message AskRabbi'), 'Keep my unsent question')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(await screen.findByText('100% used · Monthly chat limit reached')).toBeVisible()
+    expect(await screen.findByText('Monthly chat limit reached')).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Keep my unsent question' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('Keep my unsent question')
     fireEvent.keyDown(screen.getByLabelText('Message AskRabbi'), { key: 'Enter' })
     expect(clients.conversationClient.createWithMessage).toHaveBeenCalledTimes(1)
   })
 
-  it('shows token percentage, rather than an answer count, on settings', async () => {
+  it('shows only the remaining monthly percentage and reset in settings, never in available chats', async () => {
     const clients = createDemoApplicationClients()
     clients.conversationSettingsClient.getUsage = () => Promise.resolve(Available)
     const user = await signIn(clients)
+    expect(screen.queryByText(/monthly|25%|75%|tokens/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
     await user.click(screen.getByRole('menuitem', { name: 'Settings' }))
 
-    const progress = await screen.findByRole('progressbar', { name: 'Monthly token usage' })
-    expect(progress).toHaveAttribute('aria-valuenow', '25')
-    expect(screen.getByText('25%')).toBeVisible()
+    const progress = await screen.findByRole('progressbar', { name: 'Monthly chat allowance remaining' })
+    expect(progress).toHaveAttribute('aria-valuenow', '75')
+    expect(screen.getByText('75% left')).toBeVisible()
+    expect(screen.getByText(/^Resets /)).toBeVisible()
+    expect(screen.queryByText(/2,500,000|10,000,000|Includes reasoning|tokens/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/answers remaining/)).not.toBeInTheDocument()
   })
 
@@ -101,12 +105,44 @@ describe('Monthly token allowance', () => {
     fireEvent(window, new Event('focus'))
     await user.type(screen.getByLabelText('Message AskRabbi'), 'Explain further')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
-    expect(await screen.findByText('100% used · Monthly chat limit reached')).toBeVisible()
+    expect(await screen.findByText('Monthly chat limit reached')).toBeVisible()
 
     await act(async () => stale.resolve(Available))
 
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
-    expect(screen.getByText('100% used · Monthly chat limit reached')).toBeVisible()
+    expect(screen.getByText('Monthly chat limit reached')).toBeVisible()
+  })
+
+  it('pauses old and new chats offline without losing or automatically sending a draft', async () => {
+    const clients = createDemoApplicationClients()
+    clients.conversationSettingsClient.getUsage = vi.fn().mockResolvedValue(Available)
+    const append = vi.spyOn(clients.conversationClient, 'appendMessage')
+    const create = vi.spyOn(clients.conversationClient, 'createWithMessage')
+    const user = await signIn(clients)
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'Keep this draft')
+
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    fireEvent(window, new Event('offline'))
+    fireEvent(window, new Event('focus'))
+
+    expect(screen.getByText('You’re offline. Chats are paused.')).toBeVisible()
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'New conversation' })).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Read or listen to your saved Dvar Torah' })).toHaveAttribute('href', '/offline.html')
+    fireEvent.keyDown(screen.getByLabelText('Message AskRabbi'), { key: 'Enter' })
+    expect(append).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+    expect(clients.conversationSettingsClient.getUsage).toHaveBeenCalledTimes(1)
+
+    online.mockReturnValue(true)
+    fireEvent(window, new Event('online'))
+    await waitFor(() => expect(clients.conversationSettingsClient.getUsage).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled()
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('Keep this draft')
+    expect(append).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => expect(append).toHaveBeenCalledTimes(1))
   })
 })
 
@@ -115,7 +151,7 @@ async function signIn(clients: ReturnType<typeof createDemoApplicationClients>) 
   render(<App {...clients} dvarTorahClient={dvarTorahClient} />)
   await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
   await waitFor(() => expect(screen.getByRole('button', { name: 'New conversation' })).toBeEnabled())
-  await waitFor(() => expect(screen.queryByText('Checking your chat allowance…')).not.toBeInTheDocument())
+  await waitFor(() => expect(screen.queryByText('Preparing chat…')).not.toBeInTheDocument())
   return user
 }
 

@@ -1,10 +1,11 @@
 using AskARabbiLIB.ConversationSettings;
+using AskARabbiLIB.Calendar;
 using MongoDB.Driver;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
 /// <summary>Stores user personalization in Azure Cosmos DB for MongoDB.</summary>
-public sealed class MongoConversationSettingsStore : IConversationSettingsStore
+public sealed class MongoConversationSettingsStore : IConversationSettingsStore, ICalendarPreferencesStore
 {
     private readonly IMongoCollection<MongoConversationSettingsDocument> collection;
 
@@ -55,6 +56,25 @@ public sealed class MongoConversationSettingsStore : IConversationSettingsStore
             .Set(value => value.Preferences, document)
             .Set(value => value.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
         return collection.UpdateOneAsync(value => value.UserId == userIdValue, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<CalendarPreferences?> GetCalendarPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var document = await collection.Find(item => item.UserId == userId.ToString("D")).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return document?.CalendarPreferences;
+    }
+
+    /// <inheritdoc/>
+    public Task UpsertCalendarPreferencesAsync(Guid userId, CalendarPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        var owner = userId.ToString("D");
+        var update = Builders<MongoConversationSettingsDocument>.Update
+            .SetOnInsert(value => value.UserId, owner)
+            .Set(value => value.CalendarPreferences, preferences)
+            .Set(value => value.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
+        return collection.UpdateOneAsync(value => value.UserId == owner, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
     }
 
     private static MongoPersonalizationDocument ToDocument(PersonalizationSettings personalization) => new()

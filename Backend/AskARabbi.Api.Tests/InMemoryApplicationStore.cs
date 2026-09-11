@@ -1,4 +1,5 @@
 using AskARabbiLIB.Accounts;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.Usage;
@@ -6,17 +7,25 @@ using AskARabbiLIB.Persistence.InMemory;
 
 namespace AskARabbi.Api.Tests;
 
-internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IUserDataStore
+internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IUserDataStore, ICalendarPreferencesStore
 {
     private readonly object dataSynchronization = new();
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Dictionary<Guid, Conversation> conversations = [];
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
+    private readonly Dictionary<Guid, CalendarPreferences> calendarPreferences = [];
     private UserAccount? account;
     internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
     private Guid nextAccountId = StableUserId;
+
+    public Task<CalendarPreferences?> GetCalendarPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(calendarPreferences.GetValueOrDefault(userId));
+    public Task UpsertCalendarPreferencesAsync(Guid userId, CalendarPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        calendarPreferences[userId] = preferences;
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
     public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
@@ -96,6 +105,7 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
         {
             personalization.Remove(userId);
             preferences.Remove(userId);
+            calendarPreferences.Remove(userId);
             TokenUsage.DeleteAccount(userId);
             account = null;
             nextAccountId = Guid.NewGuid();

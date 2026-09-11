@@ -3,7 +3,7 @@ import { ArrowLeft, Bell, BookOpenText, Database, Gauge, KeyRound, Save, ShieldC
 import { UserDataControls } from './UserDataControls.tsx'
 import { Toast } from '../../components/Toast.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
-import { formatUsagePercent, type UsageSummary, type UserSettings } from './settingsTypes.ts'
+import { formatUsageRemainingPercent, type UsageSummary, type UserSettings } from './settingsTypes.ts'
 import { InstallAppPanel } from '../pwa/PwaInstall.tsx'
 import { OfflineLearningSettings } from '../pwa/OfflineLearning.tsx'
 
@@ -103,15 +103,15 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
 
         <div className="mt-7">
           <SettingsSection icon={<ShieldCheck aria-hidden="true" />} title="Account security" description="Manage the email and password associated with your account.">
-            <div className="divide-y divide-line border-y border-line">
-              <div className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink">Account email</p>
                   <p className="mt-1 break-words text-muted">{user.email}</p>
                 </div>
                 <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-line-strong bg-stone px-3 py-1 text-sm font-semibold leading-5 text-ink-soft sm:text-base">{user.isEmailVerified ? 'Verified email' : 'Email not verified'}</span>
               </div>
-              <div className="py-5">
+              <div>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="max-w-[28rem]">
                     <p className="font-semibold text-ink">Password</p>
@@ -127,12 +127,12 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
             </div>
           </SettingsSection>
 
-          <SettingsSection icon={<Gauge aria-hidden="true" />} title="Usage" description="Your current allowance for grounded AI answers.">
+          <SettingsSection icon={<Gauge aria-hidden="true" />} title="Usage" description="Your chat allowance resets each month.">
             <UsagePanel usage={usage} error={usageError} isLoading={isLoadingUsage} onRetry={onRetryUsage} />
           </SettingsSection>
 
           <SettingsSection icon={<BookOpenText aria-hidden="true" />} title="Conversation defaults" description="Choose how new AskRabbi conversations should begin.">
-            <div className="divide-y divide-line border-y border-line">
+            <div className="space-y-5">
               <PreferenceToggle label="Show source context by default" description="Open the supporting quotations and surrounding text with each answer." icon={<BookOpenText aria-hidden="true" />} isChecked={draft.showSourceContextByDefault} onChange={(value) => updateSetting('showSourceContextByDefault', value)} />
               <PreferenceToggle label="Email me product updates" description="Receive occasional AskRabbi development and feature announcements." icon={<Bell aria-hidden="true" />} isChecked={draft.emailProductUpdates} onChange={(value) => updateSetting('emailProductUpdates', value)} />
             </div>
@@ -146,12 +146,9 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
             </div>
           </SettingsSection>
 
-          <SettingsSection icon={<Smartphone aria-hidden="true" />} title="Install AskRabbi" description="Keep your learning a tap away on mobile or desktop.">
+          <SettingsSection icon={<Smartphone aria-hidden="true" />} title="App and offline" description="Keep your learning close, with or without a connection.">
             <InstallAppPanel />
-          </SettingsSection>
-
-          <SettingsSection icon={<BookOpenText aria-hidden="true" />} title="Offline learning" description="Keep this week’s D’var Torah with you, even without a connection.">
-            <OfflineLearningSettings />
+            <div className="mt-7"><OfflineLearningSettings /></div>
           </SettingsSection>
 
           <SettingsSection icon={<Database aria-hidden="true" />} title="Your data" description="You’re in control of what you keep. Manage your conversations or permanently leave AskRabbi.">
@@ -165,45 +162,42 @@ export function SettingsPage({ user, settings, usage, usageError, isLoadingUsage
 
 function UsagePanel({ usage, error, isLoading, onRetry }: { usage: UsageSummary | null; error: string | null; isLoading: boolean; onRetry(): void }) {
   if (isLoading) {
-    return <div className="border-y border-line py-5 text-muted" role="status">Loading current usage…</div>
+    return <div className="text-muted" role="status">Loading current usage…</div>
   }
   if (error !== null) {
     return (
-      <div className="border-y border-line py-5">
+      <div>
         <p className="font-medium text-pomegranate" role="alert">{error}</p>
         <button type="button" onClick={onRetry} className="mt-3 font-semibold text-ink transition hover:text-pomegranate">Try again</button>
       </div>
     )
   }
   if (usage === null) {
-    return <div className="border-y border-line py-5 text-muted">Usage is not available.</div>
+    return <div className="text-muted">Usage is not available.</div>
   }
 
-  const percentage = Math.min(100, Math.max(0, usage.usedPercent))
+  const percentage = usage.isLimitReached ? 0 : 100 - Math.min(100, Math.max(0, usage.usedPercent))
   return (
-    <div className="border-y border-line py-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="font-semibold text-ink">Monthly chat allowance</p>
-          <p className="mt-1 text-muted">Input and output tokens across all your chats</p>
+    <div>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="font-semibold text-ink">Monthly usage limit</p>
+          <p className="mt-1 text-sm leading-6 text-muted">Resets {formatResetDate(usage.periodEndUtc)}</p>
         </div>
-        <p className="shrink-0 font-display text-3xl text-ink"><span className="font-semibold">{formatUsagePercent(usage)}%</span> used</p>
+        <div className="flex items-center gap-3 sm:shrink-0">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-deep sm:w-28 sm:flex-none" role="progressbar" aria-label="Monthly chat allowance remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage} aria-valuetext={`${formatUsageRemainingPercent(usage)}% left`}>
+            <div className="h-full rounded-full bg-pomegranate" style={{ width: `${percentage}%` }} />
+          </div>
+          <p className="min-w-18 text-right text-sm font-semibold tabular-nums text-ink-soft">{formatUsageRemainingPercent(usage)}% left</p>
+        </div>
       </div>
-      <div className="mt-5 h-2 overflow-hidden rounded-full bg-stone-deep" role="progressbar" aria-label="Monthly token usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
-        <div className="h-full rounded-full bg-pomegranate" style={{ width: `${percentage}%` }} />
-      </div>
-      <div className="mt-3 flex flex-col gap-1 text-sm leading-6 text-muted sm:flex-row sm:items-center sm:justify-between sm:text-base">
-        <span>{formatUtcDate(usage.periodStartUtc)} – {formatUtcDate(usage.periodEndUtc)} UTC</span>
-        <span>{usage.tokensUsed.toLocaleString()} / {usage.tokenLimit.toLocaleString()} tokens</span>
-      </div>
-      <p className="mt-3 text-sm text-muted">Includes reasoning, source lookup, and answer checks. Deleting chats does not reset usage.</p>
       {usage.isLimitReached ? <p className="mt-3 font-medium text-pomegranate" role="status">Your chat allowance is used up until the next reset. Dvar Torah reading and audio remain available.</p> : null}
     </div>
   )
 }
 
-function formatUtcDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(value))
+function formatResetDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date(value))
 }
 
 interface SettingsSectionProps {
@@ -215,7 +209,7 @@ interface SettingsSectionProps {
 
 function SettingsSection({ icon, title, description, children }: SettingsSectionProps) {
   return (
-    <section className="border-t border-line py-7 sm:py-8">
+    <section className="py-6 sm:py-7" aria-label={title}>
       <div className="grid gap-6 md:grid-cols-[12rem_1fr] md:gap-10">
         <div>
           <div className="flex items-center gap-2.5 text-ink [&_svg]:size-[1.15rem] [&_svg]:text-pomegranate [&_svg]:stroke-[1.7]">
@@ -224,7 +218,7 @@ function SettingsSection({ icon, title, description, children }: SettingsSection
           </div>
           <p className="mt-2 text-muted">{description}</p>
         </div>
-        <div>{children}</div>
+        <div className="min-w-0 rounded-2xl bg-stone/65 p-5 sm:p-6">{children}</div>
       </div>
     </section>
   )
@@ -240,7 +234,7 @@ interface PreferenceToggleProps {
 
 function PreferenceToggle({ label, description, icon, isChecked, onChange }: PreferenceToggleProps) {
   return (
-    <div className="flex items-start gap-4 py-5">
+    <div className="flex items-start gap-4">
       <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-stone text-ink [&_svg]:size-4 [&_svg]:stroke-[1.7]">{icon}</span>
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-ink">{label}</p>

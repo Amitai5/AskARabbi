@@ -1,4 +1,5 @@
 using AskARabbiLIB.Accounts;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.DvarTorah;
@@ -7,7 +8,7 @@ using AskARabbiLIB.Usage;
 namespace AskARabbiLIB.Persistence.Mongo;
 
 /// <summary>Fails persistence operations explicitly when MongoDB has not been configured.</summary>
-public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore
+public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore, ICalendarPreferencesStore
 {
     /// <inheritdoc/>
     public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) => Task.FromException<bool>(CreateException());
@@ -89,6 +90,12 @@ public sealed class UnavailableApplicationStore : IUserAccountStore, IConversati
 
     /// <inheritdoc/>
     public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArchiveResult>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<CalendarPreferences?> GetCalendarPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException<CalendarPreferences?>(CreateException());
+
+    /// <inheritdoc/>
+    public Task UpsertCalendarPreferencesAsync(Guid userId, CalendarPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
 
     private static PersistenceUnavailableException CreateException() => new();
 }

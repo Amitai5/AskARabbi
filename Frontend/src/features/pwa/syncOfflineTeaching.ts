@@ -1,7 +1,7 @@
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import { validateAudioTimings } from '../dvarTorah/dvarTorahAudio.ts'
 import { normalizeDvarTorahText } from '../dvarTorah/dvarTorahText.ts'
-import { readOfflineLibrary, saveOfflinePublication, saveOfflineRecording } from './offlineLibrary.ts'
+import { OfflineLibraryChanged, readOfflineLibrary, saveOfflinePublication, saveOfflineRecording } from './offlineLibrary.ts'
 
 export const MaximumOfflineAudioBytes = 64 * 1024 * 1024
 
@@ -12,6 +12,7 @@ export async function syncOfflineTeaching(client: DvarTorahClient, signal: Abort
   const library = await saveOfflinePublication(publication, initial.revision, signal)
   if (signal.aborted || library.revision !== initial.revision) { return }
   onTextSaved()
+  window.dispatchEvent(new Event(OfflineLibraryChanged))
   const teaching = library.teaching
   const article = teaching?.publication.dvarTorah
   if (!library.audioEnabled || !teaching || !article?.audio || teaching.audio && teaching.timings || !publication.isCurrentWeek
@@ -25,6 +26,7 @@ export async function syncOfflineTeaching(client: DvarTorahClient, signal: Abort
   const timings = validateAudioTimings(rawTimings, version, normalizeDvarTorahText(article.title), normalizeDvarTorahText(article.body))
   if (!signal.aborted) {
     await saveOfflineRecording(teaching, initial.revision, audio, timings, signal)
+    if (!signal.aborted) { window.dispatchEvent(new Event(OfflineLibraryChanged)) }
     if (!timings) { throw new Error('The audio was saved, but its word timings could not be saved yet.') }
   }
 }

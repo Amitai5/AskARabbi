@@ -39,7 +39,8 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
           id="message"
           value={draft}
           readOnly={isChatDisabled}
-          aria-describedby={isChatDisabled ? 'chat-allowance-notice' : undefined}
+          aria-disabled={isChatDisabled}
+          aria-describedby={isChatDisabled ? 'chat-availability-notice' : undefined}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
@@ -49,7 +50,7 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
         />
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex min-w-0 items-center gap-2">
-            <SourceFilterMenu key={isSending ? 'source-filter-sending' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending} onChange={onSelectedSourceKeysChange} />
+            <SourceFilterMenu key={isSending || isChatDisabled ? 'source-filter-disabled' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending || isChatDisabled} onChange={onSelectedSourceKeysChange} />
             <span className="hidden truncate text-sm leading-4 text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
           </div>
           <button type="submit" disabled={isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">

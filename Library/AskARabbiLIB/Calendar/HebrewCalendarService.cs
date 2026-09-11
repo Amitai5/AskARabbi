@@ -81,7 +81,13 @@ public sealed class HebrewCalendarService : IHebrewCalendarService
         var zmanimCalendar = new ZmanimCalendar();
         var parashah = GetCorrectedParashah(zmanimCalendar, shabbat, inIsrael);
         var formatter = new HebrewDateFormatter();
-        var parashahName = parashah == ZmanimCalendar.Parsha.NONE ? null : formatter.TransliteratedParshiosList[(int)parashah];
+        // The formatter omits both NONE and VZOS_HABERACHA from its indexed names.
+        var parashahName = parashah switch
+        {
+            ZmanimCalendar.Parsha.NONE => null,
+            ZmanimCalendar.Parsha.VZOS_HABERACHA => "Vezos Haberacha",
+            _ => formatter.TransliteratedParshiosList[(int)parashah - (parashah >= ZmanimCalendar.Parsha.VAYAKHEL_PEKUDEI ? 2 : 1)],
+        };
         var holiday = parashahName is null ? NormalizeOptional(formatter.FormatYomTov(shabbat, inIsrael)) : null;
         return new WeeklyParashahInfo(DateOnly.FromDateTime(requestedDate), DateOnly.FromDateTime(shabbat), parashahName, holiday, formatter.Format(shabbat), inIsrael, note);
     }
@@ -90,7 +96,8 @@ public sealed class HebrewCalendarService : IHebrewCalendarService
     {
         var year = calendar.GetYear(shabbat);
         var roshHashanah = calendar.ToDateTime(year, 1, 1, 12, 0, 0, 0);
-        var dayIndex = (int)calendar.GetDayOfWeek(roshHashanah) + (shabbat.Date - roshHashanah.Date).Days;
+        // Zmanim indexes the table using the one-based day of the Hebrew year.
+        var dayIndex = (int)calendar.GetDayOfWeek(roshHashanah) + (shabbat.Date - roshHashanah.Date).Days + 1;
         var yearType = GetCorrectedYearType(year, inIsrael);
         var parshaList = ParshaListField.GetValue(zmanimCalendar) as ZmanimCalendar.Parsha[,] ?? throw new InvalidOperationException("Zmanim 1.5.0 returned an invalid pinned parashah table.");
         var weekIndex = dayIndex / 7;

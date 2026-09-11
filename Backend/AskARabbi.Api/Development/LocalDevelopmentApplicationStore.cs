@@ -1,4 +1,5 @@
 using AskARabbiLIB.Accounts;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.DvarTorah;
@@ -8,13 +9,14 @@ using AskARabbiLIB.Persistence.InMemory;
 namespace AskARabbi.Api.Development;
 
 /// <summary>Stores local development data in process memory without replacing production persistence.</summary>
-public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore
+public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore, ICalendarPreferencesStore
 {
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly object synchronization = new();
     private readonly Dictionary<Guid, Conversation> conversations = [];
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
+    private readonly Dictionary<Guid, CalendarPreferences> calendarPreferences = [];
     internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly IReadOnlyList<WeeklyDvarTorahArticle> weeklyDvarTorahs = CreateWeeklyDvarTorahs();
     private UserAccount? account;
@@ -99,6 +101,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
         {
             personalization.Remove(userId);
             preferences.Remove(userId);
+            calendarPreferences.Remove(userId);
             TokenUsage.DeleteAccount(userId);
             account = null;
             nextAccountId = Guid.NewGuid();
@@ -268,6 +271,27 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
         lock (synchronization)
         {
             personalization[userId] = value;
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<CalendarPreferences?> GetCalendarPreferencesAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            return Task.FromResult(calendarPreferences.GetValueOrDefault(userId));
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task UpsertCalendarPreferencesAsync(Guid userId, CalendarPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            calendarPreferences[userId] = preferences;
         }
         return Task.CompletedTask;
     }

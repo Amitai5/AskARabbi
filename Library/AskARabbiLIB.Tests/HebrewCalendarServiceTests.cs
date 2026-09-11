@@ -77,6 +77,23 @@ public sealed class HebrewCalendarServiceTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    [DataRow(2022, 4, 9, false, "Metzora")]
+    [DataRow(2022, 4, 16, false, null)]
+    [DataRow(2022, 4, 16, true, null)]
+    [DataRow(2022, 4, 23, false, null)]
+    [DataRow(2022, 4, 23, true, "Achrei Mos")]
+    [DataRow(2022, 4, 30, false, "Achrei Mos")]
+    [DataRow(2022, 4, 30, true, "Kedoshim")]
+    [DataRow(2026, 9, 5, false, "Nitzavim Vayeilech")]
+    [DataRow(2026, 9, 19, false, "Ha'Azinu")]
+    public void FindParashahForWeek_FestivalTransitions_DoesNotCancelIndexErrors(int year, int month, int day, bool inIsrael, string? expected)
+    {
+        var result = service.FindParashahForWeek(new DateTime(year, month, day), inIsrael);
+        Assert.AreEqual(expected, result.Parashah);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public void FindHebrewAnniversaryParashah_InvalidAge_ThrowsArgumentOutOfRangeException()
     {

@@ -1,5 +1,6 @@
 using AskARabbi.Api.Authentication;
 using AskARabbiLIB.Accounts;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.DvarTorah;
@@ -21,6 +22,7 @@ internal static class LocalDevelopmentServiceCollectionExtensions
         services.AddHostedService<AskARabbi.Api.Accounts.AccountDeletionWorker>();
         services.AddSingleton<IConversationStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IConversationSettingsStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
+        services.AddSingleton<ICalendarPreferencesStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IUsageStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IWeeklyDvarTorahStore>(provider => provider.GetRequiredService<LocalDevelopmentApplicationStore>());
         services.AddSingleton<IUserAuthenticationService, LocalDevelopmentAuthenticationService>();

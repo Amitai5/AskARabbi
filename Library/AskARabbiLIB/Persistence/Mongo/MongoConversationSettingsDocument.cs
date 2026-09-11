@@ -1,4 +1,5 @@
 using MongoDB.Bson.Serialization.Attributes;
+using AskARabbiLIB.Calendar;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
@@ -15,6 +16,10 @@ internal sealed class MongoConversationSettingsDocument
     [BsonElement("preferences")]
     [BsonIgnoreIfNull]
     public MongoConversationPreferencesDocument? Preferences { get; init; }
+
+    [BsonElement("calendarPreferences")]
+    [BsonIgnoreIfNull]
+    public CalendarPreferences? CalendarPreferences { get; init; }
 
     [BsonElement("updatedAtUtc")]
     public DateTime UpdatedAtUtc { get; init; }

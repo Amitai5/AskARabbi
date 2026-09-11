@@ -10,7 +10,30 @@ const Full: UsageSummary = {
 }
 
 describe('Usage synchronization', () => {
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
+
+  it('does not fetch or stay loading when mounted offline and refreshes after reconnecting', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const client = createDemoApplicationClients().conversationSettingsClient
+    client.getUsage = vi.fn().mockResolvedValue(Full)
+    const { result } = renderHook(() => useMonthlyUsage(client, 'reader'))
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+      await result.current.refresh()
+    })
+    expect(client.getUsage).not.toHaveBeenCalled()
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.usage).toBeNull()
+
+    await act(async () => {
+      online.mockReturnValue(true)
+      window.dispatchEvent(new Event('online'))
+    })
+
+    expect(client.getUsage).toHaveBeenCalledTimes(1)
+    expect(result.current.usage).toEqual(Full)
+    expect(result.current.isLoading).toBe(false)
+  })
 
   it('refreshes an exhausted allowance at the UTC month boundary without a reload', async () => {
     vi.useFakeTimers()

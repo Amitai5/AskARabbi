@@ -6,11 +6,14 @@ import { publishUserDataEvent, subscribeToUserDataEvents } from './userDataEvent
 export function useMonthlyUsage(client: ConversationSettingsClient, userId: string) {
   const [usage, setUsage] = useState<UsageSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(() => navigator.onLine)
   const requestVersion = useRef(0)
 
   const fetchUsage = useCallback(() => {
     const version = ++requestVersion.current
+    if (!navigator.onLine) {
+      return Promise.resolve()
+    }
     return client.getUsage()
       .then((value) => {
         if (requestVersion.current === version) { setUsage(value); setError(null) }
@@ -26,6 +29,7 @@ export function useMonthlyUsage(client: ConversationSettingsClient, userId: stri
   }, [client])
 
   const refresh = useCallback(() => {
+    if (!navigator.onLine) { return Promise.resolve() }
     setIsLoading(true)
     setError(null)
     return fetchUsage()
@@ -43,13 +47,18 @@ export function useMonthlyUsage(client: ConversationSettingsClient, userId: stri
   useEffect(() => {
     void fetchUsage()
     const onFocus = () => { void refresh() }
+    const onOffline = () => { requestVersion.current += 1; setIsLoading(false) }
     window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onFocus)
+    window.addEventListener('offline', onOffline)
     const unsubscribe = subscribeToUserDataEvents(userId, (event) => {
       if (event.kind === 'usage-changed') { void refresh() }
     })
     return () => {
       requestVersion.current += 1
       window.removeEventListener('focus', onFocus)
+      window.removeEventListener('online', onFocus)
+      window.removeEventListener('offline', onOffline)
       unsubscribe()
     }
   }, [fetchUsage, refresh, userId])

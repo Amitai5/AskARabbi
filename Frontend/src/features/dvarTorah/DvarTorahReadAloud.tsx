@@ -3,6 +3,7 @@ import { Headphones, LoaderCircle, Pause, Play, RotateCcw, TextCursorInput } fro
 import { findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, WeeklyDvarTorahAudio } from './dvarTorahTypes.ts'
+import { useSavedRecording } from '../pwa/useSavedRecording.ts'
 
 interface DvarTorahReadAloudProps {
   ref?: Ref<DvarTorahPlaybackHandle>
@@ -42,6 +43,7 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [timingsError, setTimingsError] = useState(false)
   const version = audio?.version
+  const savedRecording = useSavedRecording(weekKey, version, title, body)
 
   const updateWord = useCallback(() => {
     if (!hasInteractedRef.current) {
@@ -62,17 +64,18 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
     }
   }
 
-  function stopAnimation() {
+  const stopAnimation = useCallback(() => {
     if (frameRef.current !== null) {
       cancelAnimationFrame(frameRef.current)
       frameRef.current = null
     }
-  }
+  }, [])
 
   const loadTimings = useCallback(() => {
     if (version === undefined || timingsRequestRef.current !== null || timingsRef.current !== null) {
       return
     }
+    if (!navigator.onLine && !client.getAudioUrl(weekKey, version).startsWith('blob:')) { return }
 
     const controller = new AbortController()
     timingsRequestRef.current = controller
@@ -111,8 +114,11 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
     }
     if (element !== null && version !== undefined) {
       // Warm the authenticated recording and manifest together, without starting playback.
-      element.src = client.getAudioUrl(weekKey, version)
-      element.load()
+      const url = client.getAudioUrl(weekKey, version)
+      if (navigator.onLine || url.startsWith('blob:')) {
+        element.src = url
+        element.load()
+      }
       loadTimings()
     }
     return () => {
@@ -130,6 +136,16 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
       }
     }
   }, [client, loadTimings, onTimingsChange, onWordChange, version, weekKey])
+
+  useEffect(() => {
+    if (!savedRecording?.timings || timingsRef.current !== null) { return }
+    timingsRequestRef.current?.abort()
+    timingsRequestRef.current = null
+    timingsRef.current = savedRecording.timings
+    setTimingsError(false)
+    onTimingsChange?.(savedRecording.timings)
+    updateWord()
+  }, [savedRecording, onTimingsChange, updateWord])
 
   useImperativeHandle(ref, () => ({
     seekToWord(word) {
@@ -164,14 +180,16 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
     hasInteractedRef.current = true
     setPlaybackError(null)
     setPlaybackState((current) => current === 'playing' ? current : 'loading')
-    if (!element.hasAttribute('src') || playbackState === 'error') {
-      element.src = client.getAudioUrl(weekKey, audio.version)
-      element.load()
-    }
+    const previousPosition = pendingSeekRef.current ?? element.currentTime
+    const hadEnded = element.ended
+    const sourceChanged = prepareSource(playbackState === 'error')
+    if (sourceChanged === null) { return }
     if (seconds !== undefined) {
       seek(seconds)
-    } else if (element.ended) {
+    } else if (hadEnded) {
       seek(0)
+    } else if (sourceChanged && previousPosition > 0) {
+      seek(previousPosition)
     }
     element.playbackRate = Number(playbackRate)
 
@@ -184,13 +202,39 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
     loadTimings()
   }
 
-  function failPlayback() {
+  const failPlayback = useCallback(() => {
+    requestIdRef.current += 1
     stopAnimation()
+    audioRef.current?.pause()
     hasInteractedRef.current = false
     setPlaybackState('error')
-    setPlaybackError('The recording could not be played. Try again, or sign in again if your session expired.')
+    setPlaybackError(navigator.onLine
+      ? 'The recording could not be played. Try again, or sign in again if your session expired.'
+      : 'This recording is not ready for offline playback. Reconnect to finish its download in Settings → App and offline, then try again.')
     currentWordRef.current = null
     onWordChange(null)
+  }, [onWordChange, stopAnimation])
+
+  useEffect(() => {
+    if (playbackState !== 'loading') { return }
+    const timeout = window.setTimeout(failPlayback, 15_000)
+    return () => window.clearTimeout(timeout)
+  }, [failPlayback, playbackState])
+
+  function prepareSource(forceReload = false): boolean | null {
+    const element = audioRef.current
+    if (!element || !audio) { return null }
+    const url = savedRecording?.url ?? client.getAudioUrl(weekKey, audio.version)
+    if (!navigator.onLine && !url.startsWith('blob:')) {
+      failPlayback()
+      return null
+    }
+    if (element.getAttribute('src') !== url || forceReload) {
+      element.src = url
+      element.load()
+      return true
+    }
+    return false
   }
 
   function updatePosition() {
@@ -200,9 +244,12 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
 
   function seek(seconds: number) {
     const element = audioRef.current
-    if (element === null || audio === null || !element.hasAttribute('src') || !Number.isFinite(seconds)) {
+    if (element === null || audio === null || !Number.isFinite(seconds)) {
       return
     }
+    const wasPlaying = !element.paused
+    const sourceChanged = prepareSource()
+    if (sourceChanged === null) { return }
     const position = Math.max(0, Math.min(seconds, audio.durationMs / 1000))
     hasInteractedRef.current = true
     pendingSeekRef.current = position
@@ -211,6 +258,10 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
       pendingSeekRef.current = null
     }
     updatePosition()
+    if (sourceChanged && wasPlaying) {
+      const requestId = ++requestIdRef.current
+      void element.play().catch(() => { if (requestId === requestIdRef.current) { failPlayback() } })
+    }
   }
 
   function applyPendingSeek() {

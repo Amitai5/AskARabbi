@@ -1,4 +1,6 @@
 using AskARabbi.Api.Authentication;
+using AskARabbi.Api.Calendar;
+using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
@@ -40,6 +42,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     internal InMemoryApplicationStore Store { get; } = new();
 
     internal FakeGroundedAnswerService GroundedAnswers { get; } = new();
+    internal FakeCalendarProvider Calendar { get; } = new();
 
     internal InMemoryWeeklyDvarTorahStore WeeklyDvarTorah { get; } = new();
 
@@ -87,6 +90,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();
+            services.RemoveAll<IHebcalCalendarClient>();
+            services.AddSingleton<IHebcalCalendarClient>(Calendar);
             services.RemoveAll<IGroundedAnswerService>();
             services.AddSingleton<IGroundedAnswerService>(GroundedAnswers);
 
@@ -97,6 +102,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.RemoveAll<IUserDataStore>();
                 services.RemoveAll<IConversationStore>();
                 services.RemoveAll<IConversationSettingsStore>();
+                services.RemoveAll<ICalendarPreferencesStore>();
                 services.RemoveAll<IUsageStore>();
                 services.RemoveAll<IWeeklyDvarTorahStore>();
                 services.RemoveAll<IDvarTorahAudioReader>();
@@ -107,6 +113,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.AddSingleton<IUserDataStore>(Store);
                 services.AddSingleton<IConversationStore>(Store);
                 services.AddSingleton<IConversationSettingsStore>(Store);
+                services.AddSingleton<ICalendarPreferencesStore>(Store);
                 services.AddSingleton<IUsageStore>(Store);
                 services.AddSingleton<IWeeklyDvarTorahStore>(WeeklyDvarTorah);
                 services.AddSingleton<IDvarTorahAudioReader>(DvarTorahAudio);

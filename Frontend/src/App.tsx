@@ -10,6 +10,7 @@ import { useAuth } from './features/auth/useAuth.ts'
 import { ConversationDashboard } from './features/conversations/ConversationDashboard.tsx'
 import { createBackendConversationClient, type ConversationClient } from './features/conversations/conversationClient.ts'
 import { createBackendDvarTorahClient, type DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
+import { createBackendCalendarClient, type CalendarClient } from './features/calendar/calendarClient.ts'
 import { OnboardingFlow } from './features/onboarding/OnboardingFlow.tsx'
 import { createBackendConversationSettingsClient, type ConversationSettingsClient } from './features/personalization/conversationSettingsClient.ts'
 import { createDefaultPersonalizationProfile, type PersonalizationProfile } from './features/personalization/personalizationTypes.ts'
@@ -22,19 +23,21 @@ const DefaultAuthClient = createBackendAuthClient({ apiClient: DefaultApiClient 
 const DefaultConversationClient = createBackendConversationClient(DefaultApiClient)
 const DefaultConversationSettingsClient = createBackendConversationSettingsClient(DefaultApiClient)
 const DefaultDvarTorahClient = createBackendDvarTorahClient(DefaultApiClient)
+const DefaultCalendarClient = createBackendCalendarClient(DefaultApiClient)
 
 interface AppProps {
   authClient?: AuthClient
   conversationClient?: ConversationClient
   conversationSettingsClient?: ConversationSettingsClient
   dvarTorahClient?: DvarTorahClient
+  calendarClient?: CalendarClient
 }
 
-export function App({ authClient = DefaultAuthClient, conversationClient = DefaultConversationClient, conversationSettingsClient = DefaultConversationSettingsClient, dvarTorahClient = DefaultDvarTorahClient }: AppProps) {
+export function App({ authClient = DefaultAuthClient, conversationClient = DefaultConversationClient, conversationSettingsClient = DefaultConversationSettingsClient, dvarTorahClient = DefaultDvarTorahClient, calendarClient = DefaultCalendarClient }: AppProps) {
   return (
     <PwaInstallProvider>
       <AuthProvider client={authClient}>
-        <AuthenticatedApplication conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} />
+        <AuthenticatedApplication conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} />
       </AuthProvider>
     </PwaInstallProvider>
   )
@@ -44,9 +47,10 @@ interface AuthenticatedApplicationProps {
   conversationClient: ConversationClient
   conversationSettingsClient: ConversationSettingsClient
   dvarTorahClient: DvarTorahClient
+  calendarClient: CalendarClient
 }
 
-function AuthenticatedApplication({ conversationClient, conversationSettingsClient, dvarTorahClient }: AuthenticatedApplicationProps) {
+function AuthenticatedApplication({ conversationClient, conversationSettingsClient, dvarTorahClient, calendarClient }: AuthenticatedApplicationProps) {
   const { isInitializing, signOut, user } = useAuth()
   const [resetToken] = useState(readAndRemovePasswordResetToken)
 
@@ -57,7 +61,7 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
     return <LoginPage isCheckingSession={isInitializing} />
   }
 
-  return <OfflineLearningProvider key={user.id} client={dvarTorahClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} onLogout={signOut} /></OfflineLearningProvider>
+  return <OfflineLearningProvider key={user.id} client={dvarTorahClient}><SignedInApplication user={user} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} onLogout={signOut} /></OfflineLearningProvider>
 }
 
 function readAndRemovePasswordResetToken() {
@@ -83,10 +87,11 @@ interface SignedInApplicationProps {
   conversationClient: ConversationClient
   conversationSettingsClient: ConversationSettingsClient
   dvarTorahClient: DvarTorahClient
+  calendarClient: CalendarClient
   onLogout(): Promise<void>
 }
 
-function SignedInApplication({ user, conversationClient, conversationSettingsClient, dvarTorahClient, onLogout }: SignedInApplicationProps) {
+function SignedInApplication({ user, conversationClient, conversationSettingsClient, dvarTorahClient, calendarClient, onLogout }: SignedInApplicationProps) {
   const [profile, setProfile] = useState<PersonalizationProfile | null>(null)
   const [isConfigured, setIsConfigured] = useState(false)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
@@ -152,7 +157,7 @@ function SignedInApplication({ user, conversationClient, conversationSettingsCli
     return <OnboardingFlow profile={profile} onComplete={savePersonalization} onLogout={onLogout} />
   }
 
-  return <ConversationDashboard user={user} initialPersonalizationProfile={profile} initialUserSettings={userSettings} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} onSavePersonalization={savePersonalization} onSaveSettings={saveUserSettings} />
+  return <ConversationDashboard user={user} initialPersonalizationProfile={profile} initialUserSettings={userSettings} conversationClient={conversationClient} conversationSettingsClient={conversationSettingsClient} dvarTorahClient={dvarTorahClient} calendarClient={calendarClient} onSavePersonalization={savePersonalization} onSaveSettings={saveUserSettings} />
 }
 
 function LoadingScreen({ message }: { message: string }) {

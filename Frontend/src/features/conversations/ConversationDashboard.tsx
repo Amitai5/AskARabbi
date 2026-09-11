@@ -7,6 +7,7 @@ import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import { useAuth } from '../auth/useAuth.ts'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
+import type { CalendarClient } from '../calendar/calendarClient.ts'
 import type { ConversationSettingsClient } from '../personalization/conversationSettingsClient.ts'
 import { PersonalizationPage } from '../personalization/PersonalizationPage.tsx'
 import type { PersonalizationProfile } from '../personalization/personalizationTypes.ts'
@@ -24,8 +25,10 @@ import { MessageComposer } from './MessageComposer.tsx'
 import { AllSourceKeys, formatSourceSelection } from './sourceOptions.ts'
 import { SourceReader } from './SourceReader.tsx'
 import { UserMessage } from './UserMessage.tsx'
+import { useOnlineStatus } from '../pwa/useOnlineStatus.ts'
 
 const WeeklyDvarTorahPage = lazy(() => import('../dvarTorah/WeeklyDvarTorahPage.tsx').then((module) => ({ default: module.WeeklyDvarTorahPage })))
+const CalendarPage = lazy(() => import('../calendar/CalendarPage.tsx').then((module) => ({ default: module.CalendarPage })))
 const DashboardScrollLockClass = 'conversation-dashboard-scroll-lock'
 
 interface ConversationDashboardProps {
@@ -35,11 +38,12 @@ interface ConversationDashboardProps {
   conversationClient: ConversationClient
   conversationSettingsClient: ConversationSettingsClient
   dvarTorahClient: DvarTorahClient
+  calendarClient: CalendarClient
   onSavePersonalization(profile: PersonalizationProfile): Promise<void>
   onSaveSettings(settings: UserSettings): Promise<UserSettings>
 }
 
-type ActiveView = 'conversation' | 'dvarTorah' | 'personalization' | 'settings'
+type ActiveView = 'conversation' | 'dvarTorah' | 'calendar' | 'personalization' | 'settings'
 
 interface SourceReaderSelection {
   messageId: string
@@ -59,18 +63,20 @@ interface ConversationSession {
   error: string | null
 }
 
-export function ConversationDashboard({ user, initialPersonalizationProfile, initialUserSettings, conversationClient, conversationSettingsClient, dvarTorahClient, onSavePersonalization, onSaveSettings }: ConversationDashboardProps) {
+export function ConversationDashboard({ user, initialPersonalizationProfile, initialUserSettings, conversationClient, conversationSettingsClient, dvarTorahClient, calendarClient, onSavePersonalization, onSaveSettings }: ConversationDashboardProps) {
   const { requestPasswordReset, signOut, deleteAccount } = useAuth()
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedConversation, setSelectedConversation] = useState<ConversationDetails | null>(null)
   const [draft, setDraft] = useState('')
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), [])
   const [activeView, setActiveView] = useState<ActiveView>('conversation')
   const [personalizationProfile, setPersonalizationProfile] = useState(initialPersonalizationProfile)
   const [userSettings, setUserSettings] = useState(initialUserSettings)
   const { usage, error: usageError, isLoading: isLoadingUsage, refresh: loadUsage, update: updateUsage } = useMonthlyUsage(conversationSettingsClient, user.id)
-  const isChatDisabled = usage === null || usage.isLimitReached
+  const isOnline = useOnlineStatus()
+  const isChatDisabled = !isOnline || usage === null || usage.isLimitReached
   const [conversationStarterIndex, setConversationStarterIndex] = useState(getInitialConversationStarterIndex)
   const [unsavedSourceKeys, setUnsavedSourceKeys] = useState<string[]>(() => [...AllSourceKeys])
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
@@ -220,7 +226,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }, [activeView, isLoadingConversation, isLoadingConversations, latestDisplayedMessageId, selectedId])
 
   function handleNewConversation() {
-    if (isLoadingConversations) {
+    if (!navigator.onLine || isLoadingConversations) {
       return
     }
 
@@ -241,6 +247,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }
 
   async function handleSelectConversation(id: string) {
+    if (!navigator.onLine) { return }
     rememberSelectedConversation()
     const requestId = selectionRequestId.current + 1
     selectionRequestId.current = requestId
@@ -287,6 +294,10 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }
 
   function handleOpenDvarTorah() {
+    if (!navigator.onLine) {
+      window.location.assign('/offline.html')
+      return
+    }
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
     setActiveView('dvarTorah')
@@ -299,6 +310,12 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     if (usage === null && !isLoadingUsage) {
       void loadUsage()
     }
+  }
+
+  function handleOpenCalendar() {
+    setIsMobileSidebarOpen(false)
+    setSourceReaderSelection(null)
+    setActiveView('calendar')
   }
 
   function handleBackToConversation() {
@@ -316,7 +333,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }
 
   async function handleRenameConversation(id: string, title: string) {
-    if (sendingConversationIds.current.has(id)) {
+    if (!navigator.onLine || sendingConversationIds.current.has(id)) {
       return
     }
 
@@ -351,7 +368,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }
 
   async function handleDeleteConversation(id: string) {
-    if (sendingConversationIds.current.has(id)) {
+    if (!navigator.onLine || sendingConversationIds.current.has(id)) {
       return
     }
 
@@ -386,7 +403,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   async function handleSubmit() {
     const generation = dataGeneration.current
     const question = draft.trim()
-    if (isChatDisabled || pendingQuestions.size > 0 || question.length === 0 || selectedSourceKeys.length === 0 || isSending || isLoadingConversation || isLoadingConversations || selectedId !== selectedIdRef.current) {
+    if (!navigator.onLine || isChatDisabled || pendingQuestions.size > 0 || question.length === 0 || selectedSourceKeys.length === 0 || isSending || isLoadingConversation || isLoadingConversations || selectedId !== selectedIdRef.current) {
       return
     }
 
@@ -425,6 +442,9 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     try {
       if (!session.isNew && !await waitForSourceUpdates(conversationId)) {
         throw new Error('The source selection could not be saved. Review your sources and try again.')
+      }
+      if (!navigator.onLine) {
+        throw new Error('You’re offline. Reconnect to send this message.')
       }
 
       const turn = session.isNew
@@ -497,6 +517,8 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
     if (session !== undefined) {
       session.draft = draft
       session.error = conversationError
+    } else {
+      conversationSessions.current.set(selectedConversation.id, { conversation: selectedConversation, isNew: false, draft, error: conversationError })
     }
   }
 
@@ -509,7 +531,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
   }
 
   function handleSelectedSourceKeysChange(sourceKeys: string[]) {
-    if (isSending) {
+    if (!navigator.onLine || isChatDisabled || isSending) {
       return
     }
 
@@ -573,16 +595,19 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         conversations={conversations}
         selectedId={activeView === 'conversation' ? selectedId : null}
         isMobileOpen={isMobileSidebarOpen}
-        isNewConversationDisabled={isLoadingConversations}
+        isNewConversationDisabled={!isOnline || isLoadingConversations}
+        isOffline={!isOnline}
         pendingConversationIds={new Set(pendingQuestions.keys())}
         isDvarTorahSelected={activeView === 'dvarTorah'}
+        isCalendarSelected={activeView === 'calendar'}
         user={personalizedUser}
-        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onCloseMobile={closeMobileSidebar}
         onNewConversation={handleNewConversation}
         onSelectConversation={(id) => void handleSelectConversation(id)}
         onRenameConversation={(id, title) => void handleRenameConversation(id, title)}
         onDeleteConversation={handleDeleteConversation}
         onOpenDvarTorah={handleOpenDvarTorah}
+        onOpenCalendar={handleOpenCalendar}
         onOpenSettings={handleOpenSettings}
         onOpenPersonalization={handleOpenPersonalization}
         onLogout={signOut}
@@ -605,6 +630,10 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
         {activeView === 'dvarTorah' ? (
           <Suspense fallback={<DvarTorahLoading />}>
             <WeeklyDvarTorahPage client={dvarTorahClient} />
+          </Suspense>
+        ) : activeView === 'calendar' ? (
+          <Suspense fallback={<p role="status" className="p-8 text-muted">Loading calendar…</p>}>
+            <CalendarPage client={calendarClient} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} />
           </Suspense>
         ) : activeView === 'settings' ? (
           <SettingsPage user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} isDataBusy={pendingQuestions.size > 0 || isLoadingConversations} onDeleteChats={handleDeleteAllChats} onDeleteAccount={deleteAccount} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />
@@ -631,7 +660,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
                             ? <AssistantMessage key={message.id} message={message} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} />
                             : <UserMessage key={message.id} message={message} />
                         ))}
-                        {isSending ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
+                        {isSending && isOnline ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
                       </article>
                     </div>
                   )}
@@ -639,7 +668,7 @@ export function ConversationDashboard({ user, initialPersonalizationProfile, ini
               </section>
 
               <div className="relative z-10 shrink-0 border-t border-line/60 bg-parchment px-4 pb-2 pt-2 sm:px-8 sm:pb-3" data-chat-composer>
-                <ChatUsageNotice usage={usage} error={usageError} onRetry={() => void loadUsage()} onOpenDvarTorah={handleOpenDvarTorah} />
+                <ChatUsageNotice usage={usage} error={usageError} isOnline={isOnline} onRetry={() => void loadUsage()} onOpenDvarTorah={handleOpenDvarTorah} />
                 <div className="mx-auto flex w-full max-w-[62rem] justify-center">
                   <MessageComposer draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
                 </div>

@@ -155,10 +155,10 @@ public sealed class GroundedAnswerCalendarToolTests
         var passages = CreateNitzavimPassages();
         var retriever = new ResolvedParashahRetriever(passages);
         var registry = new AIToolRegistry([new CalendarAITools(new HebrewCalendarService())]);
-        var directAnswer = "The short answer is: the parashah for the Shabbat on or after tomorrow is Nitzavim.";
+        var directAnswer = "The short answer is: the parashah for the Shabbat on or after tomorrow is Nitzavim Vayeilech.";
         var answerEngine = new CompositeCalendarAnswerEngine(
             passages,
-            "The selected reading is Nitzavim.",
+            "The selected reading is Nitzavim Vayeilech.",
             "Nitzavim opens with the whole community standing together to enter the covenant, including leaders, children, and strangers.",
             ["Deuteronomy 29:9"],
             "It then anticipates exile and return before closing with the choice between life and death and the call to love God, listen, and hold fast.",
@@ -178,9 +178,9 @@ public sealed class GroundedAnswerCalendarToolTests
 
         // Assert
         Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(4, retriever.SearchCallCount);
+        Assert.AreEqual(5, retriever.SearchCallCount);
         CollectionAssert.AreEquivalent(
-            new[] { "Deuteronomy 29:9", "Deuteronomy 30:1", "Deuteronomy 30:20" },
+            new[] { "Deuteronomy 29:9", "Deuteronomy 30:1", "Deuteronomy 31:1", "Deuteronomy 31:30" },
             retriever.Queries.Where(query => query.ExactCanonicalReference is not null).Select(query => query.ExactCanonicalReference).ToArray());
         Assert.IsTrue(retriever.Queries.Any(query => query.QueryText?.Contains("Nitzavim", StringComparison.Ordinal) == true));
         Assert.IsTrue(retriever.Queries.All(query => query.SourceKeys.SequenceEqual(["collection:Torah"])), "Every portion-summary search must stay inside Torah.");
