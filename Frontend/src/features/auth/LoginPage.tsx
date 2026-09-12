@@ -3,6 +3,7 @@ import { ArrowRight, LoaderCircle, Mail } from 'lucide-react'
 import manuscriptArtwork from '../../assets/library-manuscript.webp'
 import { Brand } from '../../components/Brand.tsx'
 import { ChatPrivacyNotice } from '../../components/ChatPrivacyNotice.tsx'
+import { LegalLink, LegalLinks } from '../legal/LegalLinks.tsx'
 import { useAuth } from './useAuth.ts'
 
 const EmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -197,8 +198,11 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
               </div>
             ) : null}
             {authenticationError === null ? null : <p role="alert" className="mt-5 text-sm leading-6 text-pomegranate">{authenticationError}</p>}
+            {isRecoveringPassword ? <p className="mt-5 text-sm leading-6 text-muted"><LegalLinks /></p> : <p className="mt-5 text-sm leading-6 text-muted">
+              By continuing with Google or email, or creating an account, you agree to the <LegalLink document="terms-of-service" /> and acknowledge the <LegalLink document="privacy-policy" />.
+            </p>}
             <p className="mt-6 text-sm leading-6 text-muted">
-              AskRabbi is a study companion, not a source of binding psak.
+              AskRabbi is an AI study companion, not a source of binding psak. Consult a qualified rabbi for practical religious decisions.
             </p>
             <details className="mt-3 text-sm text-ink-soft">
               <summary className="min-h-11 cursor-pointer rounded-sm py-3 font-semibold hover:text-pomegranate focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pomegranate">Chat history and AI privacy</summary>

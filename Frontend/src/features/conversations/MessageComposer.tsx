@@ -1,5 +1,6 @@
 import { useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { ArrowUp } from 'lucide-react'
+import { LegalLinks } from '../legal/LegalLinks.tsx'
 import { SourceFilterMenu } from './SourceFilterMenu.tsx'
 
 interface MessageComposerProps {
@@ -60,7 +61,7 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
         {selectedSourceKeys.length === 0 ? <p className="px-2 pt-2 text-sm font-medium leading-4 text-pomegranate" role="alert">Select at least one source before sending.</p> : null}
       </form>
       <p className="mt-1.5 text-center text-sm leading-5 text-muted">
-        AskRabbi can make mistakes. Check the cited sources.
+        AskRabbi can make mistakes. Check the cited sources. <LegalLinks />
       </p>
     </div>
   )

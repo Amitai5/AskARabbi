@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, BookMarked, BookOpenText, CalendarDays, ChevronLeft, ChevronRight, Clock, LoaderCircle, RefreshCw, Search, Sparkles } from 'lucide-react'
 import { SourceReader } from '../conversations/SourceReader.tsx'
+import { LegalLink } from '../legal/LegalLinks.tsx'
 import type { ConversationSource } from '../conversations/conversationData.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import { DvarTorahReadAloud, type DvarTorahPlaybackHandle } from './DvarTorahReadAloud.tsx'
@@ -312,7 +313,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}
       <p className="mt-10 max-w-[46rem] border-t border-line pt-5 text-xs leading-5 text-muted">
-        This is an educational reflection, not binding <i>psak</i>. Read it as an invitation to study, question, and continue the conversation.
+        This is an educational reflection, not binding <i>psak</i>. Read it as an invitation to study, question, and continue the conversation. See our <LegalLink document="terms-of-service" section="educational-use" />.
       </p>
     </article>
   )

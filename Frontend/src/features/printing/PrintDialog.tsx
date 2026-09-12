@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { LegalLink } from '../legal/LegalLinks.tsx'
 import { Printer, X } from 'lucide-react'
 import { normalizeDisplayText } from '../../displayText.ts'
 import { selectHolidayAgenda } from '../calendar/calendarAgenda.ts'
@@ -72,6 +73,7 @@ export function PrintDialog({ request, returnFocusTo, onClose }: PrintDialogProp
             {request.kind === 'answers' && request.answers.length > 1 ? <PrintOption label="Start each answer on a new page" checked={options.separateAnswers} onChange={value => setOptions(current => ({ ...current, separateAnswers: value }))} /> : null}
           </fieldset>
           <p className="mt-5 text-xs leading-5 text-muted">A small book logo and AskARabbi.ai link appear in the corner of every printed page. The preview shows the content; your browser’s dialog shows final page breaks. For the cleanest copy, turn off the browser’s own headers and footers.</p>
+          <p className="mt-3 text-xs leading-5 text-muted">Copies may include your questions or location. Deleting your account cannot remove printed or downloaded copies. See our <LegalLink document="privacy-policy" section="retention">retention and deletion policy</LegalLink>.</p>
         </div>
         <div id={`${id}-preview`} role="tabpanel" aria-labelledby={`${id}-preview-tab`} className={`min-h-0 min-w-0 flex-1 bg-stone p-2 md:block md:p-4 ${tab === 'preview' ? 'block' : 'hidden'}`}><PrintFrame frameRef={frameRef} request={request} options={options} selectedIds={selectedIds} events={agenda?.events ?? []} days={agenda?.days ?? days} onReady={setReady} onClose={onClose} /></div>
       </div>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ArrowLeft, MapPin, Languages, Save, UserRound, UsersRound } from 'lucide-react'
 import { Toast } from '../../components/Toast.tsx'
+import { PersonalizationPrivacyNotice } from '../legal/PersonalizationPrivacyNotice.tsx'
 import { LanguageOptions } from './languageOptions.ts'
 import { JewishHeritageOptions, ReligiousMovementOptions } from './personalizationOptions.ts'
 import type { PersonalizationProfile } from './personalizationTypes.ts'
@@ -82,6 +83,7 @@ export function PersonalizationPage({ embedded = false, profile, onBack, onSave,
 
         </>}
         <form className={embedded ? '' : 'mt-7'} onSubmit={handleSubmit} noValidate>
+          <div className="pb-6"><PersonalizationPrivacyNotice /></div>
           <FormSection icon={<UserRound aria-hidden="true" />} title="About you" description="For your preferred name, age-appropriate explanations, and Hebrew-calendar calculations.">
             <div className="grid gap-6 sm:grid-cols-2">
               <FormField label="Full name" htmlFor="full-name" error={errors.fullName}>

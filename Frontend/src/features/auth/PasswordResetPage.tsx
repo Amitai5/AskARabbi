@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowLeft, KeyRound } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
+import { LegalLinks } from '../legal/LegalLinks.tsx'
 import { useAuth } from './useAuth.ts'
 
 interface PasswordResetPageProps {
@@ -73,6 +74,7 @@ export function PasswordResetPage({ token, onReturnToLogin }: PasswordResetPageP
             </button>
           ) : null}
         </div>
+        <p className="mt-6 text-sm leading-6 text-muted"><LegalLinks /></p>
       </section>
     </main>
   )

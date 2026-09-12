@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { UserDataControls } from './UserDataControls.tsx'
 
 describe('Your data controls', () => {
-  it('distinguishes saved chats from abuse-monitoring records without provider names or links', () => {
+  it('explains deletion limits and links to the complete legal policies without deleting data', () => {
     const deleteChats = vi.fn()
     const deleteAccount = vi.fn()
     const { container } = render(<UserDataControls isBusy={false} onDeleteChats={deleteChats} onDeleteAccount={deleteAccount} />)
@@ -13,9 +13,11 @@ describe('Your data controls', () => {
     expect(screen.getByText(/AskRabbi saves your questions and answers in your account/)).toBeVisible()
     expect(screen.getByText(/We and our service providers may retain and review questions and answers/)).toHaveTextContent('Access for these purposes is limited to authorized personnel')
     expect(screen.getByText(/Deleting saved chats removes them from your account/)).toHaveTextContent('records kept for security and abuse prevention may be retained separately')
-    expect(screen.getByText(/Service backups and security logs follow separate retention policies/)).toBeVisible()
+    expect(screen.getByText(/Service backups and security logs may be retained separately/)).toBeVisible()
     expect(container).not.toHaveTextContent(/Azure|OpenAI|Microsoft/i)
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Privacy Policy/ })).toHaveAttribute('href', '/privacy-policy')
+    expect(screen.getByRole('link', { name: /Terms of Service/ })).toHaveAttribute('href', '/terms-of-service')
+    expect(screen.getByRole('link', { name: /retention and deletion policy/ })).toHaveAttribute('href', '/privacy-policy#retention')
     expect(deleteChats).not.toHaveBeenCalled()
     expect(deleteAccount).not.toHaveBeenCalled()
   })

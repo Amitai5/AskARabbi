@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Download, LoaderCircle } from 'lucide-react'
+import { LegalLink } from '../legal/LegalLinks.tsx'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import { OfflineLibraryChanged, OfflineLibraryCleared, readOfflineLibrary, saveOfflineHolidays, setOfflineAudioEnabled, type OfflineLibrary } from './offlineLibrary.ts'
 import { syncOfflineTeaching } from './syncOfflineTeaching.ts'
@@ -150,7 +151,7 @@ export function OfflineLearningSettings() {
         </div>
         <button type="button" role="switch" aria-checked={enabled} aria-label="Make weekly audio available offline" aria-describedby="offline-audio-description" disabled={!state?.library || state.isSaving && !state.library.teaching} onClick={() => void state?.changeAudio(!enabled)} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${enabled ? 'bg-pomegranate' : 'bg-stone-deep'}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition-all ${enabled ? 'left-6' : 'left-1'}`} /></button>
       </div>
-      <p className="mt-3 text-sm leading-6 text-muted">On a good connection, this week’s teaching and the next 360 days of holidays save in the background. Slow connections and Data Saver skip automatic downloads. Saved on this device, not in your account—never chats, your location, or account details. Anyone using this browser can read saved learning; logging out removes it.</p>
+      <p className="mt-3 text-sm leading-6 text-muted">On a good connection, this week’s teaching and the next 360 days of holidays save in the background. Slow connections and Data Saver skip automatic downloads. The offline library excludes chats, your location, and account details. Anyone using this browser can read saved learning. Signing out attempts to remove it; clear this site’s browser data on shared devices. See <LegalLink document="privacy-policy" section="device-storage">device storage and privacy</LegalLink> (available online).</p>
       {state?.isSaving ? <p role="status" className="mt-4 flex items-center gap-2 text-sm leading-6 text-muted"><LoaderCircle aria-hidden="true" className="size-4 shrink-0 animate-spin motion-reduce:animate-none" />Preparing learning for offline use…</p> : null}
       {state?.error ? <div className="mt-3"><p role="alert" className="text-sm text-pomegranate">{state.error}</p><button type="button" onClick={state.refresh} className="mt-2 min-h-11 text-sm font-semibold text-pomegranate">Try offline download again</button></div> : null}
       <a id="setting-saved-teaching" href="/offline.html" className="settings-target mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-pomegranate hover:underline"><Download aria-hidden="true" className="size-4" />Open saved teaching</a>

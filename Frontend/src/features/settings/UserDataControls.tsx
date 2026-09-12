@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Trash2, UserRoundX } from 'lucide-react'
 import { ConfirmDeletionDialog } from '../../components/ConfirmDeletionDialog.tsx'
 import { ChatPrivacyNotice } from '../../components/ChatPrivacyNotice.tsx'
+import { LegalLink } from '../legal/LegalLinks.tsx'
 
 interface UserDataControlsProps {
   isBusy: boolean
@@ -20,9 +21,13 @@ export function UserDataControls({ isBusy, onDeleteChats, onDeleteAccount }: Use
 
   return <>
     <div className="space-y-7">
-      <div>
+      <div id="setting-privacy-policy" tabIndex={-1} className="settings-target">
         <h3 className="mb-3 font-semibold">Chat history and AI privacy</h3>
         <ChatPrivacyNotice />
+      </div>
+      <div id="setting-terms-of-service" tabIndex={-1} className="settings-target">
+        <h3 className="mb-3 font-semibold">Using AskRabbi</h3>
+        <p className="text-sm leading-6 text-muted sm:text-base">Our <LegalLink document="terms-of-service" /> explain acceptable use, AI limitations, source rights, and your responsibilities.</p>
       </div>
       <div id="setting-delete-chats" tabIndex={-1} className="settings-target flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-[27rem]">
@@ -39,7 +44,7 @@ export function UserDataControls({ isBusy, onDeleteChats, onDeleteAccount }: Use
         <button type="button" disabled={isBusy} onClick={() => setAction('account')} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-pomegranate/35 px-4 font-semibold text-pomegranate transition hover:bg-pomegranate/10 disabled:cursor-wait disabled:opacity-50"><UserRoundX aria-hidden="true" className="size-4" />Delete account</button>
       </div>
     </div>
-    <p className="mt-3 text-sm leading-6 text-muted sm:text-base">These actions cannot be undone. Deleting AskRabbi does not delete your Google account. Service backups and security logs follow separate retention policies.</p>
+    <p className="mt-3 text-sm leading-6 text-muted sm:text-base">These actions cannot be undone. Deleting AskRabbi does not delete your Google account. Service backups and security logs may be retained separately as explained in our <LegalLink document="privacy-policy" section="retention">retention and deletion policy</LegalLink>.</p>
     {isBusy ? <p className="mt-3 text-ink-soft" role="status">Wait for your current answer or account update to finish before deleting data.</p> : null}
     {chatsDeleted ? <p className="mt-3 font-semibold text-ink" role="status">All chats deleted. Your account and settings were kept.</p> : null}
     {action === 'chats' ? <ConfirmDeletionDialog title="Delete all chats?" description="Every saved conversation and its messages will be permanently deleted, including chats not currently visible in the sidebar. This cannot be undone." confirmationPhrase="DELETE ALL CHATS" confirmLabel="Delete all chats" onConfirm={deleteChats} onClose={() => setAction(null)} /> : null}

@@ -29,7 +29,9 @@ describe('LoginPage', () => {
     expect(screen.getByText(/We and our service providers may retain and review questions and answers/)).toHaveTextContent('detect abuse, investigate safety issues, and protect the service')
     expect(screen.getByText(/records kept for security and abuse prevention may be retained separately/)).toBeVisible()
     expect(disclosure.closest('details')).not.toHaveTextContent(/Azure|OpenAI|Microsoft/i)
-    expect(disclosure.closest('details')?.querySelector('a')).toBeNull()
+    expect(disclosure.closest('details')?.querySelector('a')).toHaveAttribute('href', '/privacy-policy')
+    expect(screen.getByText(/By continuing with Google or email, or creating an account/)).toBeVisible()
+    expect(screen.getByRole('link', { name: /Terms of Service/ })).toHaveAttribute('href', '/terms-of-service')
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
 
     await user.click(disclosure)
