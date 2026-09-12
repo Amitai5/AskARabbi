@@ -11,7 +11,7 @@ export function TeachingReadButton({ progress, weekKey, title }: { progress: Tea
       title={progress.offline ? 'Connect to update your reading progress' : label}
       className={`reading-nonessential inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate disabled:cursor-not-allowed disabled:opacity-55 ${isRead ? 'border-pomegranate/30 bg-pomegranate/5 text-pomegranate' : 'border-line-strong bg-paper text-ink-soft hover:border-pomegranate/45 hover:text-pomegranate'}`}>
       {pending ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : isRead ? <Check aria-hidden="true" className="size-4" /> : <BookOpen aria-hidden="true" className="size-4" />}
-      {pending ? 'Saving…' : isRead ? 'Read · Mark as unread' : 'Mark as read'}
+      {pending ? 'Saving…' : isRead ? <span>Read<span className="hidden sm:inline"> · Mark as unread</span></span> : 'Mark as read'}
     </button>
   )
 }

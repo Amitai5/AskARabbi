@@ -251,15 +251,15 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <section ref={scrollAreaRef} data-reading-scroll className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-8" aria-label="Weekly Dvar Torah">
-          <div className="reading-column enter-softly mx-auto w-full max-w-[54rem] pb-16 pt-7 sm:pt-9">
+          <div className="reading-column enter-softly mx-auto w-full max-w-[54rem] pb-10 pt-4 sm:pb-16 sm:pt-9">
             <header className="reading-nonessential flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-              <p className="text-[length:max(0.875rem,14px)] font-semibold uppercase tracking-[0.12em] text-pomegranate">Weekly Dvar Torah</p>
-              {offlineSavedAt ? null : <nav className="readable-menu flex w-fit max-w-full rounded-xl bg-stone/65 p-1" aria-label="Weekly learning">
-              <button type="button" aria-pressed={view === 'current'} onClick={showCurrentTeaching} className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg px-3.5 text-[length:max(0.875rem,14px)] font-semibold transition ${view === 'current' ? 'bg-paper text-ink shadow-sm' : 'text-ink-soft hover:text-pomegranate'}`}>
+              <p className="hidden text-[length:max(0.875rem,14px)] font-semibold uppercase tracking-[0.12em] text-pomegranate sm:block">Weekly Dvar Torah</p>
+              {offlineSavedAt ? null : <nav className="readable-menu grid w-full grid-cols-2 rounded-xl bg-stone/65 p-1 sm:flex sm:w-fit" aria-label="Weekly learning">
+              <button type="button" aria-pressed={view === 'current'} onClick={showCurrentTeaching} className={`inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-lg px-1 text-[length:max(0.875rem,14px)] font-semibold transition sm:px-3.5 ${view === 'current' ? 'bg-paper text-ink shadow-sm' : 'text-ink-soft hover:text-pomegranate'}`}>
                 <BookOpenText aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 This week
               </button>
-              <button type="button" aria-pressed={view !== 'current'} onClick={showArchive} className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg px-3.5 text-[length:max(0.875rem,14px)] font-semibold transition ${view !== 'current' ? 'bg-paper text-ink shadow-sm' : 'text-ink-soft hover:text-pomegranate'}`}>
+              <button type="button" aria-pressed={view !== 'current'} onClick={showArchive} className={`inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-lg px-1 text-[length:max(0.875rem,14px)] font-semibold transition sm:px-3.5 ${view !== 'current' ? 'bg-paper text-ink shadow-sm' : 'text-ink-soft hover:text-pomegranate'}`}>
                 <BookMarked aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 Past teachings
               </button>
@@ -331,7 +331,7 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
   const sourceNumbersById = useMemo(() => new Map(article.sources.map((source, index) => [source.sourceId, index + 1])), [article.sources])
   const readingMinutes = estimateReadingMinutes(article.audio?.durationMs)
   return (
-    <article ref={articleRef} data-reading-target={readingId} data-reading-focused={reading.isFocused} className="teaching-article mt-7" aria-label={normalizeDvarTorahText(article.title)}>
+    <article ref={articleRef} data-reading-target={readingId} data-reading-focused={reading.isFocused} className="teaching-article mt-5 sm:mt-7" aria-label={normalizeDvarTorahText(article.title)}>
       {!showFallbackNotice ? null : (
         <p className="mb-6 rounded-lg border border-brass/40 bg-brass/5 px-4 py-3 text-sm leading-6 text-ink-soft">
           This week’s teaching is still being prepared. Here is the latest available Dvar Torah.
@@ -340,19 +340,19 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
 
       <header>
         <h1 id="weekly-dvar-torah-title" className="max-w-[47rem] text-balance font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} words={titleWords} onSelectWord={selectWord} /></h1>
-        <div className="mt-5"><WeekDetails week={article.week} /></div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="mt-3 sm:mt-5"><WeekDetails week={article.week} /></div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 sm:mt-4">
           {readingMinutes === null ? article.audio == null ? <span className="text-[length:max(0.875rem,14px)] text-muted">Audio is not available for this teaching yet.</span> : null : (
             <p aria-label="Estimated reading time" title={`Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="inline-flex items-center gap-2 text-[length:max(0.875rem,14px)] text-muted">
               <Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read<span className="sr-only"> · Based on audio at 1×</span>
             </p>
           )}
-          <div className="readable-menu reading-nonessential flex flex-wrap gap-2"><TeachingReadButton progress={progress} weekKey={article.week.weekKey} title={title} /><PrintAction label="Print teaching" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" /> : null}</div>
+          <div role="group" aria-label="Teaching actions" className="readable-menu reading-nonessential flex flex-wrap gap-2"><TeachingReadButton progress={progress} weekKey={article.week.weekKey} title={title} /><PrintAction label="Print teaching" hideLabelOnMobile className="min-w-[44px]" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" hideLabelOnMobile /> : null}</div>
         </div>
       </header>
       {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
-      {timings === null ? null : <p className="mt-4 text-sm text-muted">Click any word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
-      <div className="reading-content teaching-body mt-8 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-5 sm:pl-7">
+      {timings === null ? null : <p className="mt-3 text-sm text-muted sm:mt-4">Select a word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
+      <div className="reading-content teaching-body mt-5 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-3 sm:mt-8 sm:pl-7">
         {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} words={bodyWords} onSelectWord={selectWord} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}
@@ -399,7 +399,7 @@ function DvarTorahArchive({ archive, progress, readStatus, onReadStatusChange, s
         <div className="mt-2 flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" strokeWidth={1.8} />
-            <input id="dvar-torah-archive-search" type="search" maxLength={120} value={searchDraft} onChange={(event) => onSearchDraftChange(event.target.value)} placeholder="Try ‘Nitzavim’ or ‘community’" className="h-12 w-full rounded-xl border border-line-strong bg-paper pl-10 pr-3 text-sm text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15" />
+            <input id="dvar-torah-archive-search" type="search" maxLength={120} value={searchDraft} onChange={(event) => onSearchDraftChange(event.target.value)} placeholder="Try ‘Nitzavim’ or ‘community’" className="h-12 w-full rounded-xl border border-line-strong bg-paper pl-10 pr-3 text-base text-ink shadow-sm transition placeholder:text-muted/70 hover:border-ink/35 focus:border-pomegranate focus:outline-none focus:ring-2 focus:ring-pomegranate/15 sm:text-sm" />
           </div>
           <button type="submit" disabled={isLoading} className="h-12 shrink-0 rounded-xl bg-pomegranate px-5 text-sm font-semibold text-white transition hover:bg-pomegranate-dark disabled:cursor-wait disabled:opacity-60">Search</button>
         </div>
@@ -414,8 +414,8 @@ function DvarTorahArchive({ archive, progress, readStatus, onReadStatusChange, s
         )}
       </form>
 
-      <div className="mt-4 flex flex-wrap gap-1 rounded-xl border border-line bg-stone/50 p-1 w-fit" role="group" aria-label="Filter teachings by reading status">
-        {(['all', 'unread', 'read'] as const).map(status => <button key={status} type="button" aria-pressed={readStatus === status} onClick={() => { if (status !== readStatus) { onReadStatusChange(status) } }} className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate ${readStatus === status ? 'bg-paper text-pomegranate shadow-sm ring-1 ring-line' : 'text-ink-soft hover:text-pomegranate'}`}>{status === 'all' ? 'All teachings' : status === 'unread' ? 'Unread' : 'Read'}</button>)}
+      <div className="mt-4 grid w-full max-w-[46rem] grid-cols-[1.4fr_1fr_1fr] gap-1 rounded-xl border border-line bg-stone/50 p-1 sm:flex sm:w-fit" role="group" aria-label="Filter teachings by reading status">
+        {(['all', 'unread', 'read'] as const).map(status => <button key={status} type="button" aria-pressed={readStatus === status} onClick={() => { if (status !== readStatus) { onReadStatusChange(status) } }} className={`min-h-11 rounded-lg px-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate sm:px-4 ${readStatus === status ? 'bg-paper text-pomegranate shadow-sm ring-1 ring-line' : 'text-ink-soft hover:text-pomegranate'}`}>{status === 'all' ? 'All teachings' : status === 'unread' ? 'Unread' : 'Read'}</button>)}
       </div>
 
       {articleError === null ? null : <p className="mt-5 max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{articleError}</p>}
@@ -528,15 +528,15 @@ function WeekDetails({ week }: { week: DvarTorahWeek }) {
   const readingName = getReadingName(parashah, holiday)
 
   return (
-    <div role="group" aria-label="Teaching details" className="space-y-2 text-[length:max(0.9375rem,14px)] text-muted">
+    <div role="group" aria-label="Teaching details" className="space-y-1 text-[length:max(0.875rem,14px)] text-muted sm:space-y-2 sm:text-[length:max(0.9375rem,14px)]">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-semibold text-ink-soft">
         <span className="inline-flex items-center gap-2"><BookOpenText aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />{readingName}</span>
         {!parashah || !holiday ? null : <span>{holiday}</span>}
+        <span className="font-normal text-muted">{week.inIsrael ? 'Israel' : 'Diaspora'}</span>
       </p>
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2"><CalendarDays aria-hidden="true" className="size-4" strokeWidth={1.7} /><time dateTime={week.shabbatDate}>{formatShabbatDate(week.shabbatDate)}</time></span>
         <span>{normalizeDvarTorahText(week.hebrewDate)}</span>
-        <span>{week.inIsrael ? 'Israel' : 'Diaspora'}</span>
       </p>
     </div>
   )

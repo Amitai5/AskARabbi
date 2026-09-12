@@ -377,6 +377,10 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
       return
     }
 
+    openNewConversation('')
+  }
+
+  function openNewConversation(initialDraft: string) {
     rememberSelectedConversation()
     selectionRequestId.current += 1
     shouldScrollToLatestRef.current = true
@@ -388,8 +392,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setIsLoadingConversation(false)
     setSourceReaderSelection(null)
     setUnsavedSourceKeys([...AllSourceKeys])
-    setDraft('')
-    newDraft.current = ''
+    setDraft(initialDraft)
+    newDraft.current = initialDraft
     setDraftNotice(null)
     setIsMobileSidebarOpen(false)
     navigateView('conversation')
@@ -721,6 +725,13 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setComposerFocusKey(key => key + 1)
   }
 
+  function prepareNewQuestion(question: string) {
+    if (!navigator.onLine || isChatDisabled || isLoadingConversation || isLoadingConversations) { return }
+    openNewConversation(question)
+    setDraftNotice('Question prepared in a new conversation. Edit it or send when you’re ready.')
+    setComposerFocusKey(key => key + 1)
+  }
+
   function handleSelectedSourceKeysChange(sourceKeys: string[]) {
     if (!navigator.onLine || isChatDisabled || isSending) {
       return
@@ -836,11 +847,11 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
         {activeView === 'dvarTorah' ? (
           <Suspense fallback={<DvarTorahLoading />}>
-            <WeeklyDvarTorahPage key={restoreKey} client={dvarTorahClient} initialRoute={restoredRoute.teaching} onNavigate={(route: TeachingRoute) => writePageUrl(teachingPath(route))} onAsk={prepareQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} />
+            <WeeklyDvarTorahPage key={restoreKey} client={dvarTorahClient} initialRoute={restoredRoute.teaching} onNavigate={(route: TeachingRoute) => writePageUrl(teachingPath(route))} onAsk={prepareNewQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} />
           </Suspense>
         ) : activeView === 'calendar' ? (
           <Suspense fallback={<p role="status" className="p-8 text-muted">Loading calendar…</p>}>
-            <CalendarPage key={restoreKey} client={calendarClient} initialDays={restoredRoute.days} initialSearch={restoredRoute.search} onNavigate={(days, search) => writePageUrl(calendarPath(days, search), true)} onAsk={prepareQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} onOpenPersonalization={handleOpenPersonalization} />
+            <CalendarPage key={restoreKey} client={calendarClient} initialDays={restoredRoute.days} initialSearch={restoredRoute.search} onNavigate={(days, search) => writePageUrl(calendarPath(days, search), true)} onAsk={prepareNewQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} onOpenPersonalization={handleOpenPersonalization} />
           </Suspense>
         ) : activeView === 'settings' ? (
           <UnifiedSettingsPage section={settingsSection} targetSetting={targetSetting} navigationKey={settingsNavigationKey} profile={personalizationProfile} client={conversationSettingsClient} onSavePersonalization={handleSavePersonalization} user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} isDataBusy={pendingQuestions.size > 0 || isLoadingConversations} onDeleteChats={handleDeleteAllChats} onDeleteAccount={deleteAccount} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />

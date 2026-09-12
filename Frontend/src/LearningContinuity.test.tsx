@@ -8,10 +8,11 @@ import { StarterQuestions } from './features/conversations/StarterQuestions.tsx'
 import type { ConversationClient } from './features/conversations/conversationClient.ts'
 import type { DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
 import type { WeeklyDvarTorahArticle } from './features/dvarTorah/dvarTorahTypes.ts'
+import { AllSourceKeys } from './features/conversations/sourceOptions.ts'
 
 const Article: WeeklyDvarTorahArticle = {
   week: { weekKey: 'diaspora:2026-09-05', shabbatDate: '2026-09-05', hebrewDate: '23 Elul 5786', parashah: 'Nitzavim', holiday: null, inIsrael: false },
-  title: 'Choosing life together', body: 'A lesson for us all.', sources: [], tags: [], centralTeaching: null, torahGroundingPercent: null,
+  title: 'Choosing life together', body: 'A lesson for us all [TA].', sources: [{ sourceId: 'TA', kind: 'Torah', title: 'Deuteronomy', publisher: 'JPS 1917', canonicalReference: 'Deuteronomy 30:19', sourceUrl: 'https://www.sefaria.org/Deuteronomy.30.19', excerpt: 'Choose life.', license: 'Public Domain', retrievedAtUtc: '2026-09-04T12:00:00Z', publishedAtUtc: null }], tags: [], centralTeaching: null, torahGroundingPercent: null,
   generatedAtUtc: '2026-09-04T12:00:00Z', publishedAtUtc: '2026-09-04T12:00:00Z',
 }
 function teachingClient(): DvarTorahClient {
@@ -182,22 +183,79 @@ describe('Learning continuity', () => {
     expect(window.location.pathname).toMatch(/^\/conversations\/(?!new)/)
   })
 
-  it('prepares the exact holiday reference and dates while preserving a draft', async () => {
+  it.each(['next holiday', 'upcoming holidays'])('starts a fresh conversation from %s and keeps the previous conversation draft', async placement => {
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const append = vi.fn(clients.conversationClient.appendMessage)
-    render(<App {...clients} conversationClient={{ ...clients.conversationClient, appendMessage: append }} calendarClient={fakeCalendarClient()} />)
+    const create = vi.fn(clients.conversationClient.createWithMessage)
+    render(<App {...clients} conversationClient={{ ...clients.conversationClient, appendMessage: append, createWithMessage: create }} calendarClient={fakeCalendarClient()} />)
     await signIn(user)
     await user.type(screen.getByLabelText('Message AskRabbi'), 'My unfinished question')
     await user.click(screen.getByRole('button', { name: 'Jewish Calendar' }))
-    const highlight = await screen.findByRole('region', { name: 'Rosh Hashanah' })
-    await user.click(within(highlight).getByRole('button', { name: 'Ask about this: Rosh Hashanah' }))
+    const section = await screen.findByRole('region', { name: placement === 'next holiday' ? 'Rosh Hashanah' : 'Upcoming holidays' })
+    if (placement === 'upcoming holidays') { await user.click(within(section).getByRole('heading', { name: 'Rosh Hashanah' })) }
+    await user.click(within(section).getByRole('button', { name: 'Ask about this: Rosh Hashanah' }))
     const draft = screen.getByLabelText('Message AskRabbi') as HTMLTextAreaElement
-    expect(draft.value).toContain('My unfinished question\n\n')
+    const question = draft.value
+    expect(window.location.pathname).toBe('/conversations/new')
+    expect(question).not.toContain('My unfinished question')
     expect(draft.value).toContain(RoshHashanah.sourceUrl)
     expect(draft.value).toContain(RoshHashanah.startDate)
     expect(draft).toHaveFocus()
+    expect(create).not.toHaveBeenCalled()
     expect(append).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Chicken and dairy', current: 'page' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Chicken and dairy' }))
+    expect(await screen.findByLabelText('Message AskRabbi')).toHaveValue('My unfinished question')
+    act(() => { window.history.back() })
+    await waitFor(() => expect(screen.getByLabelText('Message AskRabbi')).toHaveValue(question))
+    expect(window.location.pathname).toBe('/conversations/new')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.any(String), question, AllSourceKeys))
+    expect(append).not.toHaveBeenCalled()
+  })
+
+  it('prepares a teaching source question in a new conversation, not the selected chat', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    const append = vi.fn(clients.conversationClient.appendMessage)
+    const create = vi.fn(clients.conversationClient.createWithMessage)
+    render(<App {...clients} conversationClient={{ ...clients.conversationClient, appendMessage: append, createWithMessage: create }} dvarTorahClient={teachingClient()} />)
+    await signIn(user)
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'Keep my chat draft')
+    await user.click(screen.getByRole('button', { name: 'This week’s Dvar Torah' }))
+    await user.click(await screen.findByRole('button', { name: 'View source 1' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Source reader' })).getByRole('button', { name: 'Ask about this: Deuteronomy 30:19' }))
+    expect(window.location.pathname).toBe('/conversations/new')
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('Can you explain Deuteronomy 30:19 and its context?\nSource: https://www.sefaria.org/Deuteronomy.30.19')
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveFocus()
+    expect(screen.queryByRole('dialog', { name: 'Source reader' })).not.toBeInTheDocument()
+    expect(create).not.toHaveBeenCalled()
+    expect(append).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Chicken and dairy' }))
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue('Keep my chat draft')
+  })
+
+  it('does not reopen an earlier answer when it finishes after a calendar question starts a new draft', async () => {
+    const user = userEvent.setup()
+    const clients = createDemoApplicationClients()
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const append: ConversationClient['appendMessage'] = async (...args) => { await gate; return clients.conversationClient.appendMessage(...args) }
+    render(<App {...clients} conversationClient={{ ...clients.conversationClient, appendMessage: append }} calendarClient={fakeCalendarClient()} />)
+    await signIn(user)
+    await user.type(screen.getByLabelText('Message AskRabbi'), 'Earlier question')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await user.click(screen.getByRole('button', { name: 'Jewish Calendar' }))
+    const highlight = await screen.findByRole('region', { name: 'Rosh Hashanah' })
+    await user.click(within(highlight).getByRole('button', { name: 'Ask about this: Rosh Hashanah' }))
+    const question = (screen.getByLabelText('Message AskRabbi') as HTMLTextAreaElement).value
+    await act(async () => release())
+    await screen.findByText('Answer ready')
+    expect(window.location.pathname).toBe('/conversations/new')
+    expect(screen.getByLabelText('Message AskRabbi')).toHaveValue(question)
+    expect(screen.queryByRole('button', { name: 'Chicken and dairy', current: 'page' })).not.toBeInTheDocument()
   })
 
   it('prepares a source reference without sending and closes the source reader', async () => {
