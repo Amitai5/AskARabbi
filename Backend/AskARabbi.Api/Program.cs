@@ -97,7 +97,8 @@ builder.Services.AddSingleton<ICalendarSolarTimesProvider, HebcalSolarTimesProvi
 builder.Services.AddScoped<CalendarPreferencesService>();
 builder.Services.AddScoped<CalendarOverviewService>();
 builder.Services.AddSingleton<CalendarAITools>();
-builder.Services.AddSingleton<IAIToolRegistry>(provider => new AIToolRegistry([provider.GetRequiredService<CalendarAITools>()]));
+builder.Services.AddSingleton<BdbDictionaryAITools>();
+builder.Services.AddSingleton<IAIToolRegistry>(provider => new AIToolRegistry([provider.GetRequiredService<CalendarAITools>(), provider.GetRequiredService<BdbDictionaryAITools>()]));
 var weeklyDvarTorahOptions = builder.Configuration.GetSection(WeeklyDvarTorahOptions.SectionName).Get<WeeklyDvarTorahOptions>() ?? new WeeklyDvarTorahOptions();
 weeklyDvarTorahOptions.Validate();
 builder.Services.AddSingleton(weeklyDvarTorahOptions);

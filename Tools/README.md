@@ -1,5 +1,11 @@
 # AskARabbi corpus tools
 
+## Local BDB dictionary
+
+[`AskARabbi.DictionaryImporter`](AskARabbi.DictionaryImporter/README.md) downloads and verifies an immutable, original BDB edition, then explicitly imports it into the application's separate MongoDB `lexiconEntries` collection. It does not generate answer files, upload a dictionary to an AI provider, or modify the Sefaria corpus. See its README for review metadata, import commands, supported indexes, and production rollout precautions.
+
+## Managed religious corpus
+
 `AskARabbi.CorpusPublisher` is the reviewed, reproducible path from checksum-verified normalized Sefaria Markdown to an Azure OpenAI managed vector store. It never asks an Assistant to answer a question and never accepts an API key or client secret.
 
 Run these commands from the repository root:

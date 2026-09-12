@@ -109,7 +109,10 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             return directReply with { Answer = directReply.Answer is { } answer ? ApplyPresentation(answer, personalization) : null };
         }
-        var mayUseTools = toolRegistry is not null && (toolRegistry.MayApply(question.Question) || ConversationDirectReply.IsCalendarDateQuestion(question.Question));
+        var hasDictionary = toolRegistry?.Definitions.Any(definition => definition.Name == "search_bdb_dictionary") == true;
+        var mayUseTools = toolRegistry is not null && (toolRegistry.MayApply(question.Question)
+            || ConversationDirectReply.IsCalendarDateQuestion(question.Question)
+            || (hasDictionary && (question.Question.Any(character => character is >= '\u05D0' and <= '\u05EA') || recentConversation.TakeLast(2).Any(turn => toolRegistry.MayApply(turn.Question)))));
         var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc);
         var prefetchedParashah = await TryPrefetchParashahAsync(question.Question, recentConversation, toolContext, cancellationToken).ConfigureAwait(false);
         if (prefetchedParashah is { Parashah: null, ToolResult: not null } && personalization.CanUseFixedEnglishCalendarWording)
@@ -190,7 +193,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         }
 
         var diagnostics = new List<AIResponseDiagnostics>();
-        var toolSession = prefetchedParashah is null && mayUseTools && toolRegistry is not null
+        // Word research may become necessary while explaining an otherwise supported passage.
+        var toolSession = toolRegistry is not null && (hasDictionary || (prefetchedParashah is null && mayUseTools))
             ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count)
             : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);

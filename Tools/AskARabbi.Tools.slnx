@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="AskARabbi.CorpusPublisher/AskARabbi.CorpusPublisher.csproj" />
+  <Project Path="AskARabbi.DictionaryImporter/AskARabbi.DictionaryImporter.csproj" />
 </Solution>

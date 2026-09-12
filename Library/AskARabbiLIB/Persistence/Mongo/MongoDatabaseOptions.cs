@@ -33,6 +33,9 @@ public sealed class MongoDatabaseOptions
     /// <summary>Gets the weekly Dvar Torah collection name.</summary>
     public string DvarTorahCollectionName { get; init; } = "WeeklyAIDvarTorahs";
 
+    /// <summary>Gets the shared, versioned dictionary collection; never contains user data.</summary>
+    public string LexiconCollectionName { get; init; } = "lexiconEntries";
+
     /// <summary>Gets whether the minimum MongoDB connection configuration is present.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ConnectionString) && !string.IsNullOrWhiteSpace(DatabaseName);
 
@@ -55,6 +58,7 @@ public sealed class MongoDatabaseOptions
         ValidateName(ConversationSettingsCollectionName, nameof(ConversationSettingsCollectionName));
         ValidateName(UsageCollectionName, nameof(UsageCollectionName));
         ValidateName(DvarTorahCollectionName, nameof(DvarTorahCollectionName));
+        ValidateName(LexiconCollectionName, nameof(LexiconCollectionName));
     }
 
     private static void ValidateName(string value, string propertyName)

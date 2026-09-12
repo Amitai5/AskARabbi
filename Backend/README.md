@@ -6,6 +6,8 @@
 
 When a source selection is omitted, new conversations use every approved source. Users can narrow that set to the core Torah, Tanakh, Mishnah, and Talmud collections or any other non-empty combination. Existing conversations retain their saved source choices.
 
+Conversations additionally have read-only BDB dictionary search and article-reading functions. The separate, shared `lexiconEntries` MongoDB collection holds original lexical entries with attribution, not generated answer files or user data. Set `MongoDB__LexiconCollectionName` to override the name consistently in both API and importer. The [explicit dictionary importer](../Tools/AskARabbi.DictionaryImporter/README.md) creates its indexes and publishes the pinned edition before use; API startup never writes dictionary data. No browser, public dictionary endpoint, new production package, or runtime dictionary API is required. BDB supports word meanings, not independent proof of later Jewish customs. Existing source filters still control religious evidence.
+
 Warm answer requests use one bounded managed-corpus search, up to 20 candidates, at most 10 evidence segments, medium answer-model reasoning, low audit-model reasoning, and separate 2,400-token answer and 1,600-token audit budgets. Successful retrievals are cached in process for 10 minutes by normalized query and source filters. The independent grounding audit, exact-quotation checks, citation validation, and fail-closed behavior remain mandatory. Account-scoped monthly admission precedes paid AI work. Each provider response updates the shared token counter, and successful titles are saved with the answer. Responses expose `Server-Timing` entries for the complete turn, retrieval, and model work.
 
 ## Projects

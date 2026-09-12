@@ -59,7 +59,7 @@ internal sealed record ConversationPersonalization(string ResponseLanguage, stri
         return MatchesLanguage(segment, "English") ? 2 : 3;
     }
 
-    internal static bool IsReligiousSource(SourceSegment segment) => segment.Collection is not "Calendar calculations" and not "Technical background";
+    internal static bool IsReligiousSource(SourceSegment segment) => segment.Collection is not "Calendar calculations" and not "Technical background" and not "Dictionaries";
 
     internal bool TryValidateQuotationLanguages(GroundedAnswerDraft draft, EvidencePacket packet, out string? error)
     {
