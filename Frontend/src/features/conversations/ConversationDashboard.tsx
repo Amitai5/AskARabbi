@@ -29,6 +29,8 @@ import { AllSourceKeys, formatSourceSelection } from './sourceOptions.ts'
 import { SourceReader } from './SourceReader.tsx'
 import { UserMessage } from './UserMessage.tsx'
 import { useOnlineStatus } from '../pwa/useOnlineStatus.ts'
+import { PrintAction } from '../printing/PrintAction.tsx'
+import { collectPrintAnswers, type PrintRequest } from '../printing/printTypes.ts'
 
 const WeeklyDvarTorahPage = lazy(() => import('../dvarTorah/WeeklyDvarTorahPage.tsx').then((module) => ({ default: module.WeeklyDvarTorahPage })))
 const CalendarPage = lazy(() => import('../calendar/CalendarPage.tsx').then((module) => ({ default: module.CalendarPage })))
@@ -261,6 +263,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const displayedMessages = pendingQuestion === null || messages.some((message) => message.id === pendingQuestion.id) ? messages : [...messages, pendingQuestion]
   const latestDisplayedMessageId = displayedMessages.at(-1)?.id ?? null
   const activeSourceReader = resolveActiveSourceReader(displayedMessages, sourceReaderSelection)
+  const getAnswerPrintRequest = useCallback((initialAnswerId?: string): PrintRequest => ({ kind: 'answers', title: normalizeConversationTitle(selectedConversation?.title), answers: collectPrintAnswers(selectedConversation?.messages ?? []), initialAnswerId }), [selectedConversation])
 
   useLayoutEffect(() => {
     if (!shouldScrollToLatestRef.current || focusedReading.target !== null || activeView !== 'conversation' || isLoadingConversations || isLoadingConversation) {
@@ -723,10 +726,11 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                     </div>
                   ) : (
                     <div className="flex-1 py-10 sm:py-14">
+                      {displayedMessages.some(message => message.role === 'Assistant' && message.content.trim()) ? <div className="reading-nonessential mx-auto mb-5 flex max-w-[46rem] justify-end"><PrintAction label="Print answers" getRequest={getAnswerPrintRequest} /></div> : null}
                       <article className="reading-column mx-auto max-w-[46rem] space-y-7 sm:space-y-9">
                         {displayedMessages.map((message) => (
                           message.role === 'Assistant'
-                            ? <AssistantMessage key={message.id} message={message} autoFocusEligible={message.id === latestDisplayedMessageId} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} />
+                            ? <AssistantMessage key={message.id} message={message} autoFocusEligible={message.id === latestDisplayedMessageId} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} getPrintRequest={getAnswerPrintRequest} />
                             : <UserMessage key={message.id} message={message} />
                         ))}
                         {isSending && isOnline ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}

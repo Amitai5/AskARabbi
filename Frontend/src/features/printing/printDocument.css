@@ -1,0 +1,81 @@
+:root { color-scheme: light; font-family: Georgia, 'Times New Roman', serif; color: #182637; background: #e9e6e0; font-synthesis: none; text-rendering: optimizeLegibility; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; text-decoration: none; }
+.print-document { --body-size: 11.5pt; width: 100%; max-width: 216mm; margin: 0 auto; padding: 16mm; background: #fff; font-size: var(--body-size); line-height: 1.55; overflow-wrap: anywhere; }
+.print-size-large { --body-size: 14pt; }
+.print-paper-a4 { max-width: 210mm; }
+.print-masthead { display: flex; align-items: center; justify-content: space-between; gap: 8mm; padding-bottom: 5mm; border-bottom: 1pt solid #a92d43; margin-bottom: 8mm; }
+.print-masthead > span, .print-eyebrow, .print-subtitle, .print-small, .print-source-details, .print-source-credit, .print-disclaimer, .print-watermark, th, .print-table-note { font-family: Arial, 'Segoe UI', sans-serif; }
+.print-masthead > span { font-size: 8pt; letter-spacing: 0.1em; text-transform: uppercase; text-align: right; color: #53606b; }
+.print-brand { display: inline-flex; align-items: center; gap: 2.5mm; font-size: 18pt; white-space: nowrap; }
+.print-book { position: relative; display: inline-flex; flex-shrink: 0; }
+.print-book svg { width: 8mm; height: 8mm; }
+.print-title { margin-bottom: 7mm; }
+.print-eyebrow { color: #924050; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; margin: 0 0 3mm; }
+h1, h2, h3, h4 { font-weight: normal; break-after: avoid; page-break-after: avoid; }
+h1 { margin: 0 0 4mm; font-size: 27pt; line-height: 1.16; letter-spacing: -0.02em; }
+h2 { margin: 7mm 0 3mm; font-size: 16pt; line-height: 1.25; }
+h3 { font-size: 13pt; margin: 5mm 0 2mm; line-height: 1.35; }
+h4 { font: bold 9pt Arial, sans-serif; margin: 3mm 0 1.5mm; }
+p { margin: 0 0 3.5mm; white-space: pre-line; orphans: 3; widows: 3; }
+p:last-child { margin-bottom: 0; }
+li { orphans: 2; widows: 2; }
+ul, ol { padding-inline-start: 6mm; margin: 3mm 0; }
+.print-subtitle { font-size: 9.5pt; line-height: 1.65; color: #53606b; }
+.print-answer + .print-answer { margin-top: 10mm; padding-top: 6mm; border-top: 1pt solid #bfc5c8; }
+.print-section-heading { font: bold 9pt Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.12em; margin: 0 0 4mm; color: #924050; }
+.print-question { border-left: 2pt solid #bca16c; padding: 2mm 0 2mm 5mm; margin-bottom: 6mm; }
+.print-prose { line-height: 1.6; }
+.print-citation { font: bold 8.5pt Arial, sans-serif; color: #91374a; vertical-align: super; line-height: 0; white-space: nowrap; }
+.print-takeaway { border-top: 0.6pt solid #c3b38e; border-bottom: 0.6pt solid #c3b38e; padding: 3mm 0; margin: 5mm 0; }
+.print-takeaway h2 { margin-top: 0; }
+.print-sources { margin-top: 8mm; padding-top: 3mm; border-top: 1pt solid #bfc5c8; }
+.print-sources > h2 { margin-top: 2mm; }
+.print-sources > ol { list-style: none; padding: 0; }
+.print-source { margin: 0 0 6mm; padding-top: 1mm; }
+.print-source h3 { margin: 0 0 1.5mm; font-size: 11pt; font-weight: bold; }
+.print-source-number { font-family: Arial, sans-serif; color: #91374a; }
+.print-source-details { font-size: 8.5pt; color: #53606b; margin-bottom: 2.5mm; }
+.print-hebrew { font-family: 'Times New Roman', Arial, serif; font-size: 12pt; }
+blockquote { margin: 3mm 0 3mm 3mm; padding-inline-start: 4mm; border-inline-start: 1pt solid #bca16c; font-size: calc(var(--body-size) - 1pt); line-height: 1.5; }
+.print-source-context { font-size: calc(var(--body-size) - 1pt); }
+.print-source-credit { font-size: 8pt; line-height: 1.5; color: #57616b; overflow-wrap: anywhere; }
+.print-source-credit a { text-decoration: underline; text-underline-offset: 1.5pt; }
+.print-calendar-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; padding: 5mm 0; border-block: 0.6pt solid #c3b38e; margin-bottom: 7mm; break-inside: avoid; }
+.print-calendar-summary h2 { margin-top: 0; }
+.print-small { font-size: 8.5pt; line-height: 1.5; color: #53606b; margin: 2mm 0; }
+.print-notice { font: 9pt/1.5 Arial, sans-serif; padding: 3mm 4mm; border-left: 2pt solid #9c7138; margin: 4mm 0; }
+table { width: 100%; border-collapse: collapse; font-size: 10pt; margin: 4mm 0; }
+.print-layout { margin: 0; font-size: inherit; }
+.print-layout > tbody > tr { break-inside: auto; }
+.print-layout > tbody > tr > td, .print-layout > tfoot > tr > td { width: auto; padding: 0; border: 0; text-align: inherit; white-space: normal; }
+th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; color: #53606b; border-bottom: 1pt solid #88959f; padding: 2mm; }
+td { vertical-align: top; padding: 3mm 2mm; border-bottom: 0.5pt solid #d5d8d9; }
+th:first-child, td:first-child { width: 26%; padding-left: 0; }
+th:last-child, td:last-child { width: 18%; white-space: nowrap; text-align: right; padding-right: 0; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+.print-table-note { display: block; color: #53606b; font-size: 8pt; line-height: 1.4; margin-top: 1mm; }
+.print-holiday { padding: 4mm 0; border-top: 0.5pt solid #d5d8d9; }
+.print-holiday h3 { margin: 0 0 2mm; font-size: 15pt; }
+.print-holiday-date { font-size: 10pt; font-weight: bold; margin-bottom: 3mm; }
+.print-holiday-date span { font-size: 9pt; font-weight: normal; color: #53606b; }
+.print-holiday-occurrences { font-size: 9pt; }
+.print-notes { margin-top: 8mm; break-inside: avoid; }
+.print-notes h2 { font-size: 13pt; }
+.print-notes > div { height: 9mm; border-bottom: 0.5pt solid #c5cbd0; }
+.print-disclaimer { font-size: 8pt; line-height: 1.5; color: #59646d; border-top: 0.5pt solid #d5d8d9; padding-top: 3mm; margin-top: 5mm; break-before: avoid; }
+.print-watermark { display: flex; justify-content: flex-end; font-size: 8.5pt; color: #65717a; padding-top: 5mm; }
+.print-watermark a { display: inline-flex; gap: 2mm; align-items: center; }
+.print-watermark .print-book svg { width: 5.5mm; height: 5.5mm; }
+@media screen and (max-width: 560px) { .print-document { padding: 7mm; } h1 { font-size: 22pt; } .print-calendar-summary { grid-template-columns: 1fr; gap: 3mm; } }
+@media print {
+  :root, body { background: #fff; color: #182637; }
+  .print-document { width: auto; max-width: none; padding: 0; margin: 0; }
+  .print-masthead, .print-calendar-summary, .print-notes { break-inside: avoid; }
+  .print-prose > p, .print-question, .print-source, .print-holiday { break-inside: avoid; }
+  .print-new-page { break-before: page; border-top: 0 !important; margin-top: 0 !important; padding-top: 0 !important; }
+  /* A repeating table footer reserves real space on each page, unlike a fixed overlay. */
+  .print-layout > tfoot { display: table-footer-group; break-inside: avoid; }
+}

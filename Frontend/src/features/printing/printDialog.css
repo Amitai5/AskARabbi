@@ -1,0 +1,5 @@
+.study-print-dialog::backdrop { background: rgb(16 35 63 / 0.55); backdrop-filter: blur(3px); }
+.study-print-dialog iframe { color-scheme: light; }
+.study-print-dialog .text-sm { font-size: 14px; line-height: 1.5; }
+.study-print-dialog .text-xs { font-size: 12px; line-height: 1.5; }
+.study-print-dialog .text-base { font-size: 15px; }

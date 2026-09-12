@@ -3,11 +3,13 @@ import { HolidayAgenda } from '../calendar/HolidayAgenda.tsx'
 import { AllCalendarFilters, type CalendarRange } from '../calendar/calendarTypes.ts'
 import { formatCivilDate } from '../calendar/calendarFormatting.ts'
 import { OfflineLibraryChanged, readOfflineLibrary, type SavedHolidayCalendar } from './offlineLibrary.ts'
+import { PrintAction } from '../printing/PrintAction.tsx'
 
 export function OfflineHolidayCalendar() {
   const [saved, setSaved] = useState<SavedHolidayCalendar | null>(null)
   const [loading, setLoading] = useState(true)
   const [days, setDays] = useState<CalendarRange>(90)
+  const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ ...AllCalendarFilters })
   const [revision, setRevision] = useState(0)
   useEffect(() => {
@@ -30,7 +32,8 @@ export function OfflineHolidayCalendar() {
     <p role="status" className="mb-6 rounded-lg bg-stone p-4 text-sm leading-6">{loading ? 'Opening saved holidays…' : saved ? `Saved holidays · ${saved.inIsrael ? 'Israel' : 'Diaspora'} · Available through ${formatCivilDate(saved.endDate)}. Reconnect for current calendar dates and local times. The list uses this device’s date.` : 'No holidays saved on this device yet. Sign in on a good connection to save the next 360 days. Reconnect for current calendar dates and local times.'}</p>
     {saved ? <>
       {today > saved.endDate || today < saved.startDate ? <p role="status" className="mb-4 text-sm text-pomegranate">This saved schedule does not cover today. Reconnect on a good connection to update it.</p> : null}
-      <HolidayAgenda days={days} onRange={setDays} filters={filters} onFilters={setFilters} events={saved.events} startDate={today} />
+      <div className="mb-5 flex justify-end"><PrintAction label="Print saved calendar" getRequest={() => ({ kind: 'calendar', calendar: { startDate: today, days, events: saved.events, filters, search, inIsrael: saved.inIsrael, savedNote: `Saved ${formatCivilDate(saved.savedAt.slice(0, 10))}. Available through ${formatCivilDate(saved.endDate)}. The range uses this device’s date. Reconnect for current calendar dates and local times.` } })} /></div>
+      <HolidayAgenda days={days} onRange={setDays} onSearch={setSearch} filters={filters} onFilters={setFilters} events={saved.events} startDate={today} />
       <p className="mt-5 text-xs leading-6 text-muted">Saved {new Date(saved.savedAt).toLocaleDateString()}. Local candle-lighting and sunset times require a connection. Holiday data: <a href="https://www.hebcal.com/home/developer-apis" target="_blank" rel="noreferrer" className="text-pomegranate underline">Hebcal</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" className="underline">CC BY 4.0</a> (links need a connection).</p>
     </> : null}
   </div>

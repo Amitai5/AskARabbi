@@ -6,6 +6,7 @@ import { selectHolidayAgenda } from './calendarAgenda.ts'
 import { HolidayDetails } from './HolidayDetails.tsx'
 
 interface Props {
+  onSearch?(query: string): void
   days: CalendarRange
   onRange(days: CalendarRange): void
   events: CalendarEvent[]
@@ -17,9 +18,10 @@ interface Props {
   isAvailable?: boolean
 }
 
-export function HolidayAgenda({ days, onRange, events, startDate, filters, onFilters, disabled = false, notice, isAvailable = true }: Props) {
+export function HolidayAgenda({ days, onRange, events, startDate, filters, onFilters, disabled = false, notice, isAvailable = true, onSearch }: Props) {
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [query, setQuery] = useState('')
+  const [query, setQueryValue] = useState('')
+  function setQuery(value: string) { setQueryValue(value); onSearch?.(value) }
   const filterId = useId()
   const searchId = useId()
   const searchInput = useRef<HTMLInputElement>(null)

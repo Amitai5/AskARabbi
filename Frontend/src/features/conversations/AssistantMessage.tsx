@@ -4,18 +4,21 @@ import { normalizeDisplayText } from '../../displayText.ts'
 import type { ConversationMessage, ConversationSource } from './conversationData.ts'
 import { FocusReadingButton } from '../reading/FocusedReading.tsx'
 import { useReadingTarget } from '../reading/focusedReadingContext.ts'
+import { PrintAction } from '../printing/PrintAction.tsx'
+import { collectPrintAnswers, type PrintRequest } from '../printing/printTypes.ts'
 
 interface AssistantMessageProps {
   autoFocusEligible?: boolean
   message: ConversationMessage
   selectedSourceNumber: number | null
   onSelectSource(messageId: string, sourceNumber: number, trigger: HTMLButtonElement): void
+  getPrintRequest?(messageId: string): PrintRequest
 }
 
 const EmptySources: readonly ConversationSource[] = []
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
-export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource, autoFocusEligible = false }: AssistantMessageProps) {
+export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource, getPrintRequest, autoFocusEligible = false }: AssistantMessageProps) {
   const sources = message.sources ?? EmptySources
   const sourceNumbers = useMemo(() => new Set(sources.map((source) => source.number)), [sources])
   const normalizedContent = useMemo(() => normalizeDisplayText(message.content), [message.content])
@@ -48,7 +51,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
 
   return (
     <div className="conversation-message group relative border-l-2 border-pomegranate pl-5" data-message-role="assistant" data-reading-target={readingId} data-reading-focused={reading.isFocused}>
-      <div className="mb-3 flex items-center justify-between gap-3"><p className="font-display text-xl text-ink">AskRabbi</p>{reading.isLong ? <FocusReadingButton id={readingId} /> : null}</div>
+      <div className="mb-3 flex items-center justify-between gap-3"><p className="font-display text-xl text-ink">AskRabbi</p><div className="flex items-center gap-2">{reading.isLong ? <FocusReadingButton id={readingId} /> : null}<PrintAction iconOnly label="Print answer" getRequest={() => getPrintRequest?.(message.id) ?? { kind: 'answers', title: 'Conversation study copy', answers: collectPrintAnswers([message]), initialAnswerId: message.id }} /></div></div>
       <div className="reading-content space-y-4 text-base leading-7 text-ink sm:text-lg">
         {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
           <p key={`${message.id}-paragraph-${index}`} dir="auto" className="last:min-h-9 last:pr-12">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>

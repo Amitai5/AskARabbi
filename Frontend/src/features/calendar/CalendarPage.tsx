@@ -8,6 +8,7 @@ import { HolidayAgenda } from './HolidayAgenda.tsx'
 import { HolidayDetails } from './HolidayDetails.tsx'
 import { selectCalendarEvents } from './calendarAgenda.ts'
 import { OfflineHolidayCalendar } from '../pwa/OfflineHolidayCalendar.tsx'
+import { PrintAction } from '../printing/PrintAction.tsx'
 import './calendar.css'
 
 interface Props { client: CalendarClient; onOpenDvarTorah(): void; onBackToConversation?(): void; onOpenPersonalization?(): void }
@@ -15,6 +16,7 @@ const ButtonClass = 'inline-flex min-h-11 items-center justify-center gap-2 roun
 
 export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, onOpenPersonalization }: Props) {
   const [days, setDays] = useState<CalendarRange>(90)
+  const [search, setSearch] = useState('')
   const [overview, setData] = useState<CalendarOverview | null>(() => client.getCachedOverview?.(360) ?? null)
   const [settings, setSettings] = useState<CalendarPreferencesResponse | null>(() => { const cached = client.getCachedOverview?.(360); return cached ? { cities: [], preferences: cached.preferences } : null })
   const data = useMemo(() => {
@@ -83,7 +85,7 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
       {onBackToConversation ? <button type="button" onClick={onBackToConversation} className="mb-4 inline-flex min-h-10 items-center gap-2 text-sm text-ink-soft hover:text-pomegranate"><ArrowLeft className="size-4" />Back to conversation</button> : null}
       <header className="flex flex-wrap items-start justify-between gap-5 border-b border-line pb-6">
         <div><h1 id="calendar-title" ref={heading} tabIndex={-1} className="font-display text-[clamp(2.5rem,4vw,3.6rem)] leading-[1.08] tracking-[-0.035em] outline-none">Jewish Calendar</h1><p className="mt-3 text-base leading-7 text-ink-soft">Dates, holidays, and the rhythm of the Jewish year.</p></div>
-        {onOpenPersonalization ? <button type="button" onClick={onOpenPersonalization} className={ButtonClass}><Settings2 aria-hidden="true" className="size-4" />Edit location in Personalization</button> : null}
+        <div className="flex flex-wrap items-center gap-3">{data && isOnline ? <PrintAction label="Print calendar" getRequest={() => ({ kind: 'calendar', calendar: { startDate: data.today.gregorianDate, days, events: data.events, filters: settings?.preferences ?? AllCalendarFilters, search, inIsrael: data.preferences.inIsrael, overview: data } })} /> : null}{onOpenPersonalization ? <button type="button" onClick={onOpenPersonalization} className={ButtonClass}><Settings2 aria-hidden="true" className="size-4" />Edit location in Personalization</button> : null}</div>
       </header>
       {!isOnline ? <div className="mt-7"><OfflineHolidayCalendar /></div> : null}
       {error ? <div role="alert" className="my-6 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-pomegranate/5 p-4 text-sm text-pomegranate"><p>{error}</p><button type="button" onClick={retry} disabled={!isOnline} className={ButtonClass}><RefreshCw className="size-4" />Retry calendar</button></div> : null}
@@ -113,7 +115,7 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
           {data.highlight ? <section aria-labelledby="calendar-highlight" className="rounded-xl bg-stone/80 p-5 sm:p-6 xl:col-span-2"><p className="flex items-center gap-2 text-sm text-ink-soft"><CalendarDays className="size-5 text-pomegranate" />{data.highlight.isOngoing ? 'Happening now' : 'Next holiday'}</p><h2 id="calendar-highlight" className="mt-2 font-display text-3xl">{data.highlight.title}</h2><p className="mt-3 text-base">{formatEventRange(data.highlight)}</p><p className="mt-1 text-sm text-muted">{formatBeginning(data.highlight)}</p><div className="mt-3"><HolidayDetails event={data.highlight} /></div></section> : <div className="text-sm text-muted xl:col-span-2">{data.holidays.isAvailable ? 'No upcoming events match your filters.' : 'Holiday information is temporarily unavailable.'}</div>}
         </div>
         <div className="mt-7">
-          <HolidayAgenda days={days} onRange={setDays} events={data.events} startDate={data.today.gregorianDate} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
+          <HolidayAgenda days={days} onRange={setDays} onSearch={setSearch} events={data.events} startDate={data.today.gregorianDate} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
         </div>
       </> : null}
     </div>

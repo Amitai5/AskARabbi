@@ -13,6 +13,7 @@ import { useNarrationFollow } from './useNarrationFollow.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
 import { FocusReadingButton } from '../reading/FocusedReading.tsx'
 import { useReadingTarget } from '../reading/focusedReadingContext.ts'
+import { PrintAction } from '../printing/PrintAction.tsx'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
@@ -299,7 +300,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
       )}
 
       <WeekDetails week={article.week} />
-      {reading.isLong ? <div className="mt-3 flex justify-end"><FocusReadingButton id={readingId} label="Focus teaching" /></div> : null}
+      <div className="mt-3 flex flex-wrap justify-end gap-2"><PrintAction label="Print teaching" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" /> : null}</div>
       <h2 className="mt-5 max-w-[47rem] font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} words={titleWords} onSelectWord={selectWord} /></h2>
       {readingMinutes === null ? null : (
         <p aria-label="Estimated reading time" title={`Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
