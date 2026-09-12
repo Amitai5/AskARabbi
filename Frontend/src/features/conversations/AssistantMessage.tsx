@@ -1,5 +1,5 @@
-import { Check, Copy } from 'lucide-react'
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
+import { AnswerCopyButton } from './AnswerCopyButton.tsx'
 import { normalizeDisplayText } from '../../displayText.ts'
 import type { ConversationMessage, ConversationSource } from './conversationData.ts'
 import { useReadingTarget } from '../reading/focusedReadingContext.ts'
@@ -15,7 +15,6 @@ interface AssistantMessageProps {
 }
 
 const EmptySources: readonly ConversationSource[] = []
-type CopyStatus = 'idle' | 'copied' | 'failed'
 
 export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource, getPrintRequest, autoFocusEligible = false }: AssistantMessageProps) {
   const sources = message.sources ?? EmptySources
@@ -23,46 +22,20 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
   const normalizedContent = useMemo(() => normalizeDisplayText(message.content), [message.content])
   const readingId = `answer:${message.id}`
   const reading = useReadingTarget(readingId, normalizedContent, autoFocusEligible)
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
-
-  useEffect(() => {
-    if (copyStatus === 'idle') {
-      return
-    }
-
-    const resetTimeout = window.setTimeout(() => setCopyStatus('idle'), 2_000)
-    return () => window.clearTimeout(resetTimeout)
-  }, [copyStatus])
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(normalizedContent)
-      setCopyStatus('copied')
-    } catch {
-      setCopyStatus('failed')
-    }
-  }
-
-  const copyLabel = copyStatus === 'copied' ? 'Answer copied' : copyStatus === 'failed' ? 'Copy failed. Try again' : 'Copy answer'
-  const copyVisibilityClass = copyStatus === 'idle'
-    ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100'
-    : 'opacity-100'
 
   return (
-    <div className="conversation-message group relative border-l-2 border-pomegranate pl-5" data-message-role="assistant" data-reading-target={readingId} data-reading-focused={reading.isFocused}>
+    <div className="conversation-message group relative border-l-2 border-pomegranate pb-10 pl-5 sm:pb-0" data-message-role="assistant" data-reading-target={readingId} data-reading-focused={reading.isFocused}>
       <div className="mb-3"><p className="font-display text-xl text-ink">AskRabbi</p></div>
       <div className="reading-content space-y-4 text-base leading-7 text-ink sm:text-lg">
         {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
-          <p key={`${message.id}-paragraph-${index}`} dir="auto" className="last:min-h-9 last:pr-22">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
+          <p key={`${message.id}-paragraph-${index}`} dir="auto" className="sm:last:min-h-9 sm:last:pr-32">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}
       </div>
       <div className="absolute bottom-0 right-0 flex gap-2 p-0.5" role="group" aria-label="Answer actions">
         <PrintAction iconOnly compact className="answer-print-button" label="Print answer" getRequest={() => getPrintRequest?.(message.id) ?? { kind: 'answers', title: 'Conversation study copy', answers: collectPrintAnswers([message]), initialAnswerId: message.id }} />
-        <button type="button" aria-label={copyLabel} title={copyLabel} onClick={() => void handleCopy()} className={`answer-copy-button inline-flex size-8 items-center justify-center rounded-md border border-line bg-paper text-muted shadow-sm transition hover:border-line-strong hover:bg-stone hover:text-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pomegranate/55 motion-reduce:transition-none ${copyVisibilityClass}`}>
-          {copyStatus === 'copied' ? <Check aria-hidden="true" className="size-4 text-pomegranate" strokeWidth={1.8} /> : <Copy aria-hidden="true" className="size-4" strokeWidth={1.8} />}
-        </button>
+        <AnswerCopyButton key={`${message.id}-text`} message={message} mode="text" />
+        <AnswerCopyButton key={`${message.id}-sources`} message={message} mode="sources" />
       </div>
-      <span className="sr-only" role="status" aria-live="polite">{copyStatus === 'copied' ? 'Answer copied to clipboard.' : copyStatus === 'failed' ? 'The answer could not be copied. Try again.' : ''}</span>
     </div>
   )
 })
