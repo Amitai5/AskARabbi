@@ -26,6 +26,9 @@ internal sealed class MongoConversationSettingsDocument
     [BsonIgnoreIfNull]
     public ReadingPreferences? ReadingPreferences { get; init; }
 
+    [BsonElement("readDvarTorahWeekKeys")]
+    public string[] ReadDvarTorahWeekKeys { get; init; } = [];
+
     [BsonElement("updatedAtUtc")]
     public DateTime UpdatedAtUtc { get; init; }
 }

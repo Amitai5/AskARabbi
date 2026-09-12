@@ -43,13 +43,26 @@ public sealed class MongoUserAccountStore : IUserAccountStore
             .Set(document => document.LastName, NormalizeOptional(identity.LastName))
             .Set(document => document.ProfileImageUrl, NormalizeOptional(identity.ProfileImageUrl))
             .Set(document => document.UpdatedAtUtc, utc);
-        var document = await collection.FindOneAndUpdateAsync(filter, update, new FindOneAndUpdateOptions<MongoUserAccountDocument>
+        var document = await UpsertWithRetryAsync(collection, filter, update, cancellationToken).ConfigureAwait(false);
+        return ToDomain(document);
+    }
+
+    internal static async Task<TDocument> UpsertWithRetryAsync<TDocument>(IMongoCollection<TDocument> collection, FilterDefinition<TDocument> filter, UpdateDefinition<TDocument> update, CancellationToken cancellationToken)
+    {
+        var updateOptions = new FindOneAndUpdateOptions<TDocument>
         {
             IsUpsert = true,
             ReturnDocument = ReturnDocument.After,
-        }, cancellationToken).ConfigureAwait(false);
-
-        return ToDomain(document);
+        };
+        try
+        {
+            return await collection.FindOneAndUpdateAsync(filter, update, updateOptions, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MongoCommandException exception) when (exception.Code == 11000)
+        {
+            // Simultaneous callbacks for the same verified identity may race on its unique index.
+            return await collection.FindOneAndUpdateAsync(filter, update, updateOptions, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>

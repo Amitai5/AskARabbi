@@ -1,11 +1,12 @@
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.Calendar;
+using AskARabbiLIB.DvarTorah;
 using MongoDB.Driver;
 
 namespace AskARabbiLIB.Persistence.Mongo;
 
 /// <summary>Stores user personalization in Azure Cosmos DB for MongoDB.</summary>
-public sealed class MongoConversationSettingsStore : IConversationSettingsStore, ICalendarPreferencesStore
+public sealed class MongoConversationSettingsStore : IConversationSettingsStore, ICalendarPreferencesStore, IWeeklyDvarTorahReadStateStore
 {
     private readonly IMongoCollection<MongoConversationSettingsDocument> collection;
 
@@ -94,6 +95,29 @@ public sealed class MongoConversationSettingsStore : IConversationSettingsStore,
             .Set(value => value.ReadingPreferences, preferences)
             .Set(value => value.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
         return collection.UpdateOneAsync(value => value.UserId == owner, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<string>> GetReadWeekKeysAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var keys = await collection.Find(item => item.UserId == userId.ToString("D"))
+            .Project(item => item.ReadDvarTorahWeekKeys).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return keys ?? [];
+    }
+
+    /// <inheritdoc/>
+    public Task SetReadStateAsync(Guid userId, string weekKey, bool isRead, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(weekKey);
+        var owner = userId.ToString("D");
+        return collection.UpdateOneAsync(value => value.UserId == owner, CreateReadStateUpdate(owner, weekKey, isRead, updatedAtUtc), new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    internal static UpdateDefinition<MongoConversationSettingsDocument> CreateReadStateUpdate(string owner, string weekKey, bool isRead, DateTimeOffset updatedAtUtc)
+    {
+        var builder = Builders<MongoConversationSettingsDocument>.Update;
+        var progress = isRead ? builder.AddToSet(value => value.ReadDvarTorahWeekKeys, weekKey) : builder.Pull(value => value.ReadDvarTorahWeekKeys, weekKey);
+        return progress.SetOnInsert(value => value.UserId, owner).Set(value => value.UpdatedAtUtc, updatedAtUtc.UtcDateTime);
     }
 
     private static MongoPersonalizationDocument ToDocument(PersonalizationSettings personalization) => new()

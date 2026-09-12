@@ -268,7 +268,7 @@ public sealed class WeeklyDvarTorahServiceTests
             return Task.FromResult(Archived?.Week.WeekKey == weekKey ? Archived : null);
         }
 
-        public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+        public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null)
         {
             ArchiveCalls++;
             ArchiveInIsrael = inIsrael;

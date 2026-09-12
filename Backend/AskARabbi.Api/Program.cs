@@ -9,6 +9,7 @@ using AskARabbi.Api.Errors;
 using AskARabbi.Api.Persistence;
 using AskARabbi.Api.Usage;
 using AskARabbiLIB;
+using AskARabbiLIB.Accounts;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.Calendar;
@@ -52,6 +53,10 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.WriteIndented = false);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
+var registrationOptions = builder.Configuration.GetSection(AccountRegistrationOptions.SectionName).Get<AccountRegistrationOptions>() ?? new AccountRegistrationOptions();
+registrationOptions.Validate();
+builder.Services.AddSingleton(registrationOptions);
+builder.Services.AddScoped<AccountRegistrationService>();
 builder.Services.AddScoped<ConversationService>();
 builder.Services.AddScoped<ConversationSettingsService>();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();

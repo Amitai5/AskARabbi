@@ -73,6 +73,8 @@ function createOfflineClient(teaching: SavedTeaching, audioUrl: string | null): 
   const publication = { ...teaching.publication, dvarTorah: teaching.publication.dvarTorah ? { ...teaching.publication.dvarTorah, audio: audioUrl ? teaching.publication.dvarTorah.audio : null } : null }
   return {
     getCurrent: async () => publication,
+    getReadState: async () => { throw new Error('Reading progress requires a connection.') },
+    setReadState: async () => { throw new Error('Reading progress requires a connection.') },
     getArchive: async () => ({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 }),
     getArchived: async () => { throw new Error('Past teachings require a connection.') },
     getAudioUrl: () => audioUrl ?? '',

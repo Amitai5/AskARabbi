@@ -16,6 +16,8 @@ const Article: WeeklyDvarTorahArticle = {
 }
 function teachingClient(): DvarTorahClient {
   return {
+    getReadState: async () => ({ readWeekKeys: [] }),
+    setReadState: vi.fn().mockResolvedValue(undefined),
     getCurrent: vi.fn().mockResolvedValue({ currentWeek: Article.week, dvarTorah: Article, isCurrentWeek: true }),
     getArchive: vi.fn().mockResolvedValue({ items: [{ week: Article.week, title: Article.title, tags: [], publishedAtUtc: Article.publishedAtUtc }], page: 1, pageSize: 10, totalCount: 1, totalPages: 1 }),
     getArchived: vi.fn().mockResolvedValue(Article), getAudioUrl: vi.fn(), getAudioTimings: vi.fn(),

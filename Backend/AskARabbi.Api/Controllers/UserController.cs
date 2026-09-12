@@ -23,6 +23,7 @@ public sealed class UserController : ControllerBase
     private const string PkceVerifierCookieName = "AskRabbi.PkceVerifier";
     private readonly IUserAuthenticationService authenticationService;
     private readonly IUserAccountStore userAccounts;
+    private readonly AccountRegistrationService registration;
     private readonly IUserDataStore userData;
     private readonly ICurrentUser currentUser;
     private readonly TimeProvider timeProvider;
@@ -37,10 +38,12 @@ public sealed class UserController : ControllerBase
     /// <param name="options">WorkOS configuration.</param>
     /// <param name="environment">Current host environment.</param>
     /// <param name="userData">Durable account-erasure boundary.</param>
-    public UserController(IUserAuthenticationService authenticationService, IUserAccountStore userAccounts, ICurrentUser currentUser, TimeProvider timeProvider, WorkOsAuthenticationOptions options, IHostEnvironment environment, IUserDataStore userData)
+    /// <param name="registration">Public account admission and capacity checks.</param>
+    public UserController(IUserAuthenticationService authenticationService, IUserAccountStore userAccounts, ICurrentUser currentUser, TimeProvider timeProvider, WorkOsAuthenticationOptions options, IHostEnvironment environment, IUserDataStore userData, AccountRegistrationService registration)
     {
         this.authenticationService = authenticationService ?? throw new ArgumentNullException(nameof(authenticationService));
         this.userAccounts = userAccounts ?? throw new ArgumentNullException(nameof(userAccounts));
+        this.registration = registration ?? throw new ArgumentNullException(nameof(registration));
         this.userData = userData ?? throw new ArgumentNullException(nameof(userData));
         this.currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -52,14 +55,19 @@ public sealed class UserController : ControllerBase
     /// <param name="email">Optional email hint for hosted authentication.</param>
     /// <param name="provider">Optional direct provider: google, apple, or microsoft.</param>
     /// <param name="screen">Optional hosted screen: sign-in or sign-up.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>A redirect to WorkOS AuthKit.</returns>
     [HttpGet("login")]
     [AllowAnonymous]
-    public IActionResult Login([FromQuery] string? email = null, [FromQuery] string? provider = null, [FromQuery] string? screen = null)
+    public async Task<IActionResult> Login([FromQuery] string? email = null, [FromQuery] string? provider = null, [FromQuery] string? screen = null, CancellationToken cancellationToken = default)
     {
         var loginHint = ValidateLoginHint(email);
         var selectedProvider = ParseProvider(provider);
         var isSignUp = ParseSignUpScreen(screen);
+        if (isSignUp && !await registration.IsOpenAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return RegistrationClosed();
+        }
         var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         var challenge = WebEncoders.Base64UrlEncode(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
@@ -108,7 +116,11 @@ public sealed class UserController : ControllerBase
         }
 
         var authenticated = await authenticationService.AuthenticateAsync(code, codeVerifier, cancellationToken).ConfigureAwait(false);
-        var account = await userAccounts.UpsertAsync(authenticated.User, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        var account = await registration.TrySignInAsync(authenticated.User, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        if (account is null)
+        {
+            return RegistrationClosed();
+        }
         if (account.IsDeletionPending)
         {
             return Problem(statusCode: 409, detail: "This account is being deleted and cannot be signed in.");
@@ -133,6 +145,18 @@ public sealed class UserController : ControllerBase
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, ApplicationPrincipalFactory.Create(account, authenticated.SessionId), properties).ConfigureAwait(false);
         return Redirect(options.FrontendUri);
     }
+
+    /// <summary>Reports public signup availability without exposing account counts or identities.</summary>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>Whether new accounts are currently accepted.</returns>
+    [HttpGet("registration")]
+    [AllowAnonymous]
+    public async Task<ActionResult<RegistrationAvailabilityResponse>> GetRegistration(CancellationToken cancellationToken)
+    {
+        return Ok(new RegistrationAvailabilityResponse(await registration.IsOpenAsync(cancellationToken).ConfigureAwait(false)));
+    }
+
+    private RedirectResult RegistrationClosed() => Redirect(QueryHelpers.AddQueryString(options.FrontendUri, "registration", "closed"));
 
     /// <summary>Gets the safe account projection for the authenticated browser session.</summary>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>

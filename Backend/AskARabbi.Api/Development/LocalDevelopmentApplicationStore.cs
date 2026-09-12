@@ -9,7 +9,7 @@ using AskARabbiLIB.Persistence.InMemory;
 namespace AskARabbi.Api.Development;
 
 /// <summary>Stores local development data in process memory without replacing production persistence.</summary>
-public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore, ICalendarPreferencesStore
+public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore, ICalendarPreferencesStore, IWeeklyDvarTorahReadStateStore
 {
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly object synchronization = new();
@@ -17,12 +17,54 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
     private readonly Dictionary<Guid, ReadingPreferences> readingPreferences = [];
+    private readonly Dictionary<Guid, HashSet<string>> readTeachings = [];
     private readonly Dictionary<Guid, CalendarPreferences> calendarPreferences = [];
     internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly IReadOnlyList<WeeklyDvarTorahArticle> weeklyDvarTorahs = CreateWeeklyDvarTorahs();
     private UserAccount? account;
     private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
     private Guid nextAccountId = StableUserId;
+
+    internal IReadOnlyList<string> GetAccountIdentities()
+    {
+        lock (synchronization)
+        {
+            return account is null ? [] : [account.ProviderUserId];
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<string>> GetReadWeekKeysAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            return Task.FromResult<IReadOnlyList<string>>(readTeachings.TryGetValue(userId, out var keys) ? keys.ToArray() : []);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task SetReadStateAsync(Guid userId, string weekKey, bool isRead, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            if (!readTeachings.TryGetValue(userId, out var keys))
+            {
+                keys = [];
+                readTeachings[userId] = keys;
+            }
+            if (isRead)
+            {
+                keys.Add(weekKey);
+            }
+            else
+            {
+                keys.Remove(weekKey);
+            }
+        }
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
     public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
@@ -103,6 +145,7 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
             personalization.Remove(userId);
             preferences.Remove(userId);
             readingPreferences.Remove(userId);
+            readTeachings.Remove(userId);
             calendarPreferences.Remove(userId);
             TokenUsage.DeleteAccount(userId);
             account = null;
@@ -379,12 +422,13 @@ public sealed class LocalDevelopmentApplicationStore : IUserAccountStore, IConve
     }
 
     /// <inheritdoc/>
-    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var candidates = weeklyDvarTorahs
             .Where(article => article.Week.InIsrael == inIsrael && article.Week.ShabbatDate < before)
             .Where(article => MatchesWeeklyDvarTorahSearch(article, search))
+            .Where(article => readFilter is null || readFilter.ReadWeekKeys.Contains(article.Week.WeekKey) == readFilter.IsRead)
             .OrderByDescending(article => article.Week.ShabbatDate)
             .ToArray();
         var items = candidates.Skip(skip).Take(limit).Select(article => new WeeklyDvarTorahArchiveItem(article.Week, article.Title, article.Metadata?.Tags.Take(3).ToArray() ?? [], article.PublishedAtUtc)).ToArray();

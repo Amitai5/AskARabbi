@@ -1,8 +1,10 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
 import { createSharedRequest } from '../../api/sharedRequest.ts'
-import type { WeeklyDvarTorahArchiveQuery, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse } from './dvarTorahTypes.ts'
+import type { TeachingReadState, WeeklyDvarTorahArchiveQuery, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse } from './dvarTorahTypes.ts'
 
 export interface DvarTorahClient {
+  getReadState(signal?: AbortSignal): Promise<TeachingReadState>
+  setReadState(weekKey: string, isRead: boolean): Promise<void>
   getCurrent(forceRefresh?: boolean, signal?: AbortSignal): Promise<WeeklyDvarTorahResponse>
   getCachedCurrent?(): WeeklyDvarTorahResponse | null
   getArchive(query?: WeeklyDvarTorahArchiveQuery): Promise<WeeklyDvarTorahArchiveResponse>
@@ -24,6 +26,8 @@ export function createBackendDvarTorahClient(apiClient: ApiClient = createApiCli
   let currentRequest: ReturnType<typeof createSharedRequest<WeeklyDvarTorahResponse>> | null = null
 
   return {
+    getReadState: (signal) => apiClient.request<TeachingReadState>('/api/dvar-torah/read-state', { signal, cache: 'no-store' }),
+    setReadState: (weekKey, isRead) => apiClient.request<void>(`/api/dvar-torah/read-state/${encodeURIComponent(weekKey)}`, { method: 'PUT', body: JSON.stringify({ isRead }) }),
     getCachedCurrent: () => cachedPublication !== null && cachedPublication.expiresAt > Date.now() ? cachedPublication.value : null,
     getCurrent(forceRefresh = false, signal) {
       if (signal?.aborted) { return Promise.reject(signal.reason) }
@@ -53,6 +57,7 @@ export function createBackendDvarTorahClient(apiClient: ApiClient = createApiCli
         pageSize: String(query.pageSize ?? 10),
       })
       const search = query.search?.trim()
+      if (query.readStatus && query.readStatus !== 'all') { parameters.set('readStatus', query.readStatus) }
       if (search !== undefined && search.length > 0) {
         parameters.set('search', search)
       }

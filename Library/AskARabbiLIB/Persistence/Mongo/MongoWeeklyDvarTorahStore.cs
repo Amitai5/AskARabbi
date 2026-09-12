@@ -58,7 +58,7 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
     }
 
     /// <inheritdoc/>
-    public async Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+    public async Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null)
     {
         if (skip < 0)
         {
@@ -75,7 +75,7 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
             throw new ArgumentException($"Archive search cannot exceed {WeeklyDvarTorahService.MaximumArchiveSearchCharacters} characters.", nameof(search));
         }
 
-        var filter = CreateArchiveFilter(inIsrael, before, normalizedSearch);
+        var filter = CreateArchiveFilter(inIsrael, before, normalizedSearch, readFilter);
         var documentsTask = collection.Find(filter)
             .Sort(CreateLatestPublishedSort())
             .Skip(skip)
@@ -217,12 +217,16 @@ public sealed class MongoWeeklyDvarTorahStore : IWeeklyDvarTorahGenerationStore
 
     internal static SortDefinition<MongoWeeklyDvarTorahDocument> CreateLatestPublishedSort() => Builders<MongoWeeklyDvarTorahDocument>.Sort.Descending(document => document.ShabbatDate);
 
-    internal static FilterDefinition<MongoWeeklyDvarTorahDocument> CreateArchiveFilter(bool inIsrael, DateOnly before, string? search)
+    internal static FilterDefinition<MongoWeeklyDvarTorahDocument> CreateArchiveFilter(bool inIsrael, DateOnly before, string? search, WeeklyDvarTorahReadFilter? readFilter = null)
     {
         var builder = Builders<MongoWeeklyDvarTorahDocument>.Filter;
         var filter = builder.Eq(document => document.InIsrael, inIsrael)
             & builder.Eq(document => document.Status, PublishedStatus)
             & builder.Lt(document => document.ShabbatDate, before);
+        if (readFilter is not null)
+        {
+            filter &= readFilter.IsRead ? builder.In(document => document.Id, readFilter.ReadWeekKeys) : builder.Nin(document => document.Id, readFilter.ReadWeekKeys);
+        }
         if (string.IsNullOrWhiteSpace(search))
         {
             return filter;

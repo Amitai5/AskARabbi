@@ -33,12 +33,13 @@ internal sealed class InMemoryWeeklyDvarTorahStore : IWeeklyDvarTorahStore
         return Task.FromResult(article);
     }
 
-    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default)
+    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var candidates = ArchivedArticles
             .Where(article => article.Week.InIsrael == inIsrael && article.Week.ShabbatDate < before)
             .Where(article => MatchesSearch(article, search))
+            .Where(article => readFilter is null || readFilter.ReadWeekKeys.Contains(article.Week.WeekKey) == readFilter.IsRead)
             .OrderByDescending(article => article.Week.ShabbatDate)
             .ToArray();
         var items = candidates.Skip(skip).Take(limit).Select(article => new WeeklyDvarTorahArchiveItem(article.Week, article.Title, article.Metadata?.Tags.Take(3).ToArray() ?? [], article.PublishedAtUtc)).ToArray();

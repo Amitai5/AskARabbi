@@ -46,8 +46,11 @@ State and PKCE cookies expire after ten minutes and are deleted at the callback.
 
 ## Implemented routes
 
+Public signup is guarded by a configurable 100-account backend ceiling, with `0` meaning unlimited. See [Public registration and account capacity](PUBLIC_REGISTRATION.md) for admission concurrency, the registration-full UI, configuration, and the required WorkOS/Google production rollout.
+
 | Method and route | Responsibility |
 | --- | --- |
+| `GET /api/user/registration` | Return anonymous registration availability without exposing private account counts or identities. |
 | `GET /api/user/login` | Create state and S256 PKCE values, validate optional email/provider/screen hints, set short-lived cookies, and redirect to hosted AuthKit. |
 | `GET /api/user/callback` | Validate state/verifier, exchange the code, resolve the local account, and issue the application cookie. |
 | `GET /api/user/session` | Return the authenticated local user ID, display name, email verification state, and optional image URL. |

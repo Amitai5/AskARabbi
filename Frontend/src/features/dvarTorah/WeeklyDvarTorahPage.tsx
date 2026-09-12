@@ -16,6 +16,9 @@ import { FocusReadingButton } from '../reading/FocusedReading.tsx'
 import { useReadingTarget } from '../reading/focusedReadingContext.ts'
 import type { TeachingRoute } from '../conversations/pageRoutes.ts'
 import { PrintAction } from '../printing/PrintAction.tsx'
+import { TeachingReadButton } from './TeachingReadButton.tsx'
+import { useTeachingReadState, type TeachingReadProgress } from './useTeachingReadState.ts'
+import type { TeachingReadStatus } from './dvarTorahTypes.ts'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
@@ -53,6 +56,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
   const [archive, setArchive] = useState<WeeklyDvarTorahArchiveResponse | null>(null)
   const [archiveSearchDraft, setArchiveSearchDraft] = useState(initialRoute?.search ?? '')
   const [archiveSearch, setArchiveSearch] = useState(initialRoute?.search ?? '')
+  const [archiveReadStatus, setArchiveReadStatus] = useState<TeachingReadStatus>(initialRoute?.readStatus ?? 'all')
   const [archivePage, setArchivePage] = useState(initialRoute?.page ?? 1)
   const [archiveRefreshKey, setArchiveRefreshKey] = useState(0)
   const [isArchiveLoading, setIsArchiveLoading] = useState(true)
@@ -65,6 +69,14 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
   const scrollAreaRef = useRef<HTMLElement | null>(null)
   const [audioDock, setAudioDock] = useState<HTMLDivElement | null>(null)
   const archivedArticleRequestIdRef = useRef(0)
+  const progress = useTeachingReadState(client, Boolean(offlineSavedAt), () => {
+    setIsArchiveLoading(true)
+    setArchiveError(null)
+    setArchiveRefreshKey(value => value + 1)
+  })
+  const syncArchivePage = useEffectEvent((page: number) => {
+    if (view === 'archive') { onNavigate?.({ archive: true, page, search: archiveSearch, readStatus: archiveReadStatus }) }
+  })
 
   const restoreArticle = useEffectEvent((weekKey: string) => { void openArchivedArticle(weekKey, false) })
   useEffect(() => {
@@ -95,9 +107,11 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
     if (offlineSavedAt) { return }
     let isCurrent = true
 
-    void client.getArchive({ page: archivePage, pageSize: ArchivePageSize, search: archiveSearch || undefined })
+    void client.getArchive({ page: archivePage, pageSize: ArchivePageSize, search: archiveSearch || undefined, ...(archiveReadStatus === 'all' ? {} : { readStatus: archiveReadStatus }) })
       .then((value) => {
         if (isCurrent) {
+          const lastPage = Math.max(1, value.totalPages)
+          if (archivePage > lastPage) { setArchivePage(lastPage); syncArchivePage(lastPage); return }
           setArchive(value)
         }
       })
@@ -115,7 +129,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
     return () => {
       isCurrent = false
     }
-  }, [archivePage, archiveRefreshKey, archiveSearch, client, offlineSavedAt])
+  }, [archivePage, archiveRefreshKey, archiveSearch, archiveReadStatus, client, offlineSavedAt])
 
   useEffect(() => () => {
     archivedArticleRequestIdRef.current += 1
@@ -157,7 +171,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
   }
 
   function showArchive() {
-    onNavigate?.({ archive: true, page: archivePage, search: archiveSearch })
+    onNavigate?.({ archive: true, page: archivePage, search: archiveSearch, readStatus: archiveReadStatus })
     archivedArticleRequestIdRef.current += 1
     setView('archive')
     setArchivedArticle(null)
@@ -169,7 +183,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
 
   function searchArchive(search: string) {
     const normalizedSearch = search.trim()
-    onNavigate?.({ archive: true, page: 1, search: normalizedSearch })
+    onNavigate?.({ archive: true, page: 1, search: normalizedSearch, readStatus: archiveReadStatus })
     setIsArchiveLoading(true)
     setArchiveError(null)
     setArchiveSearch(normalizedSearch)
@@ -180,7 +194,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
   }
 
   function changeArchivePage(page: number) {
-    onNavigate?.({ archive: true, page, search: archiveSearch })
+    onNavigate?.({ archive: true, page, search: archiveSearch, readStatus: archiveReadStatus })
     setIsArchiveLoading(true)
     setArchiveError(null)
     setArchivePage(page)
@@ -190,6 +204,15 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
     setIsArchiveLoading(true)
     setArchiveError(null)
     setArchiveRefreshKey((current) => current + 1)
+  }
+
+  function changeReadStatus(readStatus: TeachingReadStatus) {
+    setArchiveReadStatus(readStatus)
+    setArchive(null)
+    setArchivePage(1)
+    setIsArchiveLoading(true)
+    setArchiveError(null)
+    onNavigate?.({ archive: true, page: 1, search: archiveSearch, readStatus })
   }
 
   async function openArchivedArticle(weekKey: string, updateUrl = true) {
@@ -205,7 +228,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
       }
 
       setArchivedArticle(value)
-      if (updateUrl) { onNavigate?.({ weekKey }) }
+      if (updateUrl) { onNavigate?.({ weekKey, page: archivePage, search: archiveSearch, readStatus: archiveReadStatus }) }
       setSelectedSourceNumber(null)
       setView('archivedArticle')
       scrollToTop()
@@ -244,8 +267,11 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
             </header>
             {offlineSavedAt ? <p className="reading-nonessential mt-4 text-sm leading-6 text-muted">Offline copy saved {formatSourceDate(offlineSavedAt)}. Source excerpts are saved; original websites need a connection.</p> : null}
 
+            {progress.error ? <div role="alert" className="reading-nonessential mt-5 rounded-lg border border-pomegranate/25 px-4 py-3 text-sm text-pomegranate">{progress.error}{progress.keys === null ? <button type="button" onClick={progress.retry} className="ml-2 min-h-11 font-semibold underline">Retry reading progress</button> : null}</div> : null}
+            {progress.offline ? <p className="reading-nonessential mt-4 text-sm text-muted">Connect to update your reading progress.</p> : null}
+
             {view === 'archive' ? (
-              <DvarTorahArchive archive={archive} searchDraft={archiveSearchDraft} activeSearch={archiveSearch} isLoading={isArchiveLoading} loadError={archiveError} articleError={archivedArticleError} loadingArticleKey={archivedArticleLoadingKey} onSearchDraftChange={setArchiveSearchDraft} onSearch={searchArchive} onPageChange={changeArchivePage} onRetry={retryArchive} onOpenArticle={(weekKey) => void openArchivedArticle(weekKey)} />
+              <DvarTorahArchive archive={archive} progress={progress} readStatus={archiveReadStatus} onReadStatusChange={changeReadStatus} searchDraft={archiveSearchDraft} activeSearch={archiveSearch} isLoading={isArchiveLoading} loadError={archiveError} articleError={archivedArticleError} loadingArticleKey={archivedArticleLoadingKey} onSearchDraftChange={setArchiveSearchDraft} onSearch={searchArchive} onPageChange={changeArchivePage} onRetry={retryArchive} onOpenArticle={(weekKey) => void openArchivedArticle(weekKey)} />
             ) : view === 'archivedArticle' && archivedArticle === null ? (
               archivedArticleError ? <LoadError message={archivedArticleError} onRetry={() => { if (initialRoute?.weekKey) { void openArchivedArticle(initialRoute.weekKey, false) } }} /> : <p role="status" className="py-10 text-muted">Loading the selected teaching…</p>
             ) : view === 'archivedArticle' && archivedArticle !== null ? (
@@ -254,7 +280,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
                   <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
                   Back to past teachings
                 </button>
-                <PublishedArticle key={`${archivedArticle.week.weekKey}:${archivedArticle.audio?.version ?? ''}`} article={archivedArticle} client={client} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
+                <PublishedArticle key={`${archivedArticle.week.weekKey}:${archivedArticle.audio?.version ?? ''}`} article={archivedArticle} progress={progress} client={client} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
               </div>
             ) : loadError !== null ? (
               <LoadError message={loadError} onRetry={retry} />
@@ -265,7 +291,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
             ) : publication.dvarTorah === null ? (
               <PendingPublication week={publication.currentWeek} onRetry={retry} />
             ) : (
-              <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} client={client} showFallbackNotice={!offlineSavedAt && !publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
+              <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} progress={progress} client={client} showFallbackNotice={!offlineSavedAt && !publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
             )}
           </div>
         </section>
@@ -277,6 +303,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
 }
 
 interface PublishedArticleProps {
+  progress: TeachingReadProgress
   audioDock: HTMLDivElement | null
   scrollAreaRef: RefObject<HTMLElement | null>
   article: WeeklyDvarTorahArticle
@@ -287,7 +314,7 @@ interface PublishedArticleProps {
   onSelectSource(sourceNumber: number, trigger: HTMLButtonElement): void
 }
 
-function PublishedArticle({ article, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef }: PublishedArticleProps) {
+function PublishedArticle({ article, progress, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef }: PublishedArticleProps) {
   const readingId = `teaching:${article.week.weekKey}`
   const reading = useReadingTarget(readingId, article.body)
   const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
@@ -320,7 +347,7 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
               <Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read<span className="sr-only"> · Based on audio at 1×</span>
             </p>
           )}
-          <div className="readable-menu reading-nonessential flex flex-wrap gap-2"><PrintAction label="Print teaching" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" /> : null}</div>
+          <div className="readable-menu reading-nonessential flex flex-wrap gap-2"><TeachingReadButton progress={progress} weekKey={article.week.weekKey} title={title} /><PrintAction label="Print teaching" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" /> : null}</div>
         </div>
       </header>
       {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
@@ -337,6 +364,9 @@ function PublishedArticle({ article, client, showFallbackNotice = false, sources
 }
 
 interface DvarTorahArchiveProps {
+  progress: TeachingReadProgress
+  readStatus: TeachingReadStatus
+  onReadStatusChange(value: TeachingReadStatus): void
   archive: WeeklyDvarTorahArchiveResponse | null
   searchDraft: string
   activeSearch: string
@@ -351,7 +381,7 @@ interface DvarTorahArchiveProps {
   onOpenArticle(weekKey: string): void
 }
 
-function DvarTorahArchive({ archive, searchDraft, activeSearch, isLoading, loadError, articleError, loadingArticleKey, onSearchDraftChange, onSearch, onPageChange, onRetry, onOpenArticle }: DvarTorahArchiveProps) {
+function DvarTorahArchive({ archive, progress, readStatus, onReadStatusChange, searchDraft, activeSearch, isLoading, loadError, articleError, loadingArticleKey, onSearchDraftChange, onSearch, onPageChange, onRetry, onOpenArticle }: DvarTorahArchiveProps) {
   const items = archive?.items ?? []
 
   return (
@@ -384,6 +414,10 @@ function DvarTorahArchive({ archive, searchDraft, activeSearch, isLoading, loadE
         )}
       </form>
 
+      <div className="mt-4 flex flex-wrap gap-1 rounded-xl border border-line bg-stone/50 p-1 w-fit" role="group" aria-label="Filter teachings by reading status">
+        {(['all', 'unread', 'read'] as const).map(status => <button key={status} type="button" aria-pressed={readStatus === status} onClick={() => { if (status !== readStatus) { onReadStatusChange(status) } }} className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate ${readStatus === status ? 'bg-paper text-pomegranate shadow-sm ring-1 ring-line' : 'text-ink-soft hover:text-pomegranate'}`}>{status === 'all' ? 'All teachings' : status === 'unread' ? 'Unread' : 'Read'}</button>)}
+      </div>
+
       {articleError === null ? null : <p className="mt-5 max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{articleError}</p>}
       {loadError === null ? null : (
         <div className="mt-6 max-w-[46rem] rounded-xl border border-pomegranate/25 bg-pomegranate/5 px-4 py-4" role="alert">
@@ -403,8 +437,8 @@ function DvarTorahArchive({ archive, searchDraft, activeSearch, isLoading, loadE
       ) : loadError !== null && archive === null ? null : items.length === 0 ? (
         <div className="mt-8 max-w-[46rem] rounded-xl border border-line bg-stone/35 px-5 py-8 text-center">
           <BookMarked aria-hidden="true" className="mx-auto size-6 text-brass" strokeWidth={1.6} />
-          <p className="mt-3 font-display text-xl text-ink">No past teachings found.</p>
-          <p className="mt-1 text-sm text-muted">Try a different title, parashah, date, or topic.</p>
+          <p className="mt-3 font-display text-xl text-ink">{readStatus === 'all' ? 'No past teachings found.' : `No ${readStatus} teachings found.`}</p>
+          <p className="mt-1 text-sm text-muted">{readStatus === 'all' ? 'Try a different title, parashah, date, or topic.' : 'Try a different search or choose All teachings.'}</p>
         </div>
       ) : (
         <div className={`mt-7 max-w-[46rem] transition-opacity ${isLoading ? 'opacity-55' : 'opacity-100'}`}>
@@ -425,6 +459,7 @@ function DvarTorahArchive({ archive, searchDraft, activeSearch, isLoading, loadE
                       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                         <span className="font-semibold text-ink-soft">{formatShabbatDate(item.week.shabbatDate)}</span>
                         <span>{normalizeDvarTorahText(item.week.hebrewDate)}</span>
+                        {progress.keys === null ? null : <span className={`rounded-full px-2 py-0.5 font-semibold ${progress.keys.has(item.week.weekKey) ? 'bg-pomegranate/10 text-pomegranate' : 'bg-stone-deep text-ink-soft'}`}>{progress.keys.has(item.week.weekKey) ? 'Read' : 'Unread'}</span>}
                       </span>
                       <span className="mt-2 block font-display text-[1.35rem] leading-7 text-ink transition group-hover:text-pomegranate">{title}</span>
                       <span className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
@@ -441,6 +476,7 @@ function DvarTorahArchive({ archive, searchDraft, activeSearch, isLoading, loadE
                       {isOpening ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <ChevronRight aria-hidden="true" className="size-4" strokeWidth={1.8} />}
                     </span>
                   </button>
+                  <div className="pb-4 sm:px-3"><TeachingReadButton progress={progress} weekKey={item.week.weekKey} title={title} /></div>
                 </li>
               )
             })}

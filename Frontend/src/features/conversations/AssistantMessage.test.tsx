@@ -47,6 +47,8 @@ describe('AssistantMessage', () => {
     const request = vi.fn(() => ({ kind: 'answers' as const, title: 'Selected conversation', answers: [{ id: Message.id, question: 'My question', content: Message.content, sources: [] }], initialAnswerId: Message.id }))
     render(<AssistantMessage message={Message} getPrintRequest={request} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
     const print = screen.getByRole('button', { name: 'Print answer' })
+    expect(print).toHaveClass('answer-print-button')
+    expect(screen.queryByRole('button', { name: 'Focus answer' })).not.toBeInTheDocument()
     const actions = screen.getByRole('group', { name: 'Answer actions' })
     expect(actions).toContainElement(print)
     expect(actions).toContainElement(screen.getByRole('button', { name: 'Copy answer' }))

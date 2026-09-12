@@ -148,6 +148,8 @@ async function savedLibrary(): Promise<OfflineLibrary> {
 
 function fakeDvarClient(): DvarTorahClient {
   return {
+    getReadState: async () => ({ readWeekKeys: [] }),
+    setReadState: vi.fn().mockResolvedValue(undefined),
     getCurrent: vi.fn(async () => ({ currentWeek: { weekKey: 'diaspora:2026-09-12', shabbatDate: '2026-09-12', hebrewDate: '1 Tishrei', parashah: null, holiday: 'Rosh Hashanah', inIsrael: false }, dvarTorah: null, isCurrentWeek: false })),
     getArchive: vi.fn(), getArchived: vi.fn(), getAudioUrl: vi.fn(), getAudioTimings: vi.fn(),
   }

@@ -10,6 +10,7 @@ export interface AuthenticatedUser {
 export type SocialAuthProvider = 'google' | 'apple' | 'microsoft'
 
 export interface AuthClient {
+  getRegistrationAvailability(): Promise<{ isOpen: boolean }>
   getSession(): Promise<AuthenticatedUser | null>
   signInWithEmail(email: string): Promise<AuthenticatedUser | null>
   signInWithSocialProvider(provider: SocialAuthProvider): Promise<AuthenticatedUser | null>

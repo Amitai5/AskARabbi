@@ -13,6 +13,8 @@ const Exhausted: UsageSummary = {
 }
 const Available: UsageSummary = { ...Exhausted, tokensUsed: 2_500_000, tokensRemaining: 7_500_000, usedPercent: 25, isLimitReached: false }
 const dvarTorahClient: DvarTorahClient = {
+  getReadState: async () => ({ readWeekKeys: [] }),
+  setReadState: vi.fn().mockResolvedValue(undefined),
   getCurrent: () => Promise.resolve({ currentWeek: { weekKey: 'diaspora:2026-09-05', shabbatDate: '2026-09-05', hebrewDate: '23 Elul, 5786', parashah: 'Nitzavim', holiday: null, inIsrael: false }, dvarTorah: null, isCurrentWeek: true }),
   getArchive: () => Promise.resolve({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 }),
   getArchived: () => Promise.reject(new Error('No archived articles.')),

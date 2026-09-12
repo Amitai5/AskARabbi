@@ -11,6 +11,110 @@ namespace AskARabbi.Api.Tests;
 public sealed class UserControllerTests
 {
     [TestMethod]
+    [DataRow(99, true)]
+    [DataRow(100, false)]
+    [DataRow(101, false)]
+    public async Task Registration_AnonymousRequest_ReportsCapacityWithoutPrivateDetails(int existing, bool expectedOpen)
+    {
+        await using var application = new TestApplicationFactory();
+        application.Store.AdditionalAccountIdentities.AddRange(Enumerable.Range(1, existing).Select(index => $"existing-{index}"));
+        using var client = application.CreateNonRedirectingClient();
+
+        using var response = await client.GetAsync("/api/user/registration");
+        var availability = await response.Content.ReadFromJsonAsync<RegistrationAvailabilityResponse>();
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual(expectedOpen, availability?.IsOpen);
+        StringAssert.Contains(response.Headers.CacheControl!.ToString(), "no-store");
+        Assert.IsFalse((await response.Content.ReadAsStringAsync()).Contains("existing-", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Login_SignUpAtCapacity_ReturnsToRegistrationClosedWithoutCallingWorkOs()
+    {
+        await using var application = new TestApplicationFactory { AccountLimit = 1 };
+        application.Store.AdditionalAccountIdentities.Add("existing");
+        using var client = application.CreateNonRedirectingClient();
+
+        using var response = await client.GetAsync("/api/user/login?screen=sign-up");
+
+        Assert.AreEqual(HttpStatusCode.Redirect, response.StatusCode);
+        StringAssert.Contains(response.Headers.Location!.Query, "registration=closed");
+        Assert.IsNull(application.Authentication.LastAuthorizationRequest);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("?provider=google")]
+    [DataRow("?email=new%40example.test")]
+    public async Task Callback_NewIdentityAtCapacity_DoesNotCreateAccountOrSession(string parameters)
+    {
+        await using var application = new TestApplicationFactory { AccountLimit = 1 };
+        application.Store.AdditionalAccountIdentities.Add("existing");
+        using var client = application.CreateNonRedirectingClient();
+        using var login = await client.GetAsync($"/api/user/login{parameters}");
+        var state = QueryHelpers.ParseQuery(login.Headers.Location!.Query)["state"].ToString();
+
+        using var callback = await client.GetAsync($"/api/user/callback?code=test-code&state={state}");
+        using var session = await client.GetAsync("/api/user/session");
+
+        Assert.AreEqual(HttpStatusCode.Redirect, callback.StatusCode);
+        StringAssert.Contains(callback.Headers.Location!.Query, "registration=closed");
+        Assert.AreEqual(HttpStatusCode.Unauthorized, session.StatusCode);
+        Assert.IsNull(await application.Store.GetByIdAsync(application.Store.UserId));
+    }
+
+    [TestMethod]
+    public async Task Callback_ReturningUserAtCapacity_StillCreatesSession()
+    {
+        await using var application = new TestApplicationFactory { AccountLimit = 1 };
+        using var first = await application.CreateAuthenticatedClientAsync();
+        using var second = await application.CreateAuthenticatedClientAsync();
+
+        using var response = await second.GetAsync("/api/user/session");
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Callback_CapacityFillsDuringHostedSignup_RechecksBeforeIssuingSession()
+    {
+        await using var application = new TestApplicationFactory { AccountLimit = 1 };
+        using var client = application.CreateNonRedirectingClient();
+        using var login = await client.GetAsync("/api/user/login?screen=sign-up");
+        var state = QueryHelpers.ParseQuery(login.Headers.Location!.Query)["state"].ToString();
+        application.Store.AdditionalAccountIdentities.Add("arrived-first");
+
+        using var callback = await client.GetAsync($"/api/user/callback?code=test-code&state={state}");
+
+        StringAssert.Contains(callback.Headers.Location!.Query, "registration=closed");
+        Assert.IsNull(await application.Store.GetByIdAsync(application.Store.UserId));
+    }
+
+    [TestMethod]
+    public async Task Registration_UnavailableStorage_DoesNotAdvertiseOpenSignup()
+    {
+        await using var application = new TestApplicationFactory(useApplicationFakes: false);
+        using var client = application.CreateNonRedirectingClient();
+
+        using var response = await client.GetAsync("/api/user/registration");
+
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Callback_UnlimitedConfiguration_AllowsMoreThan100Accounts()
+    {
+        await using var application = new TestApplicationFactory { AccountLimit = 0 };
+        application.Store.AdditionalAccountIdentities.AddRange(Enumerable.Range(1, 150).Select(index => $"existing-{index}"));
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        using var response = await client.GetAsync("/api/user/session");
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [TestMethod]
     [TestCategory("Integration")]
     public async Task Login_AnonymousRequest_RedirectsWithAntiForgeryState()
     {

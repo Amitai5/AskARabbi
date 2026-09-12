@@ -64,14 +64,15 @@ public sealed class WeeklyDvarTorahService
     /// <param name="search">Optional title, reading, date, holiday, or tag search.</param>
     /// <param name="page">One-based page number.</param>
     /// <param name="pageSize">Number of metadata records to return per page.</param>
+    /// <param name="readFilter">Optional account-owned read status filter.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The requested archive page and total matching count.</returns>
-    public Task<WeeklyDvarTorahArchiveResult> SearchArchiveAsync(string? search, int page = 1, int pageSize = DefaultArchivePageSize, CancellationToken cancellationToken = default)
+    public Task<WeeklyDvarTorahArchiveResult> SearchArchiveAsync(string? search, int page = 1, int pageSize = DefaultArchivePageSize, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null)
     {
         ValidateArchivePagination(page, pageSize);
         var normalizedSearch = NormalizeArchiveSearch(search);
         var skip = checked((page - 1) * pageSize);
-        return store.SearchPublishedAsync(options.InIsrael, GetCurrentWeek().ShabbatDate, normalizedSearch, skip, pageSize, cancellationToken);
+        return store.SearchPublishedAsync(options.InIsrael, GetCurrentWeek().ShabbatDate, normalizedSearch, skip, pageSize, cancellationToken, readFilter);
     }
 
     /// <summary>Loads a published past article by its stable weekly key.</summary>
@@ -85,6 +86,19 @@ public sealed class WeeklyDvarTorahService
             return Task.FromResult<WeeklyDvarTorahArticle?>(null);
         }
 
+        return store.GetPublishedByWeekKeyAsync(weekKey, cancellationToken);
+    }
+
+    /// <summary>Loads an eligible current or past publication before accepting reading progress.</summary>
+    /// <param name="weekKey">Stable reading-cycle and Shabbat key.</param>
+    /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <returns>A published teaching in the configured cycle, or null for an unavailable key.</returns>
+    public Task<WeeklyDvarTorahArticle?> GetPublishedAsync(string weekKey, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetArchiveDate(weekKey, out var shabbatDate) || shabbatDate > GetCurrentWeek().ShabbatDate)
+        {
+            return Task.FromResult<WeeklyDvarTorahArticle?>(null);
+        }
         return store.GetPublishedByWeekKeyAsync(weekKey, cancellationToken);
     }
 

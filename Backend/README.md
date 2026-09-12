@@ -94,7 +94,9 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 | `PUT /api/conversations/{id}/sources` | Replaces its approved source selectors. |
 | `DELETE /api/conversations/{id}` | Removes its metadata and message records. |
 | `GET /api/dvar-torah` | Returns the upcoming Shabbat metadata and this week's published Dvar Torah, or the most recent earlier publication while the current week is pending. |
-| `GET /api/dvar-torah/archive` | Searches and pages prior publication metadata. |
+| `GET /api/dvar-torah/archive` | Searches and pages prior publication metadata. Optional `readStatus=all|read|unread` combines account progress with search before pagination and counting. |
+| `GET /api/dvar-torah/read-state` | Returns the signed-in account's `readWeekKeys`; never shared-cacheable. |
+| `PUT /api/dvar-torah/read-state/{weekKey}` | Accepts `{ "isRead": true|false }` and returns `204`. Idempotently marks a current or past published teaching; unavailable keys return `404`. |
 | `GET /api/dvar-torah/archive/{weekKey}` | Returns a prior full publication. |
 | `GET`, `HEAD /api/dvar-torah/archive/{weekKey}/audio` | Authenticated MP3 stream for any published current/past week. Supports a single byte range (`206`), invalid/unsatisfiable range rejection (`416`), conditional reads, and `HEAD` without downloading audio. `download=true` supplies an attachment filename. |
 | `GET /api/dvar-torah/archive/{weekKey}/audio/timings` | Authenticated timing manifest with exact title/body word offsets for highlighting. |
@@ -107,6 +109,8 @@ All conversation and conversation-settings routes require the encrypted AskRabbi
 ## Persistence shape
 
 Azure Cosmos DB for MongoDB is accessed through the official MongoDB .NET driver. Account records, conversation metadata, messages, personalization/preferences, monthly counters, and weekly Dvar Torah publications use separate collections. Weekly publications use deterministic `diaspora|israel:yyyy-MM-dd` IDs and persist generation state, a bounded recovery lease, safe failure codes, and immutable published text. The API reads only complete `Published` documents and falls back no later than the requested Shabbat. Assistant message documents embed only the bounded, validated source citations used for that answer: exact quotations, presented context, canonical Sefaria URL, edition attribution URL, language, license, and excerpt state. Older message documents without the additive `sources` field deserialize with an empty source list. Separating messages from conversation metadata prevents every message append from rewriting an ever-growing conversation document and keeps sidebar queries lightweight. Personalization and general preferences share one document but are updated with field-level Mongo operations so saving either one cannot erase the other. Conversation preferences carry a defaults version: legacy records without that version resolve source context to closed, while a subsequent explicit user save records the current version and preserves the user's choice. Required indexes are created when configured persistence starts.
+
+Teaching progress is stored as the additive `readDvarTorahWeekKeys` array in each account's existing conversation-settings document, not in the shared publications. Missing fields mean no teachings have been marked read. Mongo `$addToSet` / `$pull` updates preserve other progress and preferences; existing account deletion removes the array with the settings document. No migration, index, or new collection is required. Deploy the API before the frontend to enable the new controls; older clients and unfiltered archive queries remain compatible.
 
 ## Weekly Dvar Torah Container Apps Job
 

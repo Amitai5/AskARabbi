@@ -1,5 +1,6 @@
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Calendar;
+using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.Conversations;
 using AskARabbiLIB.ConversationSettings;
 using AskARabbiLIB.Usage;
@@ -7,7 +8,7 @@ using AskARabbiLIB.Persistence.InMemory;
 
 namespace AskARabbi.Api.Tests;
 
-internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IUserDataStore, ICalendarPreferencesStore
+internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IUserDataStore, ICalendarPreferencesStore, IWeeklyDvarTorahReadStateStore
 {
     private readonly object dataSynchronization = new();
     private static readonly Guid StableUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -15,11 +16,49 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
     private readonly Dictionary<Guid, PersonalizationSettings> personalization = [];
     private readonly Dictionary<Guid, ConversationPreferences> preferences = [];
     private readonly Dictionary<Guid, ReadingPreferences> readingPreferences = [];
+    private readonly Dictionary<Guid, HashSet<string>> readTeachings = [];
     private readonly Dictionary<Guid, CalendarPreferences> calendarPreferences = [];
     private UserAccount? account;
     internal InMemoryUsageStore TokenUsage { get; } = new();
     private readonly Dictionary<Guid, (DateTimeOffset ExpiresAt, bool Exclusive)> dataOperations = [];
     private Guid nextAccountId = StableUserId;
+
+    internal List<string> AdditionalAccountIdentities { get; } = [];
+
+    internal IReadOnlyList<string> GetAccountIdentities() => account is null ? AdditionalAccountIdentities.ToArray() : [.. AdditionalAccountIdentities, account.ProviderUserId];
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<string>> GetReadWeekKeysAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            return Task.FromResult<IReadOnlyList<string>>(readTeachings.TryGetValue(userId, out var keys) ? keys.ToArray() : []);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task SetReadStateAsync(Guid userId, string weekKey, bool isRead, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (dataSynchronization)
+        {
+            if (!readTeachings.TryGetValue(userId, out var keys))
+            {
+                keys = [];
+                readTeachings[userId] = keys;
+            }
+            if (isRead)
+            {
+                keys.Add(weekKey);
+            }
+            else
+            {
+                keys.Remove(weekKey);
+            }
+        }
+        return Task.CompletedTask;
+    }
 
     public Task<CalendarPreferences?> GetCalendarPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(calendarPreferences.GetValueOrDefault(userId));
     public Task UpsertCalendarPreferencesAsync(Guid userId, CalendarPreferences preferences, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default)
@@ -107,6 +146,7 @@ internal sealed class InMemoryApplicationStore : IUserAccountStore, IConversatio
             personalization.Remove(userId);
             preferences.Remove(userId);
             readingPreferences.Remove(userId);
+            readTeachings.Remove(userId);
             calendarPreferences.Remove(userId);
             TokenUsage.DeleteAccount(userId);
             account = null;

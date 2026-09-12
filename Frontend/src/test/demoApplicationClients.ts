@@ -80,6 +80,7 @@ export function createDemoApplicationClients(): DemoApplicationClients {
   }]))
 
   const authClient: AuthClient = {
+    getRegistrationAvailability: () => Promise.resolve({ isOpen: true }),
     getSession: () => Promise.resolve(null),
     signInWithEmail: (email) => Promise.resolve({ ...DemoUser, email }),
     signInWithSocialProvider: () => Promise.resolve(DemoUser),

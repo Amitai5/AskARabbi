@@ -361,8 +361,109 @@ describe('WeeklyDvarTorahPage', () => {
   })
 })
 
+describe('teaching reading progress', () => {
+  it('marks the current teaching, reloads its account progress, and lets the reader undo it', async () => {
+    const user = userEvent.setup()
+    const read = new Set<string>()
+    const client = createClient(Publication)
+    client.getReadState = vi.fn(async () => ({ readWeekKeys: [...read] }))
+    client.setReadState = vi.fn(async (key, isRead) => { if (isRead) { read.add(key) } else { read.delete(key) } })
+    const { unmount } = render(<WeeklyDvarTorahPage client={client} />)
+    await user.click(await screen.findByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' }))
+    expect(await screen.findByRole('button', { name: 'Mark as unread: Nitzavim—Choosing Life' })).toHaveAttribute('aria-pressed', 'true')
+    expect(client.setReadState).toHaveBeenCalledWith('diaspora:2026-09-05', true)
+    unmount()
+
+    render(<WeeklyDvarTorahPage client={client} />)
+    await user.click(await screen.findByRole('button', { name: 'Mark as unread: Nitzavim—Choosing Life' }))
+    expect(await screen.findByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' })).toHaveAttribute('aria-pressed', 'false')
+    expect(client.setReadState).toHaveBeenLastCalledWith('diaspora:2026-09-05', false)
+  })
+
+  it('combines read filters with search, resets pagination, and preserves the filter when opening an article', async () => {
+    const user = userEvent.setup()
+    const client = createClient(Publication, { ...Archive, page: 2 })
+    vi.mocked(client.getArchived).mockResolvedValue(ArchivedArticle)
+    const navigate = vi.fn()
+    render(<WeeklyDvarTorahPage client={client} initialRoute={{ archive: true, page: 2, search: 'community' }} onNavigate={navigate} />)
+    await screen.findByRole('button', { name: 'Open Responsibility in the Camp' })
+    await user.click(screen.getByRole('button', { name: 'Unread' }))
+    await waitFor(() => expect(client.getArchive).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, search: 'community', readStatus: 'unread' }))
+    expect(navigate).toHaveBeenLastCalledWith({ archive: true, page: 1, search: 'community', readStatus: 'unread' })
+    await user.click(screen.getByRole('button', { name: 'Open Responsibility in the Camp' }))
+    await screen.findByRole('heading', { name: ArchivedArticle.title })
+    expect(navigate).toHaveBeenLastCalledWith({ weekKey: ArchivedArticle.week.weekKey, page: 1, search: 'community', readStatus: 'unread' })
+    await user.click(screen.getByRole('button', { name: 'Back to past teachings' }))
+    expect(screen.getByRole('button', { name: 'Unread' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('refreshes the filtered archive after marking a row read without opening it', async () => {
+    const user = userEvent.setup()
+    const client = createClient(Publication, { ...Archive, totalCount: 1, totalPages: 1 })
+    render(<WeeklyDvarTorahPage client={client} initialRoute={{ archive: true, readStatus: 'unread' }} />)
+    const mark = await screen.findByRole('button', { name: `Mark as read: ${ArchivedArticle.title}` })
+    await waitFor(() => expect(mark).toBeEnabled())
+    vi.mocked(client.getArchive).mockResolvedValue(EmptyArchive)
+    await user.click(mark)
+    expect(await screen.findByText('No unread teachings found.')).toBeVisible()
+    expect(client.setReadState).toHaveBeenCalledWith(ArchivedArticle.week.weekKey, true)
+    expect(client.getArchived).not.toHaveBeenCalled()
+  })
+
+  it('keeps the original state on a failed save and allows another attempt', async () => {
+    const user = userEvent.setup()
+    const client = createClient(Publication)
+    vi.mocked(client.setReadState).mockRejectedValueOnce(new Error('Unavailable'))
+    render(<WeeklyDvarTorahPage client={client} />)
+    const button = await screen.findByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' })
+    await user.click(button)
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be saved')
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    await user.click(button)
+    expect(await screen.findByRole('button', { name: 'Mark as unread: Nitzavim—Choosing Life' })).toBeEnabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('does not overwrite unknown progress after a failed load and offers a retry', async () => {
+    const user = userEvent.setup()
+    const client = createClient(Publication)
+    client.getReadState = vi.fn().mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValue({ readWeekKeys: ['diaspora:2026-09-05'] })
+    render(<WeeklyDvarTorahPage client={client} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded')
+    expect(screen.getByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Retry reading progress' }))
+    expect(await screen.findByRole('button', { name: 'Mark as unread: Nitzavim—Choosing Life' })).toBeEnabled()
+    expect(client.setReadState).not.toHaveBeenCalled()
+  })
+
+  it('disables account progress for a saved offline teaching without making progress requests', async () => {
+    const client = createClient(Publication)
+    client.getReadState = vi.fn()
+    render(<WeeklyDvarTorahPage client={client} offlineSavedAt="2026-09-05T12:00:00Z" />)
+    expect(await screen.findByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' })).toBeDisabled()
+    expect(screen.getByText('Connect to update your reading progress.')).toBeVisible()
+    expect(client.getReadState).not.toHaveBeenCalled()
+  })
+
+  it('prevents duplicate updates while a save is pending', async () => {
+    const user = userEvent.setup()
+    const client = createClient(Publication)
+    let finish!: () => void
+    client.setReadState = vi.fn(() => new Promise<void>(resolve => { finish = resolve }))
+    render(<WeeklyDvarTorahPage client={client} />)
+    const button = await screen.findByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' })
+    await user.dblClick(button)
+    expect(client.setReadState).toHaveBeenCalledTimes(1)
+    expect(button).toBeDisabled()
+    await act(async () => finish())
+    expect(screen.getByRole('button', { name: 'Mark as unread: Nitzavim—Choosing Life' })).toBeEnabled()
+  })
+})
+
 function createClient(response: WeeklyDvarTorahResponse, archive: WeeklyDvarTorahArchiveResponse = EmptyArchive): DvarTorahClient {
   return {
+    getReadState: async () => ({ readWeekKeys: [] }),
+    setReadState: vi.fn().mockResolvedValue(undefined),
     getCurrent: vi.fn().mockResolvedValue(response),
     getArchive: vi.fn().mockResolvedValue(archive),
     getArchived: vi.fn().mockResolvedValue(response.dvarTorah ?? ArchivedArticle),

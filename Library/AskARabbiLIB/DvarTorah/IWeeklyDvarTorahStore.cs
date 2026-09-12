@@ -28,7 +28,8 @@ public interface IWeeklyDvarTorahStore
     /// <param name="search">Optional title, reading, date, holiday, or tag search.</param>
     /// <param name="skip">Number of matching publications to skip.</param>
     /// <param name="limit">Maximum number of metadata records to return.</param>
+    /// <param name="readFilter">Optional account-owned read status filter.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
     /// <returns>The requested metadata page and total matching count.</returns>
-    Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default);
+    Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null);
 }

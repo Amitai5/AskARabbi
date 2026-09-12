@@ -190,6 +190,128 @@ public sealed class DvarTorahControllerTests
         Assert.AreEqual(HttpStatusCode.NotFound, unknownResponse.StatusCode);
     }
 
+    [TestMethod]
+    public async Task ReadState_MarkAndUndo_PersistsIdempotentlyWithoutPublicArticleChanges()
+    {
+        await using var application = new TestApplicationFactory();
+        var article = CreateArticle(new DateOnly(2026, 8, 29), "Current teaching");
+        application.WeeklyDvarTorah.CurrentArticle = article;
+        using var client = await application.CreateAuthenticatedClientAsync();
+        var path = "/api/dvar-torah/read-state/diaspora%3A2026-08-29";
+
+        var initial = await client.GetFromJsonAsync<WeeklyDvarTorahReadStateResponse>("/api/dvar-torah/read-state");
+        Assert.HasCount(0, initial!.ReadWeekKeys);
+        using var first = await client.PutAsJsonAsync(path, new { isRead = true });
+        using var duplicate = await client.PutAsJsonAsync(path, new { isRead = true });
+        using var saved = await client.GetAsync("/api/dvar-torah/read-state");
+        var state = await saved.Content.ReadFromJsonAsync<WeeklyDvarTorahReadStateResponse>();
+
+        Assert.AreEqual(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.AreEqual(HttpStatusCode.NoContent, duplicate.StatusCode);
+        Assert.IsTrue(saved.Headers.CacheControl?.NoStore);
+        CollectionAssert.AreEqual(new[] { article.Week.WeekKey }, state!.ReadWeekKeys.ToArray());
+        Assert.AreSame(article, application.WeeklyDvarTorah.CurrentArticle);
+
+        using var undo = await client.PutAsJsonAsync(path, new { isRead = false });
+        var unread = await client.GetFromJsonAsync<WeeklyDvarTorahReadStateResponse>("/api/dvar-torah/read-state");
+        Assert.AreEqual(HttpStatusCode.NoContent, undo.StatusCode);
+        Assert.HasCount(0, unread!.ReadWeekKeys);
+    }
+
+    [TestMethod]
+    [DataRow("read", "Community older")]
+    [DataRow("unread", "Community newest")]
+    public async Task GetArchive_ReadStatusAndSearch_FiltersBeforePaginationAndCount(string status, string expectedTitle)
+    {
+        await using var application = new TestApplicationFactory();
+        application.WeeklyDvarTorah.ArchivedArticles.Add(CreateArticle(new DateOnly(2026, 8, 22), "Community newest"));
+        application.WeeklyDvarTorah.ArchivedArticles.Add(CreateArticle(new DateOnly(2026, 8, 15), "Community older"));
+        application.WeeklyDvarTorah.ArchivedArticles.Add(CreateArticle(new DateOnly(2026, 8, 8), "Unrelated"));
+        using var client = await application.CreateAuthenticatedClientAsync();
+        using var mark = await client.PutAsJsonAsync("/api/dvar-torah/read-state/diaspora%3A2026-08-15", new { isRead = true });
+        mark.EnsureSuccessStatusCode();
+
+        var result = await client.GetFromJsonAsync<WeeklyDvarTorahArchiveResponse>($"/api/dvar-torah/archive?search=Community&readStatus={status}&pageSize=1");
+
+        Assert.AreEqual(1, result!.TotalCount);
+        Assert.AreEqual(1, result.TotalPages);
+        Assert.AreEqual(expectedTitle, result.Items.Single().Title);
+    }
+
+    [TestMethod]
+    public async Task ReadState_OtherAccountProgress_IsNotReturnedOrUsedForFiltering()
+    {
+        await using var application = new TestApplicationFactory();
+        var article = CreateArticle(new DateOnly(2026, 8, 22), "Earlier teaching");
+        application.WeeklyDvarTorah.ArchivedArticles.Add(article);
+        var otherUser = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        await application.Store.SetReadStateAsync(otherUser, article.Week.WeekKey, true, PublishedAtUtc);
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        var state = await client.GetFromJsonAsync<WeeklyDvarTorahReadStateResponse>("/api/dvar-torah/read-state");
+        var read = await client.GetFromJsonAsync<WeeklyDvarTorahArchiveResponse>("/api/dvar-torah/archive?readStatus=read");
+        var unread = await client.GetFromJsonAsync<WeeklyDvarTorahArchiveResponse>("/api/dvar-torah/archive?readStatus=unread");
+
+        Assert.HasCount(0, state!.ReadWeekKeys);
+        Assert.AreEqual(0, read!.TotalCount);
+        Assert.AreEqual(1, unread!.TotalCount);
+    }
+
+    [TestMethod]
+    [DataRow("diaspora:2026-08-15")]
+    [DataRow("diaspora:2026-09-05")]
+    [DataRow("israel:2026-08-22")]
+    [DataRow("diaspora:2026-08-21")]
+    [DataRow("not-a-week")]
+    public async Task SetReadState_UnavailableOrInvalidTeaching_ReturnsNotFoundWithoutSaving(string key)
+    {
+        await using var application = new TestApplicationFactory();
+        application.WeeklyDvarTorah.ArchivedArticles.Add(CreateArticle(new DateOnly(2026, 9, 5), "Future teaching"));
+        using var client = await application.CreateAuthenticatedClientAsync();
+
+        using var response = await client.PutAsJsonAsync($"/api/dvar-torah/read-state/{Uri.EscapeDataString(key)}", new { isRead = true });
+        var state = await client.GetFromJsonAsync<WeeklyDvarTorahReadStateResponse>("/api/dvar-torah/read-state");
+
+        Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.HasCount(0, state!.ReadWeekKeys);
+    }
+
+    [TestMethod]
+    public async Task ReadState_Unauthenticated_RejectsReadingAndWriting()
+    {
+        await using var application = new TestApplicationFactory();
+        using var client = application.CreateNonRedirectingClient();
+        using var get = await client.GetAsync("/api/dvar-torah/read-state");
+        using var put = await client.PutAsJsonAsync("/api/dvar-torah/read-state/diaspora%3A2026-08-22", new { isRead = true });
+        Assert.AreEqual(HttpStatusCode.Unauthorized, get.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, put.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task ReadState_InvalidQueryOrMissingState_ReturnsBadRequest()
+    {
+        await using var application = new TestApplicationFactory();
+        using var client = await application.CreateAuthenticatedClientAsync();
+        using var query = await client.GetAsync("/api/dvar-torah/archive?readStatus=invalid");
+        using var missing = await client.PutAsJsonAsync("/api/dvar-torah/read-state/diaspora%3A2026-08-22", new { });
+        Assert.AreEqual(HttpStatusCode.BadRequest, query.StatusCode);
+        Assert.AreEqual(HttpStatusCode.BadRequest, missing.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task CompleteAccountDeletion_RemovesReadingProgress()
+    {
+        await using var application = new TestApplicationFactory();
+        using var client = await application.CreateAuthenticatedClientAsync();
+        var userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        await application.Store.SetReadStateAsync(userId, "diaspora:2026-08-22", true, PublishedAtUtc);
+
+        Assert.IsNotNull(await application.Store.TryRequestDeletionAsync(userId, PublishedAtUtc));
+        await application.Store.CompleteDeletionAsync(userId);
+
+        Assert.HasCount(0, await application.Store.GetReadWeekKeysAsync(userId));
+    }
+
     private static WeeklyDvarTorahArticle CreateArticle(DateOnly shabbatDate, string title, IReadOnlyList<string>? tags = null)
     {
         var week = new WeeklyDvarTorahWeek(shabbatDate, "Test Hebrew date", "Test parashah", null, false);

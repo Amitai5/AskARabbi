@@ -8,8 +8,23 @@ using AskARabbiLIB.Usage;
 namespace AskARabbiLIB.Persistence.Mongo;
 
 /// <summary>Fails persistence operations explicitly when MongoDB has not been configured.</summary>
-public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore, ICalendarPreferencesStore
+public sealed class UnavailableApplicationStore : IUserAccountStore, IConversationStore, IConversationSettingsStore, IUsageStore, IWeeklyDvarTorahStore, IUserDataStore, ICalendarPreferencesStore, IWeeklyDvarTorahReadStateStore, IAccountRegistrationStore
 {
+    /// <inheritdoc/>
+    public Task<AccountRegistrationSnapshot> ReadAsync(string? providerUserId, CancellationToken cancellationToken = default) => Task.FromException<AccountRegistrationSnapshot>(CreateException());
+
+    /// <inheritdoc/>
+    public Task<bool> TryReserveAsync(long revision, Guid operationId, string providerUserId, CancellationToken cancellationToken = default) => Task.FromException<bool>(CreateException());
+
+    /// <inheritdoc/>
+    public Task CompleteAsync(Guid operationId, string providerUserId, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<string>> GetReadWeekKeysAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException<IReadOnlyList<string>>(CreateException());
+
+    /// <inheritdoc/>
+    public Task SetReadStateAsync(Guid userId, string weekKey, bool isRead, DateTimeOffset updatedAtUtc, CancellationToken cancellationToken = default) => Task.FromException(CreateException());
+
     /// <inheritdoc/>
     public Task<bool> TryAcquireAsync(Guid userId, Guid operationId, bool exclusive, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) => Task.FromException<bool>(CreateException());
 
@@ -95,7 +110,7 @@ public sealed class UnavailableApplicationStore : IUserAccountStore, IConversati
     public Task<WeeklyDvarTorahArticle?> GetPublishedByWeekKeyAsync(string weekKey, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArticle?>(CreateException());
 
     /// <inheritdoc/>
-    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default) => Task.FromException<WeeklyDvarTorahArchiveResult>(CreateException());
+    public Task<WeeklyDvarTorahArchiveResult> SearchPublishedAsync(bool inIsrael, DateOnly before, string? search, int skip, int limit, CancellationToken cancellationToken = default, WeeklyDvarTorahReadFilter? readFilter = null) => Task.FromException<WeeklyDvarTorahArchiveResult>(CreateException());
 
     /// <inheritdoc/>
     public Task<CalendarPreferences?> GetCalendarPreferencesAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromException<CalendarPreferences?>(CreateException());

@@ -11,6 +11,7 @@ public sealed class MongoUserDataStore : IUserDataStore
     private readonly IMongoCollection<BsonDocument>[] chatCollections;
     private readonly IMongoCollection<BsonDocument> settings;
     private readonly IMongoCollection<BsonDocument> usage;
+    private readonly MongoAccountRegistrationStore registrations;
 
     /// <summary>Initializes owner-scoped deletion storage. Shared publications and source libraries are deliberately excluded.</summary>
     /// <param name="database">Application database.</param>
@@ -23,6 +24,7 @@ public sealed class MongoUserDataStore : IUserDataStore
         chatCollections = [database.GetCollection<BsonDocument>(options.ConversationsCollectionName), database.GetCollection<BsonDocument>(options.ConversationMessagesCollectionName)];
         settings = database.GetCollection<BsonDocument>(options.ConversationSettingsCollectionName);
         usage = database.GetCollection<BsonDocument>(options.UsageCollectionName);
+        registrations = new MongoAccountRegistrationStore(database, options);
     }
 
     /// <inheritdoc/>
@@ -78,7 +80,8 @@ public sealed class MongoUserDataStore : IUserDataStore
     public async Task CompleteDeletionAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var pendingOwner = Owner(userId).Add("deletionRequestedAtUtc", new BsonDocument("$type", "date"));
-        if (!await users.Find(pendingOwner).AnyAsync(cancellationToken).ConfigureAwait(false))
+        var account = await users.Find(pendingOwner).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (account is null)
         {
             return;
         }
@@ -86,6 +89,8 @@ public sealed class MongoUserDataStore : IUserDataStore
         // Conversation settings use the owner's ID as _id, not a userId field.
         await settings.DeleteManyAsync(Owner(userId), cancellationToken).ConfigureAwait(false);
         await usage.DeleteManyAsync(DataOwner(userId), cancellationToken).ConfigureAwait(false);
+        // Keep the disabled recovery record until both data erasure and capacity release succeed.
+        await registrations.ReleaseAccountAsync(account["providerUserId"].AsString, cancellationToken).ConfigureAwait(false);
         // Keep the recovery record until every owned collection has been erased successfully.
         await users.DeleteOneAsync(pendingOwner, cancellationToken).ConfigureAwait(false);
     }

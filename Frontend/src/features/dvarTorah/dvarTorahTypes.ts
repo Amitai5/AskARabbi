@@ -83,7 +83,11 @@ export interface WeeklyDvarTorahArchiveResponse {
 }
 
 export interface WeeklyDvarTorahArchiveQuery {
+  readStatus?: TeachingReadStatus
   search?: string
   page?: number
   pageSize?: number
 }
+
+export type TeachingReadStatus = 'all' | 'unread' | 'read'
+export interface TeachingReadState { readWeekKeys: string[] }

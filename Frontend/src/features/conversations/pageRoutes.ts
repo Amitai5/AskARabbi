@@ -1,8 +1,9 @@
 import type { CalendarRange } from '../calendar/calendarTypes.ts'
+import type { TeachingReadStatus } from '../dvarTorah/dvarTorahTypes.ts'
 import { readSettingsRoute } from '../settings/settingsRegistry.ts'
 
 export type ActiveView = 'conversation' | 'dvarTorah' | 'calendar' | 'settings'
-export interface TeachingRoute { weekKey?: string; archive?: boolean; page?: number; search?: string }
+export interface TeachingRoute { weekKey?: string; archive?: boolean; page?: number; search?: string; readStatus?: TeachingReadStatus }
 export interface PageRoute {
   view: ActiveView
   conversationId?: string
@@ -15,18 +16,20 @@ export interface PageRoute {
 export function readPageRoute(): PageRoute {
   const { pathname, search } = window.location
   const query = new URLSearchParams(search)
+  const readStatus = query.get('readStatus')
+  const page = Number(query.get('page'))
+  const progress = readStatus === 'read' || readStatus === 'unread' ? { readStatus } as const : {}
   if (readSettingsRoute(pathname)) { return { view: 'settings' } }
   if (pathname === '/calendar') {
     const days = Number(query.get('days'))
     return { view: 'calendar', days: days === 180 || days === 360 ? days : 90, search: query.get('search')?.slice(0, 150) ?? '' }
   }
   if (pathname === '/teachings/archive') {
-    const page = Number(query.get('page'))
-    return { view: 'dvarTorah', teaching: { archive: true, page: Number.isInteger(page) && page > 0 ? page : 1, search: query.get('search')?.slice(0, 120) ?? '' } }
+    return { view: 'dvarTorah', teaching: { archive: true, page: Number.isInteger(page) && page > 0 ? page : 1, search: query.get('search')?.slice(0, 120) ?? '', ...progress } }
   }
   if (pathname === '/teachings') { return { view: 'dvarTorah', teaching: {} } }
   const teaching = decodeSegment(pathname, '/teachings/')
-  if (teaching) { return { view: 'dvarTorah', teaching: { weekKey: teaching } } }
+  if (teaching) { return { view: 'dvarTorah', teaching: { weekKey: teaching, ...progress, ...(query.has('search') ? { search: query.get('search')?.slice(0, 120) } : {}), ...(Number.isInteger(page) && page > 1 ? { page } : {}) } } }
   if (pathname === '/conversations/new') { return { view: 'conversation', isNew: true } }
   const conversationId = decodeSegment(pathname, '/conversations/')
   return { view: 'conversation', conversationId: conversationId ?? undefined }
@@ -37,12 +40,12 @@ export function conversationPath(id: string | null) {
 }
 
 export function teachingPath(route: TeachingRoute = {}) {
-  if (route.weekKey) { return `/teachings/${encodeURIComponent(route.weekKey)}` }
-  if (!route.archive) { return '/teachings' }
+  if (!route.archive && !route.weekKey) { return '/teachings' }
   const query = new URLSearchParams()
   if (route.page && route.page > 1) { query.set('page', String(route.page)) }
   if (route.search) { query.set('search', route.search) }
-  return `/teachings/archive${query.size ? `?${query}` : ''}`
+  if (route.readStatus && route.readStatus !== 'all') { query.set('readStatus', route.readStatus) }
+  return `${route.weekKey ? `/teachings/${encodeURIComponent(route.weekKey)}` : '/teachings/archive'}${query.size ? `?${query}` : ''}`
 }
 
 export function calendarPath(days: CalendarRange = 90, search = '') {

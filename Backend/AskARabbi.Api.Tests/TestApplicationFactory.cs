@@ -41,6 +41,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
 
     internal InMemoryApplicationStore Store { get; init; } = new();
 
+    internal int AccountLimit { get; init; } = 100;
+
     internal TimeProvider Clock { get; init; } = new FixedTimeProvider(FixedUtcNow);
 
     internal IDataProtectionProvider SessionKeys { get; init; } = new EphemeralDataProtectionProvider();
@@ -57,6 +59,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environmentName);
+        builder.UseSetting("Registration:AccountLimit", AccountLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("LocalDevelopment:UseDemoServices", useLocalDemoServices.ToString());
         if (configureAi)
         {
@@ -75,6 +78,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 ["MongoDB:ConnectionString"] = string.Empty,
                 ["MongoDB:DatabaseName"] = "askarabbi",
                 ["LocalDevelopment:UseDemoServices"] = useLocalDemoServices.ToString(),
+                ["Registration:AccountLimit"] = AccountLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
             };
             if (configureAi)
             {
@@ -103,10 +107,12 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
             {
                 services.RemoveAll<IUserAuthenticationService>();
                 services.RemoveAll<IUserAccountStore>();
+                services.RemoveAll<IAccountRegistrationStore>();
                 services.RemoveAll<IUserDataStore>();
                 services.RemoveAll<IConversationStore>();
                 services.RemoveAll<IConversationSettingsStore>();
                 services.RemoveAll<ICalendarPreferencesStore>();
+                services.RemoveAll<IWeeklyDvarTorahReadStateStore>();
                 services.RemoveAll<IUsageStore>();
                 services.RemoveAll<IWeeklyDvarTorahStore>();
                 services.RemoveAll<IDvarTorahAudioReader>();
@@ -114,10 +120,12 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
 
                 services.AddSingleton<IUserAuthenticationService>(Authentication);
                 services.AddSingleton<IUserAccountStore>(Store);
+                services.AddSingleton<IAccountRegistrationStore>(new AskARabbiLIB.Persistence.InMemory.InMemoryAccountRegistrationStore(Store.GetAccountIdentities));
                 services.AddSingleton<IUserDataStore>(Store);
                 services.AddSingleton<IConversationStore>(Store);
                 services.AddSingleton<IConversationSettingsStore>(Store);
                 services.AddSingleton<ICalendarPreferencesStore>(Store);
+                services.AddSingleton<IWeeklyDvarTorahReadStateStore>(Store);
                 services.AddSingleton<IUsageStore>(Store);
                 services.AddSingleton<IWeeklyDvarTorahStore>(WeeklyDvarTorah);
                 services.AddSingleton<IDvarTorahAudioReader>(DvarTorahAudio);

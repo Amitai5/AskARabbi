@@ -112,6 +112,7 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
   }, [client])
 
   const requestPasswordReset = useCallback((email: string) => client.requestPasswordReset(email), [client])
+  const getRegistrationAvailability = useCallback(() => client.getRegistrationAvailability(), [client])
   const deleteAccount = useCallback(async () => {
     const result = await client.deleteAccount()
     await clearOfflineTeaching()
@@ -126,6 +127,7 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
     isInitializing,
     isAuthenticating,
     authenticationError,
+    getRegistrationAvailability,
     signInWithEmail,
     signInWithSocialProvider,
     signUp,
@@ -134,7 +136,7 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
     confirmPasswordReset,
     signOut,
     deleteAccount,
-  }), [authenticationError, clearAuthenticationError, confirmPasswordReset, deleteAccount, isAuthenticating, isInitializing, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signOut, signUp, user])
+  }), [authenticationError, clearAuthenticationError, confirmPasswordReset, deleteAccount, getRegistrationAvailability, isAuthenticating, isInitializing, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signOut, signUp, user])
 
   return <AuthContext.Provider value={value}>{children}{deletionStatus ? <Toast notificationId={1} title={deletionStatus === 'deleted' ? 'Account deleted' : 'Account deletion requested'} message={deletionStatus === 'deleted' ? 'Your AskRabbi account and its data have been deleted.' : 'Your account is disabled. We will automatically retry the remaining cleanup.'} onDismiss={() => setDeletionStatus(null)} /> : null}</AuthContext.Provider>
 }

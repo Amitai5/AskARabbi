@@ -8,6 +8,8 @@ import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
 
 const Question = 'Explain the weekly Torah reading'
 const dvarTorahClient: DvarTorahClient = {
+  getReadState: async () => ({ readWeekKeys: [] }),
+  setReadState: vi.fn().mockResolvedValue(undefined),
   getCurrent: () => Promise.resolve({
     currentWeek: { weekKey: 'diaspora:2026-09-05', shabbatDate: '2026-09-05', hebrewDate: '23 Elul, 5786', parashah: 'Nitzavim', holiday: null, inIsrael: false },
     dvarTorah: null,

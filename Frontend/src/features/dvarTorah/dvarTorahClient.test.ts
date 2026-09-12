@@ -87,6 +87,20 @@ describe('createBackendDvarTorahClient', () => {
     expect(request).toHaveBeenCalledWith('/api/dvar-torah/archive/diaspora%3A2026-08-29')
   })
 
+  it('requests filtered archive results and persists only the selected teaching state', async () => {
+    const request = vi.fn().mockResolvedValue({ readWeekKeys: [] })
+    const client = createBackendDvarTorahClient(createApiClient(request))
+    const controller = new AbortController()
+    await client.getReadState(controller.signal)
+    expect(request).toHaveBeenLastCalledWith('/api/dvar-torah/read-state', { signal: controller.signal, cache: 'no-store' })
+    await client.setReadState('diaspora:2026-08-29', true)
+    expect(request).toHaveBeenLastCalledWith('/api/dvar-torah/read-state/diaspora%3A2026-08-29', { method: 'PUT', body: '{"isRead":true}' })
+    await client.setReadState('diaspora:2026-08-29', false)
+    expect(request).toHaveBeenLastCalledWith('/api/dvar-torah/read-state/diaspora%3A2026-08-29', { method: 'PUT', body: '{"isRead":false}' })
+    await client.getArchive({ search: 'community', readStatus: 'unread', page: 2 })
+    expect(request).toHaveBeenLastCalledWith('/api/dvar-torah/archive?page=2&pageSize=10&readStatus=unread&search=community')
+  })
+
   it('constructs audio paths only on the configured API and version-binds both requests', async () => {
     const request = vi.fn().mockResolvedValue({ words: [] })
     const client = createBackendDvarTorahClient(createApiClient(request))

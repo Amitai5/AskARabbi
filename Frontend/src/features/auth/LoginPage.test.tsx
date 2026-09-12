@@ -6,7 +6,10 @@ import { LoginPage } from './LoginPage.tsx'
 import { PwaInstallProvider } from '../pwa/PwaInstall.tsx'
 import { createDemoApplicationClients } from '../../test/demoApplicationClients.ts'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  window.history.replaceState(null, '', '/')
+})
 
 async function renderLogin() {
   const { authClient } = createDemoApplicationClients()
@@ -16,6 +19,46 @@ async function renderLogin() {
 }
 
 describe('LoginPage', () => {
+  it('shows a support link when full while keeping existing-account sign-in and recovery available', async () => {
+    const clients = createDemoApplicationClients()
+    clients.authClient.getRegistrationAvailability = vi.fn().mockResolvedValue({ isOpen: false })
+    const signUp = vi.spyOn(clients.authClient, 'signUp')
+    const user = userEvent.setup()
+    await act(async () => { render(<AuthProvider client={clients.authClient}><LoginPage /></AuthProvider>) })
+
+    expect(screen.getByText('Registration is currently full')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'support@askarabbi.ai' })).toHaveAttribute('href', 'mailto:support@askarabbi.ai')
+    expect(screen.queryByRole('button', { name: 'Create an account' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continue with email' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Forgot your password?' }))
+    expect(screen.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
+    expect(signUp).not.toHaveBeenCalled()
+  })
+
+  it('preserves the server capacity-denial message if the availability refresh fails', async () => {
+    window.history.replaceState(null, '', '/?registration=closed')
+    const clients = createDemoApplicationClients()
+    clients.authClient.getRegistrationAvailability = vi.fn().mockRejectedValue(new Error('Offline'))
+    await act(async () => { render(<AuthProvider client={clients.authClient}><LoginPage /></AuthProvider>) })
+
+    expect(screen.getByText('Registration is currently full')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Create an account' })).not.toBeInTheDocument()
+    expect(window.location.search).toBe('')
+  })
+
+  it('offers a retry after an availability failure and restores signup when it succeeds', async () => {
+    const clients = createDemoApplicationClients()
+    clients.authClient.getRegistrationAvailability = vi.fn().mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValue({ isOpen: true })
+    const user = userEvent.setup()
+    await act(async () => { render(<AuthProvider client={clients.authClient}><LoginPage /></AuthProvider>) })
+
+    expect(screen.getByText(/couldn’t check registration availability/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('button', { name: 'Create an account' })).toBeEnabled()
+  })
+
   it('links to terms and privacy before signing in without an expandable retention explanation', async () => {
     await renderLogin()
     const terms = screen.getByRole('link', { name: /^Terms of Service/ })

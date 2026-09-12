@@ -400,6 +400,8 @@ describe('DvarTorahReadAloud', () => {
 
 function createClient(): DvarTorahClient {
   return {
+    getReadState: async () => ({ readWeekKeys: [] }),
+    setReadState: vi.fn().mockResolvedValue(undefined),
     getCurrent: vi.fn(), getArchive: vi.fn(), getArchived: vi.fn(),
     getAudioUrl: vi.fn(() => 'https://api.askarabbi.test/audio?version=v1'),
     getAudioTimings: vi.fn().mockResolvedValue(Timings),

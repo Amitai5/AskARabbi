@@ -24,15 +24,9 @@ function FocusLayout({ children }: { children: ReactNode }) {
 }
 
 describe('focused reading', () => {
-  it('focuses a long answer on demand and restores keyboard focus on exit', async () => {
+  it('does not show the removed per-answer focus control for long answers', () => {
     render(<FocusedReadingProvider><FocusLayout><AssistantMessage message={message} selectedSourceNumber={null} onSelectSource={vi.fn()} /></FocusLayout></FocusedReadingProvider>)
-    const trigger = screen.getByRole('button', { name: 'Focus answer' })
-    fireEvent.click(trigger)
-    expect(screen.getByRole('main')).toHaveClass('focused-reading')
-    expect(screen.getByRole('button', { name: 'Exit focused reading' })).toHaveFocus()
-    expect(document.querySelector('[data-reading-target]')).toHaveAttribute('data-reading-focused', 'true')
-    fireEvent.click(screen.getByRole('button', { name: 'Exit focused reading' }))
-    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(screen.queryByRole('button', { name: 'Focus answer' })).not.toBeInTheDocument()
     expect(screen.getByRole('main')).not.toHaveClass('focused-reading')
   })
 
@@ -72,6 +66,8 @@ describe('focused reading', () => {
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
     const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
     const client: DvarTorahClient = {
+      getReadState: async () => ({ readWeekKeys: [] }),
+      setReadState: vi.fn().mockResolvedValue(undefined),
       getCurrent: async () => ({ currentWeek: week, isCurrentWeek: true, dvarTorah: { title: 'A thoughtful question', body: longText, week, tags: [], sources: [], centralTeaching: 'Careful study', torahGroundingPercent: 100, generatedAtUtc: '2026-09-10T12:00:00Z', publishedAtUtc: '2026-09-10T12:00:00Z', audio: { version: 'v1', voice: 'Andrew', audioUrl: '', timingsUrl: '', durationMs: 240000 } } }),
       getArchive: async () => ({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 }),
       getArchived: vi.fn(),

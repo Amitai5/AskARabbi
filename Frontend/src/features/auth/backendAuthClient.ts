@@ -30,6 +30,9 @@ export function createBackendAuthClient(options: BackendAuthClientOptions = {}):
   }
 
   return {
+    getRegistrationAvailability() {
+      return apiClient.request<{ isOpen: boolean }>('/api/user/registration', { cache: 'no-store' })
+    },
     getSession() {
       sessionRequest ??= loadSession(apiClient).finally(() => {
         sessionRequest = null

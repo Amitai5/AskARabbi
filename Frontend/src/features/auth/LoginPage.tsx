@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, LoaderCircle, Mail } from 'lucide-react'
 import manuscriptArtwork from '../../assets/library-manuscript.webp'
 import { Brand } from '../../components/Brand.tsx'
@@ -35,7 +35,9 @@ function GoogleMark() {
 }
 
 export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
-  const { authenticationError, clearAuthenticationError, isAuthenticating, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signUp } = useAuth()
+  const { authenticationError, clearAuthenticationError, getRegistrationAvailability, isAuthenticating, requestPasswordReset, signInWithEmail, signInWithSocialProvider, signUp } = useAuth()
+  const [registrationState, setRegistrationState] = useState<'checking' | 'open' | 'closed' | 'unavailable'>(() => new URLSearchParams(window.location.search).get('registration') === 'closed' ? 'closed' : 'checking')
+  const [registrationCheck, setRegistrationCheck] = useState(0)
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false)
@@ -44,6 +46,19 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
   const isAuthenticationPending = pendingAuthentication !== null || isAuthenticating
   const isEmailAuthenticationPending = pendingAuthentication === 'email'
   const isGoogleAuthenticationPending = pendingAuthentication === 'google'
+
+  useEffect(() => {
+    let isCurrent = true
+    const url = new URL(window.location.href)
+    if (url.searchParams.has('registration')) {
+      url.searchParams.delete('registration')
+      window.history.replaceState(window.history.state, '', url)
+    }
+    void getRegistrationAvailability()
+      .then(({ isOpen }) => { if (isCurrent) { setRegistrationState(isOpen ? 'open' : 'closed') } })
+      .catch(() => { if (isCurrent) { setRegistrationState((previous) => previous === 'closed' ? previous : 'unavailable') } })
+    return () => { isCurrent = false }
+  }, [getRegistrationAvailability, registrationCheck])
 
   async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -88,6 +103,7 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
   }
 
   async function handleSignUp() {
+    if (registrationState !== 'open') { return }
     setError(null)
     clearAuthenticationError()
     try {
@@ -189,11 +205,26 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
             )}
 
             {!isRecoveringPassword ? (
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pomegranate/20 bg-stone p-4">
-                <p className="text-base font-medium text-ink">New to AskRabbi?</p>
-                <button type="button" disabled={isAuthenticationPending} onClick={() => void handleSignUp()} className="min-h-11 rounded-md border border-pomegranate bg-paper px-3 py-2 text-pomegranate transition hover:bg-pomegranate hover:text-white disabled:cursor-not-allowed disabled:opacity-60">
-                  <span className="text-base font-semibold">Create an account</span>
-                </button>
+              <div className="mt-6 rounded-lg border border-pomegranate/20 bg-stone p-4" aria-live="polite">
+                {registrationState === 'closed' ? (
+                  <>
+                    <p className="text-base font-semibold text-ink">Registration is currently full</p>
+                    <p className="mt-2 text-base leading-7 text-ink-soft">We’re no longer taking new accounts at this time. If you’d like an account, email <a href="mailto:support@askarabbi.ai" className="font-medium text-pomegranate underline underline-offset-4">support@askarabbi.ai</a>.</p>
+                    <p className="mt-2 text-sm leading-6 text-muted">Already have an account? You can still sign in above.</p>
+                  </>
+                ) : registrationState === 'unavailable' ? (
+                  <>
+                    <p className="text-base leading-7 text-ink-soft">We couldn’t check registration availability. You can still sign in to an existing account.</p>
+                    <button type="button" onClick={() => { setRegistrationState('checking'); setRegistrationCheck((value) => value + 1) }} className="mt-2 min-h-11 text-base font-semibold text-pomegranate">Try again</button>
+                  </>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-base font-medium text-ink">New to AskRabbi?</p>
+                    <button type="button" disabled={isAuthenticationPending || registrationState === 'checking'} onClick={() => void handleSignUp()} className="min-h-11 rounded-md border border-pomegranate bg-paper px-3 py-2 text-pomegranate transition hover:bg-pomegranate hover:text-white disabled:cursor-not-allowed disabled:opacity-60">
+                      <span className="text-base font-semibold">{registrationState === 'checking' ? 'Checking availability…' : 'Create an account'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : null}
             {authenticationError === null ? null : <p role="alert" className="mt-5 text-sm leading-6 text-pomegranate">{authenticationError}</p>}

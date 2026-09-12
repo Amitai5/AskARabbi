@@ -10,6 +10,14 @@ afterEach(() => {
 })
 
 describe('API client', () => {
+  it('loads registration availability without a cached capacity decision', async () => {
+    const request = vi.fn().mockResolvedValue({ isOpen: false })
+    const client = createBackendAuthClient({ apiClient: { baseUrl: 'https://api.example.test', request } })
+
+    expect(await client.getRegistrationAvailability()).toEqual({ isOpen: false })
+    expect(request).toHaveBeenCalledWith('/api/user/registration', { cache: 'no-store' })
+  })
+
   it('sends JSON requests with the browser session cookie enabled', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ value: 1 }), {
       status: 200,

@@ -6,6 +6,7 @@ export interface AuthContextValue {
   isInitializing: boolean
   isAuthenticating: boolean
   authenticationError: string | null
+  getRegistrationAvailability(): Promise<{ isOpen: boolean }>
   signInWithEmail(email: string): Promise<void>
   signInWithSocialProvider(provider: SocialAuthProvider): Promise<void>
   signUp(): Promise<void>

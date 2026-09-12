@@ -25,6 +25,12 @@ The message endpoint now stores the user turn, retrieves only from the configure
 
 The public home/sign-in and password-reset pages start in light mode before the app loads, regardless of the device's appearance or an older account theme cache. Accounts without saved reading preferences also default to light. Signed-in users can choose Light, Dark, or System in Settings & Personalization → Reading; saved choices still apply and persist per account. Public pages and logout never overwrite those choices. The existing reading-preferences API now returns `theme: "light"` when no preferences exist; no schema migration is needed.
 
+## Teaching reading progress
+
+Readers can explicitly mark current and archived teachings as read, and undo that choice. Past teachings includes All teachings / Unread / Read filters that combine with text search and server-side pagination. The filter, search, and page survive article deep links and returning to the archive. Progress is account-backed through `/api/dvar-torah/read-state`, loads independently of the article, and is never stored in the shared offline teaching cache. Saved offline copies remain readable, but changing account progress requires a connection. Failed saves retain the previous state and can be retried.
+
+Chat answer print controls appear on answer hover or keyboard focus on pointer devices, and stay visible on touch devices. The per-answer Focus button is removed; the existing automatic-focus preference and teaching focus control remain available.
+
 ## Weekly-teaching audio
 
 The player stays in a bottom dock outside the article scroll area on desktop and mobile, with safe-area spacing for phones. Word highlighting automatically follows the reading when it approaches the viewport edge. Wheel, touch-scroll, scrollbar, or reading-area keyboard navigation pauses following; **Follow text** restores it. The source reader temporarily suspends auto-scroll without interrupting audio. Reduced-motion settings use instant rather than animated repositioning. The dock disappears when leaving the article, and no audio download starts until Listen is pressed.
