@@ -1,8 +1,10 @@
 // Blocking, pre-paint initialization. Keep in sync with readingPreferences.ts's versioned cache.
 (() => {
-  let preferences = { theme: 'system', textSize: 'default', lineSpacing: 'default' };
+  let preferences = { theme: 'light', textSize: 'default', lineSpacing: 'default' };
   try {
-    const user = localStorage.getItem('askarabbi.reading.active-user');
+    // Public entry pages stay light until an account is authenticated. Keep its saved choice intact.
+    const isPublicEntry = location.pathname === '/' || location.pathname === '/reset-password';
+    const user = !isPublicEntry && localStorage.getItem('askarabbi.reading.active-user');
     const cached = user && JSON.parse(localStorage.getItem('askarabbi.reading.v1:' + user) || 'null');
     const value = cached && cached.preferences;
     if (value && ['light', 'dark', 'system'].includes(value.theme)
@@ -10,7 +12,7 @@
       && ['compact', 'default', 'relaxed'].includes(value.lineSpacing)) {
       preferences = value;
     }
-  } catch { /* Continue with system defaults when storage is unavailable. */ }
+  } catch { /* Continue with light defaults when storage is unavailable. */ }
   const root = document.documentElement;
   root.dataset.theme = preferences.theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : preferences.theme;
   root.dataset.readingSize = preferences.textSize;

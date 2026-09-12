@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { createApiClient } from './api/apiClient.ts'
 import { Brand } from './components/Brand.tsx'
 import { AuthProvider } from './features/auth/AuthProvider.tsx'
@@ -20,7 +20,7 @@ import type { UserSettings } from './features/settings/settingsTypes.ts'
 import { PwaInstallProvider } from './features/pwa/PwaInstall.tsx'
 import { OfflineLearningProvider } from './features/pwa/OfflineLearning.tsx'
 import { ReadingPreferencesProvider } from './features/reading/ReadingPreferencesProvider.tsx'
-import { clearActiveReadingUser } from './features/reading/readingPreferences.ts'
+import { applyReadingPreferences, clearActiveReadingUser, DefaultReadingPreferences } from './features/reading/readingPreferences.ts'
 
 const DefaultApiClient = createApiClient()
 const DefaultAuthClient = createBackendAuthClient({ apiClient: DefaultApiClient })
@@ -61,9 +61,11 @@ function AuthenticatedApplication({ conversationClient, conversationSettingsClie
   const accountCalendarClient = useMemo(() => userId ? createCachedCalendarClient(calendarClient) : calendarClient, [calendarClient, userId])
   useEffect(() => () => accountCalendarClient.invalidate?.(), [accountCalendarClient])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Apply before the public page paints, without discarding a returning user's cached choice.
+    if (user === null || resetToken !== null) { applyReadingPreferences(DefaultReadingPreferences) }
     if (!isInitializing && user === null) { clearActiveReadingUser() }
-  }, [isInitializing, user])
+  }, [isInitializing, resetToken, user])
 
   if (resetToken !== null) {
     return <PasswordResetPage token={resetToken} onReturnToLogin={returnToLogin} />

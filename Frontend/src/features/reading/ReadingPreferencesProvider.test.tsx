@@ -16,9 +16,25 @@ beforeEach(() => {
   localStorage.clear()
   Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
 })
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); clearActiveReadingUser() })
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); clearActiveReadingUser() })
 
 describe('reading preferences', () => {
+  it('defaults to light on a dark device and returns to light after signing out', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    applyReadingPreferences(DefaultReadingPreferences)
+    expect(DefaultReadingPreferences.theme).toBe('light')
+    expect(document.documentElement.dataset.theme).toBe('light')
+
+    const saved = { ...DefaultReadingPreferences, theme: 'dark' as const }
+    cacheReadingPreferences('reader', saved, false)
+    applyReadingPreferences(saved)
+    clearActiveReadingUser()
+
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(readReadingCache('reader')?.preferences).toEqual(saved)
+  })
+
   it('validates cache presets and isolates different accounts', () => {
     cacheReadingPreferences('reader-a', { ...DefaultReadingPreferences, theme: 'dark', textSize: 'large' }, false)
     expect(readReadingCache('reader-a')?.preferences.theme).toBe('dark')
@@ -139,6 +155,9 @@ describe('reading preferences', () => {
     const client = createDemoApplicationClients().conversationSettingsClient
     const { unmount } = render(<ReadingPreferencesProvider userId="reader" client={client}><ReadingSettings /></ReadingPreferencesProvider>)
     await act(async () => {})
+    expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    fireEvent.click(screen.getByRole('radio', { name: 'System' }))
     expect(document.documentElement.dataset.theme).toBe('dark')
     media.matches = false
     act(() => events.dispatchEvent(new Event('change')))

@@ -9,7 +9,7 @@ export interface ReadingPreferences {
   focusLongContent: boolean
 }
 
-export const DefaultReadingPreferences: ReadingPreferences = { textSize: 'default', lineSpacing: 'default', theme: 'system', focusLongContent: false }
+export const DefaultReadingPreferences: ReadingPreferences = { textSize: 'default', lineSpacing: 'default', theme: 'light', focusLongContent: false }
 export const ReadingCachePrefix = 'askarabbi.reading.v1:'
 export const ActiveReadingUserKey = 'askarabbi.reading.active-user'
 

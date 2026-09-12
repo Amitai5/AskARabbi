@@ -21,12 +21,16 @@ public sealed class ReadingPreferencesTests
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.AreEqual(new ReadingPreferences(), value);
+        Assert.AreEqual("light", value?.Theme);
         Assert.IsTrue(response.Headers.CacheControl?.NoStore);
         Assert.IsNull(await app.Store.GetReadingPreferencesAsync(app.Store.UserId));
     }
 
     [TestMethod]
-    public async Task ReadingPreferences_UpdateThenRead_PreservesOtherSettingsAndOtherUsers()
+    [DataRow("light")]
+    [DataRow("dark")]
+    [DataRow("system")]
+    public async Task ReadingPreferences_UpdateThenRead_PreservesOtherSettingsAndOtherUsers(string theme)
     {
         await using var app = new TestApplicationFactory();
         using var client = await app.CreateAuthenticatedClientAsync();
@@ -35,7 +39,7 @@ public sealed class ReadingPreferencesTests
         await app.Store.UpsertReadingPreferencesAsync(otherId, other, DateTimeOffset.MinValue);
         var preferences = new ConversationPreferences { EmailProductUpdates = true, ShowSourceContextByDefault = true };
         await app.Store.UpsertPreferencesAsync(app.Store.UserId, preferences, DateTimeOffset.MinValue);
-        var expected = new ReadingPreferences { TextSize = "extra-large", LineSpacing = "relaxed", Theme = "dark", FocusLongContent = true };
+        var expected = new ReadingPreferences { TextSize = "extra-large", LineSpacing = "relaxed", Theme = theme, FocusLongContent = true };
 
         using var update = await client.PutAsJsonAsync("/api/conversation-settings/reading", expected);
         var result = await client.GetFromJsonAsync<ReadingPreferences>("/api/conversation-settings/reading");

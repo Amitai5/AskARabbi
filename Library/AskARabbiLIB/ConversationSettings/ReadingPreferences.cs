@@ -5,7 +5,7 @@ public sealed record ReadingPreferences
 {
     public string TextSize { get; init; } = "default";
     public string LineSpacing { get; init; } = "default";
-    public string Theme { get; init; } = "system";
+    public string Theme { get; init; } = "light";
     public bool FocusLongContent { get; init; }
 
     /// <summary>Rejects unsupported reading presets before persistence.</summary>

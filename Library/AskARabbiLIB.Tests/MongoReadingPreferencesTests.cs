@@ -11,9 +11,12 @@ namespace AskARabbiLIB.Tests;
 public sealed class MongoReadingPreferencesTests
 {
     [TestMethod]
-    public void ReadingPreferences_Serialization_PreservesAllPresets()
+    [DataRow("light")]
+    [DataRow("dark")]
+    [DataRow("system")]
+    public void ReadingPreferences_Serialization_PreservesAllPresets(string theme)
     {
-        var expected = new ReadingPreferences { TextSize = "extra-large", LineSpacing = "relaxed", Theme = "dark", FocusLongContent = true };
+        var expected = new ReadingPreferences { TextSize = "extra-large", LineSpacing = "relaxed", Theme = theme, FocusLongContent = true };
         var document = new MongoConversationSettingsDocument { UserId = "reader", ReadingPreferences = expected };
 
         var bson = document.ToBsonDocument();
