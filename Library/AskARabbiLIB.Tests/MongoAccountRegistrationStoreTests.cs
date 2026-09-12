@@ -29,7 +29,7 @@ public sealed class MongoAccountRegistrationStoreTests
         Assert.AreEqual(4L, snapshot.Revision);
         Assert.AreEqual(100L, snapshot.OccupiedPlaces);
         Assert.IsTrue(snapshot.HasPlace);
-        Assert.AreEqual("accountRegistration", database.Calls[0].Collection);
+        Assert.AreEqual("conversationSettings", database.Calls[0].Collection);
         Assert.HasCount(1, database.Calls, "Capacity decisions must not depend on a separate, potentially stale accounts query.");
     }
 
@@ -59,6 +59,49 @@ public sealed class MongoAccountRegistrationStoreTests
         Assert.IsNotNull(database.State);
         Assert.AreEqual("account-registration", database.State["_id"].AsString);
         Assert.AreEqual(0, database.State["reservations"].AsBsonArray.Count);
+    }
+
+    [TestMethod]
+    [DataRow("conversationSettings")]
+    [DataRow("customSettings")]
+    public async Task ReadAsync_CosmosCollectionCapacityReached_UsesExistingSettingsCollection(string settingsCollection)
+    {
+        var database = new Database
+        {
+            State = null,
+            RejectNewCollections = true,
+            Options = new MongoDatabaseOptions { ConversationSettingsCollectionName = settingsCollection },
+            ExistingAccounts = [new BsonDocument("providerUserId", "existing-user")],
+        };
+
+        var snapshot = await database.Create().ReadAsync("existing-user");
+
+        Assert.IsTrue(snapshot.HasPlace);
+        Assert.AreEqual(1L, snapshot.OccupiedPlaces);
+        Assert.AreEqual(settingsCollection, database.Calls[0].Collection);
+        Assert.IsNotNull(database.State);
+        Assert.IsFalse(Guid.TryParse(database.State["_id"].AsString, out _), "The admission record must not collide with any account's GUID settings key.");
+        Assert.IsTrue(database.Calls.Where(call => call.Collection == settingsCollection).All(call => call.Filter["_id"] == "account-registration"));
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_ExplicitCollectionOverride_PreservesConfiguredLedgerLocation()
+    {
+        var database = new Database { Options = new MongoDatabaseOptions { RegistrationCollectionName = "existingAdmission" } };
+
+        await database.Create().ReadAsync(null);
+
+        Assert.AreEqual("existingAdmission", database.Calls.Single().Collection);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow(" ")]
+    public void Validate_BlankRegistrationCollectionOverride_RejectsInvalidConfiguration(string collectionName)
+    {
+        var options = new MongoDatabaseOptions { ConnectionString = "mongodb://localhost", RegistrationCollectionName = collectionName };
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
     }
 
     [TestMethod]
@@ -125,10 +168,12 @@ public sealed class MongoAccountRegistrationStoreTests
     {
         internal BsonDocument? State { get; set; } = new() { { "_id", "account-registration" }, { "revision", 0L }, { "accounts", new BsonArray() }, { "reservations", new BsonArray() } };
         internal IReadOnlyList<BsonDocument> ExistingAccounts { get; init; } = [];
+        internal MongoDatabaseOptions Options { get; init; } = new();
+        internal bool RejectNewCollections { get; init; }
         internal long MatchedCount { get; init; } = 1;
         internal List<Call> Calls { get; } = [];
 
-        internal MongoAccountRegistrationStore Create() => new(Stub<IMongoDatabase>.Create((method, args) => method.Name == "GetCollection" ? Collection((string)args[0]!) : throw new NotSupportedException(method.Name)), new());
+        internal MongoAccountRegistrationStore Create() => new(Stub<IMongoDatabase>.Create((method, args) => method.Name == "GetCollection" ? Collection((string)args[0]!) : throw new NotSupportedException(method.Name)), Options);
 
         private IMongoCollection<BsonDocument> Collection(string name) => Stub<IMongoCollection<BsonDocument>>.Create((method, args) =>
         {
@@ -138,6 +183,10 @@ public sealed class MongoAccountRegistrationStoreTests
             }
             if (method.Name == "InsertOneAsync")
             {
+                if (RejectNewCollections && name != Options.ConversationSettingsCollectionName)
+                {
+                    throw new InvalidOperationException("Creating a collection would exceed the provisioned Cosmos DB capacity.");
+                }
                 State = (BsonDocument)args[0]!;
                 return Task.CompletedTask;
             }
@@ -148,7 +197,7 @@ public sealed class MongoAccountRegistrationStoreTests
             return method.Name switch
             {
                 "UpdateOneAsync" => Task.FromResult<UpdateResult>(new UpdateResult.Acknowledged(MatchedCount, MatchedCount, null)),
-                "FindAsync" => Task.FromResult<IAsyncCursor<BsonDocument>>(new Cursor(name == "accountRegistration" ? State is null ? [] : [State] : ExistingAccounts)),
+                "FindAsync" => Task.FromResult<IAsyncCursor<BsonDocument>>(new Cursor(name == Options.UsersCollectionName ? ExistingAccounts : State is null ? [] : [State])),
                 _ => throw new NotSupportedException(method.Name),
             };
         });

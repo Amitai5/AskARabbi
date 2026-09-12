@@ -18,7 +18,9 @@ public sealed class MongoAccountRegistrationStore : IAccountRegistrationStore
     {
         ArgumentNullException.ThrowIfNull(database);
         ArgumentNullException.ThrowIfNull(options);
-        state = database.GetCollection<BsonDocument>(options.RegistrationCollectionName);
+        // A reserved non-GUID key cannot collide with account settings. Reuse their provisioned
+        // collection so the admission guard does not require another Cosmos throughput allocation.
+        state = database.GetCollection<BsonDocument>(options.RegistrationCollectionName ?? options.ConversationSettingsCollectionName);
         users = database.GetCollection<BsonDocument>(options.UsersCollectionName);
     }
 

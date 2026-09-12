@@ -230,6 +230,18 @@ jobs:
             --max-time 30 \
             "https://$api_fqdn/health"
 
+          # Health alone does not exercise MongoDB account-admission persistence.
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --max-time 30 \
+            "https://$api_fqdn/api/user/registration" \
+            | python3 -c 'import json, sys; result = json.load(sys.stdin); assert isinstance(result.get("isOpen"), bool), "Registration availability must return a boolean isOpen"'
+
           echo "revision-name=$revision_name" >> "$GITHUB_OUTPUT"
           echo "api-fqdn=$api_fqdn" >> "$GITHUB_OUTPUT"
 

@@ -23,7 +23,11 @@ This is an application-account limit, not a chat-usage limit. It does not grant 
 
 ## Persistence and concurrency
 
-`MongoDB:RegistrationCollectionName` defaults to `accountRegistration`. Its singleton `_id: "account-registration"` stores admitted provider IDs, unfinished operation reservations, and an increasing revision. The first initialization imports the existing `users.providerUserId` values. No emails, credentials, or tokens are copied into this record.
+The admission singleton uses the reserved non-GUID `_id: "account-registration"` in the existing `MongoDB:ConversationSettingsCollectionName` collection (`conversationSettings` by default). Account settings always use the account's GUID as `_id`, so their reads, updates, and erasure cannot collide with this record. It stores admitted provider IDs, unfinished operation reservations, and an increasing revision. The first initialization imports the existing `users.providerUserId` values. No emails, credentials, or tokens are copied into this record.
+
+`MongoDB:RegistrationCollectionName` is an optional override for an already-provisioned ledger location. Leave it unset to reuse the settings collection. Do not change this location after the ledger is initialized without draining callbacks and migrating the complete record. An installation that already admitted users into the earlier `accountRegistration` collection must explicitly retain that name until a coordinated migration; never silently bootstrap a second ledger.
+
+The production rollout found that the shared-throughput database already had 25 collections. Implicitly creating `accountRegistration` attempted to allocate another 400 RU/s and hit the account's 1,000-RU/s cap. Reusing the settings collection avoids both the [shared-throughput collection limit](https://learn.microsoft.com/en-us/azure/cosmos-db/concepts-limits) and an additional throughput allocation. No collections or user data are deleted, and the throughput cap stays unchanged. Production explicitly sets `MongoDB__RegistrationCollectionName=conversationSettings` to pin this durable location.
 
 An admission counts distinct identities in that single record, then atomically reserves a place only if its observed revision still matches. After the account write is acknowledged, one atomic update records the admitted identity and removes only that operation's reservation. Two callbacks for the same identity count as one account.
 
@@ -42,6 +46,8 @@ The singleton design is intentionally small for this 100-account release. `0` re
 3. In the existing **production** WorkOS environment, review signup, invitations/waitlist, registration Actions, and email-domain restrictions. Enable public signup/remove only the restriction responsible for the private beta. WorkOS [invitations](https://workos.com/docs/authkit/invitations) can allow selected users while signup is otherwise disabled.
 4. If the Google OAuth application is still in Testing, review/publish that application's production audience separately. Do not confuse Google's test-user restriction with the backend account cap. Keep identity verification, redirect URI restrictions, and private networking intact.
 5. Verify an existing account can sign in and a permitted new identity can complete signup. Use a non-production environment with a small limit to verify the closed state; do not create 100 disposable production accounts or temporarily lower the live cap to test it.
+
+The deployment workflow also checks that `/api/user/registration` returns a boolean `isOpen` after the new API revision is healthy, so a database admission failure cannot be hidden by the process-health endpoint.
 
 External WorkOS/Google settings and deployment are not changed merely by editing this repository. Do not announce registration as publicly open until those rollout steps are verified.
 

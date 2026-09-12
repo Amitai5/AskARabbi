@@ -15,8 +15,8 @@ public sealed class MongoDatabaseOptions
     /// <summary>Gets the user-account collection name.</summary>
     public string UsersCollectionName { get; init; } = "users";
 
-    /// <summary>Gets the durable account-admission collection name.</summary>
-    public string RegistrationCollectionName { get; init; } = "accountRegistration";
+    /// <summary>Gets an optional admission-ledger collection override; null reuses the existing conversation-settings collection.</summary>
+    public string? RegistrationCollectionName { get; init; }
 
     /// <summary>Gets the conversation collection name.</summary>
     public string ConversationsCollectionName { get; init; } = "conversations";
@@ -46,7 +46,10 @@ public sealed class MongoDatabaseOptions
 
         ValidateName(DatabaseName, nameof(DatabaseName));
         ValidateName(UsersCollectionName, nameof(UsersCollectionName));
-        ValidateName(RegistrationCollectionName, nameof(RegistrationCollectionName));
+        if (RegistrationCollectionName is not null)
+        {
+            ValidateName(RegistrationCollectionName, nameof(RegistrationCollectionName));
+        }
         ValidateName(ConversationsCollectionName, nameof(ConversationsCollectionName));
         ValidateName(ConversationMessagesCollectionName, nameof(ConversationMessagesCollectionName));
         ValidateName(ConversationSettingsCollectionName, nameof(ConversationSettingsCollectionName));

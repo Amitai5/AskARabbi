@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import textwrap
 import unittest
 from pathlib import Path
@@ -87,6 +88,21 @@ class ProductionDeploymentTests(unittest.TestCase):
                 result = subprocess.run([self.bash, "-n"], input=script, capture_output=True, text=True, timeout=10, check=False)
 
                 self.assertEqual(0, result.returncode, result.stderr)
+
+    def testRegistrationProbeRequiresBooleanAvailabilityIncludingClosedRegistration(self) -> None:
+        probe = re.search(r"python3 -c '([^']*Registration availability[^']*)'", Workflow)
+        self.assertIsNotNone(probe, "Deployment must validate the live registration response, not only process health.")
+        for body, expected_code in (
+            ('{"isOpen": true}', 0),
+            ('{"isOpen": false}', 0),
+            ('{"isOpen": "true"}', 1),
+            ('{"isOpen": null}', 1),
+            ('{"code": "server_error"}', 1),
+        ):
+            with self.subTest(body=body):
+                result = subprocess.run([sys.executable, "-c", probe.group(1)], input=body, capture_output=True, text=True, timeout=10, check=False)
+
+                self.assertEqual(expected_code, result.returncode, result.stderr)
 
 
 if __name__ == "__main__":
