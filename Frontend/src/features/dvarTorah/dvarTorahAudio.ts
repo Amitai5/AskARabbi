@@ -60,12 +60,13 @@ export function formatAudioTime(seconds: number) {
   return `${Math.floor(wholeSeconds / 60)}:${String(wholeSeconds % 60).padStart(2, '0')}`
 }
 
-export function estimateReadingMinutes(durationMs: number | null | undefined): number | null {
+export function estimateReadingMinutes(durationMs: number | null | undefined, body = ''): number | null {
   if (durationMs == null || !Number.isFinite(durationMs) || durationMs <= 0) {
-    return null
+    const wordCount = body.replace(/\[[A-Za-z][A-Za-z0-9_-]*\]/g, '').match(/\S+/g)?.length ?? 0
+    return wordCount === 0 ? null : Math.max(1, Math.ceil(wordCount / 200))
   }
 
-  // Use the saved recording's 1× duration, not word counts or the selected playback speed.
+  // Prefer the saved recording's 1× duration; text-only teachings use a 200-words-per-minute estimate.
   return Math.max(1, Math.ceil(durationMs / 60_000))
 }
 

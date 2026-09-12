@@ -100,6 +100,7 @@ const EmptyArchive: WeeklyDvarTorahArchiveResponse = {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -117,6 +118,10 @@ describe('WeeklyDvarTorahPage', () => {
     expect(metadata).toHaveTextContent('Diaspora')
     expect(heading.compareDocumentPosition(metadata) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(metadata.compareDocumentPosition(screen.getByRole('button', { name: 'Print teaching' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const progress = screen.getByRole('group', { name: 'Teaching reading progress' })
+    expect(within(screen.getByRole('group', { name: 'Teaching actions' })).queryByRole('button', { name: /Mark as/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/“clear guidance”—and acted/).compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(progress).getByRole('button', { name: 'Mark as read: Nitzavim—Choosing Life' })).toBeInTheDocument()
   })
 
   it('identifies a festival reading once without a redundant holiday badge or generic reading label', async () => {
@@ -138,7 +143,8 @@ describe('WeeklyDvarTorahPage', () => {
     expect(screen.getByText(/God’s domain/)).toBeVisible()
     expect(screen.getByText(/“clear guidance”—and acted/)).toBeVisible()
     expect(screen.getByText('Rosh Hashanah')).toBeVisible()
-    expect(screen.queryByLabelText('Estimated reading time')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('About 1 min read')
+    expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('Based on text length')
     expect(document.body).not.toHaveTextContent('\u0019')
 
     const torahReference = screen.getByRole('button', { name: 'View source 1' })
@@ -292,7 +298,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(duration).toHaveTextContent('About 7 min read')
     expect(duration).toHaveAttribute('title', 'Based on 6:43 of audio at 1× speed, rounded up to the next minute.')
     expect(duration.compareDocumentPosition(screen.getByText(/God’s domain/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(client.getAudioTimings).toHaveBeenCalledWith('diaspora:2026-08-29', 'archived', expect.any(AbortSignal))
+    await waitFor(() => expect(client.getAudioTimings).toHaveBeenCalledWith('diaspora:2026-08-29', 'archived', expect.any(AbortSignal)))
   })
 
   it('loads the newest ten archive records, shows their metadata, searches, and pages', async () => {
@@ -397,17 +403,74 @@ describe('teaching reading progress', () => {
     expect(screen.getByRole('button', { name: 'Unread' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('refreshes the filtered archive after marking a row read without opening it', async () => {
+  it('shows only status in the archive and refreshes its filter after marking an opened teaching read', async () => {
     const user = userEvent.setup()
     const client = createClient(Publication, { ...Archive, totalCount: 1, totalPages: 1 })
+    vi.mocked(client.getArchived).mockResolvedValue(ArchivedArticle)
     render(<WeeklyDvarTorahPage client={client} initialRoute={{ archive: true, readStatus: 'unread' }} />)
-    const mark = await screen.findByRole('button', { name: `Mark as read: ${ArchivedArticle.title}` })
-    await waitFor(() => expect(mark).toBeEnabled())
+    const open = await screen.findByRole('button', { name: `Open ${ArchivedArticle.title}` })
+    expect(open).toHaveAccessibleDescription('Unread')
+    expect(within(open).getByText('Unread')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Mark as/ })).not.toBeInTheDocument()
+    await user.click(open)
+    const mark = within(await screen.findByRole('group', { name: 'Teaching reading progress' })).getByRole('button', { name: `Mark as read: ${ArchivedArticle.title}` })
     vi.mocked(client.getArchive).mockResolvedValue(EmptyArchive)
     await user.click(mark)
+    await user.click(screen.getByRole('button', { name: 'Back to past teachings' }))
     expect(await screen.findByText('No unread teachings found.')).toBeVisible()
     expect(client.setReadState).toHaveBeenCalledWith(ArchivedArticle.week.weekKey, true)
-    expect(client.getArchived).not.toHaveBeenCalled()
+    expect(client.getArchived).toHaveBeenCalledWith(ArchivedArticle.week.weekKey)
+  })
+
+  it('marks a text-only teaching after more than 33% of reading time and preserves a manual undo', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    const client = createClient(Publication, Archive)
+    await act(async () => { render(<WeeklyDvarTorahPage client={client} />) })
+    const progress = screen.getByRole('group', { name: 'Teaching reading progress' })
+    expect(within(progress).getByRole('status')).toHaveTextContent('Finished reading?')
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(19_800) })
+    expect(client.setReadState).not.toHaveBeenCalled()
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(client.setReadState).toHaveBeenCalledExactlyOnceWith(Publication.currentWeek.weekKey, true)
+    expect(within(progress).getByRole('status')).toHaveTextContent('Marked as read')
+
+    await act(async () => { fireEvent.click(within(progress).getByRole('button', { name: /Mark as unread:/ })) })
+    expect(client.setReadState).toHaveBeenLastCalledWith(Publication.currentWeek.weekKey, false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
+    expect(client.setReadState).toHaveBeenCalledTimes(2)
+    expect(within(progress).getByRole('status')).toHaveTextContent('Finished reading?')
+  })
+
+  it('does not retry a failed automatic save repeatedly and allows a manual retry', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    const client = createClient(Publication)
+    vi.mocked(client.setReadState).mockRejectedValueOnce(new Error('Unavailable'))
+    await act(async () => { render(<WeeklyDvarTorahPage client={client} />) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(19_801) })
+    expect(screen.getByRole('alert')).toHaveTextContent('could not be saved')
+    expect(screen.getByRole('alert').closest('footer')).toContainElement(screen.getByRole('button', { name: /Mark as read:/ }))
+    expect(screen.getByRole('button', { name: /Mark as read:/ })).toHaveAttribute('aria-pressed', 'false')
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
+    expect(client.setReadState).toHaveBeenCalledTimes(1)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Mark as read:/ })) })
+    expect(screen.getByRole('button', { name: /Mark as unread:/ })).toBeEnabled()
+    expect(client.setReadState).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows a read badge without marking other teachings while browsing the archive', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+    const client = createClient(Publication, Archive)
+    client.getReadState = vi.fn().mockResolvedValue({ readWeekKeys: [ArchivedArticle.week.weekKey] })
+    await act(async () => { render(<WeeklyDvarTorahPage client={client} initialRoute={{ archive: true }} />) })
+    const open = screen.getByRole('button', { name: `Open ${ArchivedArticle.title}` })
+    expect(open).toHaveAccessibleDescription('Read')
+    expect(within(open).getByText('Read')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Mark as/ })).not.toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
+    expect(client.setReadState).not.toHaveBeenCalled()
   })
 
   it('keeps the original state on a failed save and allows another attempt', async () => {

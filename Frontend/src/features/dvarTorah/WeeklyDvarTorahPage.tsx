@@ -18,6 +18,7 @@ import type { TeachingRoute } from '../conversations/pageRoutes.ts'
 import { PrintAction } from '../printing/PrintAction.tsx'
 import { TeachingReadButton } from './TeachingReadButton.tsx'
 import { useTeachingReadState, type TeachingReadProgress } from './useTeachingReadState.ts'
+import { useAutomaticTeachingRead } from './useAutomaticTeachingRead.ts'
 import type { TeachingReadStatus } from './dvarTorahTypes.ts'
 
 interface WeeklyDvarTorahPageProps {
@@ -267,7 +268,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
             </header>
             {offlineSavedAt ? <p className="reading-nonessential mt-4 text-sm leading-6 text-muted">Offline copy saved {formatSourceDate(offlineSavedAt)}. Source excerpts are saved; original websites need a connection.</p> : null}
 
-            {progress.error ? <div role="alert" className="reading-nonessential mt-5 rounded-lg border border-pomegranate/25 px-4 py-3 text-sm text-pomegranate">{progress.error}{progress.keys === null ? <button type="button" onClick={progress.retry} className="ml-2 min-h-11 font-semibold underline">Retry reading progress</button> : null}</div> : null}
+            {progress.error && (progress.keys === null || view === 'archive') ? <div role="alert" className="reading-nonessential mt-5 rounded-lg border border-pomegranate/25 px-4 py-3 text-sm text-pomegranate">{progress.error}{progress.keys === null ? <button type="button" onClick={progress.retry} className="ml-2 min-h-11 font-semibold underline">Retry reading progress</button> : null}</div> : null}
             {progress.offline ? <p className="reading-nonessential mt-4 text-sm text-muted">Connect to update your reading progress.</p> : null}
 
             {view === 'archive' ? (
@@ -329,7 +330,10 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
   const body = useMemo(() => normalizeDvarTorahText(article.body), [article.body])
   const paragraphs = useMemo(() => createNarratedParagraphs(body), [body])
   const sourceNumbersById = useMemo(() => new Map(article.sources.map((source, index) => [source.sourceId, index + 1])), [article.sources])
-  const readingMinutes = estimateReadingMinutes(article.audio?.durationMs)
+  const audioReadingMinutes = estimateReadingMinutes(article.audio?.durationMs)
+  const readingMinutes = useMemo(() => estimateReadingMinutes(article.audio?.durationMs, body), [article.audio?.durationMs, body])
+  const cancelAutomaticRead = useAutomaticTeachingRead(article.week.weekKey, readingMinutes, progress)
+  const isRead = progress.keys?.has(article.week.weekKey) ?? false
   return (
     <article ref={articleRef} data-reading-target={readingId} data-reading-focused={reading.isFocused} className="teaching-article mt-5 sm:mt-7" aria-label={normalizeDvarTorahText(article.title)}>
       {!showFallbackNotice ? null : (
@@ -342,23 +346,31 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
         <h1 id="weekly-dvar-torah-title" className="max-w-[47rem] text-balance font-display text-[clamp(2rem,4.5vw,3.35rem)] leading-[1.08] tracking-[-0.035em] text-ink"><HighlightedText text={title} activeWord={activeWord?.section === 'title' ? activeWord : null} words={titleWords} onSelectWord={selectWord} /></h1>
         <div className="mt-3 sm:mt-5"><WeekDetails week={article.week} /></div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 sm:mt-4">
-          {readingMinutes === null ? article.audio == null ? <span className="text-[length:max(0.875rem,14px)] text-muted">Audio is not available for this teaching yet.</span> : null : (
-            <p aria-label="Estimated reading time" title={`Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="inline-flex items-center gap-2 text-[length:max(0.875rem,14px)] text-muted">
-              <Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read<span className="sr-only"> · Based on audio at 1×</span>
+          {readingMinutes === null ? null : (
+            <p aria-label="Estimated reading time" title={audioReadingMinutes === null ? 'Estimated from the teaching text at 200 words per minute.' : `Based on ${formatAudioTime((article.audio?.durationMs ?? 0) / 1000)} of audio at 1× speed, rounded up to the next minute.`} className="inline-flex items-center gap-2 text-[length:max(0.875rem,14px)] text-muted">
+              <Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read<span className="sr-only"> · {audioReadingMinutes === null ? 'Based on text length' : 'Based on audio at 1×'}</span>
             </p>
           )}
-          <div role="group" aria-label="Teaching actions" className="readable-menu reading-nonessential flex flex-wrap gap-2"><TeachingReadButton progress={progress} weekKey={article.week.weekKey} title={title} /><PrintAction label="Print teaching" hideLabelOnMobile className="min-w-[44px]" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" hideLabelOnMobile /> : null}</div>
+          <div role="group" aria-label="Teaching actions" className="readable-menu reading-nonessential flex flex-wrap gap-2"><PrintAction label="Print teaching" hideLabelOnMobile className="min-w-[44px]" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" hideLabelOnMobile /> : null}</div>
         </div>
       </header>
+      {article.audio == null ? <p className="mt-3 text-sm text-muted">Audio is not available for this teaching yet.</p> : null}
       {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
       {timings === null ? null : <p className="mt-3 text-sm text-muted sm:mt-4">Select a word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
       <div className="reading-content teaching-body mt-5 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-3 sm:mt-8 sm:pl-7">
         {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} words={bodyWords} onSelectWord={selectWord} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}
-      <p className="mt-10 max-w-[46rem] border-t border-line pt-5 text-xs leading-5 text-muted">
-        This is an educational reflection, not binding <i>psak</i>. Read it as an invitation to study, question, and continue the conversation. See our <LegalLink document="terms-of-service" section="educational-use" />.
-      </p>
+      <footer className="mt-8 max-w-[46rem] border-t border-line pt-5">
+        <div role="group" aria-label="Teaching reading progress" className="readable-menu flex flex-wrap items-center justify-between gap-3">
+          <p role="status" className="text-sm font-medium text-ink-soft">{progress.keys === null ? 'Reading progress' : isRead ? 'Marked as read' : 'Finished reading?'}</p>
+          <TeachingReadButton progress={progress} weekKey={article.week.weekKey} title={title} onToggle={cancelAutomaticRead} />
+        </div>
+        {progress.error && progress.keys !== null ? <p role="alert" className="mt-3 text-sm text-pomegranate">{progress.error}</p> : null}
+        <p className="mt-5 text-xs leading-5 text-muted">
+          This is an educational reflection, not binding <i>psak</i>. Read it as an invitation to study, question, and continue the conversation. See our <LegalLink document="terms-of-service" section="educational-use" />.
+        </p>
+      </footer>
     </article>
   )
 }
@@ -454,12 +466,12 @@ function DvarTorahArchive({ archive, progress, readStatus, onReadStatusChange, s
               const isOpening = loadingArticleKey === item.week.weekKey
               return (
                 <li key={item.week.weekKey}>
-                  <button type="button" disabled={loadingArticleKey !== null} onClick={() => onOpenArticle(item.week.weekKey)} aria-label={`Open ${title}`} className="group grid min-h-32 w-full grid-cols-[1fr_auto] gap-4 px-1 py-5 text-left transition hover:bg-stone/45 disabled:cursor-wait disabled:opacity-65 sm:px-3">
+                  <button type="button" disabled={loadingArticleKey !== null} onClick={() => onOpenArticle(item.week.weekKey)} aria-label={`Open ${title}`} aria-describedby={progress.keys === null ? undefined : `teaching-progress-${item.week.weekKey}`} className="group grid min-h-32 w-full grid-cols-[1fr_auto] gap-4 px-1 py-5 text-left transition hover:bg-stone/45 disabled:cursor-wait disabled:opacity-65 sm:px-3">
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                         <span className="font-semibold text-ink-soft">{formatShabbatDate(item.week.shabbatDate)}</span>
                         <span>{normalizeDvarTorahText(item.week.hebrewDate)}</span>
-                        {progress.keys === null ? null : <span className={`rounded-full px-2 py-0.5 font-semibold ${progress.keys.has(item.week.weekKey) ? 'bg-pomegranate/10 text-pomegranate' : 'bg-stone-deep text-ink-soft'}`}>{progress.keys.has(item.week.weekKey) ? 'Read' : 'Unread'}</span>}
+                        {progress.keys === null ? null : <span id={`teaching-progress-${item.week.weekKey}`} className={`rounded-full px-2 py-0.5 font-semibold ${progress.keys.has(item.week.weekKey) ? 'bg-pomegranate/10 text-pomegranate' : 'bg-stone-deep text-ink-soft'}`}>{progress.keys.has(item.week.weekKey) ? 'Read' : 'Unread'}</span>}
                       </span>
                       <span className="mt-2 block font-display text-[1.35rem] leading-7 text-ink transition group-hover:text-pomegranate">{title}</span>
                       <span className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
@@ -476,7 +488,6 @@ function DvarTorahArchive({ archive, progress, readStatus, onReadStatusChange, s
                       {isOpening ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <ChevronRight aria-hidden="true" className="size-4" strokeWidth={1.8} />}
                     </span>
                   </button>
-                  <div className="pb-4 sm:px-3"><TeachingReadButton progress={progress} weekKey={item.week.weekKey} title={title} /></div>
                 </li>
               )
             })}

@@ -54,6 +54,20 @@ describe('narration display helpers', () => {
     expect(estimateReadingMinutes(duration)).toBeNull()
   })
 
+  it.each([[1, 1], [200, 1], [201, 2], [400, 2], [401, 3]])('estimates text-only teachings with %i words at 200 words per minute', (words, minutes) => {
+    expect(estimateReadingMinutes(null, Array(words).fill('שלום').join(' '))).toBe(minutes)
+  })
+
+  it.each(['', ' \n\t ', '[TA] [N2]'])('does not invent reading time for empty or citation-only text %j', (body) => {
+    expect(estimateReadingMinutes(null, body)).toBeNull()
+  })
+
+  it('excludes citation markers and prefers a valid recording duration over the text fallback', () => {
+    const body = `${Array(200).fill('word').join(' ')} [TA] [N2]`
+    expect(estimateReadingMinutes(Number.NaN, body)).toBe(1)
+    expect(estimateReadingMinutes(357_000, body)).toBe(6)
+  })
+
   it('preserves paragraph offsets into the original normalized body', () => {
     expect(createNarratedParagraphs(Timings.body)).toEqual([
       { text: 'שלום [T1].', textOffset: 0 }, { text: 'Learn together.', textOffset: 14 },

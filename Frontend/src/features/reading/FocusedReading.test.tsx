@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssistantMessage } from '../conversations/AssistantMessage.tsx'
 import { WeeklyDvarTorahPage } from '../dvarTorah/WeeklyDvarTorahPage.tsx'
@@ -39,7 +40,7 @@ describe('focused reading', () => {
     </FocusLayout></FocusedReadingProvider></ReadingPreferencesProvider>)
     await screen.findByRole('button', { name: 'Exit focused reading' })
     expect(document.querySelector('[data-reading-focused="true"]')).toHaveAttribute('data-reading-target', 'answer:answer-1')
-    fireEvent.keyDown(window, { key: 'Escape' })
+    await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('button', { name: 'Exit focused reading' })).not.toBeInTheDocument()
     expect(screen.getByRole('main')).not.toHaveClass('focused-reading')
   })
@@ -81,6 +82,7 @@ describe('focused reading', () => {
     await waitFor(() => expect(calls).toHaveBeenCalledTimes(1))
     fireEvent.click(trigger)
     expect(screen.getByLabelText('Dvar Torah recording')).toBe(audio)
+    expect(screen.getByRole('button', { name: 'Mark as read: A thoughtful question' }).closest('.reading-nonessential')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Exit focused reading' }))
     expect(screen.getByLabelText('Dvar Torah recording')).toBe(audio)
     expect(calls).toHaveBeenCalledTimes(1)

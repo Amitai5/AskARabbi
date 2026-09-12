@@ -33,10 +33,9 @@ export function useTeachingReadState(client: DvarTorahClient, offline: boolean, 
     return () => { generation.current = current + 1; controller.abort() }
   }, [client, offline, online, scope])
 
-  async function toggle(weekKey: string) {
-    if (keys === null || saving.current || offline || !online) { return }
+  async function save(weekKey: string, isRead: boolean) {
+    if (keys === null || saving.current || offline || !online || keys.has(weekKey) === isRead) { return }
     const current = generation.current
-    const isRead = !keys.has(weekKey)
     saving.current = true
     setSnapshot({ scope, keys, error: null, pendingKey: weekKey })
     try {
@@ -53,7 +52,7 @@ export function useTeachingReadState(client: DvarTorahClient, offline: boolean, 
     }
   }
 
-  return { keys, error, pendingKey, offline: offline || !online, toggle, retry: () => setRefresh(value => value + 1) }
+  return { keys, error, pendingKey, offline: offline || !online, toggle: (weekKey: string) => save(weekKey, !keys?.has(weekKey)), markRead: (weekKey: string) => save(weekKey, true), retry: () => setRefresh(value => value + 1) }
 }
 
 export type TeachingReadProgress = ReturnType<typeof useTeachingReadState>
