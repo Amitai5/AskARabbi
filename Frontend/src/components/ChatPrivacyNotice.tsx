@@ -1,9 +1,12 @@
+const PolicyLinkClassName = 'rounded-sm font-medium text-pomegranate underline underline-offset-4 hover:text-pomegranate-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pomegranate'
+
 export function ChatPrivacyNotice() {
   return (
-    <div className="space-y-3 text-sm leading-6 text-muted sm:text-base">
-      <p>AskRabbi saves your questions and answers in your account so you can return to your conversations. You can delete saved chats or your account in Settings &amp; Personalization → Your data.</p>
-      <p>We and our service providers may retain and review questions and answers to detect abuse, investigate safety issues, and protect the service. Access for these purposes is limited to authorized personnel.</p>
-      <p>Deleting saved chats removes them from your account, but records kept for security and abuse prevention may be retained separately.</p>
-    </div>
+    <p className="text-sm leading-6 text-muted sm:text-base">
+      For details about using AskRabbi and how we handle your data, read our{' '}
+      <a href="https://askarabbi.ai/terms-of-service" target="_blank" rel="noopener noreferrer" aria-label="Terms of Use (opens in a new tab)" className={PolicyLinkClassName}>Terms of Use</a>
+      {' '}and{' '}
+      <a href="https://askarabbi.ai/privacy-policy" target="_blank" rel="noopener noreferrer" aria-label="Privacy Policy (opens in a new tab)" className={PolicyLinkClassName}>Privacy Policy</a>.
+    </p>
   )
 }

@@ -32,7 +32,7 @@ describe('AssistantMessage', () => {
     expect(copyButton.querySelector('svg')).toBeInTheDocument()
     expect(copyButton.closest('[data-message-role="assistant"]')).toHaveClass('relative')
     expect(copyButton.parentElement).toHaveClass('absolute', 'bottom-0', 'right-0', 'p-0.5')
-    expect(screen.getByText(Message.content)).toHaveClass('last:min-h-9', 'last:pr-12')
+    expect(screen.getByText(Message.content)).toHaveClass('last:min-h-9', 'last:pr-22')
     expect(screen.getByText(Message.content).compareDocumentPosition(copyButton) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
 
     await user.click(copyButton)
@@ -40,6 +40,23 @@ describe('AssistantMessage', () => {
     expect(writeText).toHaveBeenCalledWith(Message.content)
     expect(screen.getByRole('button', { name: 'Answer copied' })).toHaveClass('opacity-100')
     expect(screen.getByRole('status')).toHaveTextContent('Answer copied to clipboard.')
+  })
+
+  it('places printing beside copy at the bottom, not in the answer header', async () => {
+    const user = userEvent.setup()
+    const request = vi.fn(() => ({ kind: 'answers' as const, title: 'Selected conversation', answers: [{ id: Message.id, question: 'My question', content: Message.content, sources: [] }], initialAnswerId: Message.id }))
+    render(<AssistantMessage message={Message} getPrintRequest={request} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
+    const print = screen.getByRole('button', { name: 'Print answer' })
+    const actions = screen.getByRole('group', { name: 'Answer actions' })
+    expect(actions).toContainElement(print)
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Copy answer' }))
+    expect(actions).toHaveClass('absolute', 'bottom-0', 'right-0')
+    expect(print).toHaveClass('size-8')
+    expect(screen.getByText('AskRabbi').parentElement).not.toContainElement(print)
+    expect(screen.getByText(Message.content).compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    await user.click(print)
+    expect(request).toHaveBeenCalledWith(Message.id)
+    expect(await screen.findByRole('dialog', { name: 'Print a study copy' })).toBeVisible()
   })
 
   it('does not create empty footer paragraphs from trailing whitespace', async () => {

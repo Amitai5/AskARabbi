@@ -51,13 +51,14 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
 
   return (
     <div className="conversation-message group relative border-l-2 border-pomegranate pl-5" data-message-role="assistant" data-reading-target={readingId} data-reading-focused={reading.isFocused}>
-      <div className="mb-3 flex items-center justify-between gap-3"><p className="font-display text-xl text-ink">AskRabbi</p><div className="flex items-center gap-2">{reading.isLong ? <FocusReadingButton id={readingId} /> : null}<PrintAction iconOnly label="Print answer" getRequest={() => getPrintRequest?.(message.id) ?? { kind: 'answers', title: 'Conversation study copy', answers: collectPrintAnswers([message]), initialAnswerId: message.id }} /></div></div>
+      <div className="mb-3 flex items-center justify-between gap-3"><p className="font-display text-xl text-ink">AskRabbi</p>{reading.isLong ? <FocusReadingButton id={readingId} /> : null}</div>
       <div className="reading-content space-y-4 text-base leading-7 text-ink sm:text-lg">
         {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
-          <p key={`${message.id}-paragraph-${index}`} dir="auto" className="last:min-h-9 last:pr-12">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
+          <p key={`${message.id}-paragraph-${index}`} dir="auto" className="last:min-h-9 last:pr-22">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
         ))}
       </div>
-      <div className="absolute bottom-0 right-0 flex p-0.5">
+      <div className="absolute bottom-0 right-0 flex gap-2 p-0.5" role="group" aria-label="Answer actions">
+        <PrintAction iconOnly compact label="Print answer" getRequest={() => getPrintRequest?.(message.id) ?? { kind: 'answers', title: 'Conversation study copy', answers: collectPrintAnswers([message]), initialAnswerId: message.id }} />
         <button type="button" aria-label={copyLabel} title={copyLabel} onClick={() => void handleCopy()} className={`answer-copy-button inline-flex size-8 items-center justify-center rounded-md border border-line bg-paper text-muted shadow-sm transition hover:border-line-strong hover:bg-stone hover:text-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pomegranate/55 motion-reduce:transition-none ${copyVisibilityClass}`}>
           {copyStatus === 'copied' ? <Check aria-hidden="true" className="size-4 text-pomegranate" strokeWidth={1.8} /> : <Copy aria-hidden="true" className="size-4" strokeWidth={1.8} />}
         </button>

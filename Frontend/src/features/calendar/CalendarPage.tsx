@@ -11,12 +11,12 @@ import { OfflineHolidayCalendar } from '../pwa/OfflineHolidayCalendar.tsx'
 import { PrintAction } from '../printing/PrintAction.tsx'
 import './calendar.css'
 
-interface Props { client: CalendarClient; onOpenDvarTorah(): void; onBackToConversation?(): void; onOpenPersonalization?(): void }
+interface Props { client: CalendarClient; onOpenDvarTorah(): void; onBackToConversation?(): void; onOpenPersonalization?(): void; initialDays?: CalendarRange; initialSearch?: string; onNavigate?(days: CalendarRange, search: string): void; onAsk?(question: string): void; isAskDisabled?: boolean }
 const ButtonClass = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line-strong bg-paper px-4 text-sm font-semibold text-ink transition hover:bg-stone disabled:opacity-50'
 
-export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, onOpenPersonalization }: Props) {
-  const [days, setDays] = useState<CalendarRange>(90)
-  const [search, setSearch] = useState('')
+export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, onOpenPersonalization, initialDays = 90, initialSearch = '', onNavigate, onAsk, isAskDisabled }: Props) {
+  const [days, setDays] = useState<CalendarRange>(initialDays)
+  const [search, setSearch] = useState(initialSearch)
   const [overview, setData] = useState<CalendarOverview | null>(() => client.getCachedOverview?.(360) ?? null)
   const [settings, setSettings] = useState<CalendarPreferencesResponse | null>(() => { const cached = client.getCachedOverview?.(360); return cached ? { cities: [], preferences: cached.preferences } : null })
   const data = useMemo(() => {
@@ -112,10 +112,10 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
               <p className="mt-6 border-t border-line pt-5 text-xs leading-6 text-muted">Calendar data by <a href="https://www.hebcal.com/home/developer-apis" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-pomegranate underline">Hebcal<ExternalLink className="size-3" /></a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" className="underline">CC BY 4.0</a></p>
             </div>
           </details>
-          {data.highlight ? <section aria-labelledby="calendar-highlight" className="rounded-xl bg-stone/80 p-5 sm:p-6 xl:col-span-2"><p className="flex items-center gap-2 text-sm text-ink-soft"><CalendarDays className="size-5 text-pomegranate" />{data.highlight.isOngoing ? 'Happening now' : 'Next holiday'}</p><h2 id="calendar-highlight" className="mt-2 font-display text-3xl">{data.highlight.title}</h2><p className="mt-3 text-base">{formatEventRange(data.highlight)}</p><p className="mt-1 text-sm text-muted">{formatBeginning(data.highlight)}</p><div className="mt-3"><HolidayDetails event={data.highlight} /></div></section> : <div className="text-sm text-muted xl:col-span-2">{data.holidays.isAvailable ? 'No upcoming events match your filters.' : 'Holiday information is temporarily unavailable.'}</div>}
+          {data.highlight ? <section aria-labelledby="calendar-highlight" className="rounded-xl bg-stone/80 p-5 sm:p-6 xl:col-span-2"><p className="flex items-center gap-2 text-sm text-ink-soft"><CalendarDays className="size-5 text-pomegranate" />{data.highlight.isOngoing ? 'Happening now' : 'Next holiday'}</p><h2 id="calendar-highlight" className="mt-2 font-display text-3xl">{data.highlight.title}</h2><p className="mt-3 text-base">{formatEventRange(data.highlight)}</p><p className="mt-1 text-sm text-muted">{formatBeginning(data.highlight)}</p><div className="mt-3"><HolidayDetails event={data.highlight} onAsk={onAsk} isAskDisabled={isAskDisabled} /></div></section> : <div className="text-sm text-muted xl:col-span-2">{data.holidays.isAvailable ? 'No upcoming events match your filters.' : 'Holiday information is temporarily unavailable.'}</div>}
         </div>
         <div className="mt-7">
-          <HolidayAgenda days={days} onRange={setDays} onSearch={setSearch} events={data.events} startDate={data.today.gregorianDate} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
+          <HolidayAgenda days={days} onRange={value => { setDays(value); onNavigate?.(value, search) }} initialSearch={initialSearch} onSearch={value => { setSearch(value); onNavigate?.(days, value) }} onAsk={onAsk} isAskDisabled={isAskDisabled} events={data.events} startDate={data.today.gregorianDate} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
         </div>
       </> : null}
     </div>

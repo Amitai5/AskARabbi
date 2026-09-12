@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
-import { Headphones, LoaderCircle, Pause, Play, RotateCcw, TextCursorInput } from 'lucide-react'
+import { Headphones, LoaderCircle, Pause, Play, RotateCcw, RotateCw, TextCursorInput } from 'lucide-react'
 import { findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, WeeklyDvarTorahAudio } from './dvarTorahTypes.ts'
 import { useSavedRecording } from '../pwa/useSavedRecording.ts'
+import { useTeachingMediaSession } from './useTeachingMediaSession.ts'
 
 interface DvarTorahReadAloudProps {
   ref?: Ref<DvarTorahPlaybackHandle>
@@ -161,15 +162,25 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
       return
     }
     if (playbackState === 'playing' || playbackState === 'loading') {
-      requestIdRef.current += 1
-      element.pause()
-      stopAnimation()
-      setPlaybackState('paused')
+      pausePlayback()
       return
     }
 
     startPlayback()
   }
+
+  function pausePlayback() {
+    requestIdRef.current += 1
+    audioRef.current?.pause()
+    stopAnimation()
+    setPlaybackState('paused')
+  }
+
+  function skip(seconds: number) {
+    seek((pendingSeekRef.current ?? audioRef.current?.currentTime ?? 0) + seconds)
+  }
+
+  useTeachingMediaSession({ title, active: playbackState !== 'idle' && playbackState !== 'error', playing: playbackState === 'playing', position, duration: (audio?.durationMs ?? 0) / 1000, rate: Number(playbackRate), play: () => startPlayback(), pause: pausePlayback, seek, skip })
 
   function startPlayback(seconds?: number) {
     const element = audioRef.current
@@ -297,12 +308,16 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
         currentWordRef.current = null
         onWordChange(null)
       }} onError={failPlayback} />
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <button type="button" onClick={togglePlayback} aria-label={primaryLabel} title={primaryLabel} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2.5 rounded-full bg-pomegranate px-3 text-sm font-semibold text-white transition hover:bg-pomegranate-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-1 gap-y-1">
+        <div className="flex items-center">
+        <button type="button" onClick={() => skip(-15)} disabled={playbackState === 'idle' || playbackState === 'error'} aria-label="Rewind 15 seconds" title="Rewind 15 seconds" className="relative flex size-[44px] shrink-0 items-center justify-center rounded-full text-ink hover:bg-stone disabled:opacity-40"><RotateCcw aria-hidden="true" className="size-7" strokeWidth={1.5} /><span aria-hidden="true" className="absolute text-[10px] font-bold">15</span></button>
+        <button type="button" onClick={togglePlayback} aria-label={primaryLabel} title={primaryLabel} className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-full bg-pomegranate px-3 text-sm font-semibold text-white transition hover:bg-pomegranate-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate sm:px-4">
           <PrimaryIcon aria-hidden="true" className={`size-4 ${playbackState === 'loading' ? 'animate-spin motion-reduce:animate-none' : ''}`} fill={isActive ? 'none' : 'currentColor'} strokeWidth={1.8} />
           <span className="hidden sm:inline">{playbackState === 'loading' ? 'Loading audio…' : isActive ? 'Pause' : playbackState === 'paused' ? 'Resume' : playbackState === 'error' ? 'Try again' : 'Listen'}</span>
         </button>
-        {onToggleFollowing === undefined ? null : <button type="button" onClick={onToggleFollowing} aria-pressed={isFollowing} aria-label="Follow text" title={isFollowing ? 'Auto-scroll is on. Scroll manually to pause following.' : 'Resume following the spoken words.'} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-xs font-semibold transition hover:bg-stone sm:px-3 sm:text-sm ${isFollowing ? 'text-pomegranate' : 'text-muted'}`}><TextCursorInput aria-hidden="true" className="hidden size-4 sm:block" /><span>{isFollowing ? 'Follow text' : 'Follow paused'}</span></button>}
+        <button type="button" onClick={() => skip(15)} disabled={playbackState === 'idle' || playbackState === 'error'} aria-label="Forward 15 seconds" title="Forward 15 seconds" className="relative flex size-[44px] shrink-0 items-center justify-center rounded-full text-ink hover:bg-stone disabled:opacity-40"><RotateCw aria-hidden="true" className="size-7" strokeWidth={1.5} /><span aria-hidden="true" className="absolute text-[10px] font-bold">15</span></button>
+        </div>
+        {onToggleFollowing === undefined ? null : <button type="button" onClick={onToggleFollowing} aria-pressed={isFollowing} aria-label="Follow text" title={isFollowing ? 'Auto-scroll is on. Scroll manually to pause following.' : 'Resume following the spoken words.'} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full text-xs font-semibold transition hover:bg-stone sm:px-3 sm:text-sm ${isFollowing ? 'text-pomegranate' : 'text-muted'}`}><TextCursorInput aria-hidden="true" className="hidden size-4 sm:block" /><span>{isFollowing ? 'Follow text' : 'Follow paused'}</span></button>}
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => seek(0)} disabled={playbackState === 'idle' || playbackState === 'error'} aria-label="Restart recording" className="flex size-11 items-center justify-center rounded-full text-ink-soft transition hover:bg-stone hover:text-pomegranate disabled:opacity-40"><RotateCcw aria-hidden="true" className="size-4" /></button>
           <label className="sr-only" htmlFor={`audio-speed-${weekKey}`}>Playback speed</label>

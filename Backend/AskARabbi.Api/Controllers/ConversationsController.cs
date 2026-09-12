@@ -11,6 +11,7 @@ namespace AskARabbi.Api.Controllers;
 /// <summary>Manages canonical saved conversation context for the authenticated account.</summary>
 [ApiController]
 [Authorize]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [Route("api/conversations")]
 public sealed class ConversationsController : ControllerBase
 {

@@ -34,6 +34,79 @@ afterEach(() => {
 })
 
 describe('DvarTorahReadAloud', () => {
+  it('skips 15 seconds in either direction, clamps boundaries, and preserves a paused recording', async () => {
+    const user = userEvent.setup()
+    renderPlayer(createClient(), { ...Audio, durationMs: 60_000 })
+    const element = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
+    Object.defineProperty(element, 'readyState', { configurable: true, value: HTMLMediaElement.HAVE_METADATA })
+    expect(screen.getByRole('button', { name: 'Forward 15 seconds' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
+    await user.click(screen.getByRole('button', { name: 'Forward 15 seconds' }))
+    expect(element.currentTime).toBe(15)
+    await user.click(screen.getByRole('button', { name: 'Forward 15 seconds' }))
+    expect(element.currentTime).toBe(30)
+    await user.click(screen.getByRole('button', { name: 'Pause recording' }))
+    const plays = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Rewind 15 seconds' }))
+    expect(element.currentTime).toBe(15)
+    expect(screen.getByRole('button', { name: 'Resume recording' })).toBeVisible()
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays)
+    element.currentTime = 5
+    await user.click(screen.getByRole('button', { name: 'Rewind 15 seconds' }))
+    expect(element.currentTime).toBe(0)
+    element.currentTime = 55
+    await user.click(screen.getByRole('button', { name: 'Forward 15 seconds' }))
+    expect(element.currentTime).toBe(60)
+  })
+
+  it('uses the latest pending seek when metadata has not loaded yet', async () => {
+    const user = userEvent.setup()
+    renderPlayer(createClient(), { ...Audio, durationMs: 60_000 })
+    await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
+    await user.click(screen.getByRole('button', { name: 'Forward 15 seconds' }))
+    await user.click(screen.getByRole('button', { name: 'Forward 15 seconds' }))
+    expect(screen.getByRole('slider', { name: 'Recording position' })).toHaveValue('30')
+  })
+
+  it('publishes media metadata and device actions only after playback and removes them on unmount', async () => {
+    const user = userEvent.setup()
+    const handlers = new Map<string, MediaSessionActionHandler | null>()
+    const session = { metadata: null, playbackState: 'none', setPositionState: vi.fn(), setActionHandler: vi.fn((action, handler) => handlers.set(action, handler)) }
+    Object.defineProperty(navigator, 'mediaSession', { configurable: true, value: session })
+    vi.stubGlobal('MediaMetadata', class { constructor(data: MediaMetadataInit) { Object.assign(this, data) } })
+    const view = renderPlayer(createClient(), { ...Audio, durationMs: 60_000 })
+    expect(session.metadata).toBeNull()
+    const element = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
+    Object.defineProperty(element, 'readyState', { configurable: true, value: HTMLMediaElement.HAVE_METADATA })
+    await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
+    expect(session.metadata).toMatchObject({ title: 'A teaching', artist: 'AskRabbi' })
+    act(() => handlers.get('seekforward')?.({ action: 'seekforward' }))
+    expect(element.currentTime).toBe(15)
+    act(() => handlers.get('pause')?.({ action: 'pause' }))
+    expect(session.playbackState).toBe('paused')
+    act(() => handlers.get('seekbackward')?.({ action: 'seekbackward', seekOffset: 5 }))
+    expect(element.currentTime).toBe(10)
+    act(() => handlers.get('seekto')?.({ action: 'seekto', seekTime: 40 }))
+    expect(element.currentTime).toBe(40)
+    fireEvent.change(screen.getByRole('combobox', { name: 'Playback speed' }), { target: { value: '1.5' } })
+    expect(session.setPositionState).toHaveBeenLastCalledWith({ duration: 60, position: 40, playbackRate: 1.5 })
+    view.unmount()
+    expect(session.metadata).toBeNull()
+    expect(session.playbackState).toBe('none')
+    expect([...handlers.values()].every(handler => handler === null)).toBe(true)
+    Reflect.deleteProperty(navigator, 'mediaSession')
+  })
+
+  it('keeps playback usable when optional device media actions are unsupported', async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, 'mediaSession', { configurable: true, value: { setActionHandler: () => { throw new Error('Unsupported') }, setPositionState: () => { throw new Error('Unsupported') } } })
+    const view = renderPlayer(createClient())
+    await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
+    expect(screen.getByRole('button', { name: 'Pause recording' })).toBeVisible()
+    view.unmount()
+    Reflect.deleteProperty(navigator, 'mediaSession')
+  })
+
   it('switches an already-open stream to the saved recording when seeking a word offline', async () => {
     mockBlobUrls()
     const client = createClient()

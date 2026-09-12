@@ -35,7 +35,7 @@ export type ConversationTurn = CompactConversationTurn | FullConversationTurn
 export function createBackendConversationClient(apiClient: ApiClient = createApiClient()): ConversationClient {
   return {
     async list() {
-      const conversations = await apiClient.request<ConversationSummary[]>('/api/conversations')
+      const conversations = await apiClient.request<ConversationSummary[]>('/api/conversations', { cache: 'no-store' })
       return conversations.map(normalizeConversationSummary)
     },
     async createWithMessage(messageId, content, enabledSourceKeys) {
@@ -46,7 +46,8 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
       return normalizeConversationTurn(turn)
     },
     async get(conversationId) {
-      const conversation = await apiClient.request<ConversationDetails>(`/api/conversations/${encodeURIComponent(conversationId)}`)
+      // Bypass older HTTP-cache entries as well as preventing new stale history after a completed turn.
+      const conversation = await apiClient.request<ConversationDetails>(`/api/conversations/${encodeURIComponent(conversationId)}`, { cache: 'no-store' })
       return normalizeConversationDetails(conversation)
     },
     async appendMessage(conversationId, messageId, content) {

@@ -239,6 +239,67 @@ public sealed class ConversationsControllerTests
         Assert.AreEqual(HttpStatusCode.NotFound, missingResponse.StatusCode);
     }
 
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    [TestCategory("Regression")]
+    public async Task Get_FreshSignInAfterCompletedTurn_RetainsLatestAnswerAndSourcesWithoutCaching(bool isFollowUp)
+    {
+        await using var application = new TestApplicationFactory();
+        Guid conversationId;
+        ConversationMessageResponse expectedAnswer;
+        using (var originalClient = await application.CreateAuthenticatedClientAsync())
+        {
+            using var createdResponse = await originalClient.PostAsJsonAsync("/api/conversations?compact=true", new
+            {
+                messageId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                content = "Explain the weekly Torah reading.",
+                enabledSourceKeys = new[] { "collection:Torah" },
+            });
+            var created = await createdResponse.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+            Assert.IsNotNull(created);
+            Assert.AreEqual("answered", created.Status);
+            conversationId = created.Conversation.Id;
+            expectedAnswer = created.Messages.Single(message => message.Role == ConversationMessageRole.Assistant);
+
+            // Fetch the older history before another turn, as an already-open chat does.
+            using var initialHistory = await originalClient.GetAsync($"/api/conversations/{conversationId}");
+            initialHistory.EnsureSuccessStatusCode();
+            if (isFollowUp)
+            {
+                using var appendedResponse = await originalClient.PostAsJsonAsync($"/api/conversations/{conversationId}/messages?compact=true", new
+                {
+                    messageId = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                    content = "Why does this teaching matter?",
+                });
+                var appended = await appendedResponse.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+                Assert.IsNotNull(appended);
+                Assert.AreEqual("answered", appended.Status);
+                expectedAnswer = appended.Messages.Single(message => message.Role == ConversationMessageRole.Assistant);
+            }
+        }
+
+        using var reopenedClient = await application.CreateAuthenticatedClientAsync();
+        using var listResponse = await reopenedClient.GetAsync("/api/conversations");
+        using var historyResponse = await reopenedClient.GetAsync($"/api/conversations/{conversationId}");
+        var summaries = await listResponse.Content.ReadFromJsonAsync<ConversationSummaryResponse[]>();
+        var restored = await historyResponse.Content.ReadFromJsonAsync<ConversationResponse>(JsonOptions);
+
+        Assert.IsNotNull(summaries);
+        Assert.AreEqual(conversationId, summaries.Single().Id);
+        Assert.IsNotNull(restored);
+        Assert.HasCount(isFollowUp ? 4 : 2, restored.Messages);
+        var actualAnswer = restored.Messages[^1];
+        Assert.AreEqual(expectedAnswer.Id, actualAnswer.Id);
+        Assert.AreEqual(expectedAnswer.Content, actualAnswer.Content);
+        Assert.HasCount(expectedAnswer.Sources.Count, actualAnswer.Sources);
+        Assert.AreEqual(expectedAnswer.Sources[0].Context, actualAnswer.Sources[0].Context);
+        CollectionAssert.AreEqual(expectedAnswer.Sources[0].Quotations.ToArray(), actualAnswer.Sources[0].Quotations.ToArray());
+        Assert.IsTrue(listResponse.Headers.CacheControl?.NoStore, "Conversation navigation must not be cached across sign-ins.");
+        Assert.IsTrue(historyResponse.Headers.CacheControl?.NoStore, "Message history must not be cached before the latest completed answer.");
+        Assert.IsTrue(historyResponse.Headers.CacheControl?.NoCache);
+    }
+
     private static async Task<ConversationTurnResponse> CreateConversationAsync(HttpClient client)
     {
         using var response = await client.PostAsJsonAsync("/api/conversations", new

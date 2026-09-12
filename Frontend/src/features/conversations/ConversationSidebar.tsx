@@ -7,6 +7,8 @@ import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import type { ConversationSummary } from './conversationData.ts'
 import { ProfileMenu } from './ProfileMenu.tsx'
 import type { UsageSummary } from '../settings/settingsTypes.ts'
+import { usePrintPreview } from '../printing/usePrintPreview.ts'
+import type { PrintRequest } from '../printing/printTypes.ts'
 
 interface ConversationSidebarProps {
   conversations: ConversationSummary[]
@@ -15,6 +17,7 @@ interface ConversationSidebarProps {
   isNewConversationDisabled: boolean
   isOffline?: boolean
   pendingConversationIds: ReadonlySet<string>
+  unreadConversationIds?: ReadonlySet<string>
   isDvarTorahSelected: boolean
   isCalendarSelected: boolean
   user: AuthenticatedUser
@@ -27,13 +30,14 @@ interface ConversationSidebarProps {
   onSelectConversation(id: string): void
   onRenameConversation(id: string, title: string): void
   onDeleteConversation(id: string): Promise<void>
+  getPrintRequest(id: string): Promise<PrintRequest>
   onOpenDvarTorah(): void
   onOpenCalendar(): void
   onOpenSettings(): void
   onLogout(): Promise<void>
 }
 
-export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, isOffline = false, pendingConversationIds, isDvarTorahSelected, isCalendarSelected, user, usage, isLoadingUsage, usageError, onOpenUsage, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, onOpenDvarTorah, onOpenCalendar, onOpenSettings, onLogout }: ConversationSidebarProps) {
+export function ConversationSidebar({ conversations, selectedId, isMobileOpen, isNewConversationDisabled, isOffline = false, pendingConversationIds, unreadConversationIds, isDvarTorahSelected, isCalendarSelected, user, usage, isLoadingUsage, usageError, onOpenUsage, onCloseMobile, onNewConversation, onSelectConversation, onRenameConversation, onDeleteConversation, getPrintRequest, onOpenDvarTorah, onOpenCalendar, onOpenSettings, onLogout }: ConversationSidebarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -41,6 +45,7 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null)
   const mobileVisibility = isMobileOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'
   const navigation = useRef<HTMLElement>(null)
+  const print = usePrintPreview()
 
   useEffect(() => {
     if (!isMobileOpen) { return }
@@ -190,6 +195,8 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
                       <span className="truncate" title={conversation.title}>{conversation.title}</span>
                     </button>
 
+                    {!isPending && unreadConversationIds?.has(conversation.id) ? <span role="img" aria-label={`Unread answer for ${conversation.title}`} title="Answer ready" className="mx-2 size-2 shrink-0 rounded-full bg-pomegranate" /> : null}
+
                     {isPending ? <span role="status" aria-label={`Generating answer for ${conversation.title}`} className="flex size-7 shrink-0 items-center justify-center text-pomegranate" title="Answer in progress">
                       <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
                     </span> : null}
@@ -212,8 +219,11 @@ export function ConversationSidebar({ conversations, selectedId, isMobileOpen, i
         </ul>
       </nav>
 
-      {!isOffline && menuConversation && menuAnchor ? <ConversationActionMenu anchor={menuAnchor} title={menuConversation.title} onRename={() => startRename(menuConversation)} onDelete={() => { setOpenMenuId(null); setDeleteConfirmationId(menuConversation.id) }} onClose={() => setOpenMenuId(null)} /> : null}
+      {!isOffline && menuConversation && menuAnchor ? <ConversationActionMenu anchor={menuAnchor} title={menuConversation.title} onRename={() => startRename(menuConversation)} onPrint={() => { closeActionMenu(); void print.open(() => getPrintRequest(menuConversation.id), menuAnchor) }} onDelete={() => { setOpenMenuId(null); setDeleteConfirmationId(menuConversation.id) }} onClose={() => setOpenMenuId(null)} /> : null}
       {!isOffline && deleteConversation ? <ConfirmDeletionDialog title={`Delete "${deleteConversation.title}" Conversation?`} description="This permanently removes this conversation and its messages from your account. This cannot be undone." confirmLabel="Delete" onConfirm={() => onDeleteConversation(deleteConversation.id)} onClose={() => setDeleteConfirmationId(null)} /> : null}
+
+      {print.loading || print.error ? <div className="shrink-0 border-t border-line px-4 py-3 text-sm"><p role={print.error ? 'alert' : 'status'} className={print.error ? 'text-pomegranate' : 'text-muted'}>{print.error ?? 'Preparing print preview…'}</p><button type="button" onClick={print.close} className="mt-1 min-h-10 rounded-md px-2 text-ink underline underline-offset-4 hover:bg-stone-deep">{print.error ? 'Dismiss' : 'Cancel printing'}</button></div> : null}
+      {print.preview ? <print.preview.Dialog request={print.preview.request} returnFocusTo={print.preview.trigger} onClose={print.close} /> : null}
 
       <ProfileMenu user={user} usage={usage} isLoadingUsage={isLoadingUsage} usageError={usageError} isOffline={isOffline} onOpenUsage={onOpenUsage} onOpenSettings={onOpenSettings} onLogout={onLogout} />
     </aside>

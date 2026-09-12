@@ -123,6 +123,7 @@ public sealed class ConversationSettingsServiceTests
 
         Assert.IsFalse(result.ShowSourceContextByDefault);
         Assert.IsFalse(result.EmailProductUpdates);
+        Assert.IsFalse(result.EnterSendsMessage);
     }
 
     [TestMethod]
@@ -131,7 +132,7 @@ public sealed class ConversationSettingsServiceTests
     {
         var store = new FakeSettingsStore();
         var service = new ConversationSettingsService(store, new FixedTimeProvider(Now));
-        var preferences = new ConversationPreferences { ShowSourceContextByDefault = true, EmailProductUpdates = true };
+        var preferences = new ConversationPreferences { ShowSourceContextByDefault = true, EmailProductUpdates = true, EnterSendsMessage = true };
 
         var result = await service.UpdatePreferencesAsync(UserId, preferences);
 

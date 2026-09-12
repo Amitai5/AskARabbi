@@ -4,18 +4,26 @@ import { describe, expect, it, vi } from 'vitest'
 import { UserDataControls } from './UserDataControls.tsx'
 
 describe('Your data controls', () => {
-  it('distinguishes saved chats from abuse-monitoring records without provider names or links', () => {
+  it('links to terms and privacy alongside the unchanged deletion controls', () => {
     const deleteChats = vi.fn()
     const deleteAccount = vi.fn()
     const { container } = render(<UserDataControls isBusy={false} onDeleteChats={deleteChats} onDeleteAccount={deleteAccount} />)
 
-    expect(screen.getByRole('heading', { name: 'Chat history and AI privacy' })).toBeVisible()
-    expect(screen.getByText(/AskRabbi saves your questions and answers in your account/)).toBeVisible()
-    expect(screen.getByText(/We and our service providers may retain and review questions and answers/)).toHaveTextContent('Access for these purposes is limited to authorized personnel')
-    expect(screen.getByText(/Deleting saved chats removes them from your account/)).toHaveTextContent('records kept for security and abuse prevention may be retained separately')
+    expect(screen.getByRole('heading', { name: 'Terms and privacy' })).toBeVisible()
+    const terms = screen.getByRole('link', { name: 'Terms of Use (opens in a new tab)' })
+    const privacy = screen.getByRole('link', { name: 'Privacy Policy (opens in a new tab)' })
+    expect(terms).toHaveAttribute('href', 'https://askarabbi.ai/terms-of-service')
+    expect(privacy).toHaveAttribute('href', 'https://askarabbi.ai/privacy-policy')
+    for (const link of [terms, privacy]) {
+      expect(link).toBeVisible()
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+    expect(container).not.toHaveTextContent(/We and our service providers may retain and review|records kept for security and abuse prevention/)
     expect(screen.getByText(/Service backups and security logs follow separate retention policies/)).toBeVisible()
     expect(container).not.toHaveTextContent(/Azure|OpenAI|Microsoft/i)
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete all chats' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Delete account' })).toBeEnabled()
     expect(deleteChats).not.toHaveBeenCalled()
     expect(deleteAccount).not.toHaveBeenCalled()
   })

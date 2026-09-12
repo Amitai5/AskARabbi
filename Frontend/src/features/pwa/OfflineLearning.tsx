@@ -1,19 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Download, LoaderCircle } from 'lucide-react'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import { OfflineLibraryChanged, OfflineLibraryCleared, readOfflineLibrary, saveOfflineHolidays, setOfflineAudioEnabled, type OfflineLibrary } from './offlineLibrary.ts'
 import { syncOfflineTeaching } from './syncOfflineTeaching.ts'
 import { CalendarPreferencesChanged, type CalendarClient } from '../calendar/calendarClient.ts'
 import { canPreloadLearning, getConnectionInformation, scheduleIdlePreload } from './backgroundConnection.ts'
-
-interface OfflineLearningState {
-  library: OfflineLibrary | null
-  isSaving: boolean
-  error: string | null
-  changeAudio(enabled: boolean): Promise<void>
-  refresh(): void
-}
-const OfflineLearningContext = createContext<OfflineLearningState | null>(null)
+import { OfflineLearningContext } from './offlineLearningContext.ts'
 
 export function OfflineLearningProvider({ client, calendarClient, children }: { client: DvarTorahClient; calendarClient?: CalendarClient; children: ReactNode }) {
   const [library, setLibrary] = useState<OfflineLibrary | null>(null)

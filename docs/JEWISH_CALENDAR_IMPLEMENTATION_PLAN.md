@@ -273,7 +273,6 @@ Keep these outside the first release:
 - Full month-grid view.
 - Calendar export or subscriptions.
 - Reminders and notifications.
-- Personal birthday or yahrzeit calendars.
 - Full offline calendar access.
 
 ## Expected impact

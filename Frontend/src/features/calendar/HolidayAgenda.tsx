@@ -6,7 +6,10 @@ import { selectHolidayAgenda } from './calendarAgenda.ts'
 import { HolidayDetails } from './HolidayDetails.tsx'
 
 interface Props {
+  initialSearch?: string
   onSearch?(query: string): void
+  onAsk?(question: string): void
+  isAskDisabled?: boolean
   days: CalendarRange
   onRange(days: CalendarRange): void
   events: CalendarEvent[]
@@ -18,9 +21,9 @@ interface Props {
   isAvailable?: boolean
 }
 
-export function HolidayAgenda({ days, onRange, events, startDate, filters, onFilters, disabled = false, notice, isAvailable = true, onSearch }: Props) {
+export function HolidayAgenda({ days, onRange, events, startDate, filters, onFilters, disabled = false, notice, isAvailable = true, initialSearch = '', onSearch, onAsk, isAskDisabled }: Props) {
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [query, setQueryValue] = useState('')
+  const [query, setQueryValue] = useState(initialSearch)
   function setQuery(value: string) { setQueryValue(value); onSearch?.(value) }
   const filterId = useId()
   const searchId = useId()
@@ -60,14 +63,14 @@ export function HolidayAgenda({ days, onRange, events, startDate, filters, onFil
     </div>
     {notice}
     {selection.isSearching && isAvailable ? <p role="status" className="mt-4 text-sm text-muted">{selection.events.length === 0 ? 'No matching holidays in the next 360 days with the selected filters. Try another name or enable more categories.' : `${selection.events.length} ${selection.events.length === 1 ? 'holiday' : 'holidays'} found in the next 360 days.${selection.days > days ? ` Showing ${selection.days} days to include all matches.` : ''}`}</p> : null}
-    <div id={`${searchId}-results`} className="mt-5">{selection.events.map(event => <AgendaEntry key={event.id} event={event} />)}</div>
+    <div id={`${searchId}-results`} className="mt-5">{selection.events.map(event => <AgendaEntry key={event.id} event={event} onAsk={onAsk} isAskDisabled={isAskDisabled} />)}</div>
     {selection.events.length === 0 && !selection.isSearching && isAvailable ? <p className="py-8 text-sm text-muted">No events in this range with the selected filters. Try a longer range or enable more categories.</p> : null}
   </section>
 }
 
-function AgendaEntry({ event }: { event: CalendarEvent }) {
+function AgendaEntry({ event, onAsk, isAskDisabled }: { event: CalendarEvent; onAsk?(question: string): void; isAskDisabled?: boolean }) {
   return <details id={`event-${event.id}`} className="group border-t border-line py-1">
     <summary className="flex cursor-pointer list-none items-center gap-4 py-4 [&::-webkit-details-marker]:hidden"><div aria-hidden="true" className="w-14 shrink-0 self-start pt-1 text-center"><p className="text-xs uppercase tracking-widest text-muted">{formatCivilDate(event.startDate, { month: 'short' })}</p><p className="font-display text-3xl">{formatCivilDate(event.startDate, { day: 'numeric' })}</p><p className="text-xs text-muted">{formatCivilDate(event.startDate, { year: 'numeric' })}</p></div><div className="min-w-0 flex-1"><h3 className="font-display text-2xl leading-tight">{event.title}{event.isOngoing ? <span className="ml-2 align-middle font-sans text-xs font-normal text-pomegranate">Happening now</span> : null}</h3><p className="mt-1 text-sm text-ink-soft">{formatEventRange(event)}</p><p className="mt-1 text-xs leading-5 text-muted">{formatBeginning(event)}</p></div><ChevronDown className="size-4 shrink-0 transition group-open:rotate-180" aria-hidden="true" /></summary>
-    <div className="pb-5 pl-[4.5rem]"><HolidayDetails event={event} /></div>
+    <div className="pb-5 pl-[4.5rem]"><HolidayDetails event={event} onAsk={onAsk} isAskDisabled={isAskDisabled} /></div>
   </details>
 }

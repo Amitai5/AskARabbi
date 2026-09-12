@@ -74,7 +74,7 @@ export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: S
       </button>
 
       {isOpen ? (
-        <div id="conversation-source-filter" role="dialog" aria-label="Sources used for this conversation" className="readable-menu absolute bottom-full left-0 z-30 mb-3 flex max-h-[min(38rem,calc(100dvh-12rem))] w-[min(26rem,calc(100vw-4rem))] flex-col overflow-hidden rounded-xl border border-line-strong bg-paper shadow-menu">
+        <div id="conversation-source-filter" role="dialog" aria-label="Sources used for this conversation" className="readable-menu absolute bottom-full left-0 z-30 mb-3 flex max-h-[min(38rem,calc(100dvh-12rem))] w-[min(26rem,calc(100vw-4rem))] origin-bottom-left scale-90 flex-col overflow-hidden rounded-xl border border-line-strong bg-paper shadow-menu">
           <div className="shrink-0 border-b border-line px-4 pt-4 pb-2">
             <div>
               <p className="text-sm font-semibold text-ink">Sources used</p>

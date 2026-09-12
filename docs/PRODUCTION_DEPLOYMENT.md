@@ -134,7 +134,17 @@ Use the WorkOS **Production** environment, not the staging credentials. In **App
 5. Set the default application/homepage and allowed sign-out URI to `https://askarabbi.ai/`.
 6. Set the password-reset URL to `https://askarabbi.ai/reset-password` so the generated link arrives as `/reset-password?token=...`.
 7. Enable Email + Password and Google OAuth. Complete any Google provider credentials requested by WorkOS for production.
-8. Review the session lifetime, access-token duration, and inactivity timeout before launch.
+8. Under **Sessions**, set **Maximum session length** to **30 days** and **Inactivity timeout** to **7 days**. Keep the access-token duration short; do not increase it to 30 days. Verify these settings in the WorkOS **Production** application before activating longer browser sign-in. The app cannot extend an expired or revoked WorkOS session.
+
+### Persistent browser sign-in
+
+The API defaults to `Session:MaximumLifetimeDays=30` and `Session:InactivityTimeoutDays=7`, also declared in `Backend/AskARabbi.Api/appsettings.Production.json`. Azure overrides use `Session__MaximumLifetimeDays` and `Session__InactivityTimeoutDays`.
+
+- `AskRabbi.Session` is an encrypted, `HttpOnly`, `Secure`, `SameSite=Strict` persistent cookie with a maximum lifetime of 30 days from sign-in. WorkOS token refresh never restarts that deadline.
+- `AskRabbi.SessionActivity` is a separate encrypted, session-bound cookie, refreshed on authenticated API requests and expiring after seven days without activity (or at the 30-day deadline, whichever is earlier). Keeping activity separate prevents slow responses from rewriting credentials that another request has already refreshed. No tokens are placed in local storage, and no extra database writes or provider calls are needed to record activity.
+- The API enforces both cutoffs even when an expired cookie is manually replayed. Logout, account deletion, and rejected WorkOS refreshes clear both cookies. Background/offline browser activity without an API request does not extend sign-in.
+- Both cookies use the Azure-managed Data Protection keys described above, so restarting or scaling the same Container App to zero does not reset their deadlines or require keeping a replica running.
+- Rollout requires one fresh sign-in for existing sessions: older cookies do not contain a trustworthy original sign-in timestamp or the session-bound activity cookie. Clearing browser data, private browsing, or a stricter WorkOS session policy can still end sign-in earlier.
 
 WorkOS production redirect URIs must use HTTPS and must match the URI sent by the API exactly. Keep staging and production API keys/client IDs separate.
 

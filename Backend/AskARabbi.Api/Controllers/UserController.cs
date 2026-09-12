@@ -16,6 +16,7 @@ namespace AskARabbi.Api.Controllers;
 /// <summary>Handles WorkOS-hosted authentication and AskRabbi account sessions.</summary>
 [ApiController]
 [Route("api/user")]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class UserController : ControllerBase
 {
     private const string AuthStateCookieName = "AskRabbi.AuthState";
@@ -126,7 +127,7 @@ public sealed class UserController : ControllerBase
         var properties = new AuthenticationProperties
         {
             AllowRefresh = true,
-            IsPersistent = false,
+            IsPersistent = true,
         };
         WorkOsCookieAuthenticationEvents.StoreSessionTokens(properties, authenticated);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, ApplicationPrincipalFactory.Create(account, authenticated.SessionId), properties).ConfigureAwait(false);

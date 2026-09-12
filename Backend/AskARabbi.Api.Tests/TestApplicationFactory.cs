@@ -39,9 +39,11 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
 
     internal FakeUserAuthenticationService Authentication { get; } = new();
 
-    internal InMemoryApplicationStore Store { get; } = new();
+    internal InMemoryApplicationStore Store { get; init; } = new();
 
     internal TimeProvider Clock { get; init; } = new FixedTimeProvider(FixedUtcNow);
+
+    internal IDataProtectionProvider SessionKeys { get; init; } = new EphemeralDataProtectionProvider();
 
     internal FakeGroundedAnswerService GroundedAnswers { get; } = new();
     internal FakeCalendarProvider Calendar { get; } = new();
@@ -123,16 +125,12 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
             }
 
             services.AddSingleton(Clock);
-            services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            services.AddDataProtection();
+            services.AddSingleton(SessionKeys);
         });
     }
 
-    internal HttpClient CreateNonRedirectingClient() => CreateClient(new WebApplicationFactoryClientOptions
-    {
-        AllowAutoRedirect = false,
-        HandleCookies = true,
-        BaseAddress = new Uri("https://localhost"),
-    });
+    internal HttpClient CreateNonRedirectingClient() => CreateDefaultClient(new Uri("https://localhost"), new TestBrowserCookieHandler(Clock));
 
     internal async Task<HttpClient> CreateAuthenticatedClientAsync(Uri? baseAddress = null)
     {

@@ -1,6 +1,7 @@
 export interface UserSettings {
   showSourceContextByDefault: boolean
   emailProductUpdates: boolean
+  enterSendsMessage: boolean
 }
 
 export interface UsageSummary {
@@ -22,5 +23,6 @@ export function createDefaultUserSettings(): UserSettings {
   return {
     showSourceContextByDefault: false,
     emailProductUpdates: false,
+    enterSendsMessage: false,
   }
 }

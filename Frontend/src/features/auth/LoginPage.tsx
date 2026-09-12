@@ -200,10 +200,7 @@ export function LoginPage({ isCheckingSession = false }: LoginPageProps) {
             <p className="mt-6 text-sm leading-6 text-muted">
               AskRabbi is a study companion, not a source of binding psak.
             </p>
-            <details className="mt-3 text-sm text-ink-soft">
-              <summary className="min-h-11 cursor-pointer rounded-sm py-3 font-semibold hover:text-pomegranate focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pomegranate">Chat history and AI privacy</summary>
-              <div className="mt-1"><ChatPrivacyNotice /></div>
-            </details>
+            <div className="mt-4"><ChatPrivacyNotice /></div>
           </div>
         </div>
       </section>

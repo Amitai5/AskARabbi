@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, BookMarked, BookOpenText, CalendarDays, ChevronLeft, ChevronRight, Clock, LoaderCircle, RefreshCw, Search, Sparkles } from 'lucide-react'
@@ -13,11 +13,16 @@ import { useNarrationFollow } from './useNarrationFollow.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
 import { FocusReadingButton } from '../reading/FocusedReading.tsx'
 import { useReadingTarget } from '../reading/focusedReadingContext.ts'
+import type { TeachingRoute } from '../conversations/pageRoutes.ts'
 import { PrintAction } from '../printing/PrintAction.tsx'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
   offlineSavedAt?: string
+  initialRoute?: TeachingRoute
+  onNavigate?(route: TeachingRoute): void
+  onAsk?(question: string): void
+  isAskDisabled?: boolean
 }
 
 const ShabbatDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -39,26 +44,31 @@ const ArchivePageSize = 10
 
 type WeeklyLearningView = 'current' | 'archive' | 'archivedArticle'
 
-export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahPageProps) {
+export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNavigate, onAsk, isAskDisabled }: WeeklyDvarTorahPageProps) {
   const [publication, setPublication] = useState<WeeklyDvarTorahResponse | null>(() => client.getCachedCurrent?.() ?? null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [view, setView] = useState<WeeklyLearningView>('current')
+  const [view, setView] = useState<WeeklyLearningView>(initialRoute?.weekKey ? 'archivedArticle' : initialRoute?.archive ? 'archive' : 'current')
   const [archive, setArchive] = useState<WeeklyDvarTorahArchiveResponse | null>(null)
-  const [archiveSearchDraft, setArchiveSearchDraft] = useState('')
-  const [archiveSearch, setArchiveSearch] = useState('')
-  const [archivePage, setArchivePage] = useState(1)
+  const [archiveSearchDraft, setArchiveSearchDraft] = useState(initialRoute?.search ?? '')
+  const [archiveSearch, setArchiveSearch] = useState(initialRoute?.search ?? '')
+  const [archivePage, setArchivePage] = useState(initialRoute?.page ?? 1)
   const [archiveRefreshKey, setArchiveRefreshKey] = useState(0)
   const [isArchiveLoading, setIsArchiveLoading] = useState(true)
   const [archiveError, setArchiveError] = useState<string | null>(null)
   const [archivedArticle, setArchivedArticle] = useState<WeeklyDvarTorahArticle | null>(null)
-  const [archivedArticleLoadingKey, setArchivedArticleLoadingKey] = useState<string | null>(null)
+  const [archivedArticleLoadingKey, setArchivedArticleLoadingKey] = useState<string | null>(initialRoute?.weekKey ?? null)
   const [archivedArticleError, setArchivedArticleError] = useState<string | null>(null)
   const [selectedSourceNumber, setSelectedSourceNumber] = useState<number | null>(null)
   const sourceReaderTriggerRef = useRef<HTMLButtonElement | null>(null)
   const scrollAreaRef = useRef<HTMLElement | null>(null)
   const [audioDock, setAudioDock] = useState<HTMLDivElement | null>(null)
   const archivedArticleRequestIdRef = useRef(0)
+
+  const restoreArticle = useEffectEvent((weekKey: string) => { void openArchivedArticle(weekKey, false) })
+  useEffect(() => {
+    if (initialRoute?.weekKey && !offlineSavedAt) { restoreArticle(initialRoute.weekKey) }
+  }, [initialRoute?.weekKey, offlineSavedAt])
 
   useEffect(() => {
     let isCurrent = true
@@ -135,6 +145,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
   }
 
   function showCurrentTeaching() {
+    onNavigate?.({})
     archivedArticleRequestIdRef.current += 1
     setView('current')
     setArchivedArticle(null)
@@ -145,6 +156,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
   }
 
   function showArchive() {
+    onNavigate?.({ archive: true, page: archivePage, search: archiveSearch })
     archivedArticleRequestIdRef.current += 1
     setView('archive')
     setArchivedArticle(null)
@@ -156,6 +168,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
 
   function searchArchive(search: string) {
     const normalizedSearch = search.trim()
+    onNavigate?.({ archive: true, page: 1, search: normalizedSearch })
     setIsArchiveLoading(true)
     setArchiveError(null)
     setArchiveSearch(normalizedSearch)
@@ -166,6 +179,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
   }
 
   function changeArchivePage(page: number) {
+    onNavigate?.({ archive: true, page, search: archiveSearch })
     setIsArchiveLoading(true)
     setArchiveError(null)
     setArchivePage(page)
@@ -177,7 +191,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
     setArchiveRefreshKey((current) => current + 1)
   }
 
-  async function openArchivedArticle(weekKey: string) {
+  async function openArchivedArticle(weekKey: string, updateUrl = true) {
     const requestId = archivedArticleRequestIdRef.current + 1
     archivedArticleRequestIdRef.current = requestId
     setArchivedArticleLoadingKey(weekKey)
@@ -190,6 +204,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
       }
 
       setArchivedArticle(value)
+      if (updateUrl) { onNavigate?.({ weekKey }) }
       setSelectedSourceNumber(null)
       setView('archivedArticle')
       scrollToTop()
@@ -230,6 +245,8 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
 
             {view === 'archive' ? (
               <DvarTorahArchive archive={archive} searchDraft={archiveSearchDraft} activeSearch={archiveSearch} isLoading={isArchiveLoading} loadError={archiveError} articleError={archivedArticleError} loadingArticleKey={archivedArticleLoadingKey} onSearchDraftChange={setArchiveSearchDraft} onSearch={searchArchive} onPageChange={changeArchivePage} onRetry={retryArchive} onOpenArticle={(weekKey) => void openArchivedArticle(weekKey)} />
+            ) : view === 'archivedArticle' && archivedArticle === null ? (
+              archivedArticleError ? <LoadError message={archivedArticleError} onRetry={() => { if (initialRoute?.weekKey) { void openArchivedArticle(initialRoute.weekKey, false) } }} /> : <p role="status" className="py-10 text-muted">Loading the selected teaching…</p>
             ) : view === 'archivedArticle' && archivedArticle !== null ? (
               <div>
                 <button type="button" onClick={showArchive} className="reading-nonessential mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-lg pr-3 text-[length:max(0.875rem,14px)] font-semibold text-ink-soft transition hover:text-pomegranate">
@@ -253,7 +270,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt }: WeeklyDvarTorahP
         </section>
         <div ref={setAudioDock} className="z-10 shrink-0 border-t border-line bg-parchment/95 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] empty:hidden sm:px-8 sm:pt-3" />
       </div>
-      {article === null || selectedSourceIndex < 0 ? null : <SourceReader messageId={`weekly-dvar-torah-${article.week.weekKey}`} sources={sources} selectedIndex={selectedSourceIndex} showSourceContextByDefault={false} onSelectSourceNumber={setSelectedSourceNumber} onClose={closeSourceReader} />}
+      {article === null || selectedSourceIndex < 0 ? null : <SourceReader messageId={`weekly-dvar-torah-${article.week.weekKey}`} sources={sources} selectedIndex={selectedSourceIndex} showSourceContextByDefault={false} onSelectSourceNumber={setSelectedSourceNumber} onClose={closeSourceReader} onAsk={onAsk} isAskDisabled={isAskDisabled} />}
     </div>
   )
 }

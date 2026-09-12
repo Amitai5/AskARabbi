@@ -1,8 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { ApiError } from '../../api/apiClient.ts'
 import { ChatUsageNotice } from './ChatUsageNotice.tsx'
 import { useMonthlyUsage } from '../settings/useMonthlyUsage.ts'
-import { Menu } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
 import type { AuthenticatedUser } from '../auth/authTypes.ts'
 import { useAuth } from '../auth/useAuth.ts'
@@ -25,11 +25,15 @@ import { AssistantMessage } from './AssistantMessage.tsx'
 import { ConversationSidebar } from './ConversationSidebar.tsx'
 import { advanceConversationStarterIndex, ConversationStarters, getInitialConversationStarterIndex } from './conversationStarters.ts'
 import { MessageComposer } from './MessageComposer.tsx'
+import { ConversationQuestionNavigation } from './ConversationQuestionNavigation.tsx'
+import { MinimumNavigationQuestions } from './questionNavigation.ts'
 import { AllSourceKeys, formatSourceSelection } from './sourceOptions.ts'
 import { SourceReader } from './SourceReader.tsx'
 import { UserMessage } from './UserMessage.tsx'
 import { useOnlineStatus } from '../pwa/useOnlineStatus.ts'
-import { PrintAction } from '../printing/PrintAction.tsx'
+import { calendarPath, conversationPath, readPageRoute, teachingPath, writePageUrl, type ActiveView, type TeachingRoute } from './pageRoutes.ts'
+import { StarterQuestions } from './StarterQuestions.tsx'
+import { appendLearningQuestion } from './learningQuestions.ts'
 import { collectPrintAnswers, type PrintRequest } from '../printing/printTypes.ts'
 
 const WeeklyDvarTorahPage = lazy(() => import('../dvarTorah/WeeklyDvarTorahPage.tsx').then((module) => ({ default: module.WeeklyDvarTorahPage })))
@@ -47,8 +51,6 @@ interface ConversationDashboardProps {
   onSavePersonalization(profile: PersonalizationProfile): Promise<PersonalizationProfile>
   onSaveSettings(settings: UserSettings): Promise<UserSettings>
 }
-
-type ActiveView = 'conversation' | 'dvarTorah' | 'calendar' | 'settings'
 
 interface SourceReaderSelection {
   messageId: string
@@ -80,11 +82,13 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const [draft, setDraft] = useState('')
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), [])
-  const [activeView, setActiveView] = useState<ActiveView>(() => readSettingsRoute() ? 'settings' : 'conversation')
+  const [activeView, setActiveView] = useState<ActiveView>(() => readPageRoute().view)
+  const [restoredRoute, setRestoredRoute] = useState(readPageRoute)
+  const [restoreKey, setRestoreKey] = useState(0)
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(() => readSettingsRoute() ?? 'account')
   const [targetSetting, setTargetSetting] = useState<string | null>(readSettingHash)
   const [settingsNavigationKey, setSettingsNavigationKey] = useState(0)
-  const settingsReturnView = useRef<ActiveView>('conversation')
+  const settingsReturnPath = useRef('/conversations/new')
   const focusedReading = useFocusedReading()
   const { exit: exitFocusedReading } = focusedReading
   const [personalizationProfile, setPersonalizationProfile] = useState(initialPersonalizationProfile)
@@ -97,6 +101,11 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
   const [pendingQuestions, setPendingQuestions] = useState<ReadonlyMap<string, ConversationMessage>>(() => new Map())
+  const [unreadConversationIds, setUnreadConversationIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [readyNotice, setReadyNotice] = useState<ConversationSummary | null>(null)
+  const [draftNotice, setDraftNotice] = useState<string | null>(null)
+  const [composerFocusKey, setComposerFocusKey] = useState(0)
+  const newDraft = useRef('')
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [sourceReaderSelection, setSourceReaderSelection] = useState<SourceReaderSelection | null>(null)
   const selectionRequestId = useRef(0)
@@ -104,11 +113,13 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const selectedIdRef = useRef<string | null>(null)
   // Keep in-flight and completed turns in the dashboard, not the currently visible page.
   const conversationSessions = useRef(new Map<string, ConversationSession>())
+  const completedPendingIds = useRef(new Map<string, string>())
   const sendingConversationIds = useRef(new Set<string>())
   const sourceUpdateQueues = useRef(new Map<string, Promise<boolean>>())
   const sourceReaderTriggerRef = useRef<HTMLButtonElement | null>(null)
   const conversationScrollRef = useRef<HTMLElement | null>(null)
   const shouldScrollToLatestRef = useRef(true)
+  const isBrowsingEarlierQuestionRef = useRef(false)
 
   useEffect(() => {
     const desktop = window.matchMedia?.('(min-width: 64rem)')
@@ -117,38 +128,61 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     return () => desktop?.removeEventListener('change', closeDrawerOnDesktop)
   }, [])
 
+  const restorePage = useEffectEvent(restoreLocation)
+
   useEffect(() => {
     const section = readSettingsRoute()
     if (section) { window.history.replaceState(window.history.state, '', `/settings/${section}${window.location.hash}`) }
-    function navigateHistory() {
-      exitFocusedReading()
-      const next = readSettingsRoute()
-      if (next) {
-        setSettingsSection(next)
-        setTargetSetting(readSettingHash())
-        setSettingsNavigationKey(key => key + 1)
-        setActiveView('settings')
-      } else {
-        const view = window.history.state?.askarabbiView
-        setActiveView(view === 'calendar' || view === 'dvarTorah' ? view : 'conversation')
-        shouldScrollToLatestRef.current = true
-      }
-      setIsMobileSidebarOpen(false)
-    }
+    function navigateHistory() { restorePage() }
     window.addEventListener('popstate', navigateHistory)
     return () => window.removeEventListener('popstate', navigateHistory)
   }, [exitFocusedReading])
 
-  function navigateView(view: Exclude<ActiveView, 'settings'>) {
-    if (readSettingsRoute() || window.history.state?.askarabbiView !== view) {
-      window.history.pushState({ ...window.history.state, askarabbiView: view }, '', '/')
+  function restoreLocation() {
+    exitFocusedReading()
+    const route = readPageRoute()
+    setRestoredRoute(route)
+    setRestoreKey(key => key + 1)
+    setSourceReaderSelection(null)
+    if (route.view === 'settings') {
+      setSettingsSection(readSettingsRoute() ?? 'account')
+      setTargetSetting(readSettingHash())
+      setSettingsNavigationKey(key => key + 1)
+    } else if (route.view === 'conversation') {
+      const pendingId: unknown = route.isNew ? window.history.state?.askarabbiPendingId : null
+      const restoredId = route.conversationId ?? (typeof pendingId === 'string' ? completedPendingIds.current.get(pendingId) ?? (conversationSessions.current.has(pendingId) ? pendingId : undefined) : undefined)
+      if (restoredId) {
+        if (restoredId !== selectedIdRef.current) { void handleSelectConversation(restoredId, false) }
+        if (!restoredId.startsWith('pending:')) { writePageUrl(conversationPath(restoredId), true) }
+      } else if (route.isNew && selectedIdRef.current !== null) {
+        rememberSelectedConversation()
+        selectionRequestId.current += 1
+        selectedIdRef.current = null
+        setSelectedId(null)
+        setSelectedConversation(null)
+        setDraft(newDraft.current)
+        setConversationError(null)
+        setIsLoadingConversation(false)
+      }
+      shouldScrollToLatestRef.current = true
+      isBrowsingEarlierQuestionRef.current = false
     }
+    setActiveView(route.view)
+    setIsMobileSidebarOpen(false)
+  }
+
+  function navigateView(view: Exclude<ActiveView, 'settings'>) {
+    const path = view === 'conversation' ? conversationPath(selectedIdRef.current) : view === 'calendar' ? '/calendar' : '/teachings'
+    const isNewDestination = `${window.location.pathname}${window.location.search}` !== path
+    writePageUrl(path)
+    if (view === 'conversation' && selectedIdRef.current?.startsWith('pending:')) { window.history.replaceState({ ...window.history.state, askarabbiPendingId: selectedIdRef.current }, '', path) }
+    if (view !== activeView || isNewDestination) { setRestoredRoute(readPageRoute()); setRestoreKey(key => key + 1) }
     focusedReading.exit()
     setActiveView(view)
   }
 
   function navigateSettings(section: SettingsSectionId, settingId?: string, keepNavigationOpen = false) {
-    if (activeView !== 'settings') { settingsReturnView.current = activeView }
+    if (activeView !== 'settings') { settingsReturnPath.current = `${window.location.pathname}${window.location.search}` }
     focusedReading.exit()
     window.history.pushState(window.history.state, '', `/settings/${section}${settingId ? `#${settingId}` : ''}`)
     setSettingsSection(section)
@@ -159,17 +193,56 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setSourceReaderSelection(null)
   }
 
+  function returnFromSettings() {
+    if (settingsReturnPath.current.startsWith('/conversations/')) {
+      // A temporary conversation receives its real ID while settings remain open.
+      shouldScrollToLatestRef.current = true
+      isBrowsingEarlierQuestionRef.current = false
+      navigateView('conversation')
+      setIsMobileSidebarOpen(false)
+      return
+    }
+    writePageUrl(settingsReturnPath.current)
+    restoreLocation()
+  }
+
+  useEffect(() => {
+    if (!readyNotice) { return }
+    const timer = window.setTimeout(() => setReadyNotice(null), 10_000)
+    return () => window.clearTimeout(timer)
+  }, [readyNotice])
+
+  useEffect(() => {
+    function markVisibleAnswerRead() {
+      if (activeView !== 'conversation' || !selectedConversation || isLoadingConversation || document.visibilityState === 'hidden') { return }
+      const id = selectedConversation.id
+      setUnreadConversationIds(current => {
+        if (!current.has(id)) { return current }
+        const next = new Set(current); next.delete(id); return next
+      })
+      setReadyNotice(current => current?.id === id ? null : current)
+    }
+    markVisibleAnswerRead()
+    document.addEventListener('visibilitychange', markVisibleAnswerRead)
+    return () => document.removeEventListener('visibilitychange', markVisibleAnswerRead)
+  }, [activeView, selectedConversation, isLoadingConversation])
+
   const clearChatState = useCallback(() => {
     dataGeneration.current += 1
     selectionRequestId.current += 1
     selectedIdRef.current = null
     conversationSessions.current.clear()
+    completedPendingIds.current.clear()
     sourceUpdateQueues.current.clear()
     sendingConversationIds.current.clear()
     setConversations([])
     setSelectedId(null)
     setSelectedConversation(null)
     setPendingQuestions(new Map())
+    setUnreadConversationIds(new Set())
+    setReadyNotice(null)
+    newDraft.current = ''
+    if (readPageRoute().view === 'conversation') { writePageUrl('/conversations/new', true) }
     setSourceReaderSelection(null)
     setConversationError(null)
     setIsLoadingConversation(false)
@@ -220,18 +293,20 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         }
 
         setConversations(values)
-        if (values.length === 0) {
-          return
-        }
-
-        const first = values[0]
+        if (selectionRequestId.current !== requestId) { return }
+        const route = readPageRoute()
+        if (route.view !== 'conversation' || route.isNew) { return }
+        const id = route.conversationId ?? values[0]?.id
+        if (!id) { return }
         shouldScrollToLatestRef.current = true
-        selectedIdRef.current = first.id
-        setSelectedId(first.id)
-        const details = await conversationClient.get(first.id)
+        isBrowsingEarlierQuestionRef.current = false
+        selectedIdRef.current = id
+        setSelectedId(id)
+        const details = await conversationClient.get(id)
         if (isCurrent && selectionRequestId.current === requestId) {
           setSelectedConversation(details)
           setConversations((current) => reconcileConversationSummary(current, details))
+          if (readPageRoute().view === 'conversation') { writePageUrl(conversationPath(id), true) }
         }
       })
       .catch((error: unknown) => {
@@ -263,7 +338,12 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const displayedMessages = pendingQuestion === null || messages.some((message) => message.id === pendingQuestion.id) ? messages : [...messages, pendingQuestion]
   const latestDisplayedMessageId = displayedMessages.at(-1)?.id ?? null
   const activeSourceReader = resolveActiveSourceReader(displayedMessages, sourceReaderSelection)
+  const showQuestionNavigation = !isLoadingConversation && !isLoadingConversations && !focusedReading.target && activeSourceReader === null && displayedMessages.filter(message => message.role === 'User').length >= MinimumNavigationQuestions
   const getAnswerPrintRequest = useCallback((initialAnswerId?: string): PrintRequest => ({ kind: 'answers', title: normalizeConversationTitle(selectedConversation?.title), answers: collectPrintAnswers(selectedConversation?.messages ?? []), initialAnswerId }), [selectedConversation])
+  const getConversationPrintRequest = useCallback(async (id: string): Promise<PrintRequest> => {
+    const conversation = (selectedConversation?.id === id ? selectedConversation : conversationSessions.current.get(id)?.conversation) ?? await conversationClient.get(id)
+    return { kind: 'answers', title: normalizeConversationTitle(conversation.title), answers: collectPrintAnswers(conversation.messages) }
+  }, [conversationClient, selectedConversation])
 
   useLayoutEffect(() => {
     if (!shouldScrollToLatestRef.current || focusedReading.target !== null || activeView !== 'conversation' || isLoadingConversations || isLoadingConversation) {
@@ -276,7 +356,9 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     }
 
     shouldScrollToLatestRef.current = false
-    const scrollToLatest = () => scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' })
+    const scrollToLatest = () => {
+      if (!isBrowsingEarlierQuestionRef.current) { scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' }) }
+    }
     scrollToLatest()
 
     let finalFrame = 0
@@ -298,6 +380,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     rememberSelectedConversation()
     selectionRequestId.current += 1
     shouldScrollToLatestRef.current = true
+    isBrowsingEarlierQuestionRef.current = false
     setConversationError(null)
     selectedIdRef.current = null
     setSelectedId(null)
@@ -306,17 +389,20 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setSourceReaderSelection(null)
     setUnsavedSourceKeys([...AllSourceKeys])
     setDraft('')
+    newDraft.current = ''
+    setDraftNotice(null)
     setIsMobileSidebarOpen(false)
     navigateView('conversation')
     setConversationStarterIndex((current) => advanceConversationStarterIndex(current))
   }
 
-  async function handleSelectConversation(id: string) {
+  async function handleSelectConversation(id: string, updateUrl = true) {
     if (!navigator.onLine) { return }
     rememberSelectedConversation()
     const requestId = selectionRequestId.current + 1
     selectionRequestId.current = requestId
     shouldScrollToLatestRef.current = true
+    isBrowsingEarlierQuestionRef.current = false
     selectedIdRef.current = id
     setSelectedId(id)
     setSelectedConversation(null)
@@ -325,7 +411,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setIsLoadingConversation(true)
     setDraft('')
     setIsMobileSidebarOpen(false)
-    navigateView('conversation')
+    if (updateUrl) { navigateView('conversation') }
     const session = conversationSessions.current.get(id)
     if (session !== undefined) {
       setSelectedConversation(session.conversation)
@@ -385,7 +471,13 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
   function handleBackToConversation() {
     shouldScrollToLatestRef.current = true
+    isBrowsingEarlierQuestionRef.current = false
     navigateView('conversation')
+  }
+
+  function handleQuestionNavigation(isLatest: boolean) {
+    isBrowsingEarlierQuestionRef.current = !isLatest
+    shouldScrollToLatestRef.current = false
   }
 
   async function handleSavePersonalization(profile: PersonalizationProfile) {
@@ -444,6 +536,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         await conversationClient.delete(id)
       }
       conversationSessions.current.delete(id)
+      setUnreadConversationIds(current => { const next = new Set(current); next.delete(id); return next })
+      setReadyNotice(current => current?.id === id ? null : current)
       sourceUpdateQueues.current.delete(id)
       const remaining = conversations.filter((conversation) => conversation.id !== id)
       setConversations((current) => current.filter((conversation) => conversation.id !== id))
@@ -458,6 +552,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         setDraft('')
         if (next !== undefined) {
           await handleSelectConversation(next.id)
+        } else if (readPageRoute().view === 'conversation') {
+          writePageUrl('/conversations/new', true)
         }
       }
     } catch (error) {
@@ -496,14 +592,18 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     }
     const pendingMessage: ConversationMessage = { id: messageId, role: 'User', content: question, createdAtUtc: timestamp }
     conversationSessions.current.set(conversationId, session)
+    if (session.isNew) { window.history.replaceState({ ...window.history.state, askarabbiPendingId: conversationId }, '', window.location.href) }
     sendingConversationIds.current.add(conversationId)
     shouldScrollToLatestRef.current = true
+    isBrowsingEarlierQuestionRef.current = false
     selectedIdRef.current = conversationId
     setSelectedId(conversationId)
     setSelectedConversation(session.conversation)
     setConversations((current) => [toSummary(session.conversation), ...current.filter((value) => value.id !== conversationId)])
     setPendingQuestions((current) => new Map(current).set(conversationId, pendingMessage))
     setDraft('')
+    newDraft.current = ''
+    setDraftNotice(null)
     setConversationError(null)
     try {
       if (!session.isNew && !await waitForSourceUpdates(conversationId)) {
@@ -529,15 +629,22 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
       }
       conversationSessions.current.delete(conversationId)
       conversationSessions.current.set(conversation.id, completedSession)
+      if (conversationId !== conversation.id) { completedPendingIds.current.set(conversationId, conversation.id) }
       setConversations((current) => [toSummary(conversation), ...current.filter((value) => value.id !== conversationId && value.id !== conversation.id)])
+      const isAnswerVisible = readPageRoute().view === 'conversation' && selectedIdRef.current === conversationId && document.visibilityState !== 'hidden'
+      if (turn.status === 'answered' && !isAnswerVisible) {
+        setUnreadConversationIds(current => new Set(current).add(conversation.id))
+        setReadyNotice(toSummary(conversation))
+      }
       if (selectedIdRef.current === conversationId) {
         selectionRequestId.current += 1
-        shouldScrollToLatestRef.current = true
+        shouldScrollToLatestRef.current = !isBrowsingEarlierQuestionRef.current
         selectedIdRef.current = conversation.id
         setSelectedId(conversation.id)
         setSelectedConversation(conversation)
         setConversationError(completedSession.error)
         setIsLoadingConversation(false)
+        if (readPageRoute().view === 'conversation') { writePageUrl(conversationPath(conversation.id), true) }
       }
     } catch (error) {
       if (dataGeneration.current !== generation) { return }
@@ -576,6 +683,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
   function rememberSelectedConversation() {
     if (selectedConversation === null) {
+      newDraft.current = draft
       return
     }
 
@@ -590,10 +698,27 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
   function handleDraftChange(value: string) {
     setDraft(value)
+    setDraftNotice(null)
+    if (selectedId === null) { newDraft.current = value }
     const session = selectedId === null ? undefined : conversationSessions.current.get(selectedId)
     if (session !== undefined) {
       session.draft = value
     }
+  }
+
+  function prepareQuestion(question: string) {
+    if (!navigator.onLine || isChatDisabled || isLoadingConversation || isLoadingConversations) { return }
+    const next = appendLearningQuestion(draft, question)
+    navigateView('conversation')
+    setSourceReaderSelection(null)
+    setIsMobileSidebarOpen(false)
+    if (next.length > 4000) {
+      setDraftNotice('Your draft is too long to add this question. Shorten it first; your text has been kept.')
+    } else {
+      handleDraftChange(next)
+      setDraftNotice(draft.trim() ? 'Question added below your draft. Review it before sending.' : 'Question prepared. Edit it or send when you’re ready.')
+    }
+    setComposerFocusKey(key => key + 1)
   }
 
   function handleSelectedSourceKeysChange(sourceKeys: string[]) {
@@ -657,15 +782,17 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
   return (
     <div className={`fixed inset-0 flex h-dvh min-h-0 w-full overflow-hidden overscroll-none bg-parchment ${focusedReading.target ? 'focused-reading' : ''}`}>
-      {activeView === 'settings' ? <SettingsSidebar section={settingsSection} isMobileOpen={isMobileSidebarOpen} onClose={closeMobileSidebar} onNavigate={navigateSettings} onBack={() => { shouldScrollToLatestRef.current = true; navigateView(settingsReturnView.current === 'settings' ? 'conversation' : settingsReturnView.current); setIsMobileSidebarOpen(false) }} /> :
+      {activeView === 'settings' ? <SettingsSidebar section={settingsSection} isMobileOpen={isMobileSidebarOpen} onClose={closeMobileSidebar} onNavigate={navigateSettings} onBack={returnFromSettings} /> :
       <div className="reading-nonessential flex shrink-0">
       <ConversationSidebar
+        getPrintRequest={getConversationPrintRequest}
         conversations={conversations}
         selectedId={activeView === 'conversation' ? selectedId : null}
         isMobileOpen={isMobileSidebarOpen}
         isNewConversationDisabled={!isOnline || isLoadingConversations}
         isOffline={!isOnline}
         pendingConversationIds={new Set(pendingQuestions.keys())}
+        unreadConversationIds={unreadConversationIds}
         isDvarTorahSelected={activeView === 'dvarTorah'}
         isCalendarSelected={activeView === 'calendar'}
         user={personalizedUser}
@@ -698,23 +825,30 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
         <FocusedReadingToolbar />
 
+        {readyNotice ? <div className="absolute inset-x-3 top-3 z-30 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl border border-line-strong bg-paper px-4 py-2 shadow-menu lg:top-4" role="status" aria-live="polite">
+          <span className="size-2 shrink-0 rounded-full bg-pomegranate" aria-hidden="true" />
+          <button type="button" onClick={() => void handleSelectConversation(readyNotice.id)} className="min-h-10 min-w-0 text-left text-sm text-ink"><strong>Answer ready</strong><span className="block max-w-64 truncate text-xs text-muted">{readyNotice.title}</span><span className="sr-only"> — View answer</span></button>
+          <button type="button" aria-label="Dismiss answer ready notification" onClick={() => setReadyNotice(null)} className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-stone"><X className="size-4" aria-hidden="true" /></button>
+        </div> : null}
+
         <span className="reading-nonessential pointer-events-none absolute right-4 top-20 hidden size-8 border-r border-t border-brass/60 sm:block lg:top-4" aria-hidden="true" />
         <span className="reading-nonessential pointer-events-none absolute bottom-4 left-4 hidden size-8 border-b border-l border-brass/60 sm:block" aria-hidden="true" />
 
         {activeView === 'dvarTorah' ? (
           <Suspense fallback={<DvarTorahLoading />}>
-            <WeeklyDvarTorahPage client={dvarTorahClient} />
+            <WeeklyDvarTorahPage key={restoreKey} client={dvarTorahClient} initialRoute={restoredRoute.teaching} onNavigate={(route: TeachingRoute) => writePageUrl(teachingPath(route))} onAsk={prepareQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} />
           </Suspense>
         ) : activeView === 'calendar' ? (
           <Suspense fallback={<p role="status" className="p-8 text-muted">Loading calendar…</p>}>
-            <CalendarPage client={calendarClient} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} onOpenPersonalization={handleOpenPersonalization} />
+            <CalendarPage key={restoreKey} client={calendarClient} initialDays={restoredRoute.days} initialSearch={restoredRoute.search} onNavigate={(days, search) => writePageUrl(calendarPath(days, search), true)} onAsk={prepareQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} onOpenDvarTorah={handleOpenDvarTorah} onBackToConversation={handleBackToConversation} onOpenPersonalization={handleOpenPersonalization} />
           </Suspense>
         ) : activeView === 'settings' ? (
           <UnifiedSettingsPage section={settingsSection} targetSetting={targetSetting} navigationKey={settingsNavigationKey} profile={personalizationProfile} client={conversationSettingsClient} onSavePersonalization={handleSavePersonalization} user={personalizedUser} settings={userSettings} usage={usage} usageError={usageError} isLoadingUsage={isLoadingUsage} isDataBusy={pendingQuestions.size > 0 || isLoadingConversations} onDeleteChats={handleDeleteAllChats} onDeleteAccount={deleteAccount} onRetryUsage={() => void loadUsage()} onBack={handleBackToConversation} onSave={handleSaveSettings} onRequestPasswordReset={() => requestPasswordReset(user.email)} />
         ) : (
           <div className="flex min-h-0 flex-1 overflow-hidden overscroll-none">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <section ref={conversationScrollRef} data-reading-scroll className="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6" aria-label="Current conversation">
+              <div className="relative flex min-h-0 flex-1">
+              <section ref={conversationScrollRef} data-reading-scroll className={`flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain px-4 pb-4 sm:px-8 sm:pb-6 ${showQuestionNavigation ? 'md:pr-16' : ''}`} aria-label="Current conversation">
                 <div className="mx-auto flex w-full max-w-[62rem] flex-1 flex-col">
                   {conversationError === null ? null : <p className="mx-auto mt-5 w-full max-w-[46rem] rounded-lg border border-pomegranate/25 bg-pomegranate/5 px-4 py-3 text-sm text-pomegranate" role="alert">{conversationError}</p>}
                   {isLoadingConversations || isLoadingConversation ? (
@@ -723,10 +857,10 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                     <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
                       <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
                       <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{conversationStarter.supportingText}</p>
+                      <StarterQuestions client={calendarClient} disabled={isChatDisabled} onChoose={prepareQuestion} />
                     </div>
                   ) : (
                     <div className="flex-1 py-10 sm:py-14">
-                      {displayedMessages.some(message => message.role === 'Assistant' && message.content.trim()) ? <div className="reading-nonessential mx-auto mb-5 flex max-w-[46rem] justify-end"><PrintAction label="Print answers" getRequest={getAnswerPrintRequest} /></div> : null}
                       <article className="reading-column mx-auto max-w-[46rem] space-y-7 sm:space-y-9">
                         {displayedMessages.map((message) => (
                           message.role === 'Assistant'
@@ -739,15 +873,18 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                   )}
                 </div>
               </section>
+              {showQuestionNavigation ? <ConversationQuestionNavigation key={selectedId} messages={displayedMessages} scrollRef={conversationScrollRef} onNavigate={handleQuestionNavigation} /> : null}
+              </div>
 
               <div className="relative z-10 shrink-0 border-t border-line/60 bg-parchment px-4 pb-2 pt-2 sm:px-8 sm:pb-3" data-chat-composer>
                 <ChatUsageNotice usage={usage} error={usageError} isOnline={isOnline} onRetry={() => void loadUsage()} onOpenDvarTorah={handleOpenDvarTorah} />
+                {draftNotice ? <p role="status" className="mx-auto mb-2 max-w-[50rem] text-sm text-ink-soft">{draftNotice}</p> : null}
                 <div className="mx-auto flex w-full max-w-[62rem] justify-center">
-                  <MessageComposer draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
+                  <MessageComposer focusKey={composerFocusKey} draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} enterSendsMessage={userSettings.enterSendsMessage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
                 </div>
               </div>
             </div>
-            {activeSourceReader === null ? null : <SourceReader messageId={activeSourceReader.messageId} sources={activeSourceReader.sources} selectedIndex={activeSourceReader.selectedIndex} showSourceContextByDefault={userSettings.showSourceContextByDefault} onSelectSourceNumber={handleSelectReaderSource} onClose={handleCloseSourceReader} />}
+            {activeSourceReader === null ? null : <SourceReader messageId={activeSourceReader.messageId} sources={activeSourceReader.sources} selectedIndex={activeSourceReader.selectedIndex} showSourceContextByDefault={userSettings.showSourceContextByDefault} onSelectSourceNumber={handleSelectReaderSource} onClose={handleCloseSourceReader} onAsk={prepareQuestion} isAskDisabled={isChatDisabled} />}
           </div>
         )}
       </main>

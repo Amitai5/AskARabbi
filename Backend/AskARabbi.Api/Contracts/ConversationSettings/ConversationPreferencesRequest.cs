@@ -8,4 +8,7 @@ public sealed record ConversationPreferencesRequest
 
     /// <summary>Gets whether the account has opted in to product-update emails.</summary>
     public bool EmailProductUpdates { get; init; }
+
+    /// <summary>Gets whether Enter sends; omission preserves the saved behavior for older clients.</summary>
+    public bool? EnterSendsMessage { get; init; }
 }

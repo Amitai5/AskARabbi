@@ -11,12 +11,12 @@ function Menu() {
 }
 
 describe('SourceFilterMenu', () => {
-  it('keeps source presets and individual checkboxes usable in the larger menu', async () => {
+  it('keeps source presets and individual checkboxes usable in the compact menu', async () => {
     const user = userEvent.setup()
     render(<Menu />)
     await user.click(screen.getByRole('button', { name: 'Choose sources: All sources' }))
     const menu = screen.getByRole('dialog', { name: 'Sources used for this conversation' })
-    expect(menu).toHaveClass('readable-menu')
+    expect(menu).toHaveClass('readable-menu', 'scale-90', 'origin-bottom-left')
     expect(within(menu).getAllByRole('checkbox')).toHaveLength(SourceOptions.length)
     for (const source of SourceOptions) {
       expect(within(menu).getByText(source.description)).not.toHaveClass('truncate')

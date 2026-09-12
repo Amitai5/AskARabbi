@@ -127,6 +127,7 @@ public sealed class ConversationSettingsController : ControllerBase
         {
             ShowSourceContextByDefault = request.ShowSourceContextByDefault,
             EmailProductUpdates = request.EmailProductUpdates,
+            EnterSendsMessage = request.EnterSendsMessage ?? (await settings.GetPreferencesAsync(currentUser.UserId, cancellationToken).ConfigureAwait(false)).EnterSendsMessage,
         };
         var saved = await settings.UpdatePreferencesAsync(currentUser.UserId, value, cancellationToken).ConfigureAwait(false);
         return Ok(ToResponse(saved));
@@ -164,5 +165,5 @@ public sealed class ConversationSettingsController : ControllerBase
         value.BirthLocation,
         value.CurrentLocation);
 
-    private static ConversationPreferencesResponse ToResponse(ConversationPreferences value) => new(value.ShowSourceContextByDefault, value.EmailProductUpdates);
+    private static ConversationPreferencesResponse ToResponse(ConversationPreferences value) => new(value.ShowSourceContextByDefault, value.EmailProductUpdates, value.EnterSendsMessage);
 }

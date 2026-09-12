@@ -1,9 +1,12 @@
 import { memo, useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Quote, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, MessageCircle, Quote, X } from 'lucide-react'
 import type { ConversationSource } from './conversationData.ts'
+import { sourceQuestion } from './learningQuestions.ts'
 
 interface SourceReaderProps {
+  onAsk?(question: string): void
+  isAskDisabled?: boolean
   messageId: string
   sources: readonly ConversationSource[]
   selectedIndex: number
@@ -13,6 +16,8 @@ interface SourceReaderProps {
 }
 
 interface SourceReaderContentProps {
+  onAsk?(question: string): void
+  isAskDisabled?: boolean
   idPrefix: string
   messageId: string
   source: ConversationSource
@@ -26,7 +31,7 @@ interface SourceNavigationProps {
   onSelectSourceNumber(sourceNumber: number): void
 }
 
-export const SourceReader = memo(function SourceReader({ messageId, sources, selectedIndex, showSourceContextByDefault, onSelectSourceNumber, onClose }: SourceReaderProps) {
+export const SourceReader = memo(function SourceReader({ messageId, sources, selectedIndex, showSourceContextByDefault, onSelectSourceNumber, onClose, onAsk, isAskDisabled }: SourceReaderProps) {
   const desktopCloseButtonRef = useRef<HTMLButtonElement>(null)
   const mobileCloseButtonRef = useRef<HTMLButtonElement>(null)
   const mobileSheetRef = useRef<HTMLElement>(null)
@@ -115,7 +120,7 @@ export const SourceReader = memo(function SourceReader({ messageId, sources, sel
           </button>
         </div>
         <div className="source-reader-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-8 py-8">
-          <SourceReaderContent idPrefix="desktop" messageId={messageId} source={source} showSourceContextByDefault={showSourceContextByDefault} contextLabel="Source context" />
+          <SourceReaderContent idPrefix="desktop" messageId={messageId} source={source} showSourceContextByDefault={showSourceContextByDefault} contextLabel="Source context" onAsk={onAsk} isAskDisabled={isAskDisabled} />
         </div>
       </aside>
 
@@ -134,7 +139,7 @@ export const SourceReader = memo(function SourceReader({ messageId, sources, sel
             </button>
           </div>
           <div className="source-reader-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-8">
-            <SourceReaderContent idPrefix="mobile" messageId={messageId} source={source} showSourceContextByDefault={showSourceContextByDefault} contextLabel="Show source context" />
+            <SourceReaderContent idPrefix="mobile" messageId={messageId} source={source} showSourceContextByDefault={showSourceContextByDefault} contextLabel="Show source context" onAsk={onAsk} isAskDisabled={isAskDisabled} />
           </div>
         </section>
       </div>
@@ -158,7 +163,7 @@ function SourceNavigation({ selectedIndex, sources, onSelectSourceNumber }: Sour
   )
 }
 
-function SourceReaderContent({ idPrefix, messageId, source, showSourceContextByDefault, contextLabel }: SourceReaderContentProps) {
+function SourceReaderContent({ idPrefix, messageId, source, showSourceContextByDefault, contextLabel, onAsk, isAskDisabled }: SourceReaderContentProps) {
   const sourceContextKey = `${idPrefix}-${messageId}-${source.number}-${showSourceContextByDefault ? 'open' : 'closed'}`
 
   return (
@@ -174,6 +179,8 @@ function SourceReaderContent({ idPrefix, messageId, source, showSourceContextByD
           <p className="mt-2 text-sm leading-6 text-muted">{source.title} · {source.edition} · {source.language} · {source.license}</p>
         </div>
       </div>
+
+      {onAsk ? <button type="button" aria-label={`Ask about this: ${source.canonicalReference}`} disabled={isAskDisabled} onClick={() => onAsk(sourceQuestion(source))} className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-line-strong px-4 text-sm font-semibold text-pomegranate hover:bg-stone disabled:opacity-50"><MessageCircle aria-hidden="true" className="size-4" />Ask about this</button> : null}
 
       {source.quotations.length > 0 ? (
         <div className="mt-8">

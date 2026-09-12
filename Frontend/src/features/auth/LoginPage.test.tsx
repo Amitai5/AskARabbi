@@ -16,24 +16,24 @@ async function renderLogin() {
 }
 
 describe('LoginPage', () => {
-  it('lets readers inspect chat storage and provider retention before signing in', async () => {
-    const user = userEvent.setup()
+  it('links to terms and privacy before signing in without an expandable retention explanation', async () => {
     await renderLogin()
-    const disclosure = screen.getByText('Chat history and AI privacy')
-    expect(disclosure.closest('details')).not.toHaveAttribute('open')
-
-    await user.click(disclosure)
-
-    expect(disclosure.closest('details')).toHaveAttribute('open')
-    expect(screen.getByText(/AskRabbi saves your questions and answers in your account/)).toBeVisible()
-    expect(screen.getByText(/We and our service providers may retain and review questions and answers/)).toHaveTextContent('detect abuse, investigate safety issues, and protect the service')
-    expect(screen.getByText(/records kept for security and abuse prevention may be retained separately/)).toBeVisible()
-    expect(disclosure.closest('details')).not.toHaveTextContent(/Azure|OpenAI|Microsoft/i)
-    expect(disclosure.closest('details')?.querySelector('a')).toBeNull()
+    const terms = screen.getByRole('link', { name: 'Terms of Use (opens in a new tab)' })
+    const privacy = screen.getByRole('link', { name: 'Privacy Policy (opens in a new tab)' })
+    expect(terms).toBeVisible()
+    expect(privacy).toBeVisible()
+    expect(terms).toHaveAttribute('href', 'https://askarabbi.ai/terms-of-service')
+    expect(privacy).toHaveAttribute('href', 'https://askarabbi.ai/privacy-policy')
+    for (const link of [terms, privacy]) {
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      expect(link.closest('details')).toBeNull()
+    }
+    expect(screen.getByText(/For details about using AskRabbi and how we handle your data/)).toBeVisible()
+    expect(screen.queryByText('Chat history and AI privacy')).not.toBeInTheDocument()
+    expect(screen.queryByText(/We and our service providers may retain and review/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/records kept for security and abuse prevention/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
-
-    await user.click(disclosure)
-    expect(disclosure.closest('details')).not.toHaveAttribute('open')
   })
 
   it('omits the install action even when installation is available and focuses Google first', async () => {

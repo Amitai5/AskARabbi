@@ -1,21 +1,27 @@
-import { useRef, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { ArrowUp } from 'lucide-react'
 import { SourceFilterMenu } from './SourceFilterMenu.tsx'
 
 interface MessageComposerProps {
+  focusKey?: number
   draft: string
   selectedSourceKeys: readonly string[]
   conversationLanguage: string
   quotationLanguage: string
   isSending: boolean
   isChatDisabled?: boolean
+  enterSendsMessage?: boolean
   onDraftChange(value: string): void
   onSelectedSourceKeysChange(sourceKeys: string[]): void
   onSubmit(): void
 }
 
-export function MessageComposer({ draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, isChatDisabled = false, onDraftChange, onSelectedSourceKeysChange, onSubmit }: MessageComposerProps) {
+export function MessageComposer({ focusKey = 0, draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, isChatDisabled = false, enterSendsMessage = false, onDraftChange, onSelectedSourceKeysChange, onSubmit }: MessageComposerProps) {
   const formRef = useRef<HTMLFormElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (focusKey > 0) { inputRef.current?.focus(); inputRef.current?.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length) }
+  }, [focusKey])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -25,9 +31,10 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 || event.altKey) { return }
+    if (event.ctrlKey || event.metaKey || (enterSendsMessage && !event.shiftKey)) {
       event.preventDefault()
-      formRef.current?.requestSubmit()
+      if (!event.repeat) { formRef.current?.requestSubmit() }
     }
   }
 
@@ -36,11 +43,12 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
       <form ref={formRef} onSubmit={handleSubmit} className="rounded-2xl border border-line-strong bg-paper p-2.5 shadow-[0_10px_30px_rgb(16_35_63_/_0.06)] transition focus-within:border-pomegranate focus-within:ring-3 focus-within:ring-pomegranate/10 sm:p-3">
         <label htmlFor="message" className="sr-only">Message AskRabbi</label>
         <textarea
+          ref={inputRef}
           id="message"
           value={draft}
           readOnly={isChatDisabled}
           aria-disabled={isChatDisabled}
-          aria-describedby={isChatDisabled ? 'chat-availability-notice' : undefined}
+          aria-describedby={`message-keyboard-help${isChatDisabled ? ' chat-availability-notice' : ''}`}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
@@ -53,15 +61,16 @@ export function MessageComposer({ draft, selectedSourceKeys, conversationLanguag
             <SourceFilterMenu key={isSending || isChatDisabled ? 'source-filter-disabled' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending || isChatDisabled} onChange={onSelectedSourceKeysChange} />
             <span className="hidden truncate text-sm leading-4 text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
           </div>
-          <button type="submit" disabled={isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message">
+          <button type="submit" disabled={isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message" title="Send message (Ctrl/Cmd+Enter)" aria-keyshortcuts={enterSendsMessage ? 'Enter Control+Enter Meta+Enter' : 'Control+Enter Meta+Enter'}>
             <ArrowUp aria-hidden="true" className="size-4" strokeWidth={1.9} />
           </button>
         </div>
         {selectedSourceKeys.length === 0 ? <p className="px-2 pt-2 text-sm font-medium leading-4 text-pomegranate" role="alert">Select at least one source before sending.</p> : null}
       </form>
-      <p className="mt-1.5 text-center text-sm leading-5 text-muted">
-        AskRabbi can make mistakes. Check the cited sources.
-      </p>
+      <div className="mt-1.5 text-center text-sm leading-5 text-muted">
+        <p id="message-keyboard-help" className="sr-only md:not-sr-only">{enterSendsMessage ? 'Enter to send · Shift+Enter for a new line · Ctrl/Cmd+Enter also sends' : 'Enter for a new line · Ctrl/Cmd+Enter to send'}</p>
+        <p>AskRabbi can make mistakes. Check the cited sources.</p>
+      </div>
     </div>
   )
 }

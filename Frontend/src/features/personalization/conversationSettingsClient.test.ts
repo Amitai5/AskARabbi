@@ -2,6 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 import { createDemoApplicationClients } from '../../test/demoApplicationClients.ts'
 import { createBackendConversationSettingsClient } from './conversationSettingsClient.ts'
 import { DefaultReadingPreferences } from '../reading/readingPreferences.ts'
+import { createDefaultUserSettings } from '../settings/settingsTypes.ts'
+
+describe('Enter preference API contract', () => {
+  it('uses new-line behavior when an older API omits the preference', async () => {
+    const request = vi.fn().mockResolvedValue({ showSourceContextByDefault: true, emailProductUpdates: false })
+    const client = createBackendConversationSettingsClient({ baseUrl: '', request })
+    expect(await client.getPreferences()).toEqual({ ...createDefaultUserSettings(), showSourceContextByDefault: true, enterSendsMessage: false })
+  })
+
+  it.each([false, true])('persists and loads the %s Enter behavior with existing account preferences', async enterSendsMessage => {
+    const preferences = { ...createDefaultUserSettings(), enterSendsMessage }
+    const request = vi.fn().mockResolvedValue(preferences)
+    const client = createBackendConversationSettingsClient({ baseUrl: '', request })
+    expect(await client.updatePreferences(preferences)).toEqual(preferences)
+    expect(request).toHaveBeenCalledWith('/api/conversation-settings/preferences', { method: 'PUT', body: JSON.stringify(preferences) })
+    expect(await client.getPreferences()).toEqual(preferences)
+  })
+})
 
 describe('Reading preference API contract', () => {
   it('loads account reading preferences with cancellation', async () => {

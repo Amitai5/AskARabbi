@@ -142,6 +142,14 @@ export function SettingsPage({ section, user, settings, usage, usageError, isLoa
           <SettingsSection title={section === 'notifications' ? 'Product updates' : 'Conversation defaults'}>
             <div className="space-y-5">
               <div hidden={section === 'notifications'}><SettingAnchor id="source-context"><PreferenceToggle label={settingDefinition('source-context').label} description={settingDefinition('source-context').description} icon={<BookOpenText aria-hidden="true" />} isChecked={draft.showSourceContextByDefault} onChange={(value) => updateSetting('showSourceContextByDefault', value)} /></SettingAnchor></div>
+              <div hidden={section === 'notifications'}><SettingAnchor id="enter-key">
+                <label htmlFor="enter-key-behavior" className="block font-semibold text-ink">{settingDefinition('enter-key').label}</label>
+                <p id="enter-key-description" className="mt-1 text-sm leading-6 text-muted">{settingDefinition('enter-key').description}</p>
+                <select id="enter-key-behavior" aria-describedby="enter-key-description" value={draft.enterSendsMessage ? 'send' : 'newline'} onChange={event => updateSetting('enterSendsMessage', event.target.value === 'send')} className="mt-3 min-h-12 w-full rounded-lg border border-line-strong bg-paper px-3 text-base text-ink sm:max-w-sm">
+                  <option value="newline">Enter adds a new line</option>
+                  <option value="send">Enter sends</option>
+                </select>
+              </SettingAnchor></div>
               <div hidden={section === 'reading'}><SettingAnchor id="product-updates"><PreferenceToggle label={settingDefinition('product-updates').label} description={settingDefinition('product-updates').description} icon={<Bell aria-hidden="true" />} isChecked={draft.emailProductUpdates} onChange={(value) => updateSetting('emailProductUpdates', value)} /></SettingAnchor></div>
             </div>
 

@@ -189,6 +189,9 @@ else
     builder.Services.AddAskRabbiPersistence(builder.Configuration);
     builder.Services.AddAskRabbiAuthentication(builder.Configuration, builder.Environment);
 }
+var sessionLifetimeOptions = builder.Configuration.GetSection(SessionLifetimeOptions.SectionName).Get<SessionLifetimeOptions>() ?? new SessionLifetimeOptions();
+sessionLifetimeOptions.Validate();
+builder.Services.AddSingleton(sessionLifetimeOptions);
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
     options.Cookie.Name = "AskRabbi.Session";
@@ -196,8 +199,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.Cookie.IsEssential = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromDays(sessionLifetimeOptions.MaximumLifetimeDays);
+    // The cookie events renew activity without moving the original sign-in deadline.
+    options.SlidingExpiration = false;
     options.EventsType = typeof(WorkOsCookieAuthenticationEvents);
 });
 builder.Services.AddAuthorization();

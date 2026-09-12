@@ -1,5 +1,5 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
-import type { UsageSummary, UserSettings } from '../settings/settingsTypes.ts'
+import { createDefaultUserSettings, type UsageSummary, type UserSettings } from '../settings/settingsTypes.ts'
 import type { PersonalizationProfile } from './personalizationTypes.ts'
 import type { CalendarLocation } from '../calendar/calendarTypes.ts'
 import type { ReadingPreferences } from '../reading/readingPreferences.ts'
@@ -62,19 +62,23 @@ export function createBackendConversationSettingsClient(apiClient: ApiClient = c
       }
       return mapProfile(response.personalization)
     },
-    getPreferences() {
-      return apiClient.request<UserSettings>('/api/conversation-settings/preferences')
+    async getPreferences() {
+      return normalizePreferences(await apiClient.request<UserSettings>('/api/conversation-settings/preferences'))
     },
-    updatePreferences(settings) {
-      return apiClient.request<UserSettings>('/api/conversation-settings/preferences', {
+    async updatePreferences(settings) {
+      return normalizePreferences(await apiClient.request<UserSettings>('/api/conversation-settings/preferences', {
         method: 'PUT',
         body: JSON.stringify(settings),
-      })
+      }))
     },
     getUsage() {
       return apiClient.request<UsageSummary>('/api/conversation-settings/usage')
     },
   }
+}
+
+function normalizePreferences(value: UserSettings): UserSettings {
+  return { ...createDefaultUserSettings(), ...value, enterSendsMessage: value.enterSendsMessage === true }
 }
 
 function mapEnvelope(response: PersonalizationApiEnvelope): PersonalizationEnvelope {

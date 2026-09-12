@@ -17,10 +17,14 @@ internal sealed class MongoConversationPreferencesDocument
     [BsonElement("emailProductUpdates")]
     public bool EmailProductUpdates { get; init; }
 
+    [BsonElement("enterSendsMessage")]
+    public bool EnterSendsMessage { get; init; }
+
     internal ConversationPreferences ToDomain() => new()
     {
         ShowSourceContextByDefault = DefaultsVersion >= CurrentDefaultsVersion && ShowSourceContextByDefault,
         EmailProductUpdates = EmailProductUpdates,
+        EnterSendsMessage = EnterSendsMessage,
     };
 
     internal static MongoConversationPreferencesDocument FromDomain(ConversationPreferences preferences) => new()
@@ -28,5 +32,6 @@ internal sealed class MongoConversationPreferencesDocument
         DefaultsVersion = CurrentDefaultsVersion,
         ShowSourceContextByDefault = preferences.ShowSourceContextByDefault,
         EmailProductUpdates = preferences.EmailProductUpdates,
+        EnterSendsMessage = preferences.EnterSendsMessage,
     };
 }

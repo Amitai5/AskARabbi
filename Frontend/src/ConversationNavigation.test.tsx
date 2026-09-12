@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
-import type { ConversationClient } from './features/conversations/conversationClient.ts'
+import type { ConversationClient, FullConversationTurn } from './features/conversations/conversationClient.ts'
 import type { DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
 import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
 
@@ -24,6 +24,43 @@ describe('Background conversation navigation', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() })
     window.sessionStorage.clear()
     window.history.replaceState({}, '', '/')
+  })
+
+  it.each([false, true])('retains a completed answer and its sources after closing and signing in again (follow-up: %s)', async (isFollowUp) => {
+    const clients = createDemoApplicationClients()
+    const compact = (turn: FullConversationTurn) => {
+      const { messages, createdAtUtc, ...conversation } = turn.conversation
+      return { ...turn, conversation, messages: messages.slice(-2), createdAtUtc }
+    }
+    const conversationClient: ConversationClient = {
+      ...clients.conversationClient,
+      createWithMessage: async (...args) => compact(await clients.conversationClient.createWithMessage(...args) as FullConversationTurn),
+      appendMessage: async (...args) => compact(await clients.conversationClient.appendMessage(...args) as FullConversationTurn),
+    }
+    const user = userEvent.setup()
+    const firstApp = render(<App {...clients} conversationClient={conversationClient} dvarTorahClient={dvarTorahClient} />)
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New conversation' })).toBeEnabled())
+    await startNewConversation(user)
+    expect(await screen.findByText(/this local demo represents a validated grounded response/)).toBeVisible()
+    if (isFollowUp) {
+      await user.type(screen.getByLabelText('Message AskRabbi'), 'Explain the lesson further')
+      await user.click(screen.getByRole('button', { name: 'Send message' }))
+      expect(await screen.findByText(/local demo follow-up remains grounded/)).toBeVisible()
+    }
+    const originalConversation = screen.getByRole('region', { name: 'Current conversation' }).textContent
+
+    firstApp.unmount()
+    // Only the server-side fixture survives; the dashboard and its in-memory turn cache do not.
+    render(<App {...clients} conversationClient={{ ...conversationClient }} dvarTorahClient={dvarTorahClient} />)
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New conversation' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: Question }))
+
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Current conversation' }).textContent).toBe(originalConversation))
+    expect(screen.getAllByRole('button', { name: 'Copy answer' })).toHaveLength(isFollowUp ? 2 : 1)
+    expect(screen.getAllByRole('button', { name: 'View source 1' })).toHaveLength(isFollowUp ? 2 : 1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it.each([

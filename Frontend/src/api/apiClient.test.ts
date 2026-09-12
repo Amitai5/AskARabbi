@@ -50,6 +50,35 @@ describe('API client', () => {
 })
 
 describe('backend adapters', () => {
+  it('bypasses previously cached conversation lists and message history after reopening', async () => {
+    const conversation = {
+      id: 'conversation-id',
+      title: 'Saved conversation',
+      enabledSourceKeys: ['collection:Torah'],
+      messages: [{ id: 'answer-id', role: 'Assistant', content: 'The latest saved answer.', createdAtUtc: '2026-09-10T12:01:00Z' }],
+      createdAtUtc: '2026-09-10T12:00:00Z',
+      updatedAtUtc: '2026-09-10T12:01:00Z',
+    }
+    const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+      // A new client must bypass an HTTP-cache entry created before the final answer.
+      const latest = init.cache === 'no-store'
+      const value = url.endsWith('/conversation-id')
+        ? { ...conversation, messages: latest ? conversation.messages : [] }
+        : latest ? [conversation] : []
+      return new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const reopenedClient = createBackendConversationClient(createApiClient('https://api.askrabbi.test'))
+
+    const conversations = await reopenedClient.list()
+    const loaded = await reopenedClient.get(conversation.id)
+
+    expect(conversations).toHaveLength(1)
+    expect(loaded.messages).toEqual(conversation.messages)
+    expect(fetchMock).toHaveBeenCalledWith('https://api.askrabbi.test/api/conversations', expect.objectContaining({ cache: 'no-store', credentials: 'include' }))
+    expect(fetchMock).toHaveBeenCalledWith('https://api.askrabbi.test/api/conversations/conversation-id', expect.objectContaining({ cache: 'no-store', credentials: 'include' }))
+  })
+
   it('treats an unauthorized session lookup as signed out', async () => {
     const apiClient = createMockApiClient(vi.fn().mockRejectedValue(new ApiError(401, { detail: 'Authentication required' })))
     const client = createBackendAuthClient({ apiClient, navigate: vi.fn() })
@@ -169,7 +198,7 @@ describe('backend adapters', () => {
   })
 
   it('persists conversation defaults through the account settings API', async () => {
-    const preferences = { showSourceContextByDefault: false, emailProductUpdates: true }
+    const preferences = { showSourceContextByDefault: false, emailProductUpdates: true, enterSendsMessage: true }
     const request = vi.fn().mockResolvedValue(preferences)
     const client = createBackendConversationSettingsClient(createMockApiClient(request))
 

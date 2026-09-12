@@ -21,7 +21,7 @@ export function UserDataControls({ isBusy, onDeleteChats, onDeleteAccount }: Use
   return <>
     <div className="space-y-7">
       <div>
-        <h3 className="mb-3 font-semibold">Chat history and AI privacy</h3>
+        <h3 className="mb-3 font-semibold">Terms and privacy</h3>
         <ChatPrivacyNotice />
       </div>
       <div id="setting-delete-chats" tabIndex={-1} className="settings-target flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

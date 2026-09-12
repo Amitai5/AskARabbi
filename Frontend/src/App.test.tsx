@@ -197,7 +197,7 @@ describe('App', () => {
     expect(composer.parentElement?.parentElement).toHaveClass('text-base', 'lg:text-lg', 'leading-6', 'max-w-[50rem]')
     expect(composer).toHaveClass('min-h-10', 'max-h-40')
     expect(screen.getByText('English · quotes in English')).toHaveClass('text-sm', 'leading-4')
-    expect(screen.getByText('AskRabbi can make mistakes. Check the cited sources.')).toHaveClass('text-sm', 'leading-5')
+    expect(screen.getByText('AskRabbi can make mistakes. Check the cited sources.').parentElement).toHaveClass('text-sm', 'leading-5')
 
     await act(async () => {
       pendingConversation.resolve(conversation)
@@ -231,7 +231,7 @@ describe('App', () => {
     expect(composer.parentElement?.parentElement).toHaveClass('max-w-[50rem]')
     expect(composerDock).toHaveClass('shrink-0', 'bg-parchment', 'pb-2', 'pt-2')
     expect(conversation.contains(composerDock)).toBe(false)
-    expect(conversation.parentElement).toContainElement(composerDock as HTMLElement)
+    expect(conversation.parentElement?.parentElement).toContainElement(composerDock as HTMLElement)
     expect(screen.getByRole('navigation', { name: 'Recent conversations' })).toHaveClass('overscroll-y-contain', 'touch-pan-y')
     expect(screen.getByRole('button', { name: 'Open conversation navigation' }).closest('header')).toHaveClass('lg:hidden')
     expect(screen.queryByRole('button', { name: 'Toggle conversation navigation' })).not.toBeInTheDocument()

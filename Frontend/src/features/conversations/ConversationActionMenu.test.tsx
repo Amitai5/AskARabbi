@@ -16,8 +16,9 @@ describe('Conversation action menu', () => {
     const onClose = vi.fn()
     const onRename = vi.fn()
     const onDelete = vi.fn()
-    const { container } = render(<ConversationActionMenu anchor={anchor} title="Parashat Nitzavim" onClose={onClose} onRename={onRename} onDelete={onDelete} />)
-    return { anchor, onClose, onRename, onDelete, container }
+    const onPrint = vi.fn()
+    const { container } = render(<ConversationActionMenu anchor={anchor} title="Parashat Nitzavim" onClose={onClose} onRename={onRename} onPrint={onPrint} onDelete={onDelete} />)
+    return { anchor, onClose, onRename, onPrint, onDelete, container }
   }
 
   it('portals out of the scrolling list and opens above a bottom-row trigger', () => {
@@ -33,12 +34,23 @@ describe('Conversation action menu', () => {
     const user = userEvent.setup()
     const { anchor, onClose } = setup()
     await user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('menuitem', { name: 'Print' })).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toHaveFocus()
     await user.keyboard('{ArrowDown}')
     expect(screen.getByRole('menuitem', { name: 'Rename' })).toHaveFocus()
     await user.keyboard('{Escape}')
     expect(anchor).toHaveFocus()
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('prints from the keyboard and returns focus to the sidebar trigger', async () => {
+    const user = userEvent.setup()
+    const { anchor, onPrint, onDelete } = setup()
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(onPrint).toHaveBeenCalledOnce()
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(anchor).toHaveFocus()
   })
 
   it('dismisses when the list scrolls or the user clicks outside', () => {

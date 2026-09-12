@@ -1,16 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Printer, Trash2 } from 'lucide-react'
 
 interface ConversationActionMenuProps {
   anchor: HTMLButtonElement
   title: string
   onRename(): void
+  onPrint(): void
   onDelete(): void
   onClose(): void
 }
 
-export function ConversationActionMenu({ anchor, title, onRename, onDelete, onClose }: ConversationActionMenuProps) {
+export function ConversationActionMenu({ anchor, title, onRename, onPrint, onDelete, onClose }: ConversationActionMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, left: 0 })
 
@@ -61,6 +62,7 @@ export function ConversationActionMenu({ anchor, title, onRename, onDelete, onCl
     <div ref={menuRef} role="menu" aria-label={`Actions for ${title}`} onKeyDown={handleKey} data-conversation-actions className="readable-menu fixed z-[60] w-60 max-w-[calc(100vw-1.5rem)] rounded-xl border border-line bg-paper p-1.5 shadow-menu" style={position}>
       <p className="truncate px-3 pb-2 pt-1.5 text-xs text-muted" title={title}>{title}</p>
       <button type="button" role="menuitem" onClick={onRename} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-ink transition hover:bg-stone focus-visible:bg-stone"><Pencil aria-hidden="true" className="size-4" />Rename</button>
+      <button type="button" role="menuitem" onClick={() => { anchor.focus(); onPrint() }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-ink transition hover:bg-stone focus-visible:bg-stone"><Printer aria-hidden="true" className="size-4" />Print</button>
       <button type="button" role="menuitem" onClick={() => { anchor.focus(); onDelete() }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-pomegranate transition hover:bg-pomegranate/5 focus-visible:bg-pomegranate/5"><Trash2 aria-hidden="true" className="size-4" />Delete</button>
     </div>, document.body,
   )

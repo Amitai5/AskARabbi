@@ -29,6 +29,7 @@ internal sealed class FakeUserAuthenticationService : IUserAuthenticationService
     internal string? InitialRefreshToken { get; set; }
     internal DateTimeOffset? InitialAccessTokenExpiresAtUtc { get; set; }
     internal AuthenticatedIdentity? RefreshedIdentity { get; set; }
+    internal Exception? RefreshFailure { get; set; }
     internal int RefreshCallCount { get; private set; }
     internal string? LastRefreshToken { get; private set; }
 
@@ -60,6 +61,10 @@ internal sealed class FakeUserAuthenticationService : IUserAuthenticationService
     {
         RefreshCallCount++;
         LastRefreshToken = refreshToken;
+        if (RefreshFailure is not null)
+        {
+            return Task.FromException<AuthenticatedIdentity>(RefreshFailure);
+        }
         return Task.FromResult(RefreshedIdentity ?? throw new InvalidOperationException("No refreshed identity was configured for this test."));
     }
 
