@@ -255,9 +255,12 @@ a {
 
 /* Touch users have no hover; keyboard focus reveals the same desktop actions. */
 @media (hover: hover) and (pointer: fine) {
-  .conversation-message .answer-print-button { opacity: 0; pointer-events: none; }
+  .conversation-message .answer-print-button,
+  .conversation-message .answer-copy-button[data-copy-status="idle"] { opacity: 0; pointer-events: none; }
   .conversation-message:hover .answer-print-button,
-  .conversation-message:focus-within .answer-print-button { opacity: 1; pointer-events: auto; }
+  .conversation-message:focus-within .answer-print-button,
+  .conversation-message:hover .answer-copy-button[data-copy-status="idle"],
+  .conversation-message:focus-within .answer-copy-button[data-copy-status="idle"] { opacity: 1; pointer-events: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

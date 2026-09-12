@@ -328,10 +328,20 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: 'Why do Jewish customs differ', current: 'page' })).toBeVisible()
     expect(screen.queryByText('Sources and quotations')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+    await user.click(screen.getByRole('button', { name: 'Copy text' }))
     expect(await navigator.clipboard.readText()).toBe('The short answer is that this local demo represents a validated grounded response. [1] A second source preserves the surrounding discussion. [2]')
-    expect(screen.getByRole('button', { name: 'Answer copied' })).toBeVisible()
-    expect(screen.getByRole('status')).toHaveTextContent('Answer copied to clipboard.')
+    expect(screen.getByRole('button', { name: 'Copy text' })).toHaveAttribute('title', 'Answer text copied to clipboard.')
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('Answer text copied to clipboard.')
+
+    await user.click(screen.getByRole('button', { name: 'Copy with sources' }))
+    const copiedWithSources = await navigator.clipboard.readText()
+    expect(copiedWithSources).toContain('[1] Mishnah Chullin 8:1')
+    expect(copiedWithSources).toContain('https://www.sefaria.org/Mishnah_Chullin.8.1')
+    expect(copiedWithSources).toContain('[2] Jerusalem Talmud Terumot 1:5:4')
+    expect(copiedWithSources).toContain('https://www.sefaria.org/Jerusalem_Talmud_Terumot.1.5.4')
+    expect(copiedWithSources).toContain('Attribution: https://example.test/mishnah-yomit-attribution')
+    expect(copiedWithSources).toContain('License: CC-BY')
+    expect(screen.getAllByRole('status')[1]).toHaveTextContent('Answer with sources copied to clipboard.')
 
     const citation = screen.getByRole('button', { name: 'View source 1' })
     await user.click(citation)
