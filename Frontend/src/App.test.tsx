@@ -208,7 +208,7 @@ describe('App', () => {
     expect(screen.queryByText('Loading conversation…')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
     const personalization = screen.getByRole('menuitem', { name: 'Settings & Personalization' })
-    expect(personalization).toHaveClass('h-11')
+    expect(personalization).toHaveClass('min-h-11')
     expect(personalization).not.toHaveClass('text-sm')
   })
 

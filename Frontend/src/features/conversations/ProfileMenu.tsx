@@ -57,11 +57,11 @@ export function ProfileMenu({ user, usage, isLoadingUsage, usageError, isOffline
   return (
     <div ref={containerRef} className="relative border-t border-line px-4 py-4">
       {isOpen ? (
-        <div className="absolute bottom-[calc(100%+0.5rem)] left-4 right-4 z-20 rounded-xl border border-line bg-paper p-2 shadow-menu" role="menu" aria-label="Profile options">
+        <div className="readable-menu absolute bottom-[calc(100%+0.5rem)] left-4 right-4 z-20 rounded-xl border border-line bg-paper p-2 shadow-menu" role="menu" aria-label="Profile options">
           <button type="button" role="menuitem" aria-label={`Usage, ${usageLabel}`} onClick={() => { setIsOpen(false); onOpenUsage() }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone">
             <Gauge aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.75} />
             <span className="flex-1 text-left">Usage</span>
-            <span className="text-sm tabular-nums text-muted">{usageLabel}</span>
+            <span className="text-xs tabular-nums text-muted">{usageLabel}</span>
           </button>
           <div className="my-1 h-px bg-line" />
           <button
@@ -70,10 +70,10 @@ export function ProfileMenu({ user, usage, isLoadingUsage, usageError, isOffline
               setIsOpen(false)
               onOpenSettings()
             }}
-            className="flex h-11 w-full items-center gap-3 rounded-lg px-3 font-medium text-ink transition hover:bg-stone"
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left font-medium text-ink transition hover:bg-stone"
             role="menuitem"
           >
-            <Wrench aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.75} />
+            <Wrench aria-hidden="true" className="size-[1.1rem] shrink-0" strokeWidth={1.75} />
             Settings &amp; Personalization
           </button>
           <div className="my-1 h-px bg-line" />

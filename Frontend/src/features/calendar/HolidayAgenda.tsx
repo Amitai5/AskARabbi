@@ -50,11 +50,11 @@ export function HolidayAgenda({ days, onRange, events, startDate, filters, onFil
       </div>
     </div>
     <p id={`${searchId}-scope`} className="mt-2 text-xs leading-6 text-muted">Search looks ahead 360 days and expands the range to include all matches. Clear search to return to your chosen range.</p>
-    <div id={filterId} hidden={!filtersOpen} onKeyDown={event => { if (event.key === 'Escape') { setFiltersOpen(false); toggle.current?.focus() } }} className="mt-4 rounded-xl border border-line bg-stone/40 p-4 sm:p-5">
+    <div id={filterId} hidden={!filtersOpen} onKeyDown={event => { if (event.key === 'Escape') { setFiltersOpen(false); toggle.current?.focus() } }} className="readable-menu mt-4 rounded-xl border border-line bg-stone/40 p-4 sm:p-5">
       <fieldset disabled={disabled}>
         <legend className="font-semibold">Event filters</legend>
-        <p className="mt-1 text-sm text-muted">Choose which holidays and observances to show.</p>
-        <div className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">{CalendarCategories.map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-ink-soft"><input type="checkbox" checked={filters[key]} onChange={event => change(key, event.target.checked)} className="size-5 accent-pomegranate" />{label}</label>)}</div>
+        <p className="mt-1 text-xs text-muted">Choose which holidays and observances to show.</p>
+        <div className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2">{CalendarCategories.map(([key, label]) => <label key={key} className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-ink-soft"><input type="checkbox" checked={filters[key]} onChange={event => change(key, event.target.checked)} className="size-[20px] shrink-0 accent-pomegranate" />{label}</label>)}</div>
         <button type="button" disabled={hiddenCount === 0} onClick={() => onFilters({ ...AllCalendarFilters })} className="mt-2 min-h-11 text-sm font-semibold text-pomegranate underline underline-offset-4 disabled:text-muted disabled:no-underline">Show everything</button>
       </fieldset>
     </div>

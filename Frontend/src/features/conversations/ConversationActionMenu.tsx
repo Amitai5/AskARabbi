@@ -58,7 +58,7 @@ export function ConversationActionMenu({ anchor, title, onRename, onDelete, onCl
   }
 
   return createPortal(
-    <div ref={menuRef} role="menu" aria-label={`Actions for ${title}`} onKeyDown={handleKey} data-conversation-actions className="fixed z-[60] w-52 max-w-[calc(100vw-1.5rem)] rounded-xl border border-line bg-paper p-1.5 text-base shadow-menu" style={position}>
+    <div ref={menuRef} role="menu" aria-label={`Actions for ${title}`} onKeyDown={handleKey} data-conversation-actions className="readable-menu fixed z-[60] w-60 max-w-[calc(100vw-1.5rem)] rounded-xl border border-line bg-paper p-1.5 shadow-menu" style={position}>
       <p className="truncate px-3 pb-2 pt-1.5 text-xs text-muted" title={title}>{title}</p>
       <button type="button" role="menuitem" onClick={onRename} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-ink transition hover:bg-stone focus-visible:bg-stone"><Pencil aria-hidden="true" className="size-4" />Rename</button>
       <button type="button" role="menuitem" onClick={() => { anchor.focus(); onDelete() }} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-pomegranate transition hover:bg-pomegranate/5 focus-visible:bg-pomegranate/5"><Trash2 aria-hidden="true" className="size-4" />Delete</button>

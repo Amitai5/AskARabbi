@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 import { normalizeDisplayText } from '../../displayText.ts'
 import type { PrintSource } from './printTypes.ts'
 
-export function PrintText({ text, sources = [], prefix = '' }: { text: string; sources?: readonly PrintSource[]; prefix?: string }) {
+export function PrintText({ text, sources = [], prefix = '', includeReferences = true }: { text: string; sources?: readonly PrintSource[]; prefix?: string; includeReferences?: boolean }) {
+  const normalized = normalizeDisplayText(text)
+  const content = includeReferences ? normalized : normalized.replace(/[ \t]*\[([A-Za-z0-9_-]+)\]/g, (match, key: string) => sources.some(source => source.key === key) ? '' : match)
   function inline(value: string): ReactNode[] {
     return value.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|\[[A-Za-z0-9_-]+\])/g).map((part, index, parts) => {
       if (part.startsWith('**') && part.endsWith('**')) { return <strong key={index}>{inline(part.slice(2, -2))}</strong> }
@@ -14,7 +16,7 @@ export function PrintText({ text, sources = [], prefix = '' }: { text: string; s
       return source ? <a key={index} className="print-citation" href={`#${prefix}-source-${source.number}`} aria-label={`Source ${source.number}`}>[{source.number}]</a> : text
     })
   }
-  return normalizeDisplayText(text).trim().split(/\n\s*\n/).filter(Boolean).map((block, index) => {
+  return content.trim().split(/\n\s*\n/).filter(Boolean).map((block, index) => {
     const lines = block.split('\n')
     if (lines.every(line => /^\s*[-*•]\s+/.test(line))) { return <ul key={index}>{lines.map((line, i) => <li key={i} dir="auto">{inline(line.replace(/^\s*[-*•]\s+/, ''))}</li>)}</ul> }
     if (lines.every(line => /^\s*\d+[.)]\s+/.test(line))) { return <ol key={index} start={Number.parseInt(lines[0], 10)}>{lines.map((line, i) => <li key={i} dir="auto">{inline(line.replace(/^\s*\d+[.)]\s+/, ''))}</li>)}</ol> }

@@ -11,6 +11,7 @@ interface Props { request: PrintRequest; options: PrintOptions; selectedIds: Rea
 export function PrintDocument({ request, options, selectedIds, events, days }: Props) {
   const title = request.kind === 'answers' ? request.title : request.kind === 'teaching' ? request.article.title : 'Jewish Calendar'
   const kind = request.kind === 'answers' ? 'Conversation study copy' : request.kind === 'teaching' ? 'Weekly Dvar Torah' : 'Dates & observances'
+  const teachingSources = request.kind === 'teaching' ? teachingPrintSources(request.article) : []
   return <main className={`print-document print-size-${options.textSize} print-paper-${options.paper}`}>
     <table className="print-layout" role="presentation"><tbody><tr><td>
     <header className="print-masthead"><PrintBrand /><span>{kind}</span></header>
@@ -27,13 +28,13 @@ export function PrintDocument({ request, options, selectedIds, events, days }: P
       {options.includeNotes ? <StudyNotes /> : null}
     </section>) : null}
     {request.kind === 'teaching' ? <>
-      <div className="print-prose"><PrintText text={request.article.body} sources={teachingPrintSources(request.article)} prefix="teaching" /></div>
-      {request.article.centralTeaching ? <aside className="print-takeaway"><h2>For reflection</h2><PrintText text={request.article.centralTeaching} sources={teachingPrintSources(request.article)} prefix="teaching" /></aside> : null}
-      <PrintedSources sources={teachingPrintSources(request.article)} options={options} prefix="teaching" />
+      <div className="print-prose"><PrintText text={request.article.body} sources={teachingSources} prefix="teaching" includeReferences={options.includeSourceReferences} /></div>
+      {request.article.centralTeaching ? <aside className="print-takeaway"><h2>For reflection</h2><PrintText text={request.article.centralTeaching} sources={teachingSources} prefix="teaching" includeReferences={options.includeSourceReferences} /></aside> : null}
+      {options.includeSourceReferences ? <PrintedSources sources={teachingSources} options={options} prefix="teaching" /> : null}
       {options.includeNotes ? <StudyNotes /> : null}
     </> : null}
     {request.kind === 'calendar' ? <PrintedCalendar request={request} options={options} events={events.filter(event => selectedIds.has(event.id))} /> : null}
-    <p className="print-disclaimer">{request.kind === 'calendar' ? 'Check the location, time zone, and date before using local times. Community customs may differ.' : 'AskRabbi offers source-based Jewish learning, not personal halakhic rulings. Check the cited sources; for practical guidance, consult a qualified rabbi.'}</p>
+    <p className="print-disclaimer">{request.kind === 'calendar' ? 'Check the location, time zone, and date before using local times. Community customs may differ.' : request.kind === 'teaching' && !options.includeSourceReferences ? 'Source references are available with this teaching on AskARabbi.ai. This is an educational reflection, not personal halakhic guidance.' : 'AskRabbi offers source-based Jewish learning, not personal halakhic rulings. Check the cited sources; for practical guidance, consult a qualified rabbi.'}</p>
     </td></tr></tbody><tfoot><tr><td><footer className="print-watermark"><a href="https://askarabbi.ai" target="_blank" rel="noopener noreferrer" aria-label="AskARabbi.ai"><BookSymbol /><span>AskARabbi.ai</span></a></footer></td></tr></tfoot></table>
   </main>
 }

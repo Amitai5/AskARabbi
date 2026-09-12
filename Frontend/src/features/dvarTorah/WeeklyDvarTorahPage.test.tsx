@@ -105,6 +105,27 @@ afterEach(() => {
 })
 
 describe('WeeklyDvarTorahPage', () => {
+  it('uses the teaching as the only main heading with its metadata and actions underneath', async () => {
+    render(<WeeklyDvarTorahPage client={createClient(Publication)} />)
+    const heading = await screen.findByRole('heading', { name: 'Nitzavim—Choosing Life', level: 1 })
+    const metadata = screen.getByRole('group', { name: 'Teaching details' })
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText('A teaching for the week.')).not.toBeInTheDocument()
+    expect(screen.queryByText(/A new reflection follows the upcoming Shabbat/)).not.toBeInTheDocument()
+    expect(metadata).toHaveTextContent('Parashat Nitzavim')
+    expect(metadata).toHaveTextContent('23 Elul, 5786')
+    expect(metadata).toHaveTextContent('Diaspora')
+    expect(heading.compareDocumentPosition(metadata) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(metadata.compareDocumentPosition(screen.getByRole('button', { name: 'Print teaching' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('identifies a festival reading once without a redundant holiday badge or generic reading label', async () => {
+    render(<WeeklyDvarTorahPage client={createClient({ ...Publication, dvarTorah: { ...Publication.dvarTorah!, week: { ...Publication.currentWeek, parashah: null } } })} />)
+    await screen.findByRole('heading', { level: 1, name: 'Nitzavim—Choosing Life' })
+    expect(screen.getAllByText('Rosh Hashanah')).toHaveLength(1)
+    expect(screen.queryByText('Holiday reading')).not.toBeInTheDocument()
+  })
+
   it('renders normalized typography, the holiday, and chat-style source references', async () => {
     const user = userEvent.setup()
     const client = createClient(Publication)

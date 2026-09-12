@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AllCalendarFilters } from '../calendar/calendarTypes.ts'
-import { RoshHashanah } from '../calendar/calendarTestData.ts'
+import { AllCalendarFilters, type CalendarRange } from '../calendar/calendarTypes.ts'
+import { calendarOverview, RoshHashanah } from '../calendar/calendarTestData.ts'
 import { PrintAction } from './PrintAction.tsx'
 import { PrintDialog } from './PrintDialog.tsx'
 import { PrintAnswers, PrintTeaching } from './printTestData.ts'
@@ -126,5 +126,65 @@ describe('print selection and dialog', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('The browser could not open its print dialog')
     expect(screen.getByRole('checkbox', { name: /What does choosing life mean/ })).toBeChecked()
     expect(close).not.toHaveBeenCalled()
+  })
+
+  it('prints all holidays in each range or none without individual holiday checkboxes', async () => {
+    const user = userEvent.setup()
+    const events = [RoshHashanah, { ...RoshHashanah, id: 'winter', title: 'Winter holiday', startDate: '2027-01-20', beginningDate: '2027-01-19', endDate: '2027-01-20', occurrences: [] }, { ...RoshHashanah, id: 'spring', title: 'Spring holiday', startDate: '2027-03-25', beginningDate: '2027-03-24', endDate: '2027-03-25', occurrences: [] }]
+    render(<PrintDialog request={{ kind: 'calendar', calendar: { startDate: '2026-09-10', days: 90, events, filters: AllCalendarFilters, search: '', inIsrael: false } }} onClose={vi.fn()} />)
+    const frame = await loadPreview()
+    expect(screen.queryByRole('checkbox', { name: /Rosh Hashanah|Winter holiday|Spring holiday/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'All holidays in this range (1)' })).toBeChecked()
+
+    for (const [range, count] of [[90, 1], [180, 2], [360, 3]] as [CalendarRange, number][]) {
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Calendar range' }), String(range))
+      expect(screen.getByRole('radio', { name: `All holidays in this range (${count})` })).toBeChecked()
+      expect(frame.contentDocument!.querySelectorAll('.print-holiday')).toHaveLength(count)
+    }
+    await user.click(screen.getByRole('radio', { name: 'None' }))
+    expect(frame.contentDocument!.querySelectorAll('.print-holiday')).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Print / Save PDF' })).toBeDisabled()
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Calendar range' }), '90')
+    expect(screen.getByRole('radio', { name: 'None' })).toBeChecked()
+    expect(frame.contentDocument!.querySelectorAll('.print-holiday')).toHaveLength(0)
+    await user.click(screen.getByRole('radio', { name: 'All holidays in this range (1)' }))
+    expect(frame.contentDocument!.querySelectorAll('.print-holiday')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Print / Save PDF' })).toBeEnabled()
+  })
+
+  it('allows summary-only calendar printing and handles an empty filtered range', async () => {
+    const user = userEvent.setup()
+    render(<PrintDialog request={{ kind: 'calendar', calendar: { startDate: '2026-09-10', days: 90, events: [RoshHashanah], filters: { ...AllCalendarFilters, majorHolidays: false }, search: '', inIsrael: false, overview: calendarOverview() } }} onClose={vi.fn()} />)
+    const frame = await loadPreview()
+    expect(screen.getByRole('radio', { name: 'All holidays in this range (0)' })).toBeChecked()
+    expect(screen.getByText('No holidays match this range and your filters.')).toBeVisible()
+    await user.click(screen.getByRole('radio', { name: 'None' }))
+    expect(screen.getByRole('button', { name: 'Print / Save PDF' })).toBeEnabled()
+    expect(frame.contentDocument!.querySelector('.print-calendar-summary')).not.toBeNull()
+    expect(frame.contentDocument!.querySelector('.print-holiday')).toBeNull()
+    await user.click(screen.getByRole('checkbox', { name: 'Today and this Shabbat' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Local times and location' }))
+    expect(screen.getByRole('button', { name: 'Print / Save PDF' })).toBeDisabled()
+  })
+
+  it('toggles teaching references and their appendix while retaining the text and restoring excerpts', async () => {
+    const user = userEvent.setup()
+    render(<PrintDialog request={{ kind: 'teaching', article: PrintTeaching }} onClose={vi.fn()} />)
+    const frame = await loadPreview()
+    expect(screen.getByRole('checkbox', { name: 'Source references' })).toBeChecked()
+    expect(frame.contentDocument!.querySelectorAll('.print-citation')).toHaveLength(2)
+
+    await user.click(screen.getByRole('checkbox', { name: 'Source references' }))
+    expect(frame.contentDocument!.querySelector('.print-citation')).toBeNull()
+    expect(frame.contentDocument!.querySelector('.print-sources')).toBeNull()
+    expect(frame.contentDocument!.body).toHaveTextContent('God’s invitation to choose life.')
+    expect(screen.getByRole('checkbox', { name: 'Source excerpts' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Print / Save PDF' })).toBeEnabled()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Source references' }))
+    expect(frame.contentDocument!.querySelectorAll('.print-citation')).toHaveLength(2)
+    expect(frame.contentDocument!.querySelector('.print-sources')).not.toBeNull()
+    expect(screen.getByRole('checkbox', { name: 'Source excerpts' })).toBeEnabled()
+    expect(screen.getByRole('checkbox', { name: 'Source excerpts' })).toBeChecked()
   })
 })

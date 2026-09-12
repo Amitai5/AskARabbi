@@ -235,6 +235,24 @@ a {
   scrollbar-width: thin;
 }
 
+/* Menus need readable type and touch targets even with the compact desktop scale. */
+.readable-menu {
+  font-size: max(1rem, 16px);
+  line-height: 1.5;
+}
+
+.readable-menu :is(.text-sm, .text-base) {
+  font-size: max(1rem, 16px);
+  line-height: 1.5;
+}
+
+.readable-menu .text-xs {
+  font-size: max(0.875rem, 14px);
+  line-height: 1.5;
+}
+
+.readable-menu :is(button, select) { min-height: 44px; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

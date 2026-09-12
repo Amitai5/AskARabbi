@@ -46,7 +46,7 @@ describe('Monthly token allowance', () => {
     expect(append).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Read this week’s Dvar Torah' }))
-    expect(await screen.findByRole('heading', { name: 'A teaching for the week.' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'This week’s teaching is being prepared.' })).toBeVisible()
   })
 
   it('uses the completed turn allowance immediately and still displays its answer', async () => {

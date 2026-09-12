@@ -68,6 +68,26 @@ describe('study copy content', () => {
     expect(container.querySelector('a[href^="javascript:"]')).toBeNull()
   })
 
+  it('omits only known teaching references, retaining quotations, ordinary brackets, and formatting', () => {
+    const article = { ...PrintTeaching, body: 'The Torah says, “Choose life” [TA] [TA].\n\n**Study [TA] together.**\n\nKeep this [explanation] and the year [2026].\n\n- Listen [TA]\n- Reflect', centralTeaching: 'Choose life [TA].' }
+    const { container } = render(documentFor({ kind: 'teaching', article }, new Set(), { includeSourceReferences: false }))
+    expect(screen.getByText('The Torah says, “Choose life”.')).toBeVisible()
+    expect(screen.getByText('Keep this [explanation] and the year [2026].')).toBeVisible()
+    expect(screen.getByText('Study together.').tagName).toBe('STRONG')
+    expect(screen.getByText('Listen').tagName).toBe('LI')
+    expect(container.querySelector('.print-takeaway')).toHaveTextContent('Choose life.')
+    expect(container.querySelector('.print-citation')).toBeNull()
+    expect(container.querySelector('.print-sources')).toBeNull()
+    expect(container).not.toHaveTextContent('[TA]')
+    expect(container.querySelector('.print-watermark')).toHaveTextContent('AskARabbi.ai')
+  })
+
+  it('keeps conversation source references even when the teaching-only option is disabled', () => {
+    render(documentFor(PrintAnswers, new Set(['a1']), { includeSourceReferences: false }))
+    expect(screen.getByRole('link', { name: 'Source 1' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Sources & excerpts' })).toBeVisible()
+  })
+
   it('prints calendar dates, only chosen holidays, location-aware times, warnings, and calendar credits', () => {
     const overview = calendarOverview({ localTimes: [{ title: 'Candle-lighting', date: '2026-09-11', at: '2026-09-11T18:00:00+03:00', timeZone: 'Asia/Jerusalem', location: 'Jerusalem', context: 'Before Shabbat' }], timing: { isAvailable: true, isStale: true, message: 'Cached local times.', fetchedAtUtc: '2026-09-10T12:00:00Z' } })
     overview.preferences.location = Jerusalem

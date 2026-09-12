@@ -27,7 +27,7 @@ describe('Background conversation navigation', () => {
   })
 
   it.each([
-    ['Dvar Torah', 'A teaching for the week.'],
+    ['Dvar Torah', 'This week’s teaching is being prepared.'],
     ['Personalization', 'Personalization'],
     ['Settings', 'Account'],
   ])('finishes a new conversation while visiting %s without navigating away', async (destination, heading) => {

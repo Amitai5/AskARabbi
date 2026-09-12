@@ -43,6 +43,7 @@ export interface PrintOptions {
   paper: 'letter' | 'a4'
   textSize: 'standard' | 'large'
   includeQuestions: boolean
+  includeSourceReferences: boolean
   includeExcerpts: boolean
   includeContext: boolean
   includeNotes: boolean
@@ -51,7 +52,7 @@ export interface PrintOptions {
   includeLocalTimes: boolean
 }
 
-export const DefaultPrintOptions: PrintOptions = { paper: 'letter', textSize: 'standard', includeQuestions: true, includeExcerpts: true, includeContext: false, includeNotes: false, separateAnswers: false, includeCalendarSummary: true, includeLocalTimes: true }
+export const DefaultPrintOptions: PrintOptions = { paper: 'letter', textSize: 'standard', includeQuestions: true, includeSourceReferences: true, includeExcerpts: true, includeContext: false, includeNotes: false, separateAnswers: false, includeCalendarSummary: true, includeLocalTimes: true }
 
 export function collectPrintAnswers(messages: readonly ConversationMessage[]): PrintAnswer[] {
   let question: string | null = null

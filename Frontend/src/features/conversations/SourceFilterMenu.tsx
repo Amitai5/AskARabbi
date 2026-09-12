@@ -11,6 +11,7 @@ interface SourceFilterMenuProps {
 export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: SourceFilterMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const selectedSourceKeySet = new Set(selectedSourceKeys)
   const areAllSourcesSelected = selectedSourceKeys.length === SourceOptions.length
   const areCoreSourcesSelected = selectedSourceKeys.length === CoreSourceKeys.length && CoreSourceKeys.every((sourceKey) => selectedSourceKeySet.has(sourceKey))
@@ -29,7 +30,9 @@ export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: S
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        event.preventDefault()
         setIsOpen(false)
+        triggerRef.current?.focus()
       }
     }
 
@@ -55,9 +58,11 @@ export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: S
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         disabled={isDisabled}
         aria-expanded={isOpen}
+        aria-haspopup="dialog"
         aria-controls="conversation-source-filter"
         aria-label={`Choose sources: ${selectionLabel}`}
         onClick={() => setIsOpen((current) => !current)}
@@ -69,34 +74,34 @@ export function SourceFilterMenu({ selectedSourceKeys, isDisabled, onChange }: S
       </button>
 
       {isOpen ? (
-        <div id="conversation-source-filter" role="dialog" aria-label="Sources used for this conversation" className="absolute bottom-full left-0 z-30 mb-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-line-strong bg-paper shadow-menu">
-          <div className="flex items-start justify-between gap-4 border-b border-line px-4 py-3.5">
+        <div id="conversation-source-filter" role="dialog" aria-label="Sources used for this conversation" className="readable-menu absolute bottom-full left-0 z-30 mb-3 flex max-h-[min(38rem,calc(100dvh-12rem))] w-[min(26rem,calc(100vw-4rem))] flex-col overflow-hidden rounded-xl border border-line-strong bg-paper shadow-menu">
+          <div className="shrink-0 border-b border-line px-4 pt-4 pb-2">
             <div>
               <p className="text-sm font-semibold text-ink">Sources used</p>
               <p className="mt-1 text-xs leading-5 text-muted">Only enabled sources will ground this conversation.</p>
             </div>
-            <div className="flex shrink-0 gap-1">
-              <button type="button" disabled={isDisabled} aria-label="Select core sources" onClick={() => onChange([...CoreSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">Core</button>
-              <button type="button" disabled={isDisabled} aria-label="Select all sources" onClick={() => onChange([...AllSourceKeys])} className="rounded-md px-2 py-1 text-xs font-semibold text-pomegranate transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">All</button>
-              <button type="button" disabled={isDisabled} aria-label="Clear all sources" onClick={() => onChange([])} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-soft transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">Clear</button>
+            <div className="mt-2 flex gap-2">
+              <button type="button" disabled={isDisabled} aria-label="Select core sources" onClick={() => onChange([...CoreSourceKeys])} className="rounded-md px-2 py-1 text-sm font-semibold text-pomegranate transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">Core</button>
+              <button type="button" disabled={isDisabled} aria-label="Select all sources" onClick={() => onChange([...AllSourceKeys])} className="rounded-md px-2 py-1 text-sm font-semibold text-pomegranate transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">All</button>
+              <button type="button" disabled={isDisabled} aria-label="Clear all sources" onClick={() => onChange([])} className="rounded-md px-2 py-1 text-sm font-semibold text-ink-soft transition hover:bg-stone disabled:cursor-wait disabled:opacity-50">Clear</button>
             </div>
           </div>
 
-          <div className="max-h-[min(27rem,60vh)] overflow-y-auto px-2 py-2">
+          <div className="sidebar-scroll min-h-0 overflow-y-auto overscroll-contain px-2 py-2">
             {(['Core collections', 'Major works'] as const).map((group) => (
               <div key={group} className="py-1">
-                <p className="px-2 pb-1 pt-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-muted">{group}</p>
+                <p className="px-2 pb-2 pt-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted">{group}</p>
                 {SourceOptions.filter((source) => source.group === group).map((source) => {
                   const isSelected = selectedSourceKeySet.has(source.key)
                   return (
-                    <label key={source.key} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-stone">
-                      <input type="checkbox" disabled={isDisabled} aria-label={source.label} checked={isSelected} onChange={() => toggleSource(source.key)} className="sr-only" />
-                      <span aria-hidden="true" className={`flex size-5 shrink-0 items-center justify-center rounded border transition ${isSelected ? 'border-pomegranate bg-pomegranate text-white' : 'border-line-strong bg-paper text-transparent'}`}>
+                    <label key={source.key} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition hover:bg-stone focus-within:bg-stone">
+                      <input type="checkbox" disabled={isDisabled} aria-label={source.label} checked={isSelected} onChange={() => toggleSource(source.key)} className="peer sr-only" />
+                      <span aria-hidden="true" className={`flex size-[20px] shrink-0 items-center justify-center rounded border transition peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-pomegranate ${isSelected ? 'border-pomegranate bg-pomegranate text-white' : 'border-line-strong bg-paper text-transparent'}`}>
                         <Check className="size-3.5" strokeWidth={2.2} />
                       </span>
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold text-ink">{source.label}</span>
-                        <span className="block truncate text-xs text-muted">{source.description}</span>
+                        <span className="mt-0.5 block text-xs text-muted">{source.description}</span>
                       </span>
                     </label>
                   )
