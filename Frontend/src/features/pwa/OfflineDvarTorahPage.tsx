@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, WifiOff } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
+import { LegalLinks } from '../legal/LegalLinks.tsx'
 import { WeeklyDvarTorahPage } from '../dvarTorah/WeeklyDvarTorahPage.tsx'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import { OfflineLibraryChanged, readOfflineLibrary, type SavedTeaching } from './offlineLibrary.ts'
@@ -62,6 +63,7 @@ export function OfflineDvarTorahPage() {
         <a href="#teaching" aria-current={view === 'teaching' ? 'page' : undefined} className={`inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold ${view === 'teaching' ? 'bg-stone text-pomegranate' : 'text-ink-soft'}`}>Dvar Torah</a>
         <a href="#holidays" aria-current={view === 'holidays' ? 'page' : undefined} className={`inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold ${view === 'holidays' ? 'bg-stone text-pomegranate' : 'text-ink-soft'}`}>Holidays</a>
       </nav>
+      <p className="reading-nonessential shrink-0 px-4 pb-3 text-center text-sm text-muted"><LegalLinks /> (available online)</p>
       {view === 'holidays' ? <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-8"><div className="mx-auto max-w-4xl"><OfflineHolidayCalendar /></div></section> : reader ? <WeeklyDvarTorahPage key={reader.savedAt} client={reader.client} offlineSavedAt={reader.savedAt} /> : <section className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6 text-center"><div className="max-w-md"><h1 className="font-display text-3xl">{isLoading ? 'Opening your saved teaching…' : 'No teaching saved yet.'}</h1><p className="mt-4 text-base leading-7 text-ink-soft">{error ?? 'Connect and sign in to AskRabbi to save this week’s D’var Torah. Chats and account details are not stored in the offline library.'}</p></div></section>}
     </main>
   )

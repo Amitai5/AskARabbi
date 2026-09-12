@@ -9,6 +9,7 @@ import { HolidayDetails } from './HolidayDetails.tsx'
 import { selectCalendarEvents } from './calendarAgenda.ts'
 import { OfflineHolidayCalendar } from '../pwa/OfflineHolidayCalendar.tsx'
 import { PrintAction } from '../printing/PrintAction.tsx'
+import { LegalLink } from '../legal/LegalLinks.tsx'
 import './calendar.css'
 
 interface Props { client: CalendarClient; onOpenDvarTorah(): void; onBackToConversation?(): void; onOpenPersonalization?(): void; initialDays?: CalendarRange; initialSearch?: string; onNavigate?(days: CalendarRange, search: string): void; onAsk?(question: string): void; isAskDisabled?: boolean }
@@ -118,6 +119,7 @@ export function CalendarPage({ client, onOpenDvarTorah, onBackToConversation, on
           <HolidayAgenda days={days} onRange={value => { setDays(value); onNavigate?.(value, search) }} initialSearch={initialSearch} onSearch={value => { setSearch(value); onNavigate?.(days, value) }} onAsk={onAsk} isAskDisabled={isAskDisabled} events={data.events} startDate={data.today.gregorianDate} filters={settings?.preferences ?? AllCalendarFilters} onFilters={filters => void changeFilters(filters)} disabled={saving || !settings} isAvailable={data.holidays.isAvailable} notice={<AvailabilityNotice value={data.holidays} onRetry={retry} disabled={!isOnline} />} />
         </div>
       </> : null}
+      <p className="mt-6 text-sm leading-6 text-muted">Confirm practical observance times with a reliable local authority. See our <LegalLink document="terms-of-service" section="calendar-audio">calendar and learning terms</LegalLink> and <LegalLink document="privacy-policy" section="sharing">location privacy information</LegalLink>.</p>
     </div>
   </section>
 }

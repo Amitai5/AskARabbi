@@ -1,5 +1,6 @@
 import { useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
 import { ArrowUp } from 'lucide-react'
+import { LegalLinks } from '../legal/LegalLinks.tsx'
 import { SourceFilterMenu } from './SourceFilterMenu.tsx'
 
 interface MessageComposerProps {
@@ -69,7 +70,7 @@ export function MessageComposer({ focusKey = 0, draft, selectedSourceKeys, conve
       </form>
       <div className="mt-1.5 text-center text-sm leading-5 text-muted">
         <p id="message-keyboard-help" className="sr-only md:not-sr-only">{enterSendsMessage ? 'Enter to send · Shift+Enter for a new line · Ctrl/Cmd+Enter also sends' : 'Enter for a new line · Ctrl/Cmd+Enter to send'}</p>
-        <p>AskRabbi can make mistakes. Check the cited sources.</p>
+        <p>AskRabbi can make mistakes. Check the cited sources. <LegalLinks /></p>
       </div>
     </div>
   )

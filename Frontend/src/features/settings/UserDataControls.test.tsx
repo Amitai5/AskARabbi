@@ -4,26 +4,31 @@ import { describe, expect, it, vi } from 'vitest'
 import { UserDataControls } from './UserDataControls.tsx'
 
 describe('Your data controls', () => {
-  it('links to terms and privacy alongside the unchanged deletion controls', () => {
+  it('keeps the concise policy links, searchable legal sections, and unchanged deletion controls', () => {
     const deleteChats = vi.fn()
     const deleteAccount = vi.fn()
     const { container } = render(<UserDataControls isBusy={false} onDeleteChats={deleteChats} onDeleteAccount={deleteAccount} />)
 
     expect(screen.getByRole('heading', { name: 'Terms and privacy' })).toBeVisible()
-    const terms = screen.getByRole('link', { name: 'Terms of Use (opens in a new tab)' })
-    const privacy = screen.getByRole('link', { name: 'Privacy Policy (opens in a new tab)' })
-    expect(terms).toHaveAttribute('href', 'https://askarabbi.ai/terms-of-service')
-    expect(privacy).toHaveAttribute('href', 'https://askarabbi.ai/privacy-policy')
+    const terms = screen.getByRole('link', { name: /^Terms of Use/ })
+    const privacy = screen.getByRole('link', { name: /^Privacy Policy/ })
+    expect(terms).toHaveAttribute('href', '/terms-of-service')
+    expect(privacy).toHaveAttribute('href', '/privacy-policy')
     for (const link of [terms, privacy]) {
       expect(link).toBeVisible()
       expect(link).toHaveAttribute('target', '_blank')
       expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      expect(link).toHaveAccessibleName(/opens in a new tab/)
     }
     expect(container).not.toHaveTextContent(/We and our service providers may retain and review|records kept for security and abuse prevention/)
-    expect(screen.getByText(/Service backups and security logs follow separate retention policies/)).toBeVisible()
+    expect(screen.getByText(/Service backups and security logs may be retained separately/)).toBeVisible()
     expect(container).not.toHaveTextContent(/Azure|OpenAI|Microsoft/i)
     expect(screen.getByRole('button', { name: 'Delete all chats' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Delete account' })).toBeEnabled()
+    expect(screen.getByRole('link', { name: /Terms of Service/ })).toHaveAttribute('href', '/terms-of-service')
+    expect(screen.getByRole('link', { name: /retention and deletion policy/ })).toHaveAttribute('href', '/privacy-policy#retention')
+    expect(privacy.closest('.settings-target')).toHaveAttribute('id', 'setting-privacy-policy')
+    expect(screen.getByRole('heading', { name: 'Using AskRabbi' }).closest('.settings-target')).toHaveAttribute('id', 'setting-terms-of-service')
     expect(deleteChats).not.toHaveBeenCalled()
     expect(deleteAccount).not.toHaveBeenCalled()
   })

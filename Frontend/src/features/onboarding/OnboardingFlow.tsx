@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Check, LockKeyhole, LogOut } from 'lucide-react'
 import { Brand } from '../../components/Brand.tsx'
+import { PersonalizationPrivacyNotice } from '../legal/PersonalizationPrivacyNotice.tsx'
 import { LanguageOptions } from '../personalization/languageOptions.ts'
 import { JewishHeritageOptions, ReligiousMovementOptions } from '../personalization/personalizationOptions.ts'
 import type { PersonalizationProfile } from '../personalization/personalizationTypes.ts'
@@ -91,7 +92,7 @@ export function OnboardingFlow({ profile, onComplete, onLogout, client }: Onboar
         <div className="mt-auto border-t border-line-strong pt-8">
           <p className="flex gap-3 text-sm leading-6 text-ink-soft">
             <LockKeyhole aria-hidden="true" className="mt-0.5 size-[1.15rem] shrink-0 text-brass" strokeWidth={1.7} />
-            <span>Your details are used only to personalize your experience.</span>
+            <span>Your details help personalize replies and calendar results. Review how they are processed before saving your profile.</span>
           </p>
         </div>
       </aside>
@@ -107,6 +108,7 @@ export function OnboardingFlow({ profile, onComplete, onLogout, client }: Onboar
         <div className="flex flex-1 px-5 pb-8 pt-8 sm:px-8 sm:pb-12 sm:pt-10 lg:items-center lg:px-14 lg:pb-11 lg:pt-2 xl:px-20">
           <form className="enter-softly mx-auto w-full max-w-[50rem]" key={currentStep} onSubmit={handleSubmit} noValidate>
             <StepHeader currentStep={currentStep} fullName={draft.fullName} />
+            <div className="mt-5"><PersonalizationPrivacyNotice /></div>
 
             <div className="mt-8 sm:mt-10">
               {currentStep === 0 ? <AboutYouStep draft={draft} errors={errors} onChange={updateField} /> : null}

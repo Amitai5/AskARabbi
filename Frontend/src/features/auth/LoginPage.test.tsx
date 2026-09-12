@@ -18,18 +18,19 @@ async function renderLogin() {
 describe('LoginPage', () => {
   it('links to terms and privacy before signing in without an expandable retention explanation', async () => {
     await renderLogin()
-    const terms = screen.getByRole('link', { name: 'Terms of Use (opens in a new tab)' })
-    const privacy = screen.getByRole('link', { name: 'Privacy Policy (opens in a new tab)' })
+    const terms = screen.getByRole('link', { name: /^Terms of Service/ })
+    const privacy = screen.getByRole('link', { name: /^Privacy Policy/ })
     expect(terms).toBeVisible()
     expect(privacy).toBeVisible()
-    expect(terms).toHaveAttribute('href', 'https://askarabbi.ai/terms-of-service')
-    expect(privacy).toHaveAttribute('href', 'https://askarabbi.ai/privacy-policy')
+    expect(terms).toHaveAttribute('href', '/terms-of-service')
+    expect(privacy).toHaveAttribute('href', '/privacy-policy')
     for (const link of [terms, privacy]) {
       expect(link).toHaveAttribute('target', '_blank')
       expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      expect(link).toHaveAccessibleName(/opens in a new tab/)
       expect(link.closest('details')).toBeNull()
     }
-    expect(screen.getByText(/For details about using AskRabbi and how we handle your data/)).toBeVisible()
+    expect(screen.getByText(/By continuing with Google or email, or creating an account/)).toBeVisible()
     expect(screen.queryByText('Chat history and AI privacy')).not.toBeInTheDocument()
     expect(screen.queryByText(/We and our service providers may retain and review/)).not.toBeInTheDocument()
     expect(screen.queryByText(/records kept for security and abuse prevention/)).not.toBeInTheDocument()
@@ -67,5 +68,7 @@ describe('LoginPage', () => {
     expect(screen.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
     expect(screen.getByLabelText('Email address')).toBeEnabled()
     expect(screen.queryByRole('button', { name: /install app/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^Privacy Policy/ })).toBeVisible()
+    expect(screen.getByRole('link', { name: /^Terms of Service/ })).toBeVisible()
   })
 })

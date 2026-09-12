@@ -34,6 +34,8 @@ export const SettingsRegistry: readonly SettingDefinition[] = [
   { id: 'install-app', section: 'app', label: 'Install AskRabbi', description: 'Open AskRabbi from your home screen or desktop.', keywords: 'pwa mobile application download' },
   { id: 'offline-audio', section: 'app', label: 'Make weekly audio available offline', description: 'Save this week’s recording with word highlighting and tap-to-seek on this device.', keywords: 'dvar torah download timings storage recording listen' },
   { id: 'saved-teaching', section: 'app', label: 'Open saved teaching', description: 'Read this week’s offline Dvar Torah.', keywords: 'offline text references download' },
+  { id: 'privacy-policy', section: 'data', label: 'Privacy Policy', description: 'How your information is used, shared, retained, and deleted.', keywords: 'legal data AI training providers cookies consent rights contact' },
+  { id: 'terms-of-service', section: 'data', label: 'Terms of Service', description: 'Rules for using AskRabbi and the limits of AI guidance.', keywords: 'legal terms of use agreement liability psak copyright' },
   { id: 'delete-chats', section: 'data', label: 'Delete all chats', description: 'Permanently remove your saved conversations.', keywords: 'history privacy erase data' },
   { id: 'delete-account', section: 'data', label: 'Delete account', description: 'Permanently leave AskRabbi and remove account data.', keywords: 'privacy erase personal data' },
 ]
