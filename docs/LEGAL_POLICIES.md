@@ -9,6 +9,8 @@ Their source files are `Frontend/privacy-policy.html` and `Frontend/terms-of-ser
 
 Deploy the entire `Frontend/dist` output, including both HTML documents. Cloudflare Pages serves these files before its SPA fallback. Keep those routes public and preserve section IDs, since notices link directly to individual sections. The host configuration requests revalidation for the documents. An existing service worker uses network-first navigation and can show the offline library when disconnected; offline UI labels legal links as available online.
 
+Preserve the `email_off` HTML comments around contact links. They use Cloudflare's [documented email-obfuscation exception](https://developers.cloudflare.com/waf/tools/scrape-shield/email-address-obfuscation/#prevent-cloudflare-from-obfuscating-email) so the privacy and legal contact remains readable and clickable without JavaScript. Confirm this against the deployed site because local preview does not perform Cloudflare's HTML rewriting.
+
 The shared `LegalLink` opens a separate tab, announces that behavior to assistive technology, and keeps unfinished sign-in, personalization, and chat input in place. Links appear at sign-in/account creation, password reset, onboarding, personalization, data controls, the composer, weekly teachings, calendar, offline learning, and print setup. Printed copies include absolute policy URLs that remain useful in a PDF or on paper. Settings search can find both policies.
 
 ## Source and operational facts
