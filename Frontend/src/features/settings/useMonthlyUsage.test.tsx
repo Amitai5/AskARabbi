@@ -6,7 +6,7 @@ import { useMonthlyUsage } from './useMonthlyUsage.ts'
 
 const Full: UsageSummary = {
   periodStartUtc: '2026-09-01T00:00:00Z', periodEndUtc: '2026-10-01T00:00:00Z',
-  tokensUsed: 10_000_000, tokenLimit: 10_000_000, tokensRemaining: 0, usedPercent: 100, isLimitReached: true,
+  tokensUsed: 5_000_000, tokenLimit: 5_000_000, tokensRemaining: 0, usedPercent: 100, isLimitReached: true,
 }
 
 describe('Usage synchronization', () => {
@@ -39,7 +39,7 @@ describe('Usage synchronization', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-30T23:59:59.900Z'))
     const client = createDemoApplicationClients().conversationSettingsClient
-    const reset: UsageSummary = { ...Full, periodStartUtc: Full.periodEndUtc, periodEndUtc: '2026-11-01T00:00:00Z', tokensUsed: 0, tokensRemaining: 10_000_000, usedPercent: 0, isLimitReached: false }
+    const reset: UsageSummary = { ...Full, periodStartUtc: Full.periodEndUtc, periodEndUtc: '2026-11-01T00:00:00Z', tokensUsed: 0, tokensRemaining: 5_000_000, usedPercent: 0, isLimitReached: false }
     client.getUsage = vi.fn().mockResolvedValueOnce(Full).mockResolvedValue(reset)
     const { result } = renderHook(() => useMonthlyUsage(client, 'reader'))
     await act(async () => {})

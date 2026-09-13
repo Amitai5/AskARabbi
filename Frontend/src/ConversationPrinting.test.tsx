@@ -20,6 +20,7 @@ beforeEach(() => {
 })
 
 async function setup() {
+  window.history.replaceState({}, '', '/conversations/chicken-dairy')
   const clients = createDemoApplicationClients()
   const reader = await clients.authClient.signInWithEmail('reader@example.test')
   clients.authClient.getSession = () => Promise.resolve(reader)

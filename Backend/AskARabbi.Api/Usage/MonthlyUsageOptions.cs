@@ -7,7 +7,7 @@ public sealed record MonthlyUsageOptions
     public const string SectionName = "Usage";
 
     /// <summary>Gets the included input and output tokens in each UTC calendar month.</summary>
-    public long MonthlyTokenLimit { get; init; } = 10_000_000;
+    public long MonthlyTokenLimit { get; init; } = 5_000_000;
 
     /// <summary>Validates usage configuration.</summary>
     public void Validate()

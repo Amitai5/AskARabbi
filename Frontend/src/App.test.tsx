@@ -457,6 +457,7 @@ describe('App', () => {
   })
 
   it('ignores a stale initial conversation response after another conversation is selected', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const firstConversation = await clients.conversationClient.get('chicken-dairy')
@@ -494,6 +495,7 @@ describe('App', () => {
   })
 
   it('scrolls a selected conversation to its latest message and refreshes its sidebar title', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const firstConversation = await clients.conversationClient.get('chicken-dairy')
@@ -534,6 +536,7 @@ describe('App', () => {
   })
 
   it('filters the approved source set for each conversation', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     await renderApp()
 
@@ -567,6 +570,7 @@ describe('App', () => {
   })
 
   it('persists changed sources before sending an existing conversation message', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const sourceUpdate = createDeferred<void>()
@@ -600,6 +604,7 @@ describe('App', () => {
   })
 
   it('keeps the message draft when a changed source selection cannot be saved', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const appendMessage = vi.fn(clients.conversationClient.appendMessage)
@@ -661,6 +666,7 @@ describe('App', () => {
   })
 
   it('names the conversation chosen for deletion even when another conversation is open, and safely cancels', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const deleteConversation = vi.fn(clients.conversationClient.delete)

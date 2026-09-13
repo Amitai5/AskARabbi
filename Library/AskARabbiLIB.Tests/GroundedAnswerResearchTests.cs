@@ -46,15 +46,72 @@ public sealed class GroundedAnswerResearchTests
     }
 
     [TestMethod]
+    [DataRow("What is the connection between gourd and the Rosh Hashanah prayer?")]
+    [DataRow("How does the prayer for dates work?")]
+    public async Task AnswerAsync_ConnectionQuestion_RequiresWordsMeaningsAndTheActualRelationship(string question)
+    {
+        var sources = new SourceResearchTestData.Sources { Results = [SourceResearchTestData.Passage("The Rosh Hashanah prayer for dates and gourd. " + SourceResearchTestData.Quotation)] };
+        var registry = new AIToolRegistry([new SourceResearchAITools(sources, sources)]);
+        var engine = new ResearchEngine(false, useInitialEvidence: true);
+        var audit = new Audit();
+        var service = new GroundedAnswerService(sources, engine, Prompts(), audit, new GroundedAnswerOptions { MaximumEnrichmentHits = 0 }, new FixedTime(), registry);
+
+        await service.AnswerAsync(new GroundedQuestion { Question = question }, []);
+
+        StringAssert.Contains(engine.AnswerFocus ?? string.Empty, "state what the prayer actually asks for");
+        StringAssert.Contains(engine.AnswerFocus ?? string.Empty, "Name the relevant words and their meanings");
+        StringAssert.Contains(audit.QuestionContext ?? string.Empty, "state what the prayer actually asks for");
+    }
+
+    [TestMethod]
     public void ProductionPrompts_MissingContext_AllowResearchDuringDraftAndRepair()
     {
         var prompts = Prompts();
 
         StringAssert.Contains(prompts.SystemBehaviorPrompt, "religious passage FIRST");
         StringAssert.Contains(prompts.SystemBehaviorPrompt, "first research call");
+        StringAssert.Contains(prompts.SystemBehaviorPrompt, "background, not a complete answer to their relationship");
         StringAssert.Contains(prompts.ValidationRepairPrompt, "use remaining source-research calls");
         StringAssert.Contains(prompts.ValidationRepairPrompt, "newly returned by successful research");
+        StringAssert.Contains(prompts.SystemBehaviorPrompt, "[[quote:E1:@Q2]]");
+        StringAssert.Contains(prompts.SystemBehaviorPrompt, "explain that as wordplay and map each word to its meaning");
+        StringAssert.Contains(ReadPrompt("Audit"), "requires lexical support");
+        StringAssert.Contains(prompts.ValidationRepairPrompt, "Do not move all quotations into metadata");
+        StringAssert.Contains(ReadPrompt("Audit"), "the answer must explain the requested relationship");
+        StringAssert.Contains(ReadPrompt("Audit"), "Reject such a draft even when its narrow description of the early passage is accurate");
         Assert.IsFalse(prompts.ValidationRepairPrompt.Contains("exactly the same evidence packet", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_InlineQuotationSelector_ValidatesAndRendersTheActualSourceWords()
+    {
+        var sources = new SourceResearchTestData.Sources();
+        var registry = new AIToolRegistry([new SourceResearchAITools(sources, sources)]);
+        var engine = new ResearchEngine(false, useInitialEvidence: true, useInlineQuotation: true);
+        var service = new GroundedAnswerService(sources, engine, Prompts(), new Audit(), new GroundedAnswerOptions { MaximumEnrichmentHits = 0 }, new FixedTime(), registry);
+
+        var result = await service.AnswerAsync(new GroundedQuestion { Question = SourceResearchTestData.Question }, []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsNotNull(result.Answer);
+        var rendered = new GroundedAnswerTextRenderer().Render(result.Answer);
+        StringAssert.Contains(rendered, SourceResearchTestData.Quotation);
+        Assert.IsFalse(rendered.Contains("[[quote:", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_InlineExpansionTooLong_RejectsBeforeBillableAudit()
+    {
+        var sources = new SourceResearchTestData.Sources();
+        var registry = new AIToolRegistry([new SourceResearchAITools(sources, sources)]);
+        var audit = new Audit();
+        var engine = new ResearchEngine(false, useInitialEvidence: true, useInlineQuotation: true, inlineRepeatCount: 100);
+        var service = new GroundedAnswerService(sources, engine, Prompts(), audit, new GroundedAnswerOptions { MaximumEnrichmentHits = 0 }, new FixedTime(), registry);
+
+        var result = await service.AnswerAsync(new GroundedQuestion { Question = SourceResearchTestData.Question }, []);
+
+        Assert.AreEqual(GroundedAnswerStatus.ValidationFailed, result.Status);
+        Assert.IsNull(audit.QuestionContext);
     }
 
     [TestMethod]
@@ -114,10 +171,11 @@ public sealed class GroundedAnswerResearchTests
         return reader.ReadToEnd();
     }
 
-    private sealed class ResearchEngine(bool firstDraftDeflects, bool forgeQuotation = false, bool useInitialEvidence = false) : IAIEngine
+    private sealed class ResearchEngine(bool firstDraftDeflects, bool forgeQuotation = false, bool useInitialEvidence = false, bool useInlineQuotation = false, int inlineRepeatCount = 1) : IAIEngine
     {
         private int calls;
         internal string? InitialRequiredToolName { get; private set; }
+        internal string? AnswerFocus { get; private set; }
         public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default) => throw new AssertFailedException("Expected bounded research access.");
 
         public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, AIToolExecutionSession toolSession, CancellationToken cancellationToken = default)
@@ -126,6 +184,8 @@ public sealed class GroundedAnswerResearchTests
             if (calls == 1)
             {
                 InitialRequiredToolName = toolSession.RequiredToolName;
+                using var payload = JsonDocument.Parse(messages.Last().Content);
+                AnswerFocus = payload.RootElement.GetProperty("answerFocus").GetString();
             }
             if (firstDraftDeflects && calls == 1)
             {
@@ -133,7 +193,8 @@ public sealed class GroundedAnswerResearchTests
             }
             if (useInitialEvidence)
             {
-                return Success<T>(Draft("The connection is wordplay: kra is paired with asking that our judgment be torn up and our merits called out.", "E1", SourceResearchTestData.Quotation));
+                var text = "The connection is wordplay: kra is paired with asking that our judgment be torn up and our merits called out.";
+                return Success<T>(Draft(useInlineQuotation ? text + string.Concat(Enumerable.Repeat(" [[quote:E1:@Q2]]", inlineRepeatCount)) : text, "E1", SourceResearchTestData.Quotation));
             }
             await toolSession.ExecuteAsync("search_source_passages", BinaryData.FromString("{\"query\":\"gourd pumpkin Rosh Hashanah prayer\"}"), cancellationToken);
             using var response = JsonDocument.Parse(await toolSession.ExecuteAsync("read_source_passage", BinaryData.FromString("{\"reference\":\"Shulchan Arukh, Orach Chayim 583:1\"}"), cancellationToken));
@@ -155,9 +216,11 @@ public sealed class GroundedAnswerResearchTests
     private sealed class Audit : IGroundedClaimEvidenceValidator
     {
         internal bool SawReligiousEvidence { get; private set; }
+        internal string? QuestionContext { get; private set; }
         public Task<ClaimEvidenceValidationResult> ValidateAsync(string questionContext, GroundedAnswerDraft draft, EvidencePacket packet, CancellationToken cancellationToken = default, ConversationPersonalization? personalization = null)
         {
             SawReligiousEvidence = packet.Items.Any(item => item.Source.CanonicalReference == SourceResearchTestData.Reference);
+            QuestionContext = questionContext;
             return Task.FromResult(ClaimEvidenceValidationResult.Supported());
         }
     }

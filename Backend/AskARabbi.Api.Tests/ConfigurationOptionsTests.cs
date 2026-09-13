@@ -77,6 +77,30 @@ public sealed class ConfigurationOptionsTests
 
     [TestMethod]
     [TestCategory("Unit")]
+    public void Validate_DefaultUsageLimit_AllowsFiveMillionTokens()
+    {
+        var options = new MonthlyUsageOptions();
+
+        options.Validate();
+
+        Assert.AreEqual(5_000_000L, options.MonthlyTokenLimit);
+    }
+
+    [TestMethod]
+    [DataRow(1L)]
+    [DataRow(10_000_000L)]
+    [TestCategory("Unit")]
+    public void Validate_CustomPositiveUsageLimit_PreservesConfiguredAllowance(long limit)
+    {
+        var options = new MonthlyUsageOptions { MonthlyTokenLimit = limit };
+
+        options.Validate();
+
+        Assert.AreEqual(limit, options.MonthlyTokenLimit);
+    }
+
+    [TestMethod]
+    [TestCategory("Unit")]
     public void Validate_NonPositiveUsageLimit_Throws()
     {
         var options = new MonthlyUsageOptions { MonthlyTokenLimit = 0 };

@@ -20,7 +20,7 @@ internal static class ConversationProbe
         var retriever = new ResearchSourceRetriever(new AzureOpenAIVectorStoreRetriever(searchClient, new AzureOpenAIVectorStoreRetrieverOptions { VectorStoreId = vectorStoreId, ExpectedCorpusFingerprint = SourceIndexBuilder.ComputeCorpusFingerprint(manifest) }, manifest), keywords);
         var reader = new BundledCanonicalSourceReader(manifest, Path.Combine(repositoryRoot, "Backend", "AskARabbi.Api", "Data", "canonical-sources.zip"));
         var registry = new DiagnosticRegistry(new AIToolRegistry([new CalendarAITools(new HebrewCalendarService()), new SourceResearchAITools(retriever, reader)]));
-        var service = new GroundedAnswerService(retriever, new AzureOpenAIEngine(answerOptions, credential), new AzureOpenAIEngine(answerOptions with { MaximumOutputTokens = 3_200, ReasoningEffort = AIReasoningEffort.Low }, credential), GroundedPromptDirectoryLoader.Load(Path.Combine(repositoryRoot, "Prototype", "Prompts")), new GroundedAnswerOptions { MaximumCandidates = 20, MaximumEvidenceSegments = 10, MaximumEvidenceCharacters = 16_000, MaximumCharactersPerSegment = 2_400, MaximumSegmentsPerDocument = 3, MaximumEnrichmentHits = 0, RecentConversationTurns = 2 }, toolRegistry: registry, canonicalReader: reader);
+        var service = new GroundedAnswerService(retriever, new DiagnosticEngine(new AzureOpenAIEngine(answerOptions, credential)), new DiagnosticEngine(new AzureOpenAIEngine(answerOptions with { MaximumOutputTokens = 1_600, ReasoningEffort = AIReasoningEffort.Low }, credential)), GroundedPromptDirectoryLoader.Load(Path.Combine(repositoryRoot, "Prototype", "Prompts")), new GroundedAnswerOptions { MaximumCandidates = 20, MaximumEvidenceSegments = 10, MaximumEvidenceCharacters = 16_000, MaximumCharactersPerSegment = 2_400, MaximumSegmentsPerDocument = 3, MaximumEnrichmentHits = 0, RecentConversationTurns = 2 }, toolRegistry: registry, canonicalReader: reader);
         var history = new List<GroundedConversationTurn>();
         var exitCode = 0;
         foreach (var text in questions.Split("||", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
@@ -31,7 +31,7 @@ internal static class ConversationProbe
                 Question = text,
                 ConversationLanguage = "English",
                 QuotationLanguage = "English",
-                SourceKeys = coreOnly ? ["collection:Torah", "collection:Tanakh", "collection:Mishnah", "collection:Talmud"] : [],
+                SourceKeys = coreOnly ? ["collection:Torah", "collection:Tanakh", "collection:Mishnah", "collection:Talmud"] : DocumentSourceCatalog.Create(manifest).Sources.Select(source => source.Key).ToArray(),
                 ShouldGenerateConversationTitle = history.Count == 0,
                 UserProfile = new UserProfile { Name = "QA", DateOfBirth = new DateOnly(2001, 12, 17), BirthTimeZone = "America/New_York", JewishHeritage = "Mizrahi" },
             }, history, cancellationToken).ConfigureAwait(false);
@@ -47,6 +47,23 @@ internal static class ConversationProbe
             }
         }
         return exitCode;
+    }
+
+    private sealed class DiagnosticEngine(IAIEngine inner) : IAIEngine
+    {
+        public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default)
+        {
+            var result = await inner.GenerateStructuredAsync<T>(messages, schemaName, jsonSchema, cancellationToken).ConfigureAwait(false);
+            Console.WriteLine(JsonSerializer.Serialize(new { stage = schemaName, result.Value, result.ErrorMessage }));
+            return result;
+        }
+
+        public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, AIToolExecutionSession toolSession, CancellationToken cancellationToken = default)
+        {
+            var result = await inner.GenerateStructuredAsync<T>(messages, schemaName, jsonSchema, toolSession, cancellationToken).ConfigureAwait(false);
+            Console.WriteLine(JsonSerializer.Serialize(new { stage = schemaName, result.Value, result.ErrorMessage }));
+            return result;
+        }
     }
 
     private sealed class DiagnosticRegistry(IAIToolRegistry inner) : IAIToolRegistry

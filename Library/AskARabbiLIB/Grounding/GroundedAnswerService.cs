@@ -581,6 +581,14 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             return CandidateValidationResult.Unsupported(deterministicError ?? "The draft failed deterministic grounding validation.");
         }
+        if (!GroundedInlineQuotationExpander.TryExpand(draft, packet, out draft, out deterministicError))
+        {
+            return CandidateValidationResult.Unsupported(deterministicError ?? "An inline quotation could not be resolved.");
+        }
+        if (!TryValidateDraft(draft, packet, shouldGenerateConversationTitle, requirements, out answer, out deterministicError, false))
+        {
+            return CandidateValidationResult.Unsupported(deterministicError ?? "The expanded quotation exceeded the answer contract.");
+        }
 
         var supportResult = await claimEvidenceValidator.ValidateAsync(questionContext, draft, packet, cancellationToken, personalization).ConfigureAwait(false);
         if (supportResult.Status == ClaimEvidenceValidationStatus.Supported && !TryValidateDraft(supportResult.ReconciledDraft ?? draft, packet, shouldGenerateConversationTitle, requirements, out answer, out deterministicError))
@@ -701,6 +709,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return new QuestionFocus(
                 "Identify only the named authorities or schools requested, state what each actually says or decides, and quote context that supports each attribution. Do not substitute an anonymous summary of the rule or a later practical workaround; if the evidence does not name who adopted the position, say that directly.",
                 "named rabbis sages authorities schools opinions dispute ruling attribution");
+        }
+        if (tokens.Overlaps(["connection", "relationship", "wordplay", "pun", "prayer", "blessing"]))
+        {
+            return new QuestionFocus(
+                "Explain the specific connection or wording the user asks about, not merely the existence or history of a custom. For a food and prayer, state what the prayer actually asks for and explain how the food's name connects to those particular words or meanings. Name the relevant words and their meanings in the explanation; saying only 'it is symbolic' or 'the words echo the name' is incomplete. Include a brief exact quotation from the available preferred-language passage inside the explanation when it supplies that wording, then unpack it in plain language. Do not restrict the answer to the earliest text or replace the explanation with unrelated agricultural or legal rules. If the first passages only list a custom, read its wording in another enabled original source before answering. Use prior conversation only to identify the current referent.",
+                null);
         }
         return new QuestionFocus("Answer the current question directly. Use earlier turns only to resolve references and maintain continuity, never as additional questions to answer or as source evidence.", null);
     }

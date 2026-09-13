@@ -133,6 +133,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   useEffect(() => {
     const section = readSettingsRoute()
     if (section) { window.history.replaceState(window.history.state, '', `/settings/${section}${window.location.hash}`) }
+    const route = readPageRoute()
+    if (route.view === 'conversation' && route.isNew) { writePageUrl('/conversations/new', true) }
     function navigateHistory() { restorePage() }
     window.addEventListener('popstate', navigateHistory)
     return () => window.removeEventListener('popstate', navigateHistory)
@@ -171,10 +173,10 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setIsMobileSidebarOpen(false)
   }
 
-  function navigateView(view: Exclude<ActiveView, 'settings'>) {
+  function navigateView(view: Exclude<ActiveView, 'settings'>, replaceUrl = false) {
     const path = view === 'conversation' ? conversationPath(selectedIdRef.current) : view === 'calendar' ? '/calendar' : '/teachings'
     const isNewDestination = `${window.location.pathname}${window.location.search}` !== path
-    writePageUrl(path)
+    writePageUrl(path, replaceUrl)
     if (view === 'conversation' && selectedIdRef.current?.startsWith('pending:')) { window.history.replaceState({ ...window.history.state, askarabbiPendingId: selectedIdRef.current }, '', path) }
     if (view !== activeView || isNewDestination) { setRestoredRoute(readPageRoute()); setRestoreKey(key => key + 1) }
     focusedReading.exit()
@@ -296,7 +298,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         if (selectionRequestId.current !== requestId) { return }
         const route = readPageRoute()
         if (route.view !== 'conversation' || route.isNew) { return }
-        const id = route.conversationId ?? values[0]?.id
+        const id = route.conversationId
         if (!id) { return }
         shouldScrollToLatestRef.current = true
         isBrowsingEarlierQuestionRef.current = false
@@ -310,7 +312,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         }
       })
       .catch((error: unknown) => {
-        if (isCurrent) {
+        if (isCurrent && selectionRequestId.current === requestId) {
           setConversationError(getErrorMessage(error, 'Your conversations could not be loaded.'))
         }
       })
@@ -357,7 +359,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
     shouldScrollToLatestRef.current = false
     const scrollToLatest = () => {
-      if (!isBrowsingEarlierQuestionRef.current) { scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' }) }
+      if (!isBrowsingEarlierQuestionRef.current) { scrollContainer.scrollTo({ top: latestDisplayedMessageId === null ? 0 : scrollContainer.scrollHeight, behavior: 'auto' }) }
     }
     scrollToLatest()
 
@@ -380,7 +382,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     openNewConversation('')
   }
 
-  function openNewConversation(initialDraft: string) {
+  function openNewConversation(initialDraft: string, replaceUrl = false) {
     rememberSelectedConversation()
     selectionRequestId.current += 1
     shouldScrollToLatestRef.current = true
@@ -396,7 +398,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     newDraft.current = initialDraft
     setDraftNotice(null)
     setIsMobileSidebarOpen(false)
-    navigateView('conversation')
+    navigateView('conversation', replaceUrl)
     setConversationStarterIndex((current) => advanceConversationStarterIndex(current))
   }
 
@@ -539,27 +541,17 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
       if (conversationSessions.current.get(id)?.isNew !== true) {
         await conversationClient.delete(id)
       }
+      openNewConversation('', readPageRoute().conversationId === id)
+      setIsLoadingConversations(false)
+      // Opening the new page first preserves other drafts without re-caching the deleted chat.
       conversationSessions.current.delete(id)
+      for (const [pendingId, completedId] of completedPendingIds.current) {
+        if (completedId === id) { completedPendingIds.current.delete(pendingId) }
+      }
       setUnreadConversationIds(current => { const next = new Set(current); next.delete(id); return next })
       setReadyNotice(current => current?.id === id ? null : current)
       sourceUpdateQueues.current.delete(id)
-      const remaining = conversations.filter((conversation) => conversation.id !== id)
       setConversations((current) => current.filter((conversation) => conversation.id !== id))
-      if (selectedIdRef.current === id) {
-        selectionRequestId.current += 1
-        setSourceReaderSelection(null)
-        setIsLoadingConversation(false)
-        const next = remaining[0]
-        selectedIdRef.current = next?.id ?? null
-        setSelectedId(next?.id ?? null)
-        setSelectedConversation(null)
-        setDraft('')
-        if (next !== undefined) {
-          await handleSelectConversation(next.id)
-        } else if (readPageRoute().view === 'conversation') {
-          writePageUrl('/conversations/new', true)
-        }
-      }
     } catch (error) {
       setConversationError(getErrorMessage(error, 'The conversation could not be deleted.'))
       throw error
@@ -868,7 +860,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                     <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
                       <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
                       <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{conversationStarter.supportingText}</p>
-                      <StarterQuestions client={calendarClient} disabled={isChatDisabled} onChoose={prepareQuestion} />
+                      <StarterQuestions disabled={isChatDisabled} onChoose={prepareQuestion} />
                     </div>
                   ) : (
                     <div className="flex-1 py-10 sm:py-14">

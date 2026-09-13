@@ -23,6 +23,10 @@ The message endpoint now stores the user turn, retrieves only from the configure
 
 ## Learning questions
 
+The new-conversation screen offers three fixed starter questions: Shabbat candles, chicken with milk, and the Shema. Suggestions do not use the calendar, offline library, current date, or an AI request. Selecting one prepares an editable draft without sending it.
+
+Signed-in visits to `/` open a blank, unsaved `/conversations/new` page without fetching a saved chat. Explicit conversation, calendar, teaching, and settings URLs still restore their selected destination. Successfully deleting a sidebar conversation opens a fresh new-conversation page, even when a different chat was selected; drafts on surviving conversations are preserved. Cancelled or failed deletions leave the current page and draft intact.
+
 Calendar holiday and teaching-source **Ask about this** actions open `/conversations/new` with the reference question ready to edit, without submitting it. They preserve the draft on the previous saved conversation and reset the new chat's source selection. Chat-source follow-ups and starter questions still use the current draft.
 
 ## Default appearance

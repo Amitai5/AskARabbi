@@ -5,7 +5,15 @@ afterEach(() => window.history.replaceState({}, '', '/'))
 describe('Page routes', () => {
   it.each(['/conversations/%ZZ', '/conversations/pending%3Aid', '/conversations/%2Fprivate', '/conversations/%3Fx'])('rejects malformed or temporary IDs in %s', path => {
     window.history.replaceState({}, '', path)
-    expect(readPageRoute()).toEqual({ view: 'conversation', conversationId: undefined })
+    expect(readPageRoute()).toEqual({ view: 'conversation', isNew: true })
+  })
+  it.each(['/', '/conversations', '/conversations/', '/conversations/new'])('defaults %s to a new conversation', path => {
+    window.history.replaceState({}, '', path)
+    expect(readPageRoute()).toEqual({ view: 'conversation', isNew: true })
+  })
+  it('keeps explicitly linked conversations selected', () => {
+    writePageUrl(conversationPath('saved-id'))
+    expect(readPageRoute()).toEqual({ view: 'conversation', conversationId: 'saved-id' })
   })
   it('round trips exact teaching keys and archive queries', () => {
     writePageUrl(teachingPath({ weekKey: 'israel:2026-09-05' }))

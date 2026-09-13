@@ -79,17 +79,26 @@ internal sealed record ConversationPersonalization(string ResponseLanguage, stri
             }
         }
         var allowedInlineEvidence = packet.Items.Where(item => !IsReligiousSource(item.Source) || MatchesLanguage(item.Source, QuotationLanguage) || !preferredReferences.Contains(item.Source.CanonicalReference) || quotedPreferredReferences.Contains(item.Source.CanonicalReference)).ToArray();
-        foreach (var statement in draft.Claims.Select(claim => claim.Text).Concat(draft.Disagreements.Select(claim => claim.Text)))
+        var statements = draft.Claims.Select((claim, index) => (Text: claim.Text, Label: $"claim {index + 1}")).Concat(draft.Disagreements.Select((claim, index) => (Text: claim.Text, Label: $"disagreement {index + 1}")));
+        var invalidQuotations = new List<string>();
+        foreach (var statement in statements)
         {
-            foreach (Match match in InlineQuotation.Matches(statement))
+            var quotationNumber = 0;
+            foreach (Match match in InlineQuotation.Matches(statement.Text))
             {
+                quotationNumber++;
                 var text = match.Groups["text"].Value;
                 if (text.Length >= 20 && !allowedInlineEvidence.Any(item => GroundedQuotationResolver.TryResolve(item, text, out _)))
                 {
-                    error = $"An extended inline quotation is not present in the approved text for the selected quotation language ({QuotationLanguage}). Use an exact supplied quotation, or explain the meaning as an unquoted paraphrase in {ResponseLanguage}. Do not invent a translated quotation.";
-                    return false;
+                    invalidQuotations.Add($"{statement.Label}, quoted phrase {quotationNumber}");
                 }
             }
+        }
+        if (invalidQuotations.Count > 0)
+        {
+            // Locate every offending phrase without putting potentially personal prose in logs.
+            error = $"An extended inline quotation is not present in the approved text for the selected quotation language ({QuotationLanguage}). Locations: {string.Join("; ", invalidQuotations)}. Correct only these quoted phrases: copy exact source wording, including spelling, or remove their quotation marks and explain the meaning as an unquoted paraphrase in {ResponseLanguage}. Keep already valid quotations and the substantive answer. Do not abbreviate quotations with ellipses or invent a translated quotation.";
+            return false;
         }
         error = null;
         return true;

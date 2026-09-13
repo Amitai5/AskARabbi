@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
-import { calendarOverview, fakeCalendarClient, RoshHashanah } from './features/calendar/calendarTestData.ts'
+import { fakeCalendarClient, RoshHashanah } from './features/calendar/calendarTestData.ts'
 import { StarterQuestions } from './features/conversations/StarterQuestions.tsx'
 import type { ConversationClient } from './features/conversations/conversationClient.ts'
 import type { DvarTorahClient } from './features/dvarTorah/dvarTorahClient.ts'
@@ -38,16 +38,31 @@ async function signIn(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Learning continuity', () => {
-  it('shows six starter questions using cached holidays without fetching anything', async () => {
+  it('shows exactly three fixed starter questions without a calendar provider', async () => {
     const user = userEvent.setup()
-    const client = fakeCalendarClient()
-    client.getCachedOverview = () => calendarOverview()
     const choose = vi.fn()
-    render(<StarterQuestions client={client} disabled={false} onChoose={choose} />)
-    expect(within(screen.getByRole('group', { name: 'Questions to explore' })).getAllByRole('button')).toHaveLength(6)
-    await user.click(screen.getByRole('button', { name: 'What is Rosh Hashanah about, and how is it observed?' }))
-    expect(choose).toHaveBeenCalledWith('What is Rosh Hashanah about, and how is it observed?')
-    expect(client.getOverview).not.toHaveBeenCalled()
+    render(<StarterQuestions disabled={false} onChoose={choose} />)
+    const buttons = within(screen.getByRole('group', { name: 'Questions to explore' })).getAllByRole('button')
+    const questions = ['Why do we light candles before Shabbat?', 'Why is chicken with milk not kosher?', 'What does the Shema mean?']
+    expect(buttons.map(button => button.textContent)).toEqual(questions)
+    for (const [index, button] of buttons.entries()) {
+      await user.click(button)
+      expect(choose).toHaveBeenNthCalledWith(index + 1, questions[index])
+    }
+    expect(choose).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not prepare a fixed starter when suggestions are disabled', async () => {
+    const user = userEvent.setup()
+    const choose = vi.fn()
+    render(<StarterQuestions disabled onChoose={choose} />)
+    const buttons = within(screen.getByRole('group', { name: 'Questions to explore' })).getAllByRole('button')
+    expect(buttons).toHaveLength(3)
+    for (const button of buttons) {
+      expect(button).toBeDisabled()
+      await user.click(button)
+    }
+    expect(choose).not.toHaveBeenCalled()
   })
 
   it('prepares a starter without sending or overwriting the current draft', async () => {
@@ -184,6 +199,7 @@ describe('Learning continuity', () => {
   })
 
   it.each(['next holiday', 'upcoming holidays'])('starts a fresh conversation from %s and keeps the previous conversation draft', async placement => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const append = vi.fn(clients.conversationClient.appendMessage)
@@ -217,6 +233,7 @@ describe('Learning continuity', () => {
   })
 
   it('prepares a teaching source question in a new conversation, not the selected chat', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const append = vi.fn(clients.conversationClient.appendMessage)
@@ -238,6 +255,7 @@ describe('Learning continuity', () => {
   })
 
   it('does not reopen an earlier answer when it finishes after a calendar question starts a new draft', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     let release!: () => void
@@ -259,6 +277,7 @@ describe('Learning continuity', () => {
   })
 
   it('prepares a source reference without sending and closes the source reader', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const append = vi.fn(clients.conversationClient.appendMessage)

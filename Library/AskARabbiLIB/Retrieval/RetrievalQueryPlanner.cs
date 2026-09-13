@@ -1,10 +1,12 @@
 using AskARabbiLIB.Search;
+using System.Text.RegularExpressions;
 
 namespace AskARabbiLIB.Retrieval;
 
 internal static class RetrievalQueryPlanner
 {
     private const int MaximumConcepts = 8;
+    private static readonly Regex FunctionQuestion = new(@"\bhow\s+(?:does|do)\b(?<subject>[^\r\n?.!]*?)\bworks?\s*(?=[?.!]|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
     {
@@ -34,7 +36,10 @@ internal static class RetrievalQueryPlanner
 
     internal static RetrievalQueryPlan Plan(string? queryText)
     {
-        var tokens = SearchTextNormalizer.Tokenize(queryText);
+        var searchText = (queryText ?? string.Empty).Replace("Earlier topic context:", string.Empty, StringComparison.Ordinal).Replace("Search focus:", string.Empty, StringComparison.Ordinal);
+        // In "How does this prayer work?", work asks how something functions;
+        // it must not elevate passages about employment or agricultural labor.
+        var tokens = SearchTextNormalizer.Tokenize(FunctionQuestion.Replace(searchText, "${subject}"));
         var tokenSet = tokens.ToHashSet(StringComparer.Ordinal);
         var concepts = Definitions
             .Where(definition => definition.Tokens.Any(tokenSet.Contains))
@@ -49,7 +54,7 @@ internal static class RetrievalQueryPlanner
             {
                 break;
             }
-            if (token.Length < 2 || StopWords.Contains(token) || DefinitionByToken.TryGetValue(token, out var definition) && knownKeys.Contains(definition.Key))
+            if (token.Length < 2 || StopWords.Contains(token) || knownKeys.Contains(token) || DefinitionByToken.TryGetValue(token, out var definition) && knownKeys.Contains(definition.Key))
             {
                 continue;
             }

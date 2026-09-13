@@ -73,7 +73,7 @@ An explicit `local-demo` launch profile is available for frontend integration te
 
 ## Monthly token allowance
 
-Each account receives 10,000,000 provider-reported input + output tokens per UTC calendar month, configured with `Usage:MonthlyTokenLimit` or `Usage__MonthlyTokenLimit`. New questions and old-chat follow-ups are blocked at 100%; saved chats and Dvar Torah remain readable. Failed model attempts still consume their reported tokens, and deleting chats does not reset usage. See [token accounting, release contract, and limitations](../docs/TOKEN_USAGE.md).
+Each account receives 5,000,000 provider-reported input + output tokens per UTC calendar month, configured with `Usage:MonthlyTokenLimit` or `Usage__MonthlyTokenLimit`. New questions and old-chat follow-ups are blocked at 100%; saved chats and Dvar Torah remain readable. Failed model attempts still consume their reported tokens, and deleting chats does not reset usage. See [token accounting, release contract, and limitations](../docs/TOKEN_USAGE.md).
 
 ## HTTP surface
 

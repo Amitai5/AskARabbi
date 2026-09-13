@@ -18,19 +18,19 @@ flowchart LR
     History[Recent validated conversation] --> Search
     History --> Prompt
     Search --> Adequate{Evidence connects the topic and supporting concepts?}
-    Adequate -->|No| ToolEligible{Recognized calendar calculation?}
+    Adequate -->|No| ToolEligible{Approved research or calendar capability available?}
     ToolEligible -->|No| Insufficient[Stop with InsufficientEvidence]
     ToolEligible -->|Yes| Prompt
     Adequate -->|Yes| Evidence[Build a bounded evidence packet]
     Evidence --> Prompt
     Question --> Prompt
     Prompt --> Draft[AI writes a draft or requests a local tool]
-    Draft -->|Tool call| Calendar[Run a bounded local calendar calculation]
-    Calendar --> Calculated[Add exact calculated evidence]
+    Draft -->|Tool call| Calendar[Read approved sources or calculate calendar facts]
+    Calendar --> Calculated[Add verified original or calculated evidence]
     Calculated --> Draft
     Draft -->|Structured draft| Validate{IDs, structure, and exact quotes valid?}
     Validate -->|Yes| Support{Claims relevant and supported?}
-    Validate -->|No| Repair[One repair using the same evidence]
+    Validate -->|No| Repair[One repair with remaining bounded research]
     Support -->|Yes| Materialize[Attach trusted source details]
     Support -->|No| Repair
     Repair --> ValidateAgain{Both validation layers pass now?}
@@ -39,7 +39,7 @@ flowchart LR
     Materialize --> Answer[Render conversational answer]
 ```
 
-The most important rule is that the AI does not get to answer from general model knowledge when trusted evidence is missing. Evidence normally comes from the approved corpus; three narrow calendar functions can also create deterministic calculated evidence. If neither path supports the question, or if the draft cannot be validated, AskARabbi stops instead of displaying an unsupported answer.
+The most important rule is that the AI does not get to answer from general model knowledge when trusted evidence is missing. It can use its knowledge to propose better searches or likely canonical references, but those must resolve to approved original text before supporting an answer. Bounded source and dictionary readers can add verified evidence, while calendar functions provide calculated facts. If these paths cannot establish support or the draft cannot be validated, AskARabbi stops instead of displaying an unsupported answer.
 
 ## 1. Understand the current question
 
@@ -61,7 +61,7 @@ Profile information does not count as evidence. It is not added to the source-se
 
 Source retrieval is application-controlled and provider-neutral. The prototype queries a local SQLite FTS5 index. Production sends a bounded Responses API request that forces exactly one Azure OpenAI `file_search` tool over the configured vector store; the application ignores the retrieval model's prose and reads only the included scored search results through `AzureOpenAIVectorStoreRetriever`. Neither host creates an Assistant, allows a model to choose outside tools, browses the web, or accepts model-generated citation metadata.
 
-New chats begin with the core Torah, Tanakh, Mishnah, and Talmud collections enabled. The source controls can add named supplemental works individually, restore the core set, select every approved source, or remove sources; a chat cannot be sent with an empty selection. The resulting enabled keys are applied to the next answer and remain active for that conversation until changed. The prototype's `/sources` command exposes the same logical boundary.
+New web chats begin with all approved sources enabled. The source controls can choose named supplemental works individually, restore the core Torah/Tanakh/Mishnah/Talmud set, select every approved source, or remove sources; a chat cannot be sent with an empty selection. The resulting enabled keys are applied to the next answer and remain active for that conversation until changed. The prototype's `/sources` command exposes the same logical boundary.
 
 The retrieval query contains:
 
@@ -69,7 +69,7 @@ The retrieval query contains:
 - Up to two recent user questions for follow-up context.
 - Enabled logical-source keys plus optional language and category filters selected by the user.
 
-It does not contain earlier AI prose or profile fields. That prevents generated text or identity labels from displacing the actual subject of the question.
+It does not contain earlier AI prose or profile fields. That prevents generated text or identity labels from displacing the actual subject of the question. Local query planning removes internal context labels and duplicate concepts. In questions such as “How does this prayer work?”, the functional use of “work” does not activate the employment/labor concept.
 
 For local retrieval, AskARabbi normalizes Unicode, case, diacritics, and separators. It removes common question words that add little meaning and expands a small reviewed vocabulary map. For example, a question about chicken and milk can also search concepts such as `fowl`, `poultry`, `dairy`, and `cheese`. The workflow separately recognizes whether the current question asks for a rationale or named authorities. It adds a bounded retrieval hint for explicit safeguards, decrees, concerns, attribution, disputes, or named positions so a follow-up does not simply retrieve another copy of the rule. The planner also recognizes high-value relationships needed for modern questions: `Saturday`, `Sabbath`, and `Shabbos` map to a `Shabbat` topic anchor, while terms such as `automatically`, `server`, and `business` remain separate supporting concepts. Reviewed concepts are prioritized before leftover words, so a long conversational opening cannot push the real topic out of the search limit.
 
@@ -84,11 +84,13 @@ Questions without a recognized topic anchor retain the existing full-concept, co
 
 Before its first production search, the retriever verifies that the configured store is completed and that its schema version, full-corpus fingerprint, provider, logical-document count, and bounded provider-file count match the expected immutable publication. Returned chunks must contain a complete AskRabbi record with a valid stable segment ID, context token, canonical reference, excerpt bounds, and document prefix found in the checksum-validated permissive manifest bundled with the API. Partial, unknown, or altered records are ignored or rejected rather than treated as evidence.
 
+Production also searches a read-only SQLite index built from the checksum-verified canonical archive during the API image build. `ResearchSourceRetriever` combines semantic and keyword ranks with reciprocal-rank fusion before applying topical adequacy and evidence budgets. It does this even when semantic results are broadly relevant: naming a custom does not establish its reason or associated prayer. Exact-reference hits do not trigger an additional keyword search. Both paths retain the same source and language restrictions, and all resulting claims still pass quotation and independent support validation. The keyword index adds about 302 MiB to the server image and local query work, not a frontend download or provisioned database service. The answer audit requires an explanation of the relationship asked about, rather than accepting an accurate but incomplete description of only an earlier source.
+
 The result is a ranked collection of source segments such as verses, Mishnah passages, Talmud passages, or commentary segments. At most 50 initial candidates move to the evidence-building stage.
 
 ## 3. Build a usable evidence packet
 
-Before packet construction, a deterministic adequacy gate checks whether the candidates connect the identified topic to enough of the question’s supporting concepts. A Shabbat automation question therefore needs Shabbat-anchored evidence about more than an isolated generic word. If the candidates are empty or merely tangential, AskARabbi normally returns `InsufficientEvidence` and does not call the answer model. The only exception is a question recognized as a supported local calendar calculation; the model may then call the approved function, but it still cannot answer from memory.
+Before packet construction, a deterministic adequacy gate checks whether the candidates connect the identified topic to enough of the question’s supporting concepts. A Shabbat automation question therefore needs Shabbat-anchored evidence about more than an isolated generic word. When approved research capabilities are registered, an empty or inadequate initial packet requires further research rather than an immediate refusal. Without an applicable research or calendar capability, the service returns `InsufficientEvidence`. It never substitutes unsupported model memory for evidence.
 
 After that gate passes, the model is not given every search result. `EvidencePacketBuilder` chooses a smaller packet that gives the answer enough textual support without flooding the prompt.
 

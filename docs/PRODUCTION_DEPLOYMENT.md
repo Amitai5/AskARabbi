@@ -91,7 +91,7 @@ Set these runtime environment variables on the API host:
 | `MongoDB__DatabaseName` | Optional | `askarabbi` is already the production default |
 | `MongoDB__DvarTorahCollectionName` | Optional | `WeeklyAIDvarTorahs` is already the production default |
 | `DvarTorah__InIsrael` | Optional | `false` selects the Diaspora weekly reading cycle |
-| `Usage__MonthlyTokenLimit` | Optional | `10000000` input + output tokens per account per UTC calendar month; see [token accounting](TOKEN_USAGE.md) |
+| `Usage__MonthlyTokenLimit` | Optional | `5000000` input + output tokens per account per UTC calendar month; see [token accounting](TOKEN_USAGE.md). Update or remove any previous override when deploying a changed default. |
 | `AI__ProjectEndpoint` | Yes | Azure OpenAI resource endpoint; non-secret |
 | `AI__ModelName` | Yes | `askarabbi-gpt-5-mini`; non-secret deployment name |
 | `AI__VectorStoreId` | Yes | Verified full-corpus managed vector-store ID; non-secret |

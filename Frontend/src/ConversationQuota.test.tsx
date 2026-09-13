@@ -9,9 +9,9 @@ import { createDemoApplicationClients } from './test/demoApplicationClients.ts'
 
 const Exhausted: UsageSummary = {
   periodStartUtc: '2026-09-01T00:00:00Z', periodEndUtc: '2026-10-01T00:00:00Z',
-  tokensUsed: 10_000_000, tokenLimit: 10_000_000, tokensRemaining: 0, usedPercent: 100, isLimitReached: true,
+  tokensUsed: 5_000_000, tokenLimit: 5_000_000, tokensRemaining: 0, usedPercent: 100, isLimitReached: true,
 }
-const Available: UsageSummary = { ...Exhausted, tokensUsed: 2_500_000, tokensRemaining: 7_500_000, usedPercent: 25, isLimitReached: false }
+const Available: UsageSummary = { ...Exhausted, tokensUsed: 1_250_000, tokensRemaining: 3_750_000, usedPercent: 25, isLimitReached: false }
 const dvarTorahClient: DvarTorahClient = {
   getReadState: async () => ({ readWeekKeys: [] }),
   setReadState: vi.fn().mockResolvedValue(undefined),
@@ -52,6 +52,7 @@ describe('Monthly token allowance', () => {
   })
 
   it('uses the completed turn allowance immediately and still displays its answer', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const clients = createDemoApplicationClients()
     clients.conversationSettingsClient.getUsage = () => Promise.resolve(Available)
     const original = clients.conversationClient.appendMessage
@@ -97,11 +98,12 @@ describe('Monthly token allowance', () => {
     expect(progress).toHaveAttribute('aria-valuenow', '75')
     expect(screen.getByText('75% left')).toBeVisible()
     expect(screen.getByText(/^Resets /)).toBeVisible()
-    expect(screen.queryByText(/2,500,000|10,000,000|Includes reasoning|tokens/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/1,250,000|5,000,000|Includes reasoning|tokens/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/answers remaining/)).not.toBeInTheDocument()
   })
 
   it('does not let a stale usage request overwrite an exhausted turn response', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const clients = createDemoApplicationClients()
     const stale = deferred<UsageSummary>()
     clients.conversationSettingsClient.getUsage = vi.fn().mockResolvedValueOnce(Available).mockReturnValue(stale.promise)
@@ -120,6 +122,7 @@ describe('Monthly token allowance', () => {
   })
 
   it('pauses old and new chats offline without losing or automatically sending a draft', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const clients = createDemoApplicationClients()
     clients.conversationSettingsClient.getUsage = vi.fn().mockResolvedValue(Available)
     const append = vi.spyOn(clients.conversationClient, 'appendMessage')

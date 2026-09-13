@@ -22,7 +22,9 @@ The static portion of the current request. It reinforces direct, concise BLUF ph
 
 ### `validation-repair.txt`
 
-The one-time correction request used when the first structured draft fails deterministic validation or the independent relevance-and-support audit. `{{validationError}}` is replaced with the precise validation failure. The repair must remain concise and reuse the same packet. It may split, merge, add, remove, or rewrite statement objects and reassign existing packet evidence so every proposition is atomic and fully supported, but it can never invent evidence IDs, sources, quotations, attributions, or source relationships.
+The one-time correction request used when the first structured draft fails deterministic validation or the independent relevance-and-support audit. `{{validationError}}` is replaced with the precise validation failure. The repair remains concise and may use remaining bounded research calls to obtain missing original sources. It may split, merge, add, remove, or rewrite statement objects and reassign verified evidence, but it can never invent evidence IDs, sources, quotations, attributions, or source relationships. Inline quotation failures identify the claim and quoted-phrase number without including potentially personal prose in logs.
+
+For inline quotations, the writer can place `[[quote:E1:@Q2]]` in a paragraph using an actual cited evidence ID and supplied `quotationChoices` selector. `GroundedInlineQuotationExpander` substitutes the exact source wording before the semantic audit and final quotation-language checks. Unknown or uncited selectors fail closed. The response schema and persisted answer format remain unchanged: markers are internal drafting syntax, never displayed or saved in place of quotation text. This avoids retyping errors while retaining quotations inside the explanation, not only in expandable source context.
 
 ### `interpretive-notice.txt`
 

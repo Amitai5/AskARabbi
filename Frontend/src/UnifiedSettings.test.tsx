@@ -33,7 +33,7 @@ describe('unified settings', () => {
     expect(window.location.pathname).toBe('/settings/account')
     await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(screen.getByRole('complementary', { name: 'Conversation navigation' })).toBeVisible()
-    expect(window.location.pathname).toBe('/conversations/chicken-dairy')
+    expect(window.location.pathname).toBe('/conversations/new')
   })
 
   it.each([['/settings', 'Account', '/settings/account'], ['/personalization', 'Personalization', '/settings/personalization'], ['/settings/reading', 'Reading', '/settings/reading']])('opens and canonicalizes %s', async (path, heading, expectedPath) => {
