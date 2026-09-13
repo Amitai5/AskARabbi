@@ -47,10 +47,14 @@ export function useMonthlyUsage(client: ConversationSettingsClient, userId: stri
   useEffect(() => {
     void fetchUsage()
     const onFocus = () => { void refresh() }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') { void refresh() }
+    }
     const onOffline = () => { requestVersion.current += 1; setIsLoading(false) }
     window.addEventListener('focus', onFocus)
     window.addEventListener('online', onFocus)
     window.addEventListener('offline', onOffline)
+    document.addEventListener('visibilitychange', onVisibilityChange)
     const unsubscribe = subscribeToUserDataEvents(userId, (event) => {
       if (event.kind === 'usage-changed') { void refresh() }
     })
@@ -59,6 +63,7 @@ export function useMonthlyUsage(client: ConversationSettingsClient, userId: stri
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('online', onFocus)
       window.removeEventListener('offline', onOffline)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       unsubscribe()
     }
   }, [fetchUsage, refresh, userId])

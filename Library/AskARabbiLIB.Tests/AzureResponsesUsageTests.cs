@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.AI.Tools;
+using AskARabbiLIB.Persistence.InMemory;
 using AskARabbiLIB.Usage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenAI;
@@ -15,6 +16,36 @@ namespace AskARabbiLIB.Tests;
 [TestClass]
 public sealed class AzureResponsesUsageTests
 {
+    [TestMethod]
+    [DataRow("completed")]
+    [DataRow("incomplete")]
+    [TestCategory("Regression")]
+    public async Task SendAsync_ToolContinuationAndAudit_PersistsExactProviderTotalsIncludingReasoning(string auditStatus)
+    {
+        var userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var store = new InMemoryUsageStore();
+        var usage = new MonthlyUsageService(store, 5_000_000, new FixedClock());
+        var observer = new ChatUsageContext();
+        var lease = await usage.BeginChatAsync(userId);
+        using var scope = observer.Begin(lease, usage);
+        var sources = new SourceResearchTestData.Sources();
+        var session = new AIToolExecutionSession(new AIToolRegistry([new SourceResearchAITools(sources, sources)]), SourceResearchTestData.Context, 0, initialRequiredToolName: "read_source_passage");
+        using var draftHttp = new HttpClient(new ResearchResponseHandler());
+        using var auditHttp = new HttpClient(new ResponseHandler(auditStatus));
+
+        var draft = await CreateTransport(draftHttp, observer).SendAsync(CreateRequest() with { ToolSession = session }, CancellationToken.None);
+        var audit = await CreateTransport(auditHttp, observer).SendAsync(CreateRequest(), CancellationToken.None);
+        await usage.EndChatAsync(lease);
+        var saved = await new MonthlyUsageService(store, 5_000_000, new FixedClock()).GetCurrentAsync(userId);
+
+        Assert.AreEqual(new AIUsage(200, 400, 600), draft.Usage);
+        Assert.AreEqual(new AIUsage(100, 200, 300), audit.Usage);
+        Assert.AreEqual(900L, saved.TokensUsed, "Reasoning is already in output tokens; cached input counts once and each continuation counts separately.");
+        Assert.AreEqual(0.018m, saved.UsedPercent);
+        Assert.AreEqual(900L, observer.TokensRecorded);
+        Assert.AreEqual(3, observer.ProviderResponsesRecorded);
+    }
+
     [TestMethod]
     [TestCategory("Regression")]
     public async Task SendAsync_RequiredInitialResearch_ReturnsToAutomaticChoiceAfterOneRead()
@@ -154,10 +185,15 @@ public sealed class AzureResponsesUsageTests
                 ? """{"type":"function_call","id":"fc_test","call_id":"call_test","name":"read_source_passage","arguments":"{\"reference\":\"Shulchan Arukh, Orach Chayim 583:1\"}","status":"completed"}"""
                 : """{"id":"msg_test","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"{}","annotations":[]}]}""";
             var json = $$$"""
-                {"id":"resp_test","object":"response","created_at":1785542400,"status":"completed","model":"test-model","output":[{{{output}}}],
+                {"id":"resp_tool_{{{Requests.Count}}}","object":"response","created_at":1785542400,"status":"completed","model":"test-model","output":[{{{output}}}],
                  "usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":0},"output_tokens":200,"output_tokens_details":{"reasoning_tokens":100},"total_tokens":300}}
                 """;
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
         }
+    }
+
+    private sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
     }
 }

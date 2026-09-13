@@ -11,6 +11,12 @@ public sealed class ChatUsageContext : IAIUsageObserver
     /// <summary>Gets whether this chat has received any provider usage reports.</summary>
     public bool HasReportedUsage => current.Value?.HasReportedUsage == true;
 
+    /// <summary>Gets successfully recorded tokens from all provider stages in this chat, including retrieval.</summary>
+    public long TokensRecorded => current.Value?.TokensRecorded ?? 0;
+
+    /// <summary>Gets the number of distinct provider responses successfully recorded in this chat.</summary>
+    public int ProviderResponsesRecorded => current.Value?.ProviderResponsesRecorded ?? 0;
+
     /// <summary>Opens an accounting scope in the caller's execution context.</summary>
     /// <param name="lease">Durable chat admission lease.</param>
     /// <param name="usage">Monthly accounting service.</param>
@@ -42,6 +48,8 @@ public sealed class ChatUsageContext : IAIUsageObserver
         private bool disposed;
         private ChatUsageException? failure;
         internal bool HasReportedUsage { get; private set; }
+        internal long TokensRecorded { get; private set; }
+        internal int ProviderResponsesRecorded { get; private set; }
 
         internal async Task BeforeRequestAsync(CancellationToken cancellationToken)
         {
@@ -81,6 +89,8 @@ public sealed class ChatUsageContext : IAIUsageObserver
                 totalTokens = checked(totalTokens + Math.Max(usage.TotalTokens, (long)usage.InputTokens + usage.OutputTokens));
                 HasReportedUsage = true;
                 await service.RecordTokensAsync(lease, totalTokens, timeout.Token).ConfigureAwait(false);
+                TokensRecorded = totalTokens;
+                ProviderResponsesRecorded++;
             }
             catch (ChatUsageException exception)
             {

@@ -16,7 +16,8 @@ export interface UsageSummary {
 
 export function formatUsageRemainingPercent(usage: UsageSummary): string {
   const remaining = usage.isLimitReached ? 0 : 100 - Math.min(100, Math.max(0, usage.usedPercent))
-  return remaining > 0 && remaining < 0.1 ? '<0.1' : (Math.floor(remaining * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 })
+  // Avoid losing a hundredth to floating-point subtraction at an exact boundary.
+  return remaining > 0 && remaining < 0.01 ? '<0.01' : (Math.floor(remaining * 100 + 1e-9) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 export function createDefaultUserSettings(): UserSettings {

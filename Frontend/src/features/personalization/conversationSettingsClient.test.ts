@@ -4,6 +4,16 @@ import { createBackendConversationSettingsClient } from './conversationSettingsC
 import { DefaultReadingPreferences } from '../reading/readingPreferences.ts'
 import { createDefaultUserSettings } from '../settings/settingsTypes.ts'
 
+describe('Monthly usage API contract', () => {
+  it('bypasses the browser cache for the authoritative token allowance', async () => {
+    const request = vi.fn().mockResolvedValue({ tokenLimit: 5_000_000, tokensUsed: 247_022 })
+    const client = createBackendConversationSettingsClient({ baseUrl: '', request })
+
+    expect(await client.getUsage()).toEqual({ tokenLimit: 5_000_000, tokensUsed: 247_022 })
+    expect(request).toHaveBeenCalledWith('/api/conversation-settings/usage', { cache: 'no-store' })
+  })
+})
+
 describe('Enter preference API contract', () => {
   it('uses new-line behavior when an older API omits the preference', async () => {
     const request = vi.fn().mockResolvedValue({ showSourceContextByDefault: true, emailProductUpdates: false })

@@ -23,7 +23,9 @@ Both conversation-creation and follow-up endpoints check admission before saving
 
 An already-admitted provider response can finish slightly above the allowance, because its exact usage is only available afterward. The actual total is retained, the consumed percentage clamps at 100% (0% remaining in the UI), and no further provider request or question is admitted. This is an admission limit, not a promise that a paid response is terminated at exactly token 5,000,000. A provider timeout without returned usage cannot be accurately charged from an estimate.
 
-Usage is assigned to the month when the chat request began, even if its answer completes after midnight. A fresh month has a fresh counter without a reset job. The frontend refreshes at the UTC month boundary, on focus, and when another tab reports new usage. Deleting chats does **not** reset allowance; full account erasure removes the usage data with the rest of the account.
+Usage is assigned to the month when the chat request began, even if its answer completes after midnight. A fresh month has a fresh counter without a reset job. The frontend refreshes at the UTC month boundary, on focus, when a mobile app/tab becomes visible, when Account settings opens, and when another tab reports new usage. Usage requests bypass the browser cache, and a delayed read cannot overwrite a completed turn's newer usage. Deleting chats does **not** reset allowance; full account erasure removes the usage data with the rest of the account.
+
+Settings and the profile menu show up to two decimal places of the remaining percentage (rounded down), not raw token counts. At a 5M allowance, 25,000 tokens consume 0.5 percentage points. Reducing the allowance from 10M to 5M doubles the **consumed** percentage; it does not halve the displayed remaining percentage. For example, 250,000 tokens changes from 97.5% remaining to 95% remaining without resetting the counter.
 
 The chat lease expires after ten minutes to recover from a crashed replica, longer than the existing five-minute API mutation timeout. A lost lease or failed accounting write stops additional AI work. Received usage writes use their own bounded timeout so a browser disconnect cannot cancel an already-known charge.
 
@@ -57,6 +59,10 @@ At 100%, the composer disables button and Enter submissions for new and old conv
 ## Weekly publication idempotency
 
 Dvar Torah uniqueness remains keyed by the exact Shabbat date and configured reading cycle, e.g. `diaspora:2026-09-05`, not the parashah name. The coordinator checks for a published article and acquires the existing exclusive Mongo publication lease **before** the deferred generator loads the corpus or initializes AI/research services. Repeated or concurrent job runs cannot publish a second article for that key; the same parashah in another year's week remains valid. Existing publication audio can independently resume its idempotent audio workflow without regenerating the text.
+
+## Accounting diagnostics
+
+Conversation completion logs distinguish `model total tokens` (drafts, audits, tool continuations and repairs) from `metered tokens including retrieval` (all successfully recorded provider responses in the chat scope). `metered provider responses` counts those distinct responses, excluding repeated reports of the same response ID. Do not compare the older model-only trace total to a monthly delta when source retrieval also called the model. Cached corpus lookups do not call the provider and therefore add no new tokens. The diagnostic counters contain no question, answer or source text and are cleared with the request scope; they do not change billing or the persisted schema.
 
 ## Impact
 

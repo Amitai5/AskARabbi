@@ -72,7 +72,7 @@ export function createBackendConversationSettingsClient(apiClient: ApiClient = c
       }))
     },
     getUsage() {
-      return apiClient.request<UsageSummary>('/api/conversation-settings/usage')
+      return apiClient.request<UsageSummary>('/api/conversation-settings/usage', { cache: 'no-store' })
     },
   }
 }

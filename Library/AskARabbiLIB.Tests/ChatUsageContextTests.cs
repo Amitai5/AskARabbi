@@ -28,6 +28,8 @@ public sealed class ChatUsageContextTests
 
         Assert.AreEqual(1_710L, (await service.GetCurrentAsync(UserId)).TokensUsed);
         Assert.IsTrue(context.HasReportedUsage);
+        Assert.AreEqual(1_710L, context.TokensRecorded);
+        Assert.AreEqual(4, context.ProviderResponsesRecorded);
     }
 
     [TestMethod]
@@ -97,6 +99,8 @@ public sealed class ChatUsageContextTests
 
         Assert.AreEqual("usage_unavailable", recording.Code);
         Assert.AreSame(recording, nextCall);
+        Assert.AreEqual(0L, context.TokensRecorded);
+        Assert.AreEqual(0, context.ProviderResponsesRecorded);
     }
 
     [TestMethod]
@@ -109,6 +113,8 @@ public sealed class ChatUsageContextTests
         await context.RecordAsync("weekly-generation", new AIUsage(100, 100, 200));
 
         Assert.IsFalse(context.HasReportedUsage);
+        Assert.AreEqual(0L, context.TokensRecorded);
+        Assert.AreEqual(0, context.ProviderResponsesRecorded);
     }
 
     [TestMethod]

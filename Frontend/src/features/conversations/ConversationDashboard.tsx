@@ -191,6 +191,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setTargetSetting(settingId ?? null)
     setSettingsNavigationKey(key => key + 1)
     setActiveView('settings')
+    // Recheck the current allowance even when this tab still has a cached value.
+    if (section === 'account') { void loadUsage() }
     if (!keepNavigationOpen) { setIsMobileSidebarOpen(false) }
     setSourceReaderSelection(null)
   }
@@ -464,9 +466,6 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setIsMobileSidebarOpen(false)
     setSourceReaderSelection(null)
     navigateSettings('account', settingId)
-    if (usage === null && !isLoadingUsage) {
-      void loadUsage()
-    }
   }
 
   function handleOpenCalendar() {

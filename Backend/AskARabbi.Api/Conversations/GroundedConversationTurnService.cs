@@ -187,7 +187,7 @@ public sealed class GroundedConversationTurnService
     private void LogTurnMetrics(Guid conversationId, GroundedAnswerResult result, TimeSpan processingLatency, bool wasPersisted)
     {
         logger.LogInformation(
-            "Grounded turn completed for conversation {ConversationId}: status {Status}, persisted {WasPersisted}, total {TotalMilliseconds} ms, retrieval {RetrievalMilliseconds} ms, model {ModelMilliseconds} ms, candidates {CandidateCount}, evidence {EvidenceCount}, evidence characters {EvidenceCharacterCount}, validation {ValidationStatus}, repair {RepairAttempted}, provider status {ProviderStatus}, completion reason {CompletionReason}, response {ResponseId}, provider attempts {ProviderAttempts}, input tokens {InputTokens}, output tokens {OutputTokens}, total tokens {TotalTokens}.",
+            "Grounded turn completed for conversation {ConversationId}: status {Status}, persisted {WasPersisted}, total {TotalMilliseconds} ms, retrieval {RetrievalMilliseconds} ms, model {ModelMilliseconds} ms, candidates {CandidateCount}, evidence {EvidenceCount}, evidence characters {EvidenceCharacterCount}, validation {ValidationStatus}, repair {RepairAttempted}, provider status {ProviderStatus}, completion reason {CompletionReason}, response {ResponseId}, provider attempts {ProviderAttempts}, model input tokens {InputTokens}, model output tokens {OutputTokens}, model total tokens {TotalTokens}, metered tokens including retrieval {MeteredTokens}, metered provider responses {MeteredProviderResponses}.",
             conversationId,
             result.Status,
             wasPersisted,
@@ -205,7 +205,9 @@ public sealed class GroundedConversationTurnService
             result.Trace.ProviderAttempts,
             result.Trace.Usage?.InputTokens,
             result.Trace.Usage?.OutputTokens,
-            result.Trace.Usage?.TotalTokens);
+            result.Trace.Usage?.TotalTokens,
+            usageContext.TokensRecorded,
+            usageContext.ProviderResponsesRecorded);
     }
 
     internal static Guid CreateAssistantMessageId(Guid userMessageId)
