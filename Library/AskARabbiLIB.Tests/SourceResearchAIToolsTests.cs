@@ -10,6 +10,35 @@ namespace AskARabbiLIB.Tests;
 public sealed class SourceResearchAIToolsTests
 {
     [TestMethod]
+    public async Task SearchAsync_ModelBroadensToHoliday_DoesNotLoseOriginalFoodQuestion()
+    {
+        var sources = new SourceResearchTestData.Sources { Results = [SourceResearchTestData.Passage("Rosh Hashanah prayers and shofar obligations are discussed.")] };
+        var research = new SourceResearchAITools(sources, sources);
+        var context = SourceResearchTestData.Context with { SourceFilters = new AskARabbiLIB.Retrieval.SourceRetrievalQuery { QueryText = SourceResearchTestData.Question } };
+
+        var result = await research.SearchAsync("Rosh Hashanah", context);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsEmpty(result.Sources);
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_FirstReadFails_ReleasesRequiredChoiceWithoutResettingBudget()
+    {
+        var sources = new SourceResearchTestData.Sources { Empty = true };
+        var registry = new AIToolRegistry([new SourceResearchAITools(sources, sources)]);
+        var session = new AIToolExecutionSession(registry, SourceResearchTestData.Context, 0, initialRequiredToolName: "read_source_passage");
+        Assert.AreEqual("read_source_passage", session.RequiredToolName);
+
+        await session.ExecuteAsync("read_source_passage", BinaryData.FromString("{\"reference\":\"Genesis 1:1\"}"));
+
+        Assert.IsNull(session.RequiredToolName);
+        Assert.AreEqual(1, session.ExecutionCount);
+        Assert.AreEqual(4, session.MaximumExecutionCount);
+        Assert.ThrowsExactly<ArgumentException>(() => new AIToolExecutionSession(registry, SourceResearchTestData.Context, 0, initialRequiredToolName: "missing"));
+    }
+
+    [TestMethod]
     public void Evaluate_SquashQuestionWithOnlyHolidayPrayerMatches_RejectsUnrelatedEvidence()
     {
         var hits = new[] { new SourceRetrievalHit(SourceResearchTestData.Passage("The Rosh Hashanah Musaf prayers and shofar obligations are discussed."), 1, false) };

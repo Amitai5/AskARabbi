@@ -119,6 +119,8 @@ if (groundedChatOptions.IsConfigured)
     var managedManifest = await new ManifestLoader().LoadAsync(managedManifestPath).ConfigureAwait(false);
     builder.Services.AddSingleton(managedManifest);
     builder.Services.AddSingleton<ICanonicalSourceReader>(new BundledCanonicalSourceReader(managedManifest, Path.Combine(AppContext.BaseDirectory, "Data", "canonical-sources.zip")));
+    var bundledManifest = new BundledNormalizedDocumentProvider(managedManifest, Path.Combine(AppContext.BaseDirectory, "Data", "canonical-sources.zip")).Manifest;
+    builder.Services.AddSingleton(new SqliteSourceRetriever(Path.Combine(AppContext.BaseDirectory, "Data", "canonical-search.sqlite"), bundledManifest));
     builder.Services.AddSingleton<TokenCredential>(_ => builder.Environment.IsDevelopment()
         ? new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = string.IsNullOrWhiteSpace(groundedChatOptions.TenantId) ? null : groundedChatOptions.TenantId })
         : new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
@@ -136,7 +138,7 @@ if (groundedChatOptions.IsConfigured)
         provider.GetRequiredService<ChatUsageContext>()));
     builder.Services.AddSingleton<IAzureOpenAIVectorStoreSearchClient>(provider => provider.GetRequiredService<AzureOpenAIVectorStoreClient>());
     builder.Services.AddSingleton<ISourceRetriever>(provider => new CachingSourceRetriever(
-        new AzureOpenAIVectorStoreRetriever(
+        new ResearchSourceRetriever(new AzureOpenAIVectorStoreRetriever(
             provider.GetRequiredService<IAzureOpenAIVectorStoreSearchClient>(),
             new AzureOpenAIVectorStoreRetrieverOptions
             {
@@ -144,7 +146,7 @@ if (groundedChatOptions.IsConfigured)
                 ExpectedCorpusFingerprint = groundedChatOptions.CorpusFingerprint,
                 ScoreThreshold = groundedChatOptions.RetrievalScoreThreshold,
             },
-            provider.GetRequiredService<AskARabbiLIB.Models.DocumentManifest>()),
+            provider.GetRequiredService<AskARabbiLIB.Models.DocumentManifest>()), provider.GetRequiredService<SqliteSourceRetriever>()),
         groundedChatOptions.CreateRetrieverCacheOptions(),
         provider.GetRequiredService<TimeProvider>()));
     builder.Services.AddSingleton<IAIEngine>(provider => new AzureOpenAIEngine(

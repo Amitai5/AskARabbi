@@ -36,11 +36,12 @@ public sealed class SourceResearchAITools
         var filters = RequireFilters(context);
         var hits = await retriever.SearchAsync(filters with { QueryText = query.Trim(), ExactCanonicalReference = null, CandidateLimit = 12 }, cancellationToken).ConfigureAwait(false);
         var adequacy = SourceEvidenceAdequacyEvaluator.Evaluate(query, hits);
-        if (!adequacy.IsAdequate)
+        var originalQuestionAdequacy = string.IsNullOrWhiteSpace(filters.QueryText) ? adequacy : SourceEvidenceAdequacyEvaluator.Evaluate(filters.QueryText, hits);
+        if (!adequacy.IsAdequate || !originalQuestionAdequacy.IsAdequate)
         {
-            return AIToolExecutionResult.Failure("No directly relevant passages matched within the enabled sources. Try alternate terminology or read a specific canonical reference; unrelated matches do not prove absence of an answer.");
+            return AIToolExecutionResult.Failure("No passages directly addressed the original question within the enabled sources. Read a likely exact canonical reference now rather than broadening the topic. Unrelated matches do not prove absence of an answer.");
         }
-        var sources = adequacy.OrderedHits.DistinctBy(hit => hit.Segment.CanonicalReference).Take(MaximumSources).Select(hit => hit.Segment).ToArray();
+        var sources = originalQuestionAdequacy.OrderedHits.DistinctBy(hit => hit.Segment.CanonicalReference).Take(MaximumSources).Select(hit => hit.Segment).ToArray();
         return CreateResult(sources, 0);
     }
 

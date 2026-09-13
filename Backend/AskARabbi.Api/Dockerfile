@@ -11,6 +11,8 @@ COPY ["Backend/AskARabbi.Api/", "Backend/AskARabbi.Api/"]
 COPY ["Prototype/Prompts/", "Prototype/Prompts/"]
 COPY ["Data/NormalizedData/Sefaria/Metadata/document-manifest.json", "Data/NormalizedData/Sefaria/Metadata/document-manifest.json"]
 RUN dotnet publish "Backend/AskARabbi.Api/AskARabbi.Api.csproj" --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
+COPY ["Tools/AskARabbi.CorpusPublisher/", "Tools/AskARabbi.CorpusPublisher/"]
+RUN dotnet run --project Tools/AskARabbi.CorpusPublisher/AskARabbi.CorpusPublisher.csproj --configuration Release -- index-bundle --index /app/publish/Data/canonical-search.sqlite
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 

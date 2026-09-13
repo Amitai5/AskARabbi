@@ -2,7 +2,9 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using AskARabbiLIB.AI;
+using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.Usage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenAI;
@@ -13,6 +15,29 @@ namespace AskARabbiLIB.Tests;
 [TestClass]
 public sealed class AzureResponsesUsageTests
 {
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task SendAsync_RequiredInitialResearch_ReturnsToAutomaticChoiceAfterOneRead()
+    {
+        var sources = new SourceResearchTestData.Sources();
+        var registry = new AIToolRegistry([new SourceResearchAITools(sources, sources)]);
+        var session = new AIToolExecutionSession(registry, SourceResearchTestData.Context, 0, initialRequiredToolName: "read_source_passage");
+        var observer = new UsageObserver();
+        var handler = new ResearchResponseHandler();
+        using var httpClient = new HttpClient(handler);
+
+        var result = await CreateTransport(httpClient, observer).SendAsync(CreateRequest() with { ToolSession = session }, CancellationToken.None);
+
+        Assert.AreEqual(AIEngineStatus.Success, result.Status, result.ErrorMessage);
+        Assert.AreEqual("read_source_passage", handler.Requests[0].GetProperty("tool_choice").GetProperty("name").GetString());
+        Assert.AreEqual("auto", handler.Requests[1].GetProperty("tool_choice").GetString());
+        Assert.IsFalse(handler.Requests[0].GetProperty("store").GetBoolean());
+        Assert.IsFalse(handler.Requests[1].GetProperty("store").GetBoolean());
+        Assert.AreEqual(2, observer.Checks);
+        Assert.HasCount(1, sources.Reads);
+        Assert.AreEqual(1, session.ExecutionCount);
+    }
+
     [TestMethod]
     [DataRow("completed", AIEngineStatus.Success)]
     [DataRow("incomplete", AIEngineStatus.InvalidResponse)]
@@ -113,6 +138,26 @@ public sealed class AzureResponsesUsageTests
                  "usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":20},"output_tokens":200,"output_tokens_details":{"reasoning_tokens":150},"total_tokens":300}}
                 """;
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") });
+        }
+    }
+
+    private sealed class ResearchResponseHandler : HttpMessageHandler
+    {
+        internal List<JsonElement> Requests { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var content = request.Content ?? throw new AssertFailedException("A structured provider request must contain a body.");
+            using var body = JsonDocument.Parse(await content.ReadAsStringAsync(cancellationToken));
+            Requests.Add(body.RootElement.Clone());
+            var output = Requests.Count == 1
+                ? """{"type":"function_call","id":"fc_test","call_id":"call_test","name":"read_source_passage","arguments":"{\"reference\":\"Shulchan Arukh, Orach Chayim 583:1\"}","status":"completed"}"""
+                : """{"id":"msg_test","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"{}","annotations":[]}]}""";
+            var json = $$$"""
+                {"id":"resp_test","object":"response","created_at":1785542400,"status":"completed","model":"test-model","output":[{{{output}}}],
+                 "usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":0},"output_tokens":200,"output_tokens_details":{"reasoning_tokens":100},"total_tokens":300}}
+                """;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
         }
     }
 }

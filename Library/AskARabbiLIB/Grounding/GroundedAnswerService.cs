@@ -118,6 +118,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             SourceFilters = new SourceRetrievalQuery
             {
+                QueryText = BuildRetrievalText(question.Question, recentConversation, null),
                 Languages = ConversationReferenceGuide.PreferredLanguages(question),
                 Collections = question.Collections,
                 Categories = question.Categories,
@@ -206,7 +207,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var diagnostics = new List<AIResponseDiagnostics>();
         // Word research may become necessary while explaining an otherwise supported passage.
         var toolSession = toolRegistry is not null && (hasDictionary || hasSourceResearch || (prefetchedParashah is null && mayUseTools))
-            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count)
+            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count, initialRequiredToolName: hasSourceResearch && packet.Items.Count == 0 ? "search_source_passages" : null)
             : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);
         var firstResult = await GenerateDraftAsync(messages, toolSession, cancellationToken).ConfigureAwait(false);
@@ -1010,7 +1011,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var normalized = string.Join(' ', tokens);
         return normalized.Contains("evidence packet", StringComparison.Ordinal)
-            || Regex.IsMatch(value, @"\b(?:supplied|provided|available)\s+(?:(?:halakhic|religious|source|torah|textual)\s+)?(?:sources?|passages?|material|excerpts?|evidence)\b|\b(?:passages?|excerpts?)\s+(?:here|provided|supplied)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1))
+            || Regex.IsMatch(value, @"\b(?:supplied|provided|available)\s+(?:(?:halakhic|religious|source|torah|textual)\s+)?(?:sources?|passages?|material|excerpts?|evidence)\b|\b(?:sources?|passages?|texts?|excerpts?)\s+(?:here|provided|supplied|(?:that\s+)?you\s+(?:gave|provided|supplied))\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1))
             || normalized.Contains("retrieved source", StringComparison.Ordinal)
             || normalized.Contains("retrieved passage", StringComparison.Ordinal)
             || normalized.Contains("retrieval system", StringComparison.Ordinal)

@@ -87,6 +87,10 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
                         responseOptions.ToolChoice = ResponseToolChoice.CreateNoneChoice();
                         responseOptions.Tools.Clear();
                     }
+                    else
+                    {
+                        responseOptions.ToolChoice = ResponseToolChoice.CreateAutoChoice();
+                    }
                     continue;
                 }
 
@@ -209,6 +213,10 @@ internal sealed class AzureResponsesTransport : IAIResponseTransport
             }
             options.MaxToolCallCount = request.ToolSession.MaximumExecutionCount;
             options.ParallelToolCallsEnabled = false;
+            if (request.ToolSession.RequiredToolName is { } requiredTool)
+            {
+                options.ToolChoice = ResponseToolChoice.CreateFunctionChoice(requiredTool);
+            }
         }
 
         return options;

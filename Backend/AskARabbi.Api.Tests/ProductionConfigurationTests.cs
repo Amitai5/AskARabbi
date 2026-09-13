@@ -48,8 +48,9 @@ public sealed class ProductionConfigurationTests
         StringAssert.Contains(groundedPrompts.CurrentQuestionInstruction, "Follow answerFocus as a required task definition");
         StringAssert.Contains(groundedPrompts.CurrentQuestionInstruction, "A why-question must explain the evidenced rationale");
         StringAssert.Contains(groundedPrompts.CurrentQuestionInstruction, "independently verifiable proposition");
-        StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "add, remove, or reassign evidence IDs");
-        StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "Never invent an evidence ID");
+        StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "add, remove, or reassign real evidence IDs");
+        StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "never invent an evidence ID");
+        StringAssert.Contains(groundedPrompts.ValidationRepairPrompt, "use remaining source-research calls");
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "separate support obligation");
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "isResponsive");
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "stating that a rule is rabbinic does not answer why");

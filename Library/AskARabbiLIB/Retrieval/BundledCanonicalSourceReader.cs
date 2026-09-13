@@ -1,7 +1,4 @@
 using System.Collections.Concurrent;
-using System.IO.Compression;
-using System.Security.Cryptography;
-using System.Text;
 using AskARabbiLIB.Models;
 
 namespace AskARabbiLIB.Retrieval;
@@ -9,31 +6,28 @@ namespace AskARabbiLIB.Retrieval;
 /// <summary>Reads a bounded cache of complete approved editions from the deployment's immutable source archive.</summary>
 public sealed class BundledCanonicalSourceReader : ICanonicalSourceReader
 {
-    private readonly Func<Stream> openArchive;
+    private readonly BundledNormalizedDocumentProvider documentProvider;
     private readonly IReadOnlyList<ManifestDocument> documents;
     private readonly ConcurrentDictionary<string, IReadOnlyList<SourceSegment>> cache = new(StringComparer.Ordinal);
 
     /// <summary>Opens an archive whose entries are addressed by hashes in the approved manifest.</summary>
     /// <param name="manifest">Validated approved-corpus manifest.</param>
     /// <param name="archivePath">Deployment-local archive, never a user-provided path.</param>
-    public BundledCanonicalSourceReader(DocumentManifest manifest, string archivePath) : this(manifest, CreateArchiveFactory(archivePath))
+    public BundledCanonicalSourceReader(DocumentManifest manifest, string archivePath) : this(new BundledNormalizedDocumentProvider(manifest, archivePath))
     {
     }
 
     /// <summary>Opens approved editions through an injected stream factory, including in-memory verification fixtures.</summary>
     /// <param name="manifest">Validated approved-corpus manifest.</param>
     /// <param name="openArchive">Creates a fresh readable archive stream; the reader disposes it.</param>
-    public BundledCanonicalSourceReader(DocumentManifest manifest, Func<Stream> openArchive)
+    public BundledCanonicalSourceReader(DocumentManifest manifest, Func<Stream> openArchive) : this(new BundledNormalizedDocumentProvider(manifest, openArchive))
     {
-        ArgumentNullException.ThrowIfNull(manifest);
-        this.openArchive = openArchive ?? throw new ArgumentNullException(nameof(openArchive));
-        using var archive = new ZipArchive(openArchive(), ZipArchiveMode.Read);
-        var entries = archive.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
-        documents = manifest.Documents.Where(document => entries.Contains(document.Sha256 + ".md")).ToArray();
-        if (documents.Count == 0)
-        {
-            throw new InvalidDataException("The canonical source archive does not match the approved manifest.");
-        }
+    }
+
+    private BundledCanonicalSourceReader(BundledNormalizedDocumentProvider documentProvider)
+    {
+        this.documentProvider = documentProvider;
+        documents = documentProvider.Manifest.Documents;
     }
 
     /// <inheritdoc/>
@@ -66,26 +60,13 @@ public sealed class BundledCanonicalSourceReader : ICanonicalSourceReader
         {
             return cached;
         }
-        using var archive = new ZipArchive(openArchive(), ZipArchiveMode.Read);
-        var entry = archive.GetEntry(document.Sha256 + ".md") ?? throw new InvalidDataException("A canonical document is missing from the archive.");
-        if (entry.Length != document.FileSizeBytes || entry.Length > 20_000_000)
-        {
-            throw new InvalidDataException("A canonical document has invalid size metadata.");
-        }
-        await using var stream = entry.Open();
-        using var buffer = new MemoryStream((int)entry.Length);
-        await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-        var bytes = buffer.ToArray();
-        if (!string.Equals(Convert.ToHexStringLower(SHA256.HashData(bytes)), document.Sha256, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidDataException("A canonical source document failed checksum verification.");
-        }
-        var parsed = new NormalizedMarkdownSegmentParser().Parse(document, Encoding.UTF8.GetString(bytes));
+        var markdown = await documentProvider.LoadAsync(document, cancellationToken).ConfigureAwait(false);
+        var parsed = new NormalizedMarkdownSegmentParser().Parse(document, markdown);
         var segments = document.WorkKey == "shulchan_arukh_with_rema"
             ? parsed.Select(segment => segment with { UsageNote = segment.UsageNote + " Attribution boundary: this edition interleaves Rabbi Yosef Karo's base text and Rema's glosses. Parenthesized Rema remarks may end before the base sentence resumes. Do not attribute the whole segment to Rema merely because it contains a Rema marker; when the speaker is ambiguous, cite Shulchan Arukh without inventing an individual attribution." }).ToArray()
             : parsed;
         // Bound memory on the small API container; cold books remain readable without caching.
-        if (cache.Count < 16 && bytes.Length < 2_000_000)
+        if (cache.Count < 16 && document.FileSizeBytes < 2_000_000)
         {
             cache.TryAdd(document.DocumentId, segments);
         }
@@ -101,13 +82,6 @@ public sealed class BundledCanonicalSourceReader : ICanonicalSourceReader
             && (filters.Categories.Count == 0 || document.Categories.Any(category => filters.Categories.Contains(category, StringComparer.OrdinalIgnoreCase)))
             && (filters.WorkKeys.Count == 0 || document.WorkKey is not null && filters.WorkKeys.Contains(document.WorkKey, StringComparer.Ordinal))
             && (filters.SourceKeys.Count == 0 || filters.SourceKeys.Contains(document.WorkKey is null ? $"collection:{document.Collection}" : $"work:{document.WorkKey}", StringComparer.Ordinal));
-    }
-
-    private static Func<Stream> CreateArchiveFactory(string archivePath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(archivePath);
-        var path = Path.GetFullPath(archivePath);
-        return () => File.OpenRead(path);
     }
 
     private static int LanguageRank(ManifestDocument document, IReadOnlyCollection<string> languages)

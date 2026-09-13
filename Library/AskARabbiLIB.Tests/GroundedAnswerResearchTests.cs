@@ -2,6 +2,7 @@ using System.Text.Json;
 using AskARabbiLIB.AI;
 using AskARabbiLIB.AI.Tools;
 using AskARabbiLIB.Grounding;
+using AskARabbiLIB.Retrieval;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AskARabbiLIB.Tests;
@@ -9,6 +10,53 @@ namespace AskARabbiLIB.Tests;
 [TestClass]
 public sealed class GroundedAnswerResearchTests
 {
+    [TestMethod]
+    public async Task AnswerAsync_SemanticMiss_UsesVerifiedKeywordEvidenceBeforeDrafting()
+    {
+        var sources = new SourceResearchTestData.Sources { InitialMiss = true };
+        var keywords = new SourceResearchTestData.Sources();
+        var retriever = new ResearchSourceRetriever(sources, keywords);
+        var registry = new AIToolRegistry([new SourceResearchAITools(retriever, sources)]);
+        var engine = new ResearchEngine(false, useInitialEvidence: true);
+        var service = new GroundedAnswerService(retriever, engine, Prompts(), new Audit(), new GroundedAnswerOptions { MaximumEnrichmentHits = 0 }, new FixedTime(), registry);
+
+        var result = await service.AnswerAsync(new GroundedQuestion { Question = SourceResearchTestData.Question }, []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.HasCount(1, sources.Searches);
+        Assert.HasCount(0, sources.Reads);
+        Assert.HasCount(1, keywords.Searches);
+        Assert.IsNotNull(result.Answer);
+        Assert.AreEqual(SourceResearchTestData.Reference, result.Answer.Citations[0].CanonicalReference);
+        Assert.IsNull(engine.InitialRequiredToolName);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_KeywordSourceUnavailable_DoesNotInventEvidence()
+    {
+        var sources = new SourceResearchTestData.Sources { Empty = true };
+        var registry = new AIToolRegistry([new SourceResearchAITools(sources, sources)]);
+        var service = new GroundedAnswerService(sources, new ResearchEngine(false, useInitialEvidence: true), Prompts(), new Audit(), new GroundedAnswerOptions { MaximumEnrichmentHits = 0 }, new FixedTime(), registry);
+
+        var result = await service.AnswerAsync(new GroundedQuestion { Question = SourceResearchTestData.Question }, []);
+
+        Assert.AreEqual(GroundedAnswerStatus.ValidationFailed, result.Status);
+        Assert.IsNull(result.Answer);
+        Assert.AreEqual(0, result.Trace.EvidenceCount);
+    }
+
+    [TestMethod]
+    public void ProductionPrompts_MissingContext_AllowResearchDuringDraftAndRepair()
+    {
+        var prompts = Prompts();
+
+        StringAssert.Contains(prompts.SystemBehaviorPrompt, "religious passage FIRST");
+        StringAssert.Contains(prompts.SystemBehaviorPrompt, "first research call");
+        StringAssert.Contains(prompts.ValidationRepairPrompt, "use remaining source-research calls");
+        StringAssert.Contains(prompts.ValidationRepairPrompt, "newly returned by successful research");
+        Assert.IsFalse(prompts.ValidationRepairPrompt.Contains("exactly the same evidence packet", StringComparison.OrdinalIgnoreCase));
+    }
+
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
@@ -31,6 +79,7 @@ public sealed class GroundedAnswerResearchTests
         Assert.HasCount(2, sources.Searches);
         Assert.HasCount(1, sources.Reads);
         Assert.IsTrue(audit.SawReligiousEvidence);
+        Assert.AreEqual("search_source_passages", engine.InitialRequiredToolName);
     }
 
     [TestMethod]
@@ -48,27 +97,43 @@ public sealed class GroundedAnswerResearchTests
 
     private static GroundedPromptSet Prompts() => new()
     {
-        SystemBehaviorPrompt = "Answer from original sources and research missing context.",
+        SystemBehaviorPrompt = ReadPrompt("System"),
         PriorUserContextPrompt = "Prior user: " + GroundedPromptSet.ContextPlaceholder,
         PriorAssistantContextPrompt = "Prior assistant: " + GroundedPromptSet.ContextPlaceholder,
         CurrentQuestionInstruction = "Answer the current question.",
         EvidenceStartMarker = "BEGIN_EVIDENCE", EvidenceEndMarker = "END_EVIDENCE",
-        ValidationRepairPrompt = "Research and repair: " + GroundedPromptSet.ValidationErrorPlaceholder,
+        ValidationRepairPrompt = ReadPrompt("Repair"),
         InterpretiveNotice = "One interpretation.", ResponseJsonSchema = "{\"type\":\"object\"}",
         SupportValidationPrompt = "Audit support.", SupportValidationJsonSchema = "{\"type\":\"object\"}",
     };
 
-    private sealed class ResearchEngine(bool firstDraftDeflects, bool forgeQuotation = false) : IAIEngine
+    private static string ReadPrompt(string name)
+    {
+        using var stream = typeof(GroundedAnswerResearchTests).Assembly.GetManifestResourceStream("ResearchPrompts." + name) ?? throw new AssertFailedException("Missing embedded production prompt.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    private sealed class ResearchEngine(bool firstDraftDeflects, bool forgeQuotation = false, bool useInitialEvidence = false) : IAIEngine
     {
         private int calls;
-        public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default) => throw new AssertFailedException("Research must remain available after inadequate initial retrieval.");
+        internal string? InitialRequiredToolName { get; private set; }
+        public Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, CancellationToken cancellationToken = default) => throw new AssertFailedException("Expected bounded research access.");
 
         public async Task<AIEngineResult<T>> GenerateStructuredAsync<T>(IReadOnlyList<AIMessage> messages, string schemaName, BinaryData jsonSchema, AIToolExecutionSession toolSession, CancellationToken cancellationToken = default)
         {
             calls++;
+            if (calls == 1)
+            {
+                InitialRequiredToolName = toolSession.RequiredToolName;
+            }
             if (firstDraftDeflects && calls == 1)
             {
                 return Success<T>(Draft("Nothing in the supplied halakhic passages ties the squash to a particular prayer.", "E1", "Musaf and shofar obligations."));
+            }
+            if (useInitialEvidence)
+            {
+                return Success<T>(Draft("The connection is wordplay: kra is paired with asking that our judgment be torn up and our merits called out.", "E1", SourceResearchTestData.Quotation));
             }
             await toolSession.ExecuteAsync("search_source_passages", BinaryData.FromString("{\"query\":\"gourd pumpkin Rosh Hashanah prayer\"}"), cancellationToken);
             using var response = JsonDocument.Parse(await toolSession.ExecuteAsync("read_source_passage", BinaryData.FromString("{\"reference\":\"Shulchan Arukh, Orach Chayim 583:1\"}"), cancellationToken));

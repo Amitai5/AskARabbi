@@ -12,7 +12,7 @@ internal static class SourceResearchTestData
     internal static readonly DateTimeOffset Now = new(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
     internal static AIToolExecutionContext Context => new(null, Now)
     {
-        SourceFilters = new SourceRetrievalQuery { Languages = ["English", "Hebrew"], Collections = ["Halakhah"], SourceKeys = ["work:shulchan-arukh"] },
+        SourceFilters = new SourceRetrievalQuery { Languages = ["English", "Hebrew"], Collections = ["Halakhah"], SourceKeys = ["work:shulchan_arukh_with_rema"] },
     };
 
     internal static SourceSegment Passage(string? text = null, string reference = Reference) => new()
