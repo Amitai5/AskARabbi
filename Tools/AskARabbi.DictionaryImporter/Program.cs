@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using AskARabbiLIB.Lexicon;
 using AskARabbiLIB.Persistence.Mongo;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace AskARabbi.DictionaryImporter;
@@ -16,15 +17,26 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
-        if (args.Length is < 2 or > 3 || args[0] is not ("download" or "validate" or "import" or "search"))
+        if (args.Length is < 2 or > 3 || args[0] is not ("download" or "validate" or "import" or "search" or "inspect"))
         {
-            Console.Error.WriteLine("Usage: download <new-directory> | validate <directory> | import <directory> --confirm-write | search <query>. MongoDB__ConnectionString, MongoDB__DatabaseName, and optionally MongoDB__LexiconCollectionName configure import/search.");
+            Console.Error.WriteLine("Usage: download <new-directory> | validate <directory> | import <directory> --confirm-write | search <query> | inspect <collection>. MongoDB__ConnectionString, MongoDB__DatabaseName, and optionally MongoDB__LexiconCollectionName configure database operations.");
             return 2;
         }
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) => { eventArgs.Cancel = true; cancellation.Cancel(); };
         try
         {
+            if (args[0] == "inspect")
+            {
+                var options = CreateOptions();
+                options.Validate();
+                var collection = CreateDatabase(options).GetCollection<BsonDocument>(args[1]);
+                var count = await collection.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty, cancellationToken: cancellation.Token).ConfigureAwait(false);
+                using var indexes = await collection.Indexes.ListAsync(cancellation.Token).ConfigureAwait(false);
+                var indexNames = (await indexes.ToListAsync(cancellation.Token).ConfigureAwait(false)).Select(index => index["name"].AsString).ToArray();
+                WriteJson(new { collection = args[1], count, indexes = indexNames });
+                return 0;
+            }
             if (args[0] == "search")
             {
                 var result = await CreateStore(CreateOptions()).SearchAsync(BdbCorpus.DictionaryId, BdbCorpus.Revision, args[1], 3, cancellation.Token).ConfigureAwait(false);
@@ -149,9 +161,14 @@ internal static class Program
     private static MongoLexiconStore CreateStore(MongoDatabaseOptions options)
     {
         options.Validate();
+        return new MongoLexiconStore(CreateDatabase(options), options);
+    }
+
+    private static IMongoDatabase CreateDatabase(MongoDatabaseOptions options)
+    {
         var settings = MongoClientSettings.FromConnectionString(options.ConnectionString);
         settings.ServerSelectionTimeout = TimeSpan.FromSeconds(15);
-        return new MongoLexiconStore(new MongoClient(settings).GetDatabase(options.DatabaseName), options);
+        return new MongoClient(settings).GetDatabase(options.DatabaseName);
     }
 
     private static void WriteJson(object result) => Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));

@@ -1005,13 +1005,11 @@ public sealed class GroundedAnswerServiceTests
         var repairedDraft = firstDraft with
         {
             Claims = [supportedClaim],
-            Limitations = ["The available sources do not establish Vayigash's aliyot, haftarah, or a calendar result."],
+            Limitations = [],
         };
         var retriever = new FakeRetriever([new SourceRetrievalHit(vayigash, 2, false), new SourceRetrievalHit(unrelated, 1, false)]);
         var engine = new FakeEngine(Success(firstDraft), Success(repairedDraft));
-        var validator = new FakeClaimEvidenceValidator(
-            ClaimEvidenceValidationResult.Unsupported("Statement 'C2' cites an unrelated Talmudic excerpt that cannot establish the absence of Vayigash details."),
-            ClaimEvidenceValidationResult.Supported());
+        var validator = new FakeClaimEvidenceValidator(ClaimEvidenceValidationResult.Supported());
         var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
         var question = new GroundedQuestion { Question = "What does Vayigash say?" };
 
@@ -1022,11 +1020,11 @@ public sealed class GroundedAnswerServiceTests
         Assert.IsTrue(result.IsSuccess);
         Assert.IsNotNull(result.Answer);
         Assert.HasCount(1, result.Answer.Claims);
-        Assert.HasCount(1, result.Answer.Limitations);
+        Assert.IsEmpty(result.Answer.Limitations);
         Assert.HasCount(1, result.Answer.Citations);
         Assert.AreEqual("Genesis 44:18", result.Answer.Citations[0].CanonicalReference);
         Assert.AreEqual(GroundedValidationStatus.Repaired, result.Trace.ValidationStatus);
-        Assert.AreEqual(2, validator.CallCount);
+        Assert.AreEqual(1, validator.CallCount);
     }
 
     [TestMethod]

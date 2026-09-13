@@ -55,7 +55,7 @@ internal static class SourceEvidenceAdequacyEvaluator
     {
         var searchableTokens = RetrievalQueryPlanner.CreateSearchableTokens(hit.Segment);
         var matched = plan.Concepts.Where(concept => RetrievalQueryPlanner.Matches(concept, searchableTokens)).ToArray();
-        var matchedSupportKeys = matched.Where(concept => !concept.IsTopicAnchor).Select(concept => concept.Key).ToArray();
+        var matchedSupportKeys = matched.Where(concept => concept.Key != plan.TopicAnchor?.Key).Select(concept => concept.Key).ToArray();
         return new ScoredSourceHit(hit, plan.TopicAnchor is not null && matched.Any(concept => concept.Key == plan.TopicAnchor.Key), matched.Length, matchedSupportKeys);
     }
 

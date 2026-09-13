@@ -49,13 +49,16 @@ dotnet run --project Tools/AskARabbi.DictionaryImporter -c Release -- import art
 dotnet run --project Tools/AskARabbi.DictionaryImporter -c Release -- search "קרא"
 dotnet run --project Tools/AskARabbi.DictionaryImporter -c Release -- search "gourd"
 dotnet run --project Tools/AskARabbi.DictionaryImporter -c Release -- search "BDB08691"
+
+# Read-only document count and index names; does not print document contents.
+dotnet run --project Tools/AskARabbi.DictionaryImporter -c Release -- inspect lexiconEntries
 ```
 
 Downloads refuse to overwrite a nonempty directory. A partially downloaded directory should be retained for diagnosis and a new empty directory used for retry. Cancellation, invalid input, fingerprint mismatch, Mongo failures, and missing imports produce explicit failure rather than empty successful evidence. No importer command deletes a collection or source files.
 
 ## Model access and limits
 
-The API registers `BdbDictionaryAITools` alongside `CalendarAITools`:
+The API registers `BdbDictionaryAITools` alongside `CalendarAITools` and, when grounded chat is configured, `SourceResearchAITools`:
 
 - `search_bdb_dictionary(query)` returns up to three original excerpts, 2,400 characters each, with match type, article IDs, and continuation offsets.
 - `read_bdb_entry(entryId, offset)` reads another contiguous excerpt from a known article, including abbreviation articles.
@@ -63,13 +66,17 @@ The API registers `BdbDictionaryAITools` alongside `CalendarAITools`:
 - The model can use its knowledge to suggest searches, but cannot substitute remembered definitions for retrieved support. It must not describe tools or internal searches in the user-facing answer.
 - BDB quotation text stays original. The model explains it in the selected response language without overriding the user's separate Torah quotation-language preference.
 
-BDB primarily covers **Biblical Hebrew and Biblical Aramaic**. It is not a comprehensive rabbinic-Aramaic dictionary and cannot establish a later custom or prayer merely from a similar spelling. The earlier Rosh Hashanah squash question still requires the actual custom/prayer sources; this dictionary is additional linguistic context, not a complete fix for religious-source retrieval. A separately reviewed Jastrow import would be a sensible later expansion. No additional dictionaries or synthetic answer corpus are included here.
+BDB primarily covers **Biblical Hebrew and Biblical Aramaic**. It is not a comprehensive rabbinic-Aramaic dictionary and cannot establish a later custom or prayer merely from a similar spelling. The Rosh Hashanah squash question still requires the actual custom/prayer sources; this dictionary is additional linguistic context. The separate source-research capabilities can search again using alternate terminology and read exact passages from the verified canonical archive (including Shulchan Arukh, Orach Chayim 583:1). Both preserve the conversation's source filters and share the existing four-call budget with dictionary/calendar calls. Each source read returns at most three 2,400-character excerpts with continuation metadata. Learned knowledge may suggest references, but only returned passages can support the answer. No new religious vector-store import or synthetic answer corpus is required.
 
-## Production rollout (not performed by these code changes)
+## Production rollout
 
 1. Review/approve the pinned edition and the target database/collection. Check Cosmos collection capacity, request-unit and storage impact; this uses existing infrastructure but does not mean zero database cost.
 2. Run the approved import from a machine/job with private-network access and write/index permissions. Do not open the production database to the public internet. Runtime API lookups only require reads.
 3. Confirm 3,005 articles plus one published manifest, inspect indexes, and verify pointed/unpointed Hebrew, English meanings, distinct homographs, abbreviation IDs, and no-match cases. An absent/unpublished dictionary returns a controlled failure; no startup import occurs.
 4. Deploy the matching API and both prompt changes. Test real conversations and citations with the production model. No REST endpoint, frontend change, migration of user records, or religious vector-store rebuild is required.
+
+The importer Dockerfile packages the pinned, fingerprint-validated dataset at build time. Build it with `az acr build --registry <registry> --image askarabbi-dictionary-import:<release> --file Tools/AskARabbi.DictionaryImporter/Dockerfile .`, then use the resulting immutable digest for a **one-off execution override** of the existing private-network generator job. Override the command to `dotnet AskARabbi.DictionaryImporter.dll`, arguments to `import /app/bdb --confirm-write`, and pass the existing Mongo secret reference and database name. Do not change the scheduled job's template, image, or cron schedule to run the importer. The same execution override can run `inspect lexiconEntries` or `search gourd` afterward. Collection inspection must report **3,006 documents** (3,005 articles plus one manifest), and searches must succeed before reporting the dictionary as available.
+
+A shared-throughput Cosmos database can reach its collection-count limit even when reference data is small. Check capacity before importing. Never delete existing collections, increase provisioned throughput, create separately billed capacity, or open database networking automatically to work around this limit. Any removal of an old test collection requires explicit approval for that exact collection and its verified contents. Deploying the API alone does not import BDB.
 
 Local verification uses a disposable MongoDB 7 container bound only to localhost. That proves driver serialization, index use, import, idempotency, and lookup behavior; it does **not** prove production Cosmos permissions/capacity or live-model answer quality. Automated MSTest suites remain hermetic with fake persistence and AI boundaries. See [verification notes](VERIFICATION.md) for the commands and results.

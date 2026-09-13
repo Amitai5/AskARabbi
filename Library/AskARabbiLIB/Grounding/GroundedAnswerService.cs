@@ -110,10 +110,21 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return directReply with { Answer = directReply.Answer is { } answer ? ApplyPresentation(answer, personalization) : null };
         }
         var hasDictionary = toolRegistry?.Definitions.Any(definition => definition.Name == "search_bdb_dictionary") == true;
-        var mayUseTools = toolRegistry is not null && (toolRegistry.MayApply(question.Question)
+        var hasSourceResearch = toolRegistry?.Definitions.Any(definition => definition.Name == "search_source_passages") == true;
+        var mayUseTools = toolRegistry is not null && (hasSourceResearch || toolRegistry.MayApply(question.Question)
             || ConversationDirectReply.IsCalendarDateQuestion(question.Question)
             || (hasDictionary && (question.Question.Any(character => character is >= '\u05D0' and <= '\u05EA') || recentConversation.TakeLast(2).Any(turn => toolRegistry.MayApply(turn.Question)))));
-        var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc);
+        var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc)
+        {
+            SourceFilters = new SourceRetrievalQuery
+            {
+                Languages = ConversationReferenceGuide.PreferredLanguages(question),
+                Collections = question.Collections,
+                Categories = question.Categories,
+                WorkKeys = question.WorkKeys,
+                SourceKeys = question.SourceKeys,
+            },
+        };
         var prefetchedParashah = await TryPrefetchParashahAsync(question.Question, recentConversation, toolContext, cancellationToken).ConfigureAwait(false);
         if (prefetchedParashah is { Parashah: null, ToolResult: not null } && personalization.CanUseFixedEnglishCalendarWording)
         {
@@ -194,7 +205,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var diagnostics = new List<AIResponseDiagnostics>();
         // Word research may become necessary while explaining an otherwise supported passage.
-        var toolSession = toolRegistry is not null && (hasDictionary || (prefetchedParashah is null && mayUseTools))
+        var toolSession = toolRegistry is not null && (hasDictionary || hasSourceResearch || (prefetchedParashah is null && mayUseTools))
             ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count)
             : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);
@@ -600,6 +611,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var payload = new
         {
             instruction = prompts.CurrentQuestionInstruction,
+            researchRequired = packet.Items.Count == 0 && toolRegistry?.Definitions.Any(definition => definition.Name == "search_source_passages") == true,
             currentQuestion = question.Question,
             answerFocus,
             shouldGenerateConversationTitle = question.ShouldGenerateConversationTitle,
@@ -998,6 +1010,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var normalized = string.Join(' ', tokens);
         return normalized.Contains("evidence packet", StringComparison.Ordinal)
+            || Regex.IsMatch(value, @"\b(?:supplied|provided|available)\s+(?:(?:halakhic|religious|source|torah|textual)\s+)?(?:sources?|passages?|material|excerpts?|evidence)\b|\b(?:passages?|excerpts?)\s+(?:here|provided|supplied)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1))
             || normalized.Contains("retrieved source", StringComparison.Ordinal)
             || normalized.Contains("retrieved passage", StringComparison.Ordinal)
             || normalized.Contains("retrieval system", StringComparison.Ordinal)

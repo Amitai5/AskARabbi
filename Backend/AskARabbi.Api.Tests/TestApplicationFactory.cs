@@ -8,6 +8,7 @@ using AskARabbiLIB.DvarTorah;
 using AskARabbiLIB.DvarTorah.Audio;
 using AskARabbiLIB.Usage;
 using AskARabbiLIB.Grounding;
+using AskARabbiLIB.Retrieval;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -102,6 +103,10 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<IHebcalCalendarClient>(Calendar);
             services.RemoveAll<IGroundedAnswerService>();
             services.AddSingleton<IGroundedAnswerService>(GroundedAnswers);
+            services.RemoveAll<ISourceRetriever>();
+            services.RemoveAll<ICanonicalSourceReader>();
+            services.AddSingleton<ISourceRetriever, EmptyResearchCorpus>();
+            services.AddSingleton<ICanonicalSourceReader, EmptyResearchCorpus>();
 
             if (useApplicationFakes)
             {
@@ -156,6 +161,13 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
         }
 
         return client;
+    }
+
+    private sealed class EmptyResearchCorpus : ISourceRetriever, ICanonicalSourceReader
+    {
+        public Task<IReadOnlyList<SourceRetrievalHit>> SearchAsync(SourceRetrievalQuery query, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SourceRetrievalHit>>([]);
+        public Task<IReadOnlyList<SourceSegment>> GetContextAsync(string documentId, int documentOrdinal, int radius, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SourceSegment>>([]);
+        public Task<IReadOnlyList<SourceSegment>> ReadAsync(string reference, SourceRetrievalQuery filters, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<SourceSegment>>([]);
     }
 
     private sealed class FixedTimeProvider : TimeProvider

@@ -15,6 +15,7 @@ internal static class RetrievalQueryPlanner
     private static readonly RetrievalConceptDefinition[] Definitions =
     [
         new("shabbat", ["shabbat", "shabbos", "sabbath", "saturday"], 1_000, true),
+        new("gourd", ["gourd", "gourds", "squash", "pumpkin", "pumpkins"], 950, true),
         new("automation", ["automatic", "automatically", "automated", "automation", "clock", "clocks", "continue", "continued", "continues", "continuing", "flow", "flowing", "flows", "operate", "operated", "operates", "operating", "preprogrammed", "programmed", "run", "running", "runs", "start", "started", "starting", "starts", "timer", "timers"], 900, false),
         new("business", ["business", "businesses", "commerce", "commercial", "customer", "customers", "labor", "order", "orders", "payment", "payments", "profit", "profits", "revenue", "sale", "sales", "selling", "shop", "store", "work"], 850, false),
         new("technology", ["computer", "computers", "device", "devices", "machine", "machines", "online", "server", "servers", "software", "website", "websites"], 800, false),

@@ -16,7 +16,7 @@ public sealed class BdbRegistrationTests
 
         var registry = app.Services.GetRequiredService<IAIToolRegistry>();
 
-        CollectionAssert.AreEquivalent(new[] { "search_bdb_dictionary", "read_bdb_entry", "convert_birthdate_to_hebrew", "find_parashah_for_week", "get_today_as_hebrew_and_gregorian" }, registry.Definitions.Select(definition => definition.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "search_bdb_dictionary", "read_bdb_entry", "search_source_passages", "read_source_passage", "convert_birthdate_to_hebrew", "find_parashah_for_week", "get_today_as_hebrew_and_gregorian" }, registry.Definitions.Select(definition => definition.Name).ToArray());
         Assert.IsInstanceOfType<UnavailableLexiconStore>(app.Services.GetRequiredService<ILexiconStore>());
     }
 }
