@@ -18,7 +18,7 @@ export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articl
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.target instanceof HTMLElement && event.target.closest('button, input, select, textarea, a, [contenteditable="true"]') !== null) {
+      if (event.target instanceof HTMLElement && event.target.closest('button, [role="button"], input, select, textarea, a, [contenteditable="true"]') !== null) {
         return
       }
       if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) {
@@ -46,7 +46,7 @@ export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articl
   }, [scrollAreaRef])
 
   useEffect(() => {
-    if (!isFollowing || isSourceReaderOpen || activeWord === null) {
+    if (!isFollowing || isSourceReaderOpen || activeWord === null || window.getSelection()?.isCollapsed === false) {
       return
     }
     const area = scrollAreaRef.current

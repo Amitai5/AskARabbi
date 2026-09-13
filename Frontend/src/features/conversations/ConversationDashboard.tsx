@@ -18,7 +18,7 @@ import { useFocusedReading } from '../reading/focusedReadingContext.ts'
 import { publishUserDataEvent, subscribeToUserDataEvents } from '../settings/userDataEvents.ts'
 import type { UserSettings } from '../settings/settingsTypes.ts'
 import type { ConversationClient, ConversationTurn } from './conversationClient.ts'
-import type { ConversationDetails, ConversationMessage, ConversationSummary } from './conversationData.ts'
+import type { ConversationDetails, ConversationMessage, ConversationSummary, ConversationTeachingContext } from './conversationData.ts'
 import { normalizeConversationTitle } from './conversationData.ts'
 import { AnswerProgress } from './AnswerProgress.tsx'
 import { AssistantMessage } from './AssistantMessage.tsx'
@@ -35,6 +35,7 @@ import { calendarPath, conversationPath, readPageRoute, teachingPath, writePageU
 import { StarterQuestions } from './StarterQuestions.tsx'
 import { appendLearningQuestion } from './learningQuestions.ts'
 import { collectPrintAnswers, type PrintRequest } from '../printing/printTypes.ts'
+import { TeachingContextCard } from './TeachingContextCard.tsx'
 
 const WeeklyDvarTorahPage = lazy(() => import('../dvarTorah/WeeklyDvarTorahPage.tsx').then((module) => ({ default: module.WeeklyDvarTorahPage })))
 const CalendarPage = lazy(() => import('../calendar/CalendarPage.tsx').then((module) => ({ default: module.CalendarPage })))
@@ -80,6 +81,9 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedConversation, setSelectedConversation] = useState<ConversationDetails | null>(null)
   const [draft, setDraft] = useState('')
+  const [draftTeachingContext, setDraftTeachingContext] = useState<ConversationTeachingContext | null>(null)
+  const activeTeachingContext = selectedConversation === null ? draftTeachingContext : selectedConversation.teachingContext
+  const newDraftTeachingContext = useRef<ConversationTeachingContext | null>(null)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), [])
   const [activeView, setActiveView] = useState<ActiveView>(() => readPageRoute().view)
@@ -163,6 +167,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         setSelectedId(null)
         setSelectedConversation(null)
         setDraft(newDraft.current)
+        setDraftTeachingContext(newDraftTeachingContext.current)
         setConversationError(null)
         setIsLoadingConversation(false)
       }
@@ -246,6 +251,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setUnreadConversationIds(new Set())
     setReadyNotice(null)
     newDraft.current = ''
+    newDraftTeachingContext.current = null
+    setDraftTeachingContext(null)
     if (readPageRoute().view === 'conversation') { writePageUrl('/conversations/new', true) }
     setSourceReaderSelection(null)
     setConversationError(null)
@@ -384,7 +391,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     openNewConversation('')
   }
 
-  function openNewConversation(initialDraft: string, replaceUrl = false) {
+  function openNewConversation(initialDraft: string, replaceUrl = false, teachingContext: ConversationTeachingContext | null = null) {
     rememberSelectedConversation()
     selectionRequestId.current += 1
     shouldScrollToLatestRef.current = true
@@ -398,6 +405,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setUnsavedSourceKeys([...AllSourceKeys])
     setDraft(initialDraft)
     newDraft.current = initialDraft
+    newDraftTeachingContext.current = teachingContext
+    setDraftTeachingContext(teachingContext)
     setDraftNotice(null)
     setIsMobileSidebarOpen(false)
     navigateView('conversation', replaceUrl)
@@ -578,6 +587,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         title: normalizeConversationTitle(question).slice(0, 80),
         enabledSourceKeys: [...selectedSourceKeys],
         messages: [],
+        teachingContext: draftTeachingContext,
         createdAtUtc: timestamp,
         updatedAtUtc: timestamp,
       },
@@ -598,6 +608,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     setPendingQuestions((current) => new Map(current).set(conversationId, pendingMessage))
     setDraft('')
     newDraft.current = ''
+    newDraftTeachingContext.current = null
+    setDraftTeachingContext(null)
     setDraftNotice(null)
     setConversationError(null)
     try {
@@ -608,8 +620,9 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         throw new Error('You’re offline. Reconnect to send this message.')
       }
 
+      const teaching = session.conversation.teachingContext
       const turn = session.isNew
-        ? await conversationClient.createWithMessage(messageId, question, selectedSourceKeys)
+        ? await (teaching ? conversationClient.createWithMessage(messageId, question, selectedSourceKeys, { weekKey: teaching.weekKey, selectedText: teaching.selectedText }) : conversationClient.createWithMessage(messageId, question, selectedSourceKeys))
         : await conversationClient.appendMessage(conversationId, messageId, question)
       if (dataGeneration.current !== generation) { return }
       if (turn.usage) { updateUsage(turn.usage) }
@@ -650,7 +663,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
         draft: session.draft.length === 0 ? question : session.draft,
         error: getErrorMessage(error, 'Your message could not be saved.'),
       }
-      const wasNotSaved = session.isNew && error instanceof ApiError && (error.code === 'usage_limit_reached' || error.code === 'chat_in_progress')
+      const rejectedTeaching = session.conversation.teachingContext && error instanceof ApiError && (error.status === 400 || error.status === 404)
+      const wasNotSaved = session.isNew && error instanceof ApiError && (rejectedTeaching || error.code === 'usage_limit_reached' || error.code === 'chat_in_progress')
       if (wasNotSaved) {
         conversationSessions.current.delete(conversationId)
         setConversations((current) => current.filter((value) => value.id !== conversationId))
@@ -662,6 +676,10 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
           selectedIdRef.current = null
           setSelectedId(null)
           setSelectedConversation(null)
+          setDraftTeachingContext(session.conversation.teachingContext ?? null)
+          newDraftTeachingContext.current = session.conversation.teachingContext ?? null
+          newDraft.current = failedSession.draft
+          if (readPageRoute().view === 'conversation') { writePageUrl(conversationPath(null), true) }
         }
         setDraft(failedSession.draft)
         setConversationError(failedSession.error)
@@ -679,6 +697,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   function rememberSelectedConversation() {
     if (selectedConversation === null) {
       newDraft.current = draft
+      newDraftTeachingContext.current = draftTeachingContext
       return
     }
 
@@ -720,6 +739,13 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
     if (!navigator.onLine || isChatDisabled || isLoadingConversation || isLoadingConversations) { return }
     openNewConversation(question)
     setDraftNotice('Question prepared in a new conversation. Edit it or send when you’re ready.')
+    setComposerFocusKey(key => key + 1)
+  }
+
+  function prepareTeachingQuestion(context: ConversationTeachingContext) {
+    if (!navigator.onLine || isChatDisabled || isLoadingConversation || isLoadingConversations) { return }
+    openNewConversation(context.selectedText ? 'Can you explain this passage in the context of the whole teaching?' : 'Can we explore the main idea of this teaching?', false, context)
+    setDraftNotice('Teaching attached to a new conversation. Edit the question, then send when you’re ready.')
     setComposerFocusKey(key => key + 1)
   }
 
@@ -838,7 +864,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
         {activeView === 'dvarTorah' ? (
           <Suspense fallback={<DvarTorahLoading />}>
-            <WeeklyDvarTorahPage key={restoreKey} client={dvarTorahClient} initialRoute={restoredRoute.teaching} onNavigate={(route: TeachingRoute) => writePageUrl(teachingPath(route))} onAsk={prepareNewQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} />
+            <WeeklyDvarTorahPage key={restoreKey} client={dvarTorahClient} initialRoute={restoredRoute.teaching} onNavigate={(route: TeachingRoute) => writePageUrl(teachingPath(route))} onAsk={prepareNewQuestion} onAskTeaching={prepareTeachingQuestion} isAskDisabled={isChatDisabled || isLoadingConversations || isLoadingConversation} />
           </Suspense>
         ) : activeView === 'calendar' ? (
           <Suspense fallback={<p role="status" className="p-8 text-muted">Loading calendar…</p>}>
@@ -857,9 +883,9 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                     <div className="flex flex-1 items-center justify-center"><p className="text-lg text-muted" role="status">Loading conversation…</p></div>
                   ) : displayedMessages.length === 0 ? (
                     <div className="enter-softly flex flex-1 flex-col items-center justify-center px-2 pb-6 pt-10 text-center sm:pb-10">
-                      <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{conversationStarter.heading}</h1>
-                      <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{conversationStarter.supportingText}</p>
-                      <StarterQuestions disabled={isChatDisabled} onChoose={prepareQuestion} />
+                      <h1 className="max-w-[50rem] font-display text-[clamp(2.65rem,5vw,4.15rem)] leading-[1.02] tracking-[-0.045em] text-ink">{draftTeachingContext ? 'Let’s explore this teaching.' : conversationStarter.heading}</h1>
+                      <p className="mt-6 max-w-[39rem] text-base leading-7 text-ink-soft sm:text-lg">{draftTeachingContext ? 'Ask about a passage, its sources, or what the teaching means for you.' : conversationStarter.supportingText}</p>
+                      {draftTeachingContext ? null : <StarterQuestions disabled={isChatDisabled} onChoose={prepareQuestion} />}
                     </div>
                   ) : (
                     <div className="flex-1 py-10 sm:py-14">
@@ -881,6 +907,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
               <div className="relative z-10 shrink-0 border-t border-line/60 bg-parchment px-4 pb-2 pt-2 sm:px-8 sm:pb-3" data-chat-composer>
                 <ChatUsageNotice usage={usage} error={usageError} isOnline={isOnline} onRetry={() => void loadUsage()} onOpenDvarTorah={handleOpenDvarTorah} />
                 {draftNotice ? <p role="status" className="mx-auto mb-2 max-w-[50rem] text-sm text-ink-soft">{draftNotice}</p> : null}
+                {activeTeachingContext ? <TeachingContextCard context={activeTeachingContext} onRemove={selectedConversation === null ? () => { setDraftTeachingContext(null); newDraftTeachingContext.current = null } : undefined} /> : null}
                 <div className="mx-auto flex w-full max-w-[62rem] justify-center">
                   <MessageComposer focusKey={composerFocusKey} draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} enterSendsMessage={userSettings.enterSendsMessage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
                 </div>
@@ -939,6 +966,7 @@ function mergeConversationTurn(current: ConversationDetails | null, turn: Conver
 
   return {
     ...turn.conversation,
+    teachingContext: turn.teachingContext ?? (current?.id === turn.conversation.id ? current.teachingContext : null),
     messages,
     createdAtUtc: current?.id === turn.conversation.id ? current.createdAtUtc : turn.createdAtUtc,
     updatedAtUtc: turn.conversation.updatedAtUtc ?? current?.updatedAtUtc ?? turn.createdAtUtc,

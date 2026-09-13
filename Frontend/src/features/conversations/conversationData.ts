@@ -41,9 +41,16 @@ export interface ConversationSource {
 }
 
 export interface ConversationDetails extends ConversationSummary {
+  teachingContext?: ConversationTeachingContext | null
   messages: ConversationMessage[]
   createdAtUtc: string
   updatedAtUtc: string
+}
+
+export interface ConversationTeachingContext {
+  weekKey: string
+  title: string
+  selectedText: string | null
 }
 
 export const InitialConversations: ConversationSummary[] = [

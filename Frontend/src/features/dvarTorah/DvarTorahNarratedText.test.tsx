@@ -21,7 +21,7 @@ describe('DvarTorahNarratedText', () => {
     const { container } = render(<p><DvarTorahNarratedText text={Text} textOffset={0} activeWord={Words[2]} words={Words} onSelectWord={onSelectWord} sourceNumbersById={new Map([['TA', 1]])} selectedSourceNumber={null} onSelectSource={onSelectSource} /></p>)
 
     expect(container.textContent).toBe('שלום [1] again again.')
-    expect(container.querySelector('mark')).toHaveTextContent('again')
+    expect(container.querySelector('[data-narration-word]')).toHaveTextContent('again')
     await user.click(screen.getAllByRole('button', { name: 'again' })[1])
     expect(onSelectWord).toHaveBeenCalledWith(Words[2])
     await user.click(screen.getByRole('button', { name: 'View source 1' }))
@@ -56,5 +56,47 @@ describe('DvarTorahNarratedText', () => {
     fireEvent.click(word, { detail: 1 })
 
     expect(onSelectWord).not.toHaveBeenCalled()
+  })
+
+  it('preserves the native selection as the spoken-word highlight advances', () => {
+    const props = { text: Text, textOffset: 0, words: Words, onSelectWord: vi.fn(), sourceNumbersById: new Map([['TA', 1]]), selectedSourceNumber: null, onSelectSource: vi.fn() }
+    const { rerender } = render(<DvarTorahNarratedText {...props} activeWord={Words[1]} />)
+    const words = screen.getAllByRole('button', { name: 'again' })
+    const range = document.createRange()
+    range.setStart(words[0].firstChild!, 1)
+    range.setEnd(words[1].firstChild!, 4)
+    window.getSelection()?.addRange(range)
+    const selectedText = window.getSelection()?.toString()
+
+    rerender(<DvarTorahNarratedText {...props} activeWord={Words[2]} />)
+
+    expect(window.getSelection()?.toString()).toBe(selectedText)
+    expect(selectedText).toBe('gain agai')
+  })
+
+  it('keeps text-selection shortcuts available and supports Space to play', async () => {
+    const user = userEvent.setup()
+    const onSelectWord = vi.fn()
+    render(<DvarTorahNarratedText text={Text} textOffset={0} activeWord={null} words={Words} onSelectWord={onSelectWord} sourceNumbersById={new Map([['TA', 1]])} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
+    const word = screen.getAllByRole('button', { name: 'again' })[0]
+    word.focus()
+
+    expect(fireEvent.keyDown(word, { key: 'ArrowRight', shiftKey: true })).toBe(true)
+    expect(word).toHaveFocus()
+    await user.keyboard(' ')
+
+    expect(onSelectWord).toHaveBeenCalledExactlyOnceWith(Words[1])
+  })
+
+  it('does not open a citation during text selection', () => {
+    const onSelectSource = vi.fn()
+    const { container } = render(<p><DvarTorahNarratedText text={Text} textOffset={0} activeWord={null} words={Words} onSelectWord={vi.fn()} sourceNumbersById={new Map([['TA', 1]])} selectedSourceNumber={null} onSelectSource={onSelectSource} /></p>)
+    const range = document.createRange()
+    range.selectNodeContents(container.querySelector('p')!)
+    window.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'View source 1' }), { detail: 1 })
+
+    expect(onSelectSource).not.toHaveBeenCalled()
   })
 })

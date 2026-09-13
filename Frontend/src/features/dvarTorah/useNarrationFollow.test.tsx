@@ -8,6 +8,7 @@ const Word: DvarTorahAudioWord = { section: 'body', text: 'Learn', textOffset: 0
 
 afterEach(() => {
   cleanup()
+  window.getSelection()?.removeAllRanges()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -16,7 +17,7 @@ function Harness({ word = null, sourceOpen = false }: { word?: DvarTorahAudioWor
   const articleRef = useRef<HTMLElement | null>(null)
   const scrollAreaRef = useRef<HTMLElement | null>(null)
   const { isFollowing, toggleFollowing } = useNarrationFollow(word, articleRef, scrollAreaRef, sourceOpen)
-  return <><section ref={scrollAreaRef} aria-label="Reading area"><article ref={articleRef}><mark data-narration-word>{word?.text}</mark><button type="button">A citation</button></article></section><button type="button" aria-pressed={isFollowing} onClick={toggleFollowing}>Follow text</button></>
+  return <><section ref={scrollAreaRef} aria-label="Reading area"><article ref={articleRef}><mark data-narration-word>{word?.text}</mark><button type="button">A citation</button><span role="button" tabIndex={0}>A narrated word</span></article></section><button type="button" aria-pressed={isFollowing} onClick={toggleFollowing}>Follow text</button></>
 }
 
 function setup(wordTop = 900, reducedMotion = false) {
@@ -55,6 +56,20 @@ describe('narration following', () => {
     expect(scrollTo).toHaveBeenCalledTimes(1)
   })
 
+  it('does not scroll away from a passage while the reader is selecting it', () => {
+    const { rerender, scrollTo } = setup()
+    const range = document.createRange()
+    range.selectNodeContents(screen.getByRole('button', { name: 'A citation' }))
+    window.getSelection()?.addRange(range)
+
+    rerender(<Harness word={Word} />)
+
+    expect(scrollTo).not.toHaveBeenCalled()
+    window.getSelection()?.removeAllRanges()
+    rerender(<Harness word={{ ...Word, textOffset: 6 }} />)
+    expect(scrollTo).toHaveBeenCalledTimes(1)
+  })
+
   it.each(['wheel', 'touchMove', 'keyDown', 'pointerDown'] as const)('pauses after manual %s and resumes explicitly', (event) => {
     const { rerender, area, scrollTo } = setup()
     fireEvent[event](area, { key: 'PageDown' })
@@ -75,9 +90,9 @@ describe('narration following', () => {
     expect(scrollTo).toHaveBeenCalledTimes(1)
   })
 
-  it('does not disable following when a keyboard user activates a citation', () => {
+  it.each(['A citation', 'A narrated word'])('does not disable following when a keyboard user activates %s', name => {
     const { rerender, scrollTo } = setup()
-    fireEvent.keyDown(screen.getByRole('button', { name: 'A citation' }), { key: ' ' })
+    fireEvent.keyDown(screen.getByRole('button', { name }), { key: ' ' })
     rerender(<Harness word={Word} />)
 
     expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'true')
