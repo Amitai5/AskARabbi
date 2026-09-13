@@ -21,6 +21,18 @@ internal static class ConversationReferenceGuide
     internal static async Task<IReadOnlyList<SourceSegment>> ReadAsync(ICanonicalSourceReader reader, GroundedQuestion question, IReadOnlyList<GroundedConversationTurn> conversation, SourceRetrievalQuery query, CancellationToken cancellationToken)
     {
         var references = GetReferences(question.Question, conversation);
+        if (question.TeachingContext is { } teaching && FindExplicitReference(question.Question) is null)
+        {
+            var selectedNumbers = Regex.Matches(teaching.SelectedText ?? string.Empty, @"\[\d+\]").Select(match => match.Value).ToHashSet(StringComparer.Ordinal);
+            var sourceLines = teaching.SourceReferences.Split('\n');
+            var selectedLines = sourceLines.Where(line => selectedNumbers.Any(number => line.StartsWith(number + " ", StringComparison.Ordinal))).ToArray();
+            var referenceText = string.Join('\n', selectedLines.Length > 0 ? selectedLines : sourceLines);
+            var teachingReferences = ExplicitReference.Matches(referenceText).Select(match => match.Groups["ref"].Value).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToArray();
+            if (teachingReferences.Length > 0)
+            {
+                references = teachingReferences;
+            }
+        }
         var filters = query with { Languages = PreferredLanguages(question) };
         var results = await Task.WhenAll(references.Select(reference => reader.ReadAsync(reference, filters, cancellationToken))).ConfigureAwait(false);
         return results.SelectMany(result => result).DistinctBy(segment => segment.SegmentId).ToArray();

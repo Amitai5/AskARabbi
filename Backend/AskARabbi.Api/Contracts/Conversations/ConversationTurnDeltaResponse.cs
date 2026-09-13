@@ -10,4 +10,7 @@ public sealed record ConversationTurnDeltaResponse(string Status, ConversationSu
 {
     /// <summary>Gets updated token usage, including unsuccessful generation attempts.</summary>
     public ConversationSettings.UsageResponse? Usage { get; init; }
+
+    /// <summary>Gets the optional teaching attached to this conversation.</summary>
+    public ConversationTeachingResponse? TeachingContext { get; init; }
 }

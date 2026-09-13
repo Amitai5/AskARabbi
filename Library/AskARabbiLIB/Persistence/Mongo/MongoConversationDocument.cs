@@ -17,6 +17,10 @@ internal sealed class MongoConversationDocument
     [BsonElement("enabledSourceKeys")]
     public required List<string> EnabledSourceKeys { get; init; }
 
+    [BsonElement("teachingContext")]
+    [BsonIgnoreIfNull]
+    public MongoConversationTeachingDocument? TeachingContext { get; init; }
+
     [BsonElement("createdAtUtc")]
     public DateTime CreatedAtUtc { get; init; }
 

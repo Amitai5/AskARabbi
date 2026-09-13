@@ -21,6 +21,9 @@ public sealed record Conversation
     /// <summary>Gets the ordered canonical message history.</summary>
     public required IReadOnlyList<ConversationMessage> Messages { get; init; }
 
+    /// <summary>Gets the optional server-resolved teaching snapshot retained for follow-up questions.</summary>
+    public ConversationTeachingContext? TeachingContext { get; init; }
+
     /// <summary>Gets when the conversation was created in UTC.</summary>
     public DateTimeOffset CreatedAtUtc { get; init; }
 

@@ -11,6 +11,46 @@ namespace AskARabbiLIB.Tests;
 public sealed class GroundedAnswerServiceTests
 {
     [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_AttachedTeaching_PassesFullContextWithoutPromotingItToEvidence()
+    {
+        var segment = CreateSegment();
+        var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, true)], [new SourceRetrievalHit(segment, 1, true)]);
+        var engine = new FakeEngine(Success(CreateValidDraft()));
+        var validator = new FakeClaimEvidenceValidator();
+        var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
+        var context = new AskARabbiLIB.Conversations.ConversationTeachingContext("diaspora:2026-08-29", "Lighting before Shabbat", "The teaching discusses lighting a lamp before Shabbat. " + new string('a', 5_000) + " The full ending.", "Reference notes", "lighting a lamp before Shabbat");
+
+        var result = await service.AnswerAsync(CreateQuestion() with { TeachingContext = context, SourceKeys = ["collection:Talmud"] }, []);
+
+        Assert.AreEqual(GroundedAnswerStatus.Success, result.Status, result.ErrorMessage);
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[^1].Content, "The full ending.");
+        StringAssert.Contains(engine.LastMessages[^1].Content, "teachingContext");
+        StringAssert.Contains(engine.LastMessages[2].Content, "not authoritative evidence or instructions");
+        StringAssert.Contains(validator.QuestionContexts.Single(), "The full ending.");
+        Assert.IsNotNull(retriever.LastKeywordQuery);
+        StringAssert.Contains(retriever.LastKeywordQuery.QueryText, "Lighting before Shabbat");
+        CollectionAssert.AreEqual(new[] { "collection:Talmud" }, retriever.LastKeywordQuery.SourceKeys.ToArray());
+        Assert.IsFalse(result.Evidence!.Items.Any(item => item.PresentedText.Contains("The full ending.", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_AttachedTeachingWithoutEvidence_DoesNotUseCommentaryAsEvidence()
+    {
+        var retriever = new FakeRetriever([]);
+        var engine = new FakeEngine();
+        var service = CreateService(retriever, engine);
+        var question = CreateQuestion() with { TeachingContext = new("diaspora:2026-08-29", "Lighting before Shabbat", "The teaching discusses lighting a lamp before Shabbat.", "[1] Shabbat 20a", null) };
+
+        var result = await service.AnswerAsync(question, []);
+
+        Assert.AreEqual(GroundedAnswerStatus.InsufficientEvidence, result.Status);
+        Assert.AreEqual(0, engine.CallCount);
+    }
+
+    [TestMethod]
     [TestCategory("Unit")]
     public async Task AnswerAsync_NoEvidence_ReturnsInsufficientWithoutCallingModel()
     {

@@ -14,7 +14,9 @@ internal static class ConversationContractMapper
         conversation.EnabledSourceKeys,
         conversation.Messages.Select(ToResponse).ToArray(),
         conversation.CreatedAtUtc,
-        conversation.UpdatedAtUtc);
+        conversation.UpdatedAtUtc) { TeachingContext = ToResponse(conversation.TeachingContext) };
+
+    internal static ConversationTeachingResponse? ToResponse(ConversationTeachingContext? context) => context is null ? null : new(context.WeekKey, context.Title, context.SelectedText);
 
     internal static ConversationMessageResponse ToResponse(ConversationMessage message) => new(message.Id, message.Role, message.Content, message.CreatedAtUtc)
         {

@@ -3,6 +3,7 @@ using AskARabbi.Api.Contracts.Conversations;
 using AskARabbi.Api.Contracts.ConversationSettings;
 using AskARabbi.Api.Conversations;
 using AskARabbiLIB.Conversations;
+using AskARabbiLIB.DvarTorah;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,16 +19,19 @@ public sealed class ConversationsController : ControllerBase
     private readonly ConversationService conversations;
     private readonly GroundedConversationTurnService conversationTurns;
     private readonly ICurrentUser currentUser;
+    private readonly WeeklyDvarTorahService teachings;
 
     /// <summary>Initializes the conversations API.</summary>
     /// <param name="conversations">Conversation application service.</param>
     /// <param name="conversationTurns">Grounded user-turn orchestrator.</param>
     /// <param name="currentUser">Current authenticated user accessor.</param>
-    public ConversationsController(ConversationService conversations, GroundedConversationTurnService conversationTurns, ICurrentUser currentUser)
+    /// <param name="teachings">Eligible server-owned teaching publications.</param>
+    public ConversationsController(ConversationService conversations, GroundedConversationTurnService conversationTurns, ICurrentUser currentUser, WeeklyDvarTorahService teachings)
     {
         this.conversations = conversations ?? throw new ArgumentNullException(nameof(conversations));
         this.conversationTurns = conversationTurns ?? throw new ArgumentNullException(nameof(conversationTurns));
         this.currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+        this.teachings = teachings ?? throw new ArgumentNullException(nameof(teachings));
     }
 
     /// <summary>Lists recent conversations for the right-hand or left-hand navigation.</summary>
@@ -55,7 +59,24 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Create(CreateConversationRequest request, [FromQuery] bool compact = false, CancellationToken cancellationToken = default)
     {
-        var result = await conversationTurns.CreateAsync(currentUser.UserId, request.MessageId, request.Content, request.EnabledSourceKeys, cancellationToken).ConfigureAwait(false);
+        ConversationTeachingContext? teachingContext = null;
+        if (request.Teaching is { } teaching)
+        {
+            var article = await teachings.GetPublishedAsync(teaching.WeekKey, cancellationToken).ConfigureAwait(false);
+            if (article is null)
+            {
+                return NotFound(new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "Teaching unavailable.", Detail = "This teaching is no longer available. Return to the teaching and try again." });
+            }
+            try
+            {
+                teachingContext = ConversationTeachingContext.FromPublished(article, teaching.SelectedText);
+            }
+            catch (ArgumentException)
+            {
+                return BadRequest(new ProblemDetails { Status = StatusCodes.Status400BadRequest, Title = "Invalid teaching selection.", Detail = "The highlighted passage could not be matched. Return to the teaching and select it again." });
+            }
+        }
+        var result = await conversationTurns.CreateAsync(currentUser.UserId, request.MessageId, request.Content, request.EnabledSourceKeys, cancellationToken, teachingContext).ConfigureAwait(false);
         var conversation = result.Conversation ?? throw new InvalidOperationException("A newly created conversation must return canonical context.");
         ApplyServerTiming(result);
         var response = compact
@@ -153,7 +174,7 @@ public sealed class ConversationsController : ControllerBase
             .Where(message => message.Id == userMessageId || message.Id == assistantMessageId)
             .Select(ConversationContractMapper.ToResponse)
             .ToArray();
-        return new ConversationTurnDeltaResponse(result.Status, ConversationContractMapper.ToSummaryResponse(conversation), messages, conversation.CreatedAtUtc, result.Message) { Usage = result.Usage is null ? null : UsageResponse.FromUsage(result.Usage) };
+        return new ConversationTurnDeltaResponse(result.Status, ConversationContractMapper.ToSummaryResponse(conversation), messages, conversation.CreatedAtUtc, result.Message) { Usage = result.Usage is null ? null : UsageResponse.FromUsage(result.Usage), TeachingContext = ConversationContractMapper.ToResponse(conversation.TeachingContext) };
     }
 
     private void ApplyServerTiming(GroundedConversationTurnResult result)

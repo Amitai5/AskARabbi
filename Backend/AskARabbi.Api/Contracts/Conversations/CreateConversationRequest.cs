@@ -16,4 +16,7 @@ public sealed record CreateConversationRequest
     /// <summary>Gets enabled source selectors; all approved sources are used when omitted.</summary>
     [MaxLength(10)]
     public IReadOnlyList<string>? EnabledSourceKeys { get; init; }
+
+    /// <summary>Gets optional context for a conversation about a published teaching.</summary>
+    public ConversationTeachingRequest? Teaching { get; init; }
 }
