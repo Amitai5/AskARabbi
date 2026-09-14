@@ -139,7 +139,7 @@ export function OfflineLearningSettings() {
       <div className="flex items-start justify-between gap-5">
         <div>
           <p className="font-semibold text-ink">Make weekly audio available offline</p>
-          <p id="offline-audio-description" className="mt-1 text-muted">Save this week’s recording with word highlighting and tap-to-seek. Uses this device’s storage. Turn off to keep text and references only.</p>
+          <p id="offline-audio-description" className="mt-1 text-muted">Save this week’s recording with text following and tap-to-seek. Uses this device’s storage. Turn off to keep text and references only.</p>
         </div>
         <button type="button" role="switch" aria-checked={enabled} aria-label="Make weekly audio available offline" aria-describedby="offline-audio-description" disabled={!state?.library || state.isSaving && !state.library.teaching} onClick={() => void state?.changeAudio(!enabled)} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${enabled ? 'bg-pomegranate' : 'bg-stone-deep'}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition-all ${enabled ? 'left-6' : 'left-1'}`} /></button>
       </div>

@@ -16,13 +16,13 @@ function Harness({ word = null, sourceOpen = false }: { word?: DvarTorahAudioWor
   const articleRef = useRef<HTMLElement | null>(null)
   const scrollAreaRef = useRef<HTMLElement | null>(null)
   const { isFollowing, toggleFollowing } = useNarrationFollow(word, articleRef, scrollAreaRef, sourceOpen)
-  return <><section ref={scrollAreaRef} aria-label="Reading area"><article ref={articleRef}><mark data-narration-word>{word?.text}</mark><button type="button">A citation</button></article></section><button type="button" aria-pressed={isFollowing} onClick={toggleFollowing}>Follow text</button></>
+  return <><section ref={scrollAreaRef} aria-label="Reading area"><article ref={articleRef}><span data-narration-word>{word?.text}</span><button type="button">A citation</button></article></section><button type="button" aria-pressed={isFollowing} onClick={toggleFollowing}>Follow text</button></>
 }
 
 function setup(wordTop = 900, reducedMotion = false) {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: reducedMotion })))
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    return this.tagName === 'MARK' ? new DOMRect(0, wordTop, 60, 24) : new DOMRect(0, 100, 800, 600)
+    return this.hasAttribute('data-narration-word') ? new DOMRect(0, wordTop, 60, 24) : new DOMRect(0, 100, 800, 600)
   })
   const view = render(<Harness />)
   const area = screen.getByRole('region', { name: 'Reading area' })
@@ -40,7 +40,7 @@ describe('narration following', () => {
     expect(scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 590, behavior: reducedMotion ? 'instant' : 'smooth' })
   })
 
-  it('does not scroll when the highlight is already comfortably visible', () => {
+  it('does not scroll when the spoken word is already comfortably visible', () => {
     const { rerender, scrollTo } = setup(300)
     rerender(<Harness word={Word} />)
 

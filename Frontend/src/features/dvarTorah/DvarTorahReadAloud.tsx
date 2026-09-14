@@ -291,7 +291,7 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
   const duration = Math.max(0, audio.durationMs / 1000)
 
   return (
-    <section className="mx-auto w-full max-w-[54rem] rounded-2xl border border-line bg-paper px-3 py-2 shadow-[0_-4px_24px_-12px_rgba(20,37,59,0.18)] sm:px-5 sm:py-3" aria-label="Dvar Torah audio player">
+    <section className="mx-auto w-full max-w-[80rem] rounded-2xl border border-line bg-paper px-3 py-2 shadow-[0_-4px_24px_-12px_rgba(20,37,59,0.18)] sm:px-5 sm:py-3" aria-label="Dvar Torah audio player">
       <audio ref={audioRef} crossOrigin="use-credentials" preload="auto" aria-label="Dvar Torah recording" onLoadedMetadata={applyPendingSeek} onPlaying={() => {
         applyPendingSeek()
         setPlaybackState('playing')
@@ -337,7 +337,7 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
         <span className="text-xs tabular-nums text-muted" aria-hidden="true">{formatAudioTime(duration)}</span>
       </div>
       <p className="sr-only" aria-live="polite">{playbackState === 'playing' ? 'Playing the Dvar Torah recording.' : playbackState === 'paused' ? 'Recording paused.' : ''}</p>
-      {timingsError ? <p className="mt-2 text-xs leading-5 text-muted">Word highlighting is unavailable for this recording. You can still listen.</p> : null}
+      {timingsError ? <p className="mt-2 text-xs leading-5 text-muted">Word navigation and text following are unavailable for this recording. You can still listen.</p> : null}
       {playbackError === null ? null : <p className="mt-2 text-sm leading-6 text-pomegranate" role="alert">{playbackError}</p>}
     </section>
   )

@@ -50,13 +50,13 @@ export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articl
       return
     }
     const area = scrollAreaRef.current
-    const mark = articleRef.current?.querySelector<HTMLElement>('[data-narration-word]')
-    if (area === null || mark == null) {
+    const activeWordElement = articleRef.current?.querySelector<HTMLElement>('[data-narration-word]')
+    if (area === null || activeWordElement == null) {
       return
     }
 
     const viewport = area.getBoundingClientRect()
-    const word = mark.getBoundingClientRect()
+    const word = activeWordElement.getBoundingClientRect()
     if (viewport.height <= 0 || (word.top >= viewport.top + 32 && word.bottom <= viewport.bottom - 48)) {
       return
     }
