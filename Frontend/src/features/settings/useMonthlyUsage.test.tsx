@@ -65,4 +65,47 @@ describe('Usage synchronization', () => {
     expect(result.current.error).toBeNull()
     expect(result.current.isLoading).toBe(false)
   })
+
+  it('refreshes the changed allowance when a mobile app becomes visible without a focus event', async () => {
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    const client = createDemoApplicationClients().conversationSettingsClient
+    const oldLimit: UsageSummary = { ...Full, tokenLimit: 10_000_000, tokensUsed: 250_000, tokensRemaining: 9_750_000, usedPercent: 2.5, isLimitReached: false }
+    const reducedLimit: UsageSummary = { ...oldLimit, tokenLimit: 5_000_000, tokensRemaining: 4_750_000, usedPercent: 5 }
+    client.getUsage = vi.fn().mockResolvedValueOnce(oldLimit).mockResolvedValue(reducedLimit)
+    const { result, unmount } = renderHook(() => useMonthlyUsage(client, 'reader'))
+    await act(async () => {})
+
+    await act(async () => {
+      visibility.mockReturnValue('hidden')
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(client.getUsage).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      visibility.mockReturnValue('visible')
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    expect(client.getUsage).toHaveBeenCalledTimes(2)
+    expect(result.current.usage).toEqual(reducedLimit)
+    unmount()
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(client.getUsage).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not let a delayed refresh hide tokens returned by a completed turn', async () => {
+    const client = createDemoApplicationClients().conversationSettingsClient
+    const before: UsageSummary = { ...Full, tokensUsed: 247_022, tokensRemaining: 4_752_978, usedPercent: 4.94044, isLimitReached: false }
+    const after: UsageSummary = { ...before, tokensUsed: 300_412, tokensRemaining: 4_699_588, usedPercent: 6.00824 }
+    let resolveRefresh: (value: UsageSummary) => void = () => { throw new Error('Refresh was not started') }
+    client.getUsage = vi.fn().mockResolvedValueOnce(before).mockImplementation(() => new Promise<UsageSummary>(resolve => { resolveRefresh = resolve }))
+    const { result } = renderHook(() => useMonthlyUsage(client, 'reader'))
+    await act(async () => {})
+
+    act(() => { void result.current.refresh() })
+    act(() => result.current.update(after))
+    await act(async () => resolveRefresh(before))
+
+    expect(result.current.usage).toEqual(after)
+    expect(result.current.isLoading).toBe(false)
+  })
 })

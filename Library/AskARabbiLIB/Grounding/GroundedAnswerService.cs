@@ -111,10 +111,22 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return directReply with { Answer = directReply.Answer is { } answer ? ApplyPresentation(answer, personalization) : null };
         }
         var hasDictionary = toolRegistry?.Definitions.Any(definition => definition.Name == "search_bdb_dictionary") == true;
-        var mayUseTools = toolRegistry is not null && (toolRegistry.MayApply(question.Question)
+        var hasSourceResearch = toolRegistry?.Definitions.Any(definition => definition.Name == "search_source_passages") == true;
+        var mayUseTools = toolRegistry is not null && (hasSourceResearch || toolRegistry.MayApply(question.Question)
             || ConversationDirectReply.IsCalendarDateQuestion(question.Question)
             || (hasDictionary && (question.Question.Any(character => character is >= '\u05D0' and <= '\u05EA') || recentConversation.TakeLast(2).Any(turn => toolRegistry.MayApply(turn.Question)))));
-        var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc);
+        var toolContext = new AIToolExecutionContext(question.UserProfile, currentUtc)
+        {
+            SourceFilters = new SourceRetrievalQuery
+            {
+                QueryText = BuildRetrievalText(question.Question, recentConversation, null, question.TeachingContext),
+                Languages = ConversationReferenceGuide.PreferredLanguages(question),
+                Collections = question.Collections,
+                Categories = question.Categories,
+                WorkKeys = question.WorkKeys,
+                SourceKeys = question.SourceKeys,
+            },
+        };
         var prefetchedParashah = question.TeachingContext is null ? await TryPrefetchParashahAsync(question.Question, recentConversation, toolContext, cancellationToken).ConfigureAwait(false) : null;
         if (prefetchedParashah is { Parashah: null, ToolResult: not null } && personalization.CanUseFixedEnglishCalendarWording)
         {
@@ -199,8 +211,8 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var diagnostics = new List<AIResponseDiagnostics>();
         // Word research may become necessary while explaining an otherwise supported passage.
-        var toolSession = toolRegistry is not null && (hasDictionary || (prefetchedParashah is null && mayUseTools))
-            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count)
+        var toolSession = toolRegistry is not null && (hasDictionary || hasSourceResearch || (prefetchedParashah is null && mayUseTools))
+            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count, initialRequiredToolName: hasSourceResearch && packet.Items.Count == 0 ? "search_source_passages" : null)
             : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);
         var firstResult = await GenerateDraftAsync(messages, toolSession, cancellationToken).ConfigureAwait(false);
@@ -574,6 +586,14 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             return CandidateValidationResult.Unsupported(deterministicError ?? "The draft failed deterministic grounding validation.");
         }
+        if (!GroundedInlineQuotationExpander.TryExpand(draft, packet, out draft, out deterministicError))
+        {
+            return CandidateValidationResult.Unsupported(deterministicError ?? "An inline quotation could not be resolved.");
+        }
+        if (!TryValidateDraft(draft, packet, shouldGenerateConversationTitle, requirements, out answer, out deterministicError, false))
+        {
+            return CandidateValidationResult.Unsupported(deterministicError ?? "The expanded quotation exceeded the answer contract.");
+        }
 
         var supportResult = await claimEvidenceValidator.ValidateAsync(questionContext, draft, packet, cancellationToken, personalization).ConfigureAwait(false);
         if (supportResult.Status == ClaimEvidenceValidationStatus.Supported && !TryValidateDraft(supportResult.ReconciledDraft ?? draft, packet, shouldGenerateConversationTitle, requirements, out answer, out deterministicError))
@@ -609,6 +629,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var payload = new
         {
             instruction = prompts.CurrentQuestionInstruction,
+            researchRequired = packet.Items.Count == 0 && toolRegistry?.Definitions.Any(definition => definition.Name == "search_source_passages") == true,
             currentQuestion = question.Question,
             teachingContext = question.TeachingContext,
             answerFocus,
@@ -704,6 +725,12 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             return new QuestionFocus(
                 "Identify only the named authorities or schools requested, state what each actually says or decides, and quote context that supports each attribution. Do not substitute an anonymous summary of the rule or a later practical workaround; if the evidence does not name who adopted the position, say that directly.",
                 "named rabbis sages authorities schools opinions dispute ruling attribution");
+        }
+        if (tokens.Overlaps(["connection", "relationship", "wordplay", "pun", "prayer", "blessing"]))
+        {
+            return new QuestionFocus(
+                "Explain the specific connection or wording the user asks about, not merely the existence or history of a custom. For a food and prayer, state what the prayer actually asks for and explain how the food's name connects to those particular words or meanings. Name the relevant words and their meanings in the explanation; saying only 'it is symbolic' or 'the words echo the name' is incomplete. Include a brief exact quotation from the available preferred-language passage inside the explanation when it supplies that wording, then unpack it in plain language. Do not restrict the answer to the earliest text or replace the explanation with unrelated agricultural or legal rules. If the first passages only list a custom, read its wording in another enabled original source before answering. Use prior conversation only to identify the current referent.",
+                null);
         }
         return new QuestionFocus("Answer the current question directly. Use earlier turns only to resolve references and maintain continuity, never as additional questions to answer or as source evidence.", null);
     }
@@ -1014,6 +1041,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
         var normalized = string.Join(' ', tokens);
         return normalized.Contains("evidence packet", StringComparison.Ordinal)
+            || Regex.IsMatch(value, @"\b(?:supplied|provided|available)\s+(?:(?:halakhic|religious|source|torah|textual)\s+)?(?:sources?|passages?|material|excerpts?|evidence)\b|\b(?:sources?|passages?|texts?|excerpts?)\s+(?:here|provided|supplied|(?:that\s+)?you\s+(?:gave|provided|supplied))\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1))
             || normalized.Contains("retrieved source", StringComparison.Ordinal)
             || normalized.Contains("retrieved passage", StringComparison.Ordinal)
             || normalized.Contains("retrieval system", StringComparison.Ordinal)

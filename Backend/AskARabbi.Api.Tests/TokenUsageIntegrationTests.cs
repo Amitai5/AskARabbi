@@ -8,6 +8,7 @@ using AskARabbiLIB.AI;
 using AskARabbiLIB.Grounding;
 using AskARabbiLIB.Usage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AskARabbi.Api.Tests;
 
@@ -201,6 +202,53 @@ public sealed class TokenUsageIntegrationTests
         Assert.IsTrue(await app.Store.TryAcquireChatAsync(lease, Now));
         Assert.IsTrue(await app.Store.RecordTokensAsync(lease, tokens));
         await app.Store.ReleaseChatAsync(lease);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    [TestCategory("Regression")]
+    public async Task Create_PerResponseAccounting_ReconcilesAllStagesWithoutChargingDiagnosticsTwice(bool failsValidation)
+    {
+        await using var app = new TestApplicationFactory();
+        using var client = await app.CreateAuthenticatedClientAsync();
+        await SeedUsageAsync(app, 247_022);
+        var context = app.Services.GetRequiredService<ChatUsageContext>();
+        app.GroundedAnswers.BeforeAnswerAsync = async cancellationToken =>
+        {
+            await context.BeforeRequestAsync(cancellationToken);
+            await context.RecordAsync("search", new AIUsage(1_500, 200, 1_700));
+            await context.RecordAsync("draft", new AIUsage(23_000, 1_200, 24_200));
+            await context.RecordAsync("audit", new AIUsage(7_000, 100, 7_100));
+            await context.RecordAsync("repair", new AIUsage(26_000, 1_500, 27_500));
+            await context.RecordAsync("repair-audit", new AIUsage(8_000, 100, 8_100));
+            await context.RecordAsync("repair-audit", new AIUsage(8_000, 100, 8_100));
+            Assert.AreEqual(68_600L, context.TokensRecorded);
+            Assert.AreEqual(5, context.ProviderResponsesRecorded);
+        };
+        if (failsValidation)
+        {
+            app.GroundedAnswers.NextResult = new GroundedAnswerResult
+            {
+                Status = GroundedAnswerStatus.ValidationFailed,
+                ErrorMessage = "Rejected answer.",
+                Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.Zero, 2, 1, 100, new AIUsage(20, 10, 30), GroundedValidationStatus.Failed, true, "repair-audit", "test-model"),
+            };
+        }
+
+        using var response = await client.PostAsJsonAsync("/api/conversations?compact=true", new { messageId = FirstMessageId, content = "Explain this prayer." });
+        var turn = await response.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+        var current = await client.GetFromJsonAsync<UsageResponse>("/api/conversation-settings/usage");
+
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        Assert.IsNotNull(turn);
+        Assert.IsNotNull(current);
+        Assert.AreEqual(failsValidation ? "validation_failed" : "answered", turn.Status);
+        Assert.AreEqual(315_622L, current.TokensUsed);
+        Assert.AreEqual(6.31244m, current.UsedPercent);
+        Assert.AreEqual(current, turn.Usage);
+        Assert.AreEqual(current.TokensUsed, await app.Store.GetTokenCountAsync(app.Store.UserId, Start, Start.AddMonths(1)));
+        Assert.AreEqual(0L, context.TokensRecorded);
     }
 
     private static ChatUsageLease CreateLease(Guid userId) => new(userId, Guid.Parse("44444444-4444-4444-4444-444444444444"), Start, Start.AddMonths(1), Now.AddMinutes(10), 5_000_000);

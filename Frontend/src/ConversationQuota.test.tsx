@@ -92,7 +92,7 @@ describe('Monthly token allowance', () => {
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
     await user.click(screen.getByRole('menuitem', { name: 'Usage, 75% left' }))
     expect(window.location.pathname + window.location.hash).toBe('/settings/account#usage')
-    expect(clients.conversationSettingsClient.getUsage).toHaveBeenCalledOnce()
+    expect(clients.conversationSettingsClient.getUsage).toHaveBeenCalledTimes(2)
 
     const progress = await screen.findByRole('progressbar', { name: 'Monthly chat allowance remaining' })
     expect(progress).toHaveAttribute('aria-valuenow', '75')
@@ -119,6 +119,22 @@ describe('Monthly token allowance', () => {
 
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
     expect(screen.getByText('Monthly chat limit reached')).toBeVisible()
+  })
+
+  it('rechecks an existing usage value when opening Settings after a limit reduction', async () => {
+    const clients = createDemoApplicationClients()
+    const oldAllowance: UsageSummary = { ...Available, tokenLimit: 10_000_000, tokensUsed: 250_000, tokensRemaining: 9_750_000, usedPercent: 2.5 }
+    const reducedAllowance: UsageSummary = { ...oldAllowance, tokenLimit: 5_000_000, tokensRemaining: 4_750_000, usedPercent: 5 }
+    clients.conversationSettingsClient.getUsage = vi.fn().mockResolvedValueOnce(oldAllowance).mockResolvedValue(reducedAllowance)
+    const user = await signIn(clients)
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Usage, 97.5% left' })).toBeVisible()
+
+    await user.click(screen.getByRole('menuitem', { name: 'Settings & Personalization' }))
+
+    expect(await screen.findByText('95% left')).toBeVisible()
+    expect(clients.conversationSettingsClient.getUsage).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('progressbar', { name: 'Monthly chat allowance remaining' })).toHaveAttribute('aria-valuenow', '95')
   })
 
   it('pauses old and new chats offline without losing or automatically sending a draft', async () => {

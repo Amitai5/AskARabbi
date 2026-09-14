@@ -203,6 +203,43 @@ public sealed class ConversationPersonalizationTests
     }
 
     [TestMethod]
+    [TestCategory("Regression")]
+    public void TryValidateQuotationLanguages_SeveralInvalidInlinePhrases_IdentifiesAllLocationsWithoutLoggingProse()
+    {
+        var source = CreateSegment("English", "en") with { Text = "May our judgement be ripped up and may our merits be called out before You!" };
+        var packet = new EvidencePacket([Item("E1", source)], source.Text.Length);
+        var draft = new GroundedAnswerDraft
+        {
+            Claims = [new GroundedClaimDraft { Text = "The prayer says “May our judgement be ripped up and may our merits be called out before You!” It asks “may our judgment be ripped up” and “may our good deeds be announced”.", EvidenceIds = ["E1"], Quotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = source.Text, Role = "Prayer wording" }] }],
+            Disagreements = [], Limitations = [], HumanGuidanceRecommended = false,
+        };
+
+        var valid = new ConversationPersonalization("English", "English", null).TryValidateQuotationLanguages(draft, packet, out var error);
+
+        Assert.IsFalse(valid);
+        Assert.IsNotNull(error);
+        StringAssert.Contains(error, "claim 1, quoted phrase 2; claim 1, quoted phrase 3");
+        StringAssert.Contains(error, "Keep already valid quotations and the substantive answer");
+        Assert.IsFalse(error.Contains("may our judgment", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public void TryValidateQuotationLanguages_ExactPrayerAndUnquotedExplanation_PreservesTheAnswer()
+    {
+        var source = CreateSegment("English", "en") with { Text = "May our judgement be ripped up and may our merits be called out before You!" };
+        var packet = new EvidencePacket([Item("E1", source)], source.Text.Length);
+        var draft = new GroundedAnswerDraft
+        {
+            Claims = [new GroundedClaimDraft { Text = "The prayer says “May our judgement be ripped up and may our merits be called out before You!” It asks that judgment be torn up and good deeds be announced.", EvidenceIds = ["E1"], Quotations = [new GroundedQuotationDraft { EvidenceId = "E1", Text = source.Text, Role = "Prayer wording" }] }],
+            Disagreements = [], Limitations = [], HumanGuidanceRecommended = false,
+        };
+
+        Assert.IsTrue(new ConversationPersonalization("English", "English", null).TryValidateQuotationLanguages(draft, packet, out var error));
+        Assert.IsNull(error);
+    }
+
+    [TestMethod]
     [DataRow("English", "en", 0)]
     [DataRow("Hebrew", "he", 1)]
     [DataRow("Spanish", "es", 3)]

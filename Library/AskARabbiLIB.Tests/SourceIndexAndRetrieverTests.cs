@@ -232,6 +232,28 @@ public sealed class SourceIndexAndRetrieverTests
 
     [TestMethod]
     [TestCategory("Regression")]
+    public async Task SearchAsync_RepeatedAnchorAndCategoryNoise_PreservesQuestionContextAheadOfWordFrequency()
+    {
+        var direct = TestManifestFactory.CreateDocument(title: "Shulchan Arukh, Orach Chayim", collection: "Halakhah", categories: ["Halakhah"], segmentCount: 1, firstReference: SourceResearchTestData.Reference, lastReference: SourceResearchTestData.Reference);
+        var noisy = TestManifestFactory.CreateDocument(title: "Mishnah Kilayim", collection: "Mishnah", categories: ["Seder Zeraim"], segmentCount: 1, firstReference: "Mishnah Kilayim 3:1", lastReference: "Mishnah Kilayim 3:1", rawSha256: new string('b', 64));
+        var manifest = TestManifestFactory.CreateManifest(direct, noisy);
+        var provider = new DictionaryDocumentProvider(new Dictionary<string, string>
+        {
+            [direct.DocumentId] = Markdown(direct.FileTitle, (SourceResearchTestData.Reference, "Customary foods for Rosh Hashanah. " + SourceResearchTestData.Quotation)),
+            [noisy.DocumentId] = Markdown(noisy.FileTitle, ("Mishnah Kilayim 3:1", string.Join(' ', Enumerable.Repeat("pumpkin squash gourd", 40)))),
+        });
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await new SourceIndexBuilder().BuildAsync(manifest, provider, connection);
+        await using var retriever = new SqliteSourceRetriever(connection, manifest);
+
+        var hits = await retriever.SearchAsync(new SourceRetrievalQuery { QueryText = SourceResearchTestData.Question, CandidateLimit = 1 });
+
+        Assert.HasCount(1, hits);
+        Assert.AreEqual(SourceResearchTestData.Reference, hits[0].Segment.CanonicalReference);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
     public void Plan_ServerQuestion_PrioritizesMappedConceptsAndPreservesShabbatAnchor()
     {
         // Act

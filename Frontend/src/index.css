@@ -88,6 +88,31 @@
 }
 
 .reading-content button { font: inherit; }
+
+.teaching-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.teaching-actions > button {
+  flex: 1 1 12rem;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+}
+
+.teaching-actions > button > svg { flex-shrink: 0; }
+.teaching-actions > [role="alert"] { flex-basis: 100%; }
+
+/* Keep native selection feedback for copying without the branded passage highlight. */
+.teaching-article::selection,
+.teaching-article ::selection {
+  color: HighlightText;
+  background: Highlight;
+}
+
 .settings-target { scroll-margin-block: 2rem; border-radius: 0.75rem; }
 .settings-highlight { outline: 3px solid var(--color-brass); outline-offset: 6px; background: color-mix(in srgb, var(--color-brass) 12%, transparent); }
 
@@ -255,9 +280,12 @@ a {
 
 /* Touch users have no hover; keyboard focus reveals the same desktop actions. */
 @media (hover: hover) and (pointer: fine) {
-  .conversation-message .answer-print-button { opacity: 0; pointer-events: none; }
+  .conversation-message .answer-print-button,
+  .conversation-message .answer-copy-button[data-copy-status="idle"] { opacity: 0; pointer-events: none; }
   .conversation-message:hover .answer-print-button,
-  .conversation-message:focus-within .answer-print-button { opacity: 1; pointer-events: auto; }
+  .conversation-message:focus-within .answer-print-button,
+  .conversation-message:hover .answer-copy-button[data-copy-status="idle"],
+  .conversation-message:focus-within .answer-copy-button[data-copy-status="idle"] { opacity: 1; pointer-events: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -152,13 +152,21 @@ public sealed class SqliteSourceRetriever : ISourceRetriever, IAsyncDisposable
         {
             await ReadKeywordHitsAsync(connection, query, hits, cancellationToken).ConfigureAwait(false);
         }
+        var plan = RetrievalQueryPlanner.Plan(query.QueryText);
         return hits.Values
             .OrderByDescending(hit => hit.IsExactReference)
+            .ThenByDescending(hit => CountConceptMatches(hit.Segment, plan))
             .ThenByDescending(hit => hit.Score)
             .ThenBy(hit => hit.Segment.CanonicalReference, StringComparer.OrdinalIgnoreCase)
             .ThenBy(hit => hit.Segment.SegmentId, StringComparer.Ordinal)
             .Take(query.CandidateLimit)
             .ToArray();
+    }
+
+    private static int CountConceptMatches(SourceSegment segment, RetrievalQueryPlan plan)
+    {
+        var tokens = SearchTextNormalizer.Tokenize(segment.Text).ToHashSet(StringComparer.Ordinal);
+        return plan.Concepts.Count(concept => RetrievalQueryPlanner.Matches(concept, tokens));
     }
 
     private static async Task ReadExactHitsAsync(SqliteConnection connection, SourceRetrievalQuery query, IDictionary<string, SourceRetrievalHit> hits, CancellationToken cancellationToken)
@@ -236,7 +244,10 @@ public sealed class SqliteSourceRetriever : ISourceRetriever, IAsyncDisposable
         {
             var segment = ReadSegment(reader);
             var rank = reader.GetDouble(17);
-            var hit = new SourceRetrievalHit(segment, scoreTier + Math.Max(double.Epsilon, -rank), false);
+            // BM25 magnitudes vary by query. Keep each tier in its own unit interval,
+            // so frequent mentions of one word cannot outrank a subject-plus-context match.
+            var relevance = Math.Max(0, -rank);
+            var hit = new SourceRetrievalHit(segment, scoreTier + relevance / (1 + relevance), false);
             if (!hits.TryGetValue(segment.SegmentId, out var existing) || existing.Score < hit.Score)
             {
                 hits[segment.SegmentId] = hit;

@@ -25,6 +25,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AskARabbiLIB\AskARabbiLIB.csproj" />
+    <EmbeddedResource Include="..\..\Prototype\Prompts\system-behavior.txt" LogicalName="ResearchPrompts.System" />
+    <EmbeddedResource Include="..\..\Prototype\Prompts\validation-repair.txt" LogicalName="ResearchPrompts.Repair" />
+    <EmbeddedResource Include="..\..\Prototype\Prompts\grounded-support-validation.txt" LogicalName="ResearchPrompts.Audit" />
   </ItemGroup>
 
 </Project>

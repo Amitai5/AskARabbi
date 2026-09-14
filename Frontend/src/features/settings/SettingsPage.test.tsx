@@ -26,7 +26,7 @@ describe('SettingsPage', () => {
     expect(section.querySelector('.border-y')).toBeNull()
   })
 
-  it.each([[0, false, '100'], [25, false, '75'], [99.99, false, '<0.1'], [100, true, '0'], [150, true, '0']] as const)('formats percentage-only allowance at %s percent used', (usedPercent, isLimitReached, expected) => {
+  it.each([[0, false, '100'], [25, false, '75'], [4.94044, false, '95.05'], [6.00824, false, '93.99'], [99.99, false, '0.01'], [99.999, false, '<0.01'], [100, true, '0'], [150, true, '0']] as const)('formats percentage-only allowance at %s percent used', (usedPercent, isLimitReached, expected) => {
     expect(formatUsageRemainingPercent({ usedPercent, isLimitReached, periodStartUtc: '', periodEndUtc: '', tokensUsed: 0, tokenLimit: 10_000_000, tokensRemaining: 0 })).toBe(expected)
   })
 

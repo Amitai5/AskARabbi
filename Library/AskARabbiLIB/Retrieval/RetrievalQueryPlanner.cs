@@ -1,10 +1,12 @@
 using AskARabbiLIB.Search;
+using System.Text.RegularExpressions;
 
 namespace AskARabbiLIB.Retrieval;
 
 internal static class RetrievalQueryPlanner
 {
     private const int MaximumConcepts = 8;
+    private static readonly Regex FunctionQuestion = new(@"\bhow\s+(?:does|do)\b(?<subject>[^\r\n?.!]*?)\bworks?\s*(?=[?.!]|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
     {
@@ -15,6 +17,7 @@ internal static class RetrievalQueryPlanner
     private static readonly RetrievalConceptDefinition[] Definitions =
     [
         new("shabbat", ["shabbat", "shabbos", "sabbath", "saturday"], 1_000, true),
+        new("gourd", ["gourd", "gourds", "squash", "pumpkin", "pumpkins"], 950, true),
         new("automation", ["automatic", "automatically", "automated", "automation", "clock", "clocks", "continue", "continued", "continues", "continuing", "flow", "flowing", "flows", "operate", "operated", "operates", "operating", "preprogrammed", "programmed", "run", "running", "runs", "start", "started", "starting", "starts", "timer", "timers"], 900, false),
         new("business", ["business", "businesses", "commerce", "commercial", "customer", "customers", "labor", "order", "orders", "payment", "payments", "profit", "profits", "revenue", "sale", "sales", "selling", "shop", "store", "work"], 850, false),
         new("technology", ["computer", "computers", "device", "devices", "machine", "machines", "online", "server", "servers", "software", "website", "websites"], 800, false),
@@ -33,7 +36,10 @@ internal static class RetrievalQueryPlanner
 
     internal static RetrievalQueryPlan Plan(string? queryText)
     {
-        var tokens = SearchTextNormalizer.Tokenize(queryText);
+        var searchText = (queryText ?? string.Empty).Replace("Earlier topic context:", string.Empty, StringComparison.Ordinal).Replace("Search focus:", string.Empty, StringComparison.Ordinal);
+        // In "How does this prayer work?", work asks how something functions;
+        // it must not elevate passages about employment or agricultural labor.
+        var tokens = SearchTextNormalizer.Tokenize(FunctionQuestion.Replace(searchText, "${subject}"));
         var tokenSet = tokens.ToHashSet(StringComparer.Ordinal);
         var concepts = Definitions
             .Where(definition => definition.Tokens.Any(tokenSet.Contains))
@@ -48,7 +54,7 @@ internal static class RetrievalQueryPlanner
             {
                 break;
             }
-            if (token.Length < 2 || StopWords.Contains(token) || DefinitionByToken.TryGetValue(token, out var definition) && knownKeys.Contains(definition.Key))
+            if (token.Length < 2 || StopWords.Contains(token) || knownKeys.Contains(token) || DefinitionByToken.TryGetValue(token, out var definition) && knownKeys.Contains(definition.Key))
             {
                 continue;
             }

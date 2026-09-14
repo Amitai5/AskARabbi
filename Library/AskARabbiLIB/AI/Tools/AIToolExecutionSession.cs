@@ -15,6 +15,7 @@ public sealed class AIToolExecutionSession
     private readonly AIToolExecutionContext context;
     private readonly List<EvidenceItem> evidenceItems = [];
     private readonly int initialEvidenceCount;
+    private readonly string? initialRequiredToolName;
     private int executionCount;
 
     /// <summary>Creates one request-local tool session.</summary>
@@ -22,7 +23,8 @@ public sealed class AIToolExecutionSession
     /// <param name="context">Trusted server-side execution context.</param>
     /// <param name="initialEvidenceCount">Count of corpus evidence IDs already allocated for this request.</param>
     /// <param name="maximumExecutionCount">Maximum number of function executions allowed in the request.</param>
-    public AIToolExecutionSession(IAIToolRegistry registry, AIToolExecutionContext context, int initialEvidenceCount, int maximumExecutionCount = 4)
+    /// <param name="initialRequiredToolName">Optional registered capability required for the first provider call only.</param>
+    public AIToolExecutionSession(IAIToolRegistry registry, AIToolExecutionContext context, int initialEvidenceCount, int maximumExecutionCount = 4, string? initialRequiredToolName = null)
     {
         this.registry = registry ?? throw new ArgumentNullException(nameof(registry));
         this.context = context ?? throw new ArgumentNullException(nameof(context));
@@ -35,6 +37,11 @@ public sealed class AIToolExecutionSession
             throw new ArgumentOutOfRangeException(nameof(maximumExecutionCount), "Maximum tool executions must be between 1 and 8.");
         }
         this.initialEvidenceCount = initialEvidenceCount;
+        if (initialRequiredToolName is not null && !registry.Definitions.Any(definition => definition.Name == initialRequiredToolName))
+        {
+            throw new ArgumentException("The initial research capability must be registered.", nameof(initialRequiredToolName));
+        }
+        this.initialRequiredToolName = initialRequiredToolName;
         MaximumExecutionCount = maximumExecutionCount;
     }
 
@@ -46,6 +53,9 @@ public sealed class AIToolExecutionSession
 
     /// <summary>Gets the number of tool calls already processed.</summary>
     public int ExecutionCount => executionCount;
+
+    /// <summary>Gets the first required capability until an execution has been attempted; later calls use automatic choice.</summary>
+    public string? RequiredToolName => executionCount == 0 ? initialRequiredToolName : null;
 
     /// <summary>Gets calculated or original-source evidence retained during the request.</summary>
     public IReadOnlyList<EvidenceItem> EvidenceItems => evidenceItems;

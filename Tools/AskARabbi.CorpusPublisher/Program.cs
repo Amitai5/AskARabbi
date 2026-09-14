@@ -31,6 +31,22 @@ static async Task<int> RunAsync(string[] args)
         var maximumDocuments = ParseOptionalPositiveInt(options, "maximum-documents");
         var publicationManifest = maximumDocuments is null ? manifest : manifest with { DocumentCount = Math.Min(maximumDocuments.Value, manifest.DocumentCount), Documents = manifest.Documents.Take(maximumDocuments.Value).ToArray() };
         var fingerprint = SourceIndexBuilder.ComputeCorpusFingerprint(publicationManifest);
+        if (command is "index-bundle" or "search-bundle")
+        {
+            var archive = new BundledNormalizedDocumentProvider(manifest, Path.Combine(repositoryRoot, "Backend", "AskARabbi.Api", "Data", "canonical-sources.zip"));
+            var indexPath = Path.GetFullPath(RequireOption(options, "index", null));
+            if (command == "index-bundle")
+            {
+                WriteJson(await new SourceIndexBuilder().BuildAsync(archive.Manifest, archive, indexPath, cancellationToken: cancellationSource.Token).ConfigureAwait(false));
+            }
+            else
+            {
+                await using var retriever = new SqliteSourceRetriever(indexPath, archive.Manifest);
+                var hits = await retriever.SearchAsync(new SourceRetrievalQuery { QueryText = RequireOption(options, "query", null), CandidateLimit = 20 }, cancellationSource.Token).ConfigureAwait(false);
+                WriteJson(hits.Select(hit => new { hit.Segment.CanonicalReference, hit.Segment.Language, hit.Score }));
+            }
+            return 0;
+        }
         if (command == "read")
         {
             var reader = new BundledCanonicalSourceReader(manifest, Path.Combine(repositoryRoot, "Backend", "AskARabbi.Api", "Data", "canonical-sources.zip"));
@@ -98,7 +114,9 @@ static async Task<int> RunAsync(string[] args)
         var tenantId = GetOption(options, "tenant-id") ?? Environment.GetEnvironmentVariable("AI__TenantId");
         var modelName = GetOption(options, "model") ?? Environment.GetEnvironmentVariable("AI__ModelName");
         using var httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        Azure.Core.TokenCredential credential = command == "answer"
+        Azure.Core.TokenCredential credential = GetOption(options, "credential") == "managed-identity"
+            ? new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned)
+            : command == "answer"
             ? new AzureCliCredential(new AzureCliCredentialOptions { TenantId = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId })
             : new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId });
         var client = new AzureOpenAIVectorStoreClient(new AzureOpenAIVectorStoreClientOptions { ProjectEndpoint = new Uri(endpointText, UriKind.Absolute), ModelName = modelName, Timeout = TimeSpan.FromMinutes(2) }, credential, httpClient);
@@ -260,6 +278,8 @@ static void PrintHelp()
     Console.WriteLine("  validate [--manifest path] [--maximum-documents n]");
     Console.WriteLine("  bundle --output new-archive.zip [--manifest path]");
     Console.WriteLine("  read --reference canonical-reference");
+    Console.WriteLine("  index-bundle --index destination.sqlite");
+    Console.WriteLine("  search-bundle --index existing.sqlite --query text");
     Console.WriteLine("  answer --endpoint uri --model deployment --vector-store-id id --question text [--sources core]");
     Console.WriteLine("  publish --endpoint uri [--name value] [--maximum-documents n] [--concurrency 1-16]");
     Console.WriteLine("  resume --endpoint uri --vector-store-id id [--maximum-documents n] [--concurrency 1-16]");
@@ -269,7 +289,7 @@ static void PrintHelp()
     Console.WriteLine("  search --endpoint uri --model deployment --vector-store-id id --query text");
     Console.WriteLine("  retrieve --endpoint uri --model deployment --vector-store-id id --query text [--maximum-documents n]");
     Console.WriteLine();
-    Console.WriteLine("Common options: --repository-root path --manifest path --tenant-id guid");
+    Console.WriteLine("Common options: --repository-root path --manifest path --tenant-id guid --credential managed-identity");
     Console.WriteLine("Environment fallbacks: AI__ProjectEndpoint, AI__ModelName, AI__VectorStoreId, AI__TenantId");
-    Console.WriteLine("No API key or client secret is accepted; answer uses AzureCliCredential, other network commands use DefaultAzureCredential.");
+    Console.WriteLine("No API key or client secret is accepted; answer defaults to AzureCliCredential, other network commands default to DefaultAzureCredential. --credential managed-identity uses only the host's system-assigned identity.");
 }
