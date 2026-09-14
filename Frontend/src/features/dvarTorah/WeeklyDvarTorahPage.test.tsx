@@ -160,7 +160,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(newsReference).toHaveFocus()
   })
 
-  it('streams the recording, highlights normalized text, preserves sources, and supports pause, seek, and speed', async () => {
+  it('streams without highlighting the teaching and preserves sources, pause, seek, and speed', async () => {
     const user = userEvent.setup()
     const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       this.dispatchEvent(new Event('playing'))
@@ -203,11 +203,13 @@ describe('WeeklyDvarTorahPage', () => {
       audio.currentTime = 1.2
       fireEvent.timeUpdate(audio)
     })
-    await waitFor(() => expect(document.querySelector('mark')).toHaveTextContent('God’s'))
+    await waitFor(() => expect(document.querySelector('[data-narration-word]')).toHaveTextContent('God’s'))
+    expect(document.querySelector('mark')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Pause recording' }))
     expect(pause).toHaveBeenCalledTimes(1)
     fireEvent.change(screen.getByRole('slider', { name: 'Recording position' }), { target: { value: '2.2' } })
-    expect(document.querySelector('mark')).toHaveTextContent('Experts')
+    expect(document.querySelector('[data-narration-word]')).toHaveTextContent('Experts')
+    expect(document.querySelector('mark')).toBeNull()
     await user.selectOptions(screen.getByRole('combobox', { name: 'Playback speed' }), '1.5')
     expect(audio.playbackRate).toBe(1.5)
     expect(screen.getByLabelText('Estimated reading time')).toHaveTextContent('About 1 min read')
@@ -249,14 +251,16 @@ describe('WeeklyDvarTorahPage', () => {
 
     await user.click(firstWord)
     expect(audio.currentTime).toBe(1)
-    expect(document.querySelector('mark')).toHaveTextContent('God’s')
+    expect(document.querySelector('[data-narration-word]')).toHaveTextContent('God’s')
+    expect(document.querySelector('mark')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Experts' }))
     expect(audio.currentTime).toBe(2)
     expect(screen.queryByText('Loading audio…')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Pause recording' }))
     await user.click(screen.getByRole('button', { name: 'Life' }))
     expect(audio.currentTime).toBe(0.2)
-    expect(document.querySelector('mark')).toHaveTextContent('Life')
+    expect(document.querySelector('[data-narration-word]')).toHaveTextContent('Life')
+    expect(document.querySelector('mark')).toBeNull()
     expect(screen.getByRole('button', { name: 'Pause recording' })).toBeVisible()
     expect(play).toHaveBeenCalledTimes(3)
     expect(client.getAudioTimings).toHaveBeenCalledTimes(1)

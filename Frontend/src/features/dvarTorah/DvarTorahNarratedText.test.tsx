@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DvarTorahNarratedText } from './DvarTorahNarratedText.tsx'
+import { DvarTorahNarratedText, NarratedText } from './DvarTorahNarratedText.tsx'
 import type { DvarTorahAudioWord } from './dvarTorahTypes.ts'
 
 const Text = 'שלום [TA] again again.'
@@ -21,12 +21,22 @@ describe('DvarTorahNarratedText', () => {
     const { container } = render(<p><DvarTorahNarratedText text={Text} textOffset={0} activeWord={Words[2]} words={Words} onSelectWord={onSelectWord} sourceNumbersById={new Map([['TA', 1]])} selectedSourceNumber={null} onSelectSource={onSelectSource} /></p>)
 
     expect(container.textContent).toBe('שלום [1] again again.')
-    expect(container.querySelector('mark')).toHaveTextContent('again')
+    expect(container.querySelector('mark')).toBeNull()
+    expect(container.querySelector('[data-narration-word]')).toHaveTextContent('again')
     await user.click(screen.getAllByRole('button', { name: 'again' })[1])
     expect(onSelectWord).toHaveBeenCalledWith(Words[2])
     await user.click(screen.getByRole('button', { name: 'View source 1' }))
     expect(onSelectSource).toHaveBeenCalledWith(1, expect.any(HTMLButtonElement))
     expect(onSelectWord).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the spoken text unhighlighted when word seeking is unavailable', () => {
+    const { container } = render(<NarratedText text={Text} activeWord={Words[2]} />)
+
+    expect(container.textContent).toBe(Text)
+    expect(container.querySelector('mark')).toBeNull()
+    expect(container.querySelector('[data-narration-word]')).toHaveTextContent('again')
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('supports arrow-key navigation and Enter without making every word a tab stop', async () => {
