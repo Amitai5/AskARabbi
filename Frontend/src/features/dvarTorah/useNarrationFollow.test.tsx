@@ -13,11 +13,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function Harness({ word = null, sourceOpen = false }: { word?: DvarTorahAudioWord | null; sourceOpen?: boolean }) {
+function Harness({ word = null, playing = true, sourceOpen = false }: { word?: DvarTorahAudioWord | null; playing?: boolean; sourceOpen?: boolean }) {
   const articleRef = useRef<HTMLElement | null>(null)
   const scrollAreaRef = useRef<HTMLElement | null>(null)
-  const { isFollowing, toggleFollowing } = useNarrationFollow(word, articleRef, scrollAreaRef, sourceOpen)
-  return <><section ref={scrollAreaRef} aria-label="Reading area"><article ref={articleRef}><span data-narration-word>{word?.text}</span><button type="button">A citation</button><span role="button" tabIndex={0}>A narrated word</span></article></section><button type="button" aria-pressed={isFollowing} onClick={toggleFollowing}>Follow text</button></>
+  useNarrationFollow(word, articleRef, scrollAreaRef, playing, sourceOpen)
+  return <section ref={scrollAreaRef} aria-label="Reading area"><article ref={articleRef}><span data-narration-word>{word?.text}</span><button type="button">A citation</button><span role="button" tabIndex={0}>A narrated word</span></article></section>
 }
 
 function setup(wordTop = 900, reducedMotion = false) {
@@ -56,7 +56,7 @@ describe('narration following', () => {
     expect(scrollTo).toHaveBeenCalledTimes(1)
   })
 
-  it('does not scroll away from a passage while the reader is selecting it', () => {
+  it('keeps following during playback without clearing native text selection', () => {
     const { rerender, scrollTo } = setup()
     const range = document.createRange()
     range.selectNodeContents(screen.getByRole('button', { name: 'A citation' }))
@@ -64,21 +64,33 @@ describe('narration following', () => {
 
     rerender(<Harness word={Word} />)
 
-    expect(scrollTo).not.toHaveBeenCalled()
-    window.getSelection()?.removeAllRanges()
-    rerender(<Harness word={{ ...Word, textOffset: 6 }} />)
     expect(scrollTo).toHaveBeenCalledTimes(1)
+    expect(window.getSelection()?.toString()).toBe('A citation')
   })
 
-  it.each(['wheel', 'touchMove', 'keyDown', 'pointerDown'] as const)('pauses after manual %s and resumes explicitly', (event) => {
+  it.each(['wheel', 'touchMove', 'keyDown', 'pointerDown'] as const)('automatically follows the next word after manual %s interrupts a scroll', (event) => {
     const { rerender, area, scrollTo } = setup()
-    fireEvent[event](area, { key: 'PageDown' })
     rerender(<Harness word={Word} />)
-
-    expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'false')
-    expect(scrollTo).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Follow text' }))
     expect(scrollTo).toHaveBeenCalledTimes(1)
+
+    fireEvent[event](area, { key: 'PageDown' })
+    rerender(<Harness word={{ ...Word, text: 'again', textOffset: 6 }} />)
+
+    expect(scrollTo).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not follow an idle or paused recording and resumes at the current word', () => {
+    const { rerender, scrollTo } = setup()
+    rerender(<Harness word={Word} playing={false} />)
+    expect(scrollTo).not.toHaveBeenCalled()
+
+    rerender(<Harness word={Word} />)
+    expect(scrollTo).toHaveBeenCalledTimes(1)
+    rerender(<Harness word={Word} playing={false} />)
+    expect(scrollTo).toHaveBeenCalledTimes(1)
+
+    rerender(<Harness word={Word} />)
+    expect(scrollTo).toHaveBeenCalledTimes(2)
   })
 
   it('does not scroll while the source reader is open, and resumes after closing', () => {
@@ -95,7 +107,6 @@ describe('narration following', () => {
     fireEvent.keyDown(screen.getByRole('button', { name }), { key: ' ' })
     rerender(<Harness word={Word} />)
 
-    expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'true')
     expect(scrollTo).toHaveBeenCalledTimes(1)
   })
 })

@@ -69,7 +69,9 @@ describe('Account keyboard preference and long conversation navigation', () => {
     await waitFor(() => expect(conversationClient.appendMessage).toHaveBeenCalledOnce())
     await user.type(input, 'An unfinished next question')
     const container = screen.getByRole('region', { name: 'Current conversation' })
-    const scroll = vi.spyOn(container, 'scrollTo')
+    // Observe this pane only, not the navigation rail's inherited scroll mock.
+    const scroll = vi.fn()
+    Object.defineProperty(container, 'scrollTo', { configurable: true, value: scroll })
     await user.click(screen.getByRole('button', { name: 'Question 1: Original question 1?' }))
     expect(document.getElementById(questionElementId('q-0'))).toHaveFocus()
     scroll.mockClear()

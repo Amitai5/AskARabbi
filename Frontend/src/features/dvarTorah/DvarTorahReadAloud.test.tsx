@@ -34,6 +34,24 @@ afterEach(() => {
 })
 
 describe('DvarTorahReadAloud', () => {
+  it.each(['pause', 'waiting', 'ended', 'error'] as const)('stops automatic following on %s and restores it when playback starts again', async event => {
+    const user = userEvent.setup()
+    const onPlayingChange = vi.fn()
+    const { unmount } = render(<DvarTorahReadAloud audio={Audio} weekKey="week" title={Timings.title} body={Timings.body} client={createClient()} onWordChange={vi.fn()} onPlayingChange={onPlayingChange} />)
+    expect(onPlayingChange).toHaveBeenLastCalledWith(false)
+    await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
+    expect(onPlayingChange).toHaveBeenLastCalledWith(true)
+    const element = screen.getByLabelText('Dvar Torah recording')
+
+    fireEvent[event](element)
+
+    expect(onPlayingChange).toHaveBeenLastCalledWith(false)
+    fireEvent.playing(element)
+    expect(onPlayingChange).toHaveBeenLastCalledWith(true)
+    unmount()
+    expect(onPlayingChange).toHaveBeenLastCalledWith(false)
+  })
+
   it('skips 15 seconds in either direction, clamps boundaries, and preserves a paused recording', async () => {
     const user = userEvent.setup()
     renderPlayer(createClient(), { ...Audio, durationMs: 60_000 })
