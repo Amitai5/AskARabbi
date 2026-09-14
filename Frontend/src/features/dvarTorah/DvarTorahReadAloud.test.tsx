@@ -231,12 +231,12 @@ describe('DvarTorahReadAloud', () => {
 
     await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
 
-    expect(await screen.findByText(/Word highlighting is unavailable/)).toBeVisible()
+    expect(await screen.findByText(/Word navigation and text following are unavailable/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Pause recording' })).toBeEnabled()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('preloads the recording and validates timings before Listen without playing or highlighting', async () => {
+  it('preloads the recording and validates timings before Listen without playing or following a word', async () => {
     const client = createClient()
     const onTimingsChange = vi.fn()
     const onWordChange = vi.fn()
@@ -297,7 +297,7 @@ describe('DvarTorahReadAloud', () => {
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled()
   })
 
-  it('never highlights mismatched article or recording versions', async () => {
+  it('never follows words from mismatched article or recording versions', async () => {
     const user = userEvent.setup()
     const client = createClient()
     client.getAudioTimings = vi.fn().mockResolvedValue({ ...Timings, version: 'old' })
@@ -310,7 +310,7 @@ describe('DvarTorahReadAloud', () => {
       fireEvent.timeUpdate(element)
     })
 
-    expect(await screen.findByText(/Word highlighting is unavailable/)).toBeVisible()
+    expect(await screen.findByText(/Word navigation and text following are unavailable/)).toBeVisible()
     expect(onWordChange).not.toHaveBeenCalled()
   })
 
@@ -340,11 +340,11 @@ describe('DvarTorahReadAloud', () => {
     renderPlayer(client, Audio, onWordChange)
 
     await user.click(screen.getByRole('button', { name: 'Listen to this teaching' }))
-    expect(await screen.findByText(/Word highlighting is unavailable/)).toBeVisible()
+    expect(await screen.findByText(/Word navigation and text following are unavailable/)).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Retry recording' }))
 
     expect(client.getAudioTimings).toHaveBeenCalledTimes(3)
-    await waitFor(() => expect(screen.queryByText(/Word highlighting is unavailable/)).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(/Word navigation and text following are unavailable/)).not.toBeInTheDocument())
     const element = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
     act(() => {
       element.currentTime = 0.6
@@ -356,7 +356,7 @@ describe('DvarTorahReadAloud', () => {
     expect(client.getAudioTimings).toHaveBeenCalledTimes(3)
   })
 
-  it('clears the highlight on completion and restarts at the beginning', async () => {
+  it('clears the active word on completion and restarts at the beginning', async () => {
     const user = userEvent.setup()
     const onWordChange = vi.fn()
     renderPlayer(createClient(), Audio, onWordChange)

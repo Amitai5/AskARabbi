@@ -26,20 +26,20 @@ describe('AssistantMessage', () => {
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValueOnce(undefined)
     render(<AssistantMessage message={Message} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
 
-    const copyButton = screen.getByRole('button', { name: 'Copy answer' })
-    expect(copyButton).toHaveClass('answer-copy-button', 'opacity-0', 'group-hover:opacity-100', 'group-focus-within:opacity-100', 'focus-visible:ring-inset')
+    const copyButton = screen.getByRole('button', { name: 'Copy text' })
+    expect(copyButton).toHaveClass('answer-copy-button', 'focus-visible:ring-inset')
     expect(copyButton).not.toHaveTextContent('Copy')
     expect(copyButton.querySelector('svg')).toBeInTheDocument()
     expect(copyButton.closest('[data-message-role="assistant"]')).toHaveClass('relative')
     expect(copyButton.parentElement).toHaveClass('absolute', 'bottom-0', 'right-0', 'p-0.5')
-    expect(screen.getByText(Message.content)).toHaveClass('last:min-h-9', 'last:pr-22')
+    expect(screen.getByText(Message.content)).toHaveClass('sm:last:min-h-9', 'sm:last:pr-32')
     expect(screen.getByText(Message.content).compareDocumentPosition(copyButton) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
 
     await user.click(copyButton)
 
     expect(writeText).toHaveBeenCalledWith(Message.content)
-    expect(screen.getByRole('button', { name: 'Answer copied' })).toHaveClass('opacity-100')
-    expect(screen.getByRole('status')).toHaveTextContent('Answer copied to clipboard.')
+    expect(copyButton).toHaveAttribute('data-copy-status', 'copied')
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('Answer text copied to clipboard.')
   })
 
   it('places printing beside copy at the bottom, not in the answer header', async () => {
@@ -51,7 +51,7 @@ describe('AssistantMessage', () => {
     expect(screen.queryByRole('button', { name: 'Focus answer' })).not.toBeInTheDocument()
     const actions = screen.getByRole('group', { name: 'Answer actions' })
     expect(actions).toContainElement(print)
-    expect(actions).toContainElement(screen.getByRole('button', { name: 'Copy answer' }))
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Copy text' }))
     expect(actions).toHaveClass('absolute', 'bottom-0', 'right-0')
     expect(print).toHaveClass('size-8')
     expect(screen.getByText('AskRabbi').parentElement).not.toContainElement(print)
@@ -71,7 +71,7 @@ describe('AssistantMessage', () => {
     expect(finalParagraph.parentElement?.querySelectorAll('p')).toHaveLength(2)
     expect(finalParagraph).toBe(finalParagraph.parentElement?.lastElementChild)
 
-    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+    await user.click(screen.getByRole('button', { name: 'Copy text' }))
 
     expect(writeText).toHaveBeenCalledWith(message.content)
   })
@@ -81,11 +81,11 @@ describe('AssistantMessage', () => {
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('Clipboard permission denied.'))
     render(<AssistantMessage message={Message} selectedSourceNumber={null} onSelectSource={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+    await user.click(screen.getByRole('button', { name: 'Copy text' }))
 
     expect(writeText).toHaveBeenCalledWith(Message.content)
-    expect(screen.getByRole('button', { name: 'Copy failed. Try again' })).toBeVisible()
-    expect(screen.getByRole('status')).toHaveTextContent('The answer could not be copied. Try again.')
+    expect(screen.getByRole('button', { name: 'Copy text' })).toHaveAttribute('title', 'Copy text failed. Try again.')
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('Copy text failed. Try again.')
   })
 
   it('repairs malformed typography when displaying and copying an answer', async () => {
@@ -101,7 +101,7 @@ describe('AssistantMessage', () => {
     expect(document.body).not.toHaveTextContent('\u0019')
     expect(document.body).not.toHaveTextContent('\u0092')
 
-    await user.click(screen.getByRole('button', { name: 'Copy answer' }))
+    await user.click(screen.getByRole('button', { name: 'Copy text' }))
 
     expect(writeText).toHaveBeenCalledWith('Joseph’s identity—and his family’s move are discussed. [1]')
   })

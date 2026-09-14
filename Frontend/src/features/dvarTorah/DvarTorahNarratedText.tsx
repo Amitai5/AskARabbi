@@ -20,7 +20,7 @@ export const DvarTorahNarratedText = memo(function DvarTorahNarratedText({ text,
     if (sourceNumber === undefined) {
       continue
     }
-    parts.push(<HighlightedText key={`text-${offset}`} text={text.slice(offset, match.index)} textOffset={textOffset + offset} activeWord={activeWord} words={words} onSelectWord={onSelectWord} />)
+    parts.push(<NarratedText key={`text-${offset}`} text={text.slice(offset, match.index)} textOffset={textOffset + offset} activeWord={activeWord} words={words} onSelectWord={onSelectWord} />)
     const isSelected = sourceNumber === selectedSourceNumber
     parts.push(
       <button key={`source-${match.index}`} type="button" aria-label={`View source ${sourceNumber}`} aria-expanded={isSelected} onClick={(event) => { if (event.detail === 0 || window.getSelection()?.isCollapsed !== false) { onSelectSource(sourceNumber, event.currentTarget) } }} className={`relative mx-0.5 inline-flex rounded-sm px-0.5 font-semibold text-pomegranate underline decoration-pomegranate/35 underline-offset-4 transition hover:bg-pomegranate/8 hover:decoration-pomegranate ${isSelected ? 'bg-pomegranate/10 ring-1 ring-pomegranate/45' : ''}`}>
@@ -29,13 +29,13 @@ export const DvarTorahNarratedText = memo(function DvarTorahNarratedText({ text,
     )
     offset = match.index + match[0].length
   }
-  parts.push(<HighlightedText key={`text-${offset}`} text={text.slice(offset)} textOffset={textOffset + offset} activeWord={activeWord} words={words} onSelectWord={onSelectWord} />)
+  parts.push(<NarratedText key={`text-${offset}`} text={text.slice(offset)} textOffset={textOffset + offset} activeWord={activeWord} words={words} onSelectWord={onSelectWord} />)
   return parts
 })
 
 const NoWords: readonly DvarTorahAudioWord[] = []
 
-interface HighlightedTextProps {
+interface NarratedTextProps {
   text: string
   textOffset?: number
   activeWord: DvarTorahAudioWord | null
@@ -43,7 +43,7 @@ interface HighlightedTextProps {
   onSelectWord?(word: DvarTorahAudioWord): void
 }
 
-export const HighlightedText = memo(function HighlightedText({ text, textOffset = 0, activeWord, words = NoWords, onSelectWord }: HighlightedTextProps) {
+export const NarratedText = memo(function NarratedText({ text, textOffset = 0, activeWord, words = NoWords, onSelectWord }: NarratedTextProps) {
   const visibleWords = useMemo(() => words.filter((word) => word.textOffset >= textOffset && word.textOffset + word.textLength <= textOffset + text.length), [text.length, textOffset, words])
 
   if (onSelectWord !== undefined && visibleWords.length > 0) {
@@ -65,7 +65,7 @@ export const HighlightedText = memo(function HighlightedText({ text, textOffset 
           if (event.detail === 0 || window.getSelection()?.isCollapsed !== false) {
             onSelectWord(word)
           }
-        }} data-narration-word={activeWord === word ? true : undefined} className={`inline cursor-pointer select-text rounded-sm text-inherit transition-colors hover:bg-brass/20 focus-visible:bg-brass/20 ${activeWord === word ? 'bg-brass/30 text-ink shadow-[0_0_0_2px_var(--color-brass)]' : ''}`}>
+        }} data-narration-word={activeWord === word ? true : undefined} className="inline cursor-pointer select-text rounded-sm text-inherit">
           {word.text}
         </span>,
       )
@@ -79,7 +79,7 @@ export const HighlightedText = memo(function HighlightedText({ text, textOffset 
     return text
   }
   const start = activeWord.textOffset - textOffset
-  return <>{text.slice(0, start)}<mark data-narration-word className="rounded-sm bg-brass/30 text-ink shadow-[0_0_0_2px_var(--color-brass)]">{text.slice(start, start + activeWord.textLength)}</mark>{text.slice(start + activeWord.textLength)}</>
+  return <>{text.slice(0, start)}<span data-narration-word>{text.slice(start, start + activeWord.textLength)}</span>{text.slice(start + activeWord.textLength)}</>
 })
 
 function moveWordFocus(event: KeyboardEvent<HTMLElement>, index: number) {
