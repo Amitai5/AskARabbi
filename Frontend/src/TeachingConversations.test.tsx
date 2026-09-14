@@ -19,7 +19,7 @@ beforeEach(() => { window.history.replaceState({}, '', '/conversations/shabbat-a
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.getSelection()?.removeAllRanges(); window.history.replaceState({}, '', '/') })
 
 describe('Teaching conversations', () => {
-  it.each([false, true])('starts a new conversation with full-teaching context (selected passage: %s)', async selected => {
+  it.each([false, true])('starts a new conversation only from the top ask button (text selected: %s)', async selected => {
     const user = userEvent.setup()
     const clients = createDemoApplicationClients()
     const create = vi.fn(clients.conversationClient.createWithMessage)
@@ -30,25 +30,29 @@ describe('Teaching conversations', () => {
     await user.type(screen.getByLabelText('Message AskRabbi'), 'Keep my other draft')
     await user.click(screen.getByRole('button', { name: 'This week’s Dvar Torah' }))
     await screen.findByRole('heading', { name: Article.title })
+    expect(screen.queryByText(/Highlight a passage to ask about it/)).not.toBeInTheDocument()
     if (selected) {
       const range = document.createRange()
       range.selectNodeContents(screen.getByText('Choose life and care for others.'))
       window.getSelection()?.removeAllRanges()
       window.getSelection()?.addRange(range)
       fireEvent(document, new Event('selectionchange'))
-      await user.click(await screen.findByRole('button', { name: 'Ask about this passage' }))
-    } else {
-      await user.click(screen.getByRole('button', { name: 'Ask about this teaching' }))
+      fireEvent.pointerUp(document)
+      expect(screen.queryByRole('button', { name: 'Ask about this passage' })).not.toBeInTheDocument()
     }
+    expect(create).not.toHaveBeenCalled()
+    expect(append).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Ask about this teaching' }))
     expect(window.location.pathname).toBe('/conversations/new')
     expect(create).not.toHaveBeenCalled()
     expect(append).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Teaching context')).toHaveTextContent(Article.title)
+    expect(screen.queryByLabelText('Selected passage')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Message AskRabbi')).toHaveFocus()
     await user.clear(screen.getByLabelText('Message AskRabbi'))
     await user.type(screen.getByLabelText('Message AskRabbi'), 'How can I put this into practice?')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
-    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.any(String), 'How can I put this into practice?', expect.any(Array), { weekKey: Article.week.weekKey, selectedText: selected ? 'Choose life and care for others.' : null }))
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.any(String), 'How can I put this into practice?', expect.any(Array), { weekKey: Article.week.weekKey, selectedText: null }))
     expect(append).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Shabbat and automation' }))
     expect(await screen.findByLabelText('Message AskRabbi')).toHaveValue('Keep my other draft')

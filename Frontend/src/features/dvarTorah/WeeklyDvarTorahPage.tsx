@@ -324,14 +324,14 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
   const readingId = `teaching:${article.week.weekKey}`
   const reading = useReadingTarget(readingId, article.body)
   const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [timings, setTimings] = useState<DvarTorahAudioTimings | null>(null)
   const playerRef = useRef<DvarTorahPlaybackHandle | null>(null)
   const titleWords = useMemo(() => timings?.words.filter((word) => word.section === 'title'), [timings])
   const bodyWords = useMemo(() => timings?.words.filter((word) => word.section === 'body'), [timings])
   const selectWord = useCallback((word: DvarTorahAudioWord) => playerRef.current?.seekToWord(word), [])
   const articleRef = useRef<HTMLElement | null>(null)
-  const bodyRef = useRef<HTMLDivElement | null>(null)
-  const { isFollowing, toggleFollowing } = useNarrationFollow(activeWord, articleRef, scrollAreaRef, selectedSourceNumber !== null)
+  useNarrationFollow(activeWord, articleRef, scrollAreaRef, isPlaying, selectedSourceNumber !== null)
   const title = useMemo(() => normalizeDvarTorahText(article.title), [article.title])
   const body = useMemo(() => normalizeDvarTorahText(article.body), [article.body])
   const paragraphs = useMemo(() => createNarratedParagraphs(body), [body])
@@ -358,17 +358,16 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
             </p>
           )}
           <div role="group" aria-label="Teaching actions" className="teaching-actions readable-menu reading-nonessential">
-            {onAskTeaching ? <TeachingAskActions context={{ weekKey: article.week.weekKey, title, selectedText: null }} bodyRef={bodyRef} onAsk={onAskTeaching} disabled={isAskDisabled} /> : null}
+            {onAskTeaching ? <TeachingAskActions context={{ weekKey: article.week.weekKey, title, selectedText: null }} onAsk={onAskTeaching} disabled={isAskDisabled} /> : null}
             <PrintAction label="Print teaching" getRequest={() => ({ kind: 'teaching', article })} />
             {reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" /> : null}
           </div>
         </div>
       </header>
       {article.audio == null ? <p className="mt-3 text-sm text-muted">Audio is not available for this teaching yet.</p> : null}
-      {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
+      {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} onPlayingChange={setIsPlaying} />, audioDock)}
       {timings === null ? null : <p className="mt-3 text-sm text-muted sm:mt-4">Select a word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
-      {onAskTeaching ? <p className="mt-3 text-sm text-muted">Highlight a passage to ask about it, with the whole teaching as context.</p> : null}
-      <div ref={bodyRef} className="reading-content teaching-body mt-5 max-w-[60rem] space-y-6 border-l-2 border-brass/55 pl-3 sm:mt-8 sm:pl-7">
+      <div className="reading-content teaching-body mt-5 max-w-[60rem] space-y-6 border-l-2 border-brass/55 pl-3 sm:mt-8 sm:pl-7">
         {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} words={bodyWords} onSelectWord={selectWord} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[60rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}

@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { DvarTorahAudioWord } from './dvarTorahTypes.ts'
 
-export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articleRef: RefObject<HTMLElement | null>, scrollAreaRef: RefObject<HTMLElement | null>, isSourceReaderOpen: boolean) {
-  const [isFollowing, setIsFollowing] = useState(true)
+export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articleRef: RefObject<HTMLElement | null>, scrollAreaRef: RefObject<HTMLElement | null>, isPlaying: boolean, isSourceReaderOpen: boolean) {
   const scrollTargetRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -12,8 +11,8 @@ export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articl
       return
     }
 
-    function pauseFollowing() {
-      setIsFollowing(false)
+    function resetScrollTarget() {
+      // Manual scrolling can interrupt a smooth scroll. Follow the next word without waiting for that old target.
       scrollTargetRef.current = null
     }
 
@@ -22,31 +21,31 @@ export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articl
         return
       }
       if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) {
-        pauseFollowing()
+        resetScrollTarget()
       }
     }
 
     function onPointerDown(event: PointerEvent) {
-      // Scrollbar interaction should release following, but selecting a citation should not.
       if (event.target === area) {
-        pauseFollowing()
+        resetScrollTarget()
       }
     }
 
-    area.addEventListener('wheel', pauseFollowing, { passive: true })
-    area.addEventListener('touchmove', pauseFollowing, { passive: true })
+    area.addEventListener('wheel', resetScrollTarget, { passive: true })
+    area.addEventListener('touchmove', resetScrollTarget, { passive: true })
     area.addEventListener('keydown', onKeyDown)
     area.addEventListener('pointerdown', onPointerDown)
     return () => {
-      area.removeEventListener('wheel', pauseFollowing)
-      area.removeEventListener('touchmove', pauseFollowing)
+      area.removeEventListener('wheel', resetScrollTarget)
+      area.removeEventListener('touchmove', resetScrollTarget)
       area.removeEventListener('keydown', onKeyDown)
       area.removeEventListener('pointerdown', onPointerDown)
     }
   }, [scrollAreaRef])
 
   useEffect(() => {
-    if (!isFollowing || isSourceReaderOpen || activeWord === null || window.getSelection()?.isCollapsed === false) {
+    if (!isPlaying || isSourceReaderOpen || activeWord === null) {
+      scrollTargetRef.current = null
       return
     }
     const area = scrollAreaRef.current
@@ -70,12 +69,5 @@ export function useNarrationFollow(activeWord: DvarTorahAudioWord | null, articl
     scrollTargetRef.current = top
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
     area.scrollTo?.({ top, behavior: reducedMotion ? 'instant' : 'smooth' })
-  }, [activeWord, articleRef, isFollowing, isSourceReaderOpen, scrollAreaRef])
-
-  function toggleFollowing() {
-    scrollTargetRef.current = null
-    setIsFollowing((current) => !current)
-  }
-
-  return { isFollowing, toggleFollowing }
+  }, [activeWord, articleRef, isPlaying, isSourceReaderOpen, scrollAreaRef])
 }

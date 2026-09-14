@@ -166,7 +166,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(newsReference).toHaveFocus()
   })
 
-  it('streams without highlighting the teaching and preserves sources, pause, seek, and speed', async () => {
+  it('automatically follows playback without a toggle and preserves sources, pause, seek, and speed', async () => {
     const user = userEvent.setup()
     const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       this.dispatchEvent(new Event('playing'))
@@ -189,10 +189,14 @@ describe('WeeklyDvarTorahPage', () => {
     const player = screen.getByRole('region', { name: 'Dvar Torah audio player' })
     const readingArea = screen.getByRole('region', { name: 'Weekly Dvar Torah' })
     expect(readingArea).not.toContainElement(player)
-    expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.wheel(readingArea)
-    expect(screen.getByRole('button', { name: 'Follow text' })).toHaveAttribute('aria-pressed', 'false')
-    await user.click(screen.getByRole('button', { name: 'Follow text' }))
+    expect(within(player).queryByRole('button', { name: /follow/i })).not.toBeInTheDocument()
+    expect(player).not.toHaveTextContent(/follow text|follow paused|don't follow/i)
+    const scrollTo = vi.fn()
+    readingArea.scrollTo = scrollTo
+    vi.spyOn(readingArea, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 800, 600))
+    for (const word of ['God’s', 'Experts']) {
+      vi.spyOn(await screen.findByRole('button', { name: word }), 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 900, 60, 24))
+    }
     const audio = screen.getByLabelText('Dvar Torah recording') as HTMLAudioElement
     expect(audio).toHaveAttribute('preload', 'auto')
     expect(audio).toHaveAttribute('crossorigin', 'use-credentials')
@@ -200,6 +204,7 @@ describe('WeeklyDvarTorahPage', () => {
     expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
     expect(play).not.toHaveBeenCalled()
     expect(document.querySelector('[data-narration-word]')).toBeNull()
+    expect(scrollTo).not.toHaveBeenCalled()
     await user.click(listen)
 
     expect(play).toHaveBeenCalledTimes(1)
@@ -211,10 +216,19 @@ describe('WeeklyDvarTorahPage', () => {
     })
     await waitFor(() => expect(document.querySelector('[data-narration-word]')).toHaveTextContent('God’s'))
     expect(document.querySelector('mark')).toBeNull()
+    expect(scrollTo).toHaveBeenCalledTimes(1)
+    fireEvent.wheel(readingArea)
+    act(() => {
+      audio.currentTime = 2.2
+      fireEvent.timeUpdate(audio)
+    })
+    expect(document.querySelector('[data-narration-word]')).toHaveTextContent('Experts')
+    expect(scrollTo).toHaveBeenCalledTimes(2)
     await user.click(screen.getByRole('button', { name: 'Pause recording' }))
     expect(pause).toHaveBeenCalledTimes(1)
-    fireEvent.change(screen.getByRole('slider', { name: 'Recording position' }), { target: { value: '2.2' } })
-    expect(document.querySelector('[data-narration-word]')).toHaveTextContent('Experts')
+    fireEvent.change(screen.getByRole('slider', { name: 'Recording position' }), { target: { value: '1.2' } })
+    expect(document.querySelector('[data-narration-word]')).toHaveTextContent('God’s')
+    expect(scrollTo).toHaveBeenCalledTimes(2)
     expect(document.querySelector('mark')).toBeNull()
     await user.selectOptions(screen.getByRole('combobox', { name: 'Playback speed' }), '1.5')
     expect(audio.playbackRate).toBe(1.5)
@@ -224,6 +238,7 @@ describe('WeeklyDvarTorahPage', () => {
     await user.click(within(screen.getByRole('dialog', { name: 'Source reader' })).getByRole('button', { name: 'Close source reader' }))
     await user.click(screen.getByRole('button', { name: 'Resume recording' }))
     expect(play).toHaveBeenCalledTimes(2)
+    expect(scrollTo).toHaveBeenCalledTimes(3)
     expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
     unmount()
     expect(pause).toHaveBeenCalledTimes(2)

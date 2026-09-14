@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
-import { Headphones, LoaderCircle, Pause, Play, RotateCcw, RotateCw, TextCursorInput } from 'lucide-react'
+import { Headphones, LoaderCircle, Pause, Play, RotateCcw, RotateCw } from 'lucide-react'
 import { findAudioWord, formatAudioTime, validateAudioTimings } from './dvarTorahAudio.ts'
 import type { DvarTorahClient } from './dvarTorahClient.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, WeeklyDvarTorahAudio } from './dvarTorahTypes.ts'
@@ -15,8 +15,7 @@ interface DvarTorahReadAloudProps {
   client: DvarTorahClient
   onWordChange(word: DvarTorahAudioWord | null): void
   onTimingsChange?(timings: DvarTorahAudioTimings | null): void
-  isFollowing?: boolean
-  onToggleFollowing?(): void
+  onPlayingChange?(isPlaying: boolean): void
 }
 
 export interface DvarTorahPlaybackHandle {
@@ -29,7 +28,7 @@ export function DvarTorahReadAloud(props: DvarTorahReadAloudProps) {
   return <DvarTorahPlayer key={`${props.weekKey}:${props.audio?.version ?? ''}`} {...props} />
 }
 
-function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChange, onTimingsChange, isFollowing = false, onToggleFollowing }: DvarTorahReadAloudProps) {
+function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChange, onTimingsChange, onPlayingChange }: DvarTorahReadAloudProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const frameRef = useRef<number | null>(null)
   const requestIdRef = useRef(0)
@@ -45,6 +44,11 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
   const [timingsError, setTimingsError] = useState(false)
   const version = audio?.version
   const savedRecording = useSavedRecording(weekKey, version, title, body)
+
+  useEffect(() => {
+    onPlayingChange?.(playbackState === 'playing')
+    return () => onPlayingChange?.(false)
+  }, [onPlayingChange, playbackState])
 
   const updateWord = useCallback(() => {
     if (!hasInteractedRef.current) {
@@ -317,7 +321,6 @@ function DvarTorahPlayer({ ref, audio, weekKey, title, body, client, onWordChang
         </button>
         <button type="button" onClick={() => skip(15)} disabled={playbackState === 'idle' || playbackState === 'error'} aria-label="Forward 15 seconds" title="Forward 15 seconds" className="relative flex size-[44px] shrink-0 items-center justify-center rounded-full text-ink hover:bg-stone disabled:opacity-40"><RotateCw aria-hidden="true" className="size-7" strokeWidth={1.5} /><span aria-hidden="true" className="absolute text-[10px] font-bold">15</span></button>
         </div>
-        {onToggleFollowing === undefined ? null : <button type="button" onClick={onToggleFollowing} aria-pressed={isFollowing} aria-label="Follow text" title={isFollowing ? 'Auto-scroll is on. Scroll manually to pause following.' : 'Resume following the spoken words.'} className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition hover:bg-stone focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate sm:px-3 ${isFollowing ? 'bg-pomegranate/8 text-pomegranate' : 'text-muted'}`}><TextCursorInput aria-hidden="true" className="size-5 sm:size-4" /><span className="hidden sm:inline">{isFollowing ? 'Follow text' : 'Follow paused'}</span></button>}
         <div className="shrink-0">
           <label className="sr-only" htmlFor={`audio-speed-${weekKey}`}>Playback speed</label>
           <select id={`audio-speed-${weekKey}`} value={playbackRate} onChange={(event) => {

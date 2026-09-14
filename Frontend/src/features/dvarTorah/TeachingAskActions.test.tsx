@@ -1,14 +1,12 @@
-import { useRef } from 'react'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TeachingAskActions } from './TeachingAskActions.tsx'
 import type { ConversationTeachingContext } from '../conversations/conversationData.ts'
 
 const Context = { weekKey: 'diaspora:2026-08-29', title: 'Choosing responsibility', selectedText: null }
-function Example({ onAsk, disabled = false, text = 'Choose life and care for others.' }: { onAsk(context: ConversationTeachingContext): void; disabled?: boolean; text?: string }) {
-  const bodyRef = useRef<HTMLDivElement>(null)
-  return <><p>Outside the teaching</p><TeachingAskActions context={Context} bodyRef={bodyRef} onAsk={onAsk} disabled={disabled} /><div ref={bodyRef} data-testid="teaching">{text}</div></>
+function Example({ onAsk, disabled = false }: { onAsk(context: ConversationTeachingContext): void; disabled?: boolean }) {
+  return <><TeachingAskActions context={Context} onAsk={onAsk} disabled={disabled} /><p data-testid="teaching">Choose life and care for others.</p></>
 }
 function select(element: HTMLElement) {
   const range = document.createRange()
@@ -27,50 +25,47 @@ describe('Teaching ask actions', () => {
     expect(ask).toHaveBeenCalledExactlyOnceWith(Context)
   })
 
-  it('keeps the selected text until the action is clicked and includes the teaching key', async () => {
+  it('leaves selected text available for copying without a passage action', () => {
     const ask = vi.fn()
     render(<Example onAsk={ask} />)
     select(screen.getByTestId('teaching'))
-    const button = await screen.findByRole('button', { name: 'Ask about this passage' })
-    expect(ask).not.toHaveBeenCalled()
-    await userEvent.click(button)
-    expect(ask).toHaveBeenCalledExactlyOnceWith({ ...Context, selectedText: 'Choose life and care for others.' })
-    expect(window.getSelection()?.isCollapsed).toBe(true)
-  })
+    fireEvent.pointerUp(document)
+    expect(fireEvent.keyDown(document, { key: 'Tab' })).toBe(true)
 
-  it('rejects selections outside the teaching and dismisses on Escape', async () => {
-    render(<Example onAsk={vi.fn()} />)
-    select(screen.getByTestId('teaching'))
-    await screen.findByRole('button', { name: 'Ask about this passage' })
-    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(window.getSelection()?.toString()).toBe('Choose life and care for others.')
+    expect(screen.queryByRole('group', { name: 'Selected teaching passage' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ask about this passage' })).not.toBeInTheDocument()
-    select(screen.getByText('Outside the teaching'))
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Ask about this passage' })).not.toBeInTheDocument())
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    expect(ask).not.toHaveBeenCalled()
   })
 
-  it('lets a keyboard user reach the selection action with Tab and activate it with Enter', async () => {
+  it('always asks about the whole teaching even when text is selected', async () => {
     const ask = vi.fn()
     render(<Example onAsk={ask} />)
     select(screen.getByTestId('teaching'))
-    const button = await screen.findByRole('button', { name: 'Ask about this passage' })
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about this teaching' }))
+
+    expect(ask).toHaveBeenCalledExactlyOnceWith(Context)
+  })
+
+  it('supports keyboard activation of the whole-teaching action', async () => {
+    const ask = vi.fn()
+    render(<Example onAsk={ask} />)
+    const button = screen.getByRole('button', { name: 'Ask about this teaching' })
 
     await userEvent.tab()
     expect(button).toHaveFocus()
     await userEvent.keyboard('{Enter}')
 
-    expect(ask).toHaveBeenCalledExactlyOnceWith({ ...Context, selectedText: 'Choose life and care for others.' })
+    expect(ask).toHaveBeenCalledExactlyOnceWith(Context)
   })
 
-  it('does not submit disabled or overlong selections', async () => {
+  it('does not ask when chat is disabled', async () => {
     const ask = vi.fn()
-    const { rerender } = render(<Example onAsk={ask} disabled />)
-    expect(screen.getByRole('button', { name: 'Ask about this teaching' })).toBeDisabled()
-    select(screen.getByTestId('teaching'))
-    expect(await screen.findByRole('button', { name: 'Ask about this passage' })).toBeDisabled()
-    rerender(<Example onAsk={ask} text={'a'.repeat(4001)} />)
-    select(screen.getByTestId('teaching'))
-    await screen.findByText('Select a shorter passage, or ask about the whole teaching.')
-    expect(screen.getByRole('button', { name: 'Ask about this passage' })).toBeDisabled()
+    render(<Example onAsk={ask} disabled />)
+    const button = screen.getByRole('button', { name: 'Ask about this teaching' })
+    expect(button).toBeDisabled()
+    await userEvent.click(button)
     expect(ask).not.toHaveBeenCalled()
   })
 })
