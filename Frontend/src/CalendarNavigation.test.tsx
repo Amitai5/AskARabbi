@@ -29,6 +29,7 @@ describe('Calendar navigation', () => {
   })
 
   it('preserves the selected conversation and unsent draft through calendar navigation', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const { user } = await signIn()
     await user.type(screen.getByLabelText('Message AskRabbi'), 'Keep my calendar question')
     await user.click(screen.getByRole('button', { name: 'Jewish Calendar' }))
@@ -62,6 +63,7 @@ describe('Calendar navigation', () => {
   })
 
   it('finishes a background answer without leaving the calendar and retains it in its chat', async () => {
+    window.history.replaceState({}, '', '/conversations/chicken-dairy')
     const clients = createDemoApplicationClients()
     let complete: (turn: ConversationTurn) => void = () => { throw new Error('Request not started') }
     const pending = new Promise<ConversationTurn>((resolve) => { complete = resolve })

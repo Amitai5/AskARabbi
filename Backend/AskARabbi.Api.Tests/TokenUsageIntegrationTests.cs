@@ -26,7 +26,7 @@ public sealed class TokenUsageIntegrationTests
     {
         await using var app = new TestApplicationFactory();
         using var client = await app.CreateAuthenticatedClientAsync();
-        await SeedUsageAsync(app, 10_000_000);
+        await SeedUsageAsync(app, 5_000_000);
 
         using var response = await client.PostAsJsonAsync("/api/conversations?compact=true", new { messageId = FirstMessageId, content = "Explain this week's parashah." });
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -49,7 +49,7 @@ public sealed class TokenUsageIntegrationTests
         using var firstResponse = await client.PostAsJsonAsync("/api/conversations", new { messageId = FirstMessageId, content = "Explain Shabbat." });
         var first = await firstResponse.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
         Assert.IsNotNull(first);
-        await SeedUsageAsync(app, 10_000_000 - 30);
+        await SeedUsageAsync(app, 5_000_000 - 30);
 
         using var blocked = await client.PostAsJsonAsync($"/api/conversations/{first.Conversation.Id}/messages?compact=true", new { messageId = NextMessageId, content = "Why is that?" });
         using var read = await client.GetAsync($"/api/conversations/{first.Conversation.Id}");
@@ -82,8 +82,8 @@ public sealed class TokenUsageIntegrationTests
         Assert.AreEqual(30L, first.Usage?.TokensUsed);
         Assert.AreEqual(60L, next?.Usage?.TokensUsed);
         Assert.AreEqual(90L, other?.Usage?.TokensUsed);
-        Assert.AreEqual(0.0009m, other?.Usage?.UsedPercent);
-        Assert.AreEqual(10_000_000L, other?.Usage?.TokenLimit);
+        Assert.AreEqual(0.0018m, other?.Usage?.UsedPercent);
+        Assert.AreEqual(5_000_000L, other?.Usage?.TokenLimit);
         Assert.AreEqual(3, app.GroundedAnswers.CallCount);
     }
 
@@ -96,15 +96,60 @@ public sealed class TokenUsageIntegrationTests
         using var created = await client.PostAsJsonAsync("/api/conversations", new { messageId = FirstMessageId, content = "Explain Shabbat." });
         var first = await created.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
         Assert.IsNotNull(first);
-        await SeedUsageAsync(app, 10_000_000 - 30);
+        await SeedUsageAsync(app, 5_000_000 - 30);
 
         using var repeated = await client.PostAsJsonAsync($"/api/conversations/{first.Conversation.Id}/messages", new { messageId = FirstMessageId, content = "Explain Shabbat." });
         var retry = await repeated.Content.ReadFromJsonAsync<ConversationTurnResponse>(JsonOptions);
 
         Assert.AreEqual(HttpStatusCode.OK, repeated.StatusCode);
         Assert.AreEqual("answered", retry?.Status);
-        Assert.AreEqual(10_000_000L, retry?.Usage?.TokensUsed);
+        Assert.AreEqual(5_000_000L, retry?.Usage?.TokensUsed);
         Assert.AreEqual(1, app.GroundedAnswers.CallCount);
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task Create_OneTokenBelowMonthlyLimit_AllowsAnswerThenBlocksNextQuestion()
+    {
+        await using var app = new TestApplicationFactory();
+        using var client = await app.CreateAuthenticatedClientAsync();
+        await SeedUsageAsync(app, 4_999_999);
+
+        using var response = await client.PostAsJsonAsync("/api/conversations?compact=true", new { messageId = FirstMessageId, content = "Explain Shabbat." });
+        var turn = await response.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+        using var next = await client.PostAsJsonAsync("/api/conversations", new { messageId = NextMessageId, content = "Explain another custom." });
+
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        Assert.AreEqual("answered", turn?.Status);
+        Assert.AreEqual(5_000_029L, turn?.Usage?.TokensUsed);
+        Assert.AreEqual(0L, turn?.Usage?.TokensRemaining);
+        Assert.AreEqual(HttpStatusCode.TooManyRequests, next.StatusCode);
+        Assert.AreEqual(1, app.GroundedAnswers.CallCount);
+    }
+
+    [TestMethod]
+    [DataRow(2_500_000L, 2_500_000L, 50, false)]
+    [DataRow(5_000_000L, 0L, 100, true)]
+    [DataRow(6_000_000L, 0L, 100, true)]
+    [TestCategory("Integration")]
+    public async Task GetUsage_PreviousAllowanceUsage_PreservesCountersWithReducedLimit(long tokensUsed, long tokensRemaining, int usedPercent, bool isLimitReached)
+    {
+        await using var app = new TestApplicationFactory();
+        using var client = await app.CreateAuthenticatedClientAsync();
+        var previousLease = new ChatUsageLease(app.Store.UserId, Guid.Parse("55555555-5555-5555-5555-555555555555"), Start, Start.AddMonths(1), Now.AddMinutes(10), 10_000_000);
+        Assert.IsTrue(await app.Store.TryAcquireChatAsync(previousLease, Now));
+        Assert.IsTrue(await app.Store.RecordTokensAsync(previousLease, tokensUsed));
+        await app.Store.ReleaseChatAsync(previousLease);
+
+        var usage = await client.GetFromJsonAsync<UsageResponse>("/api/conversation-settings/usage");
+
+        Assert.IsNotNull(usage);
+        Assert.AreEqual(5_000_000L, usage.TokenLimit);
+        Assert.AreEqual(tokensUsed, usage.TokensUsed);
+        Assert.AreEqual(tokensRemaining, usage.TokensRemaining);
+        Assert.AreEqual((decimal)usedPercent, usage.UsedPercent);
+        Assert.AreEqual(isLimitReached, usage.IsLimitReached);
+        Assert.AreEqual(tokensUsed, await app.Store.GetTokenCountAsync(app.Store.UserId, Start, Start.AddMonths(1)));
     }
 
     [TestMethod]
@@ -158,5 +203,5 @@ public sealed class TokenUsageIntegrationTests
         await app.Store.ReleaseChatAsync(lease);
     }
 
-    private static ChatUsageLease CreateLease(Guid userId) => new(userId, Guid.Parse("44444444-4444-4444-4444-444444444444"), Start, Start.AddMonths(1), Now.AddMinutes(10), 10_000_000);
+    private static ChatUsageLease CreateLease(Guid userId) => new(userId, Guid.Parse("44444444-4444-4444-4444-444444444444"), Start, Start.AddMonths(1), Now.AddMinutes(10), 5_000_000);
 }

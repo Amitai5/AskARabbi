@@ -81,12 +81,14 @@ public sealed class ConversationService
     /// <param name="content">First user message content.</param>
     /// <param name="sourceKeys">Optional source selection; every approved source is used when omitted.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <param name="teachingContext">Optional server-resolved teaching snapshot.</param>
     /// <returns>The created conversation containing the normalized first message.</returns>
-    public async Task<Conversation> CreateWithUserMessageAsync(Guid userId, Guid messageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default)
+    public async Task<Conversation> CreateWithUserMessageAsync(Guid userId, Guid messageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default, ConversationTeachingContext? teachingContext = null)
     {
         ValidateUserId(userId);
         var now = timeProvider.GetUtcNow();
         var message = CreateMessage(messageId, content, ConversationMessageRole.User, MaximumUserMessageLength, now, []);
+        teachingContext?.Validate();
         var conversation = new Conversation
         {
             Id = Guid.NewGuid(),
@@ -94,6 +96,7 @@ public sealed class ConversationService
             Title = NormalizeTitle(null),
             EnabledSourceKeys = NormalizeSourceKeys(sourceKeys),
             Messages = [message],
+            TeachingContext = teachingContext,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
         };

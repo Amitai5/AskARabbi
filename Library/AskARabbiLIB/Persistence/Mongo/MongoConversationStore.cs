@@ -232,6 +232,7 @@ public sealed class MongoConversationStore : IConversationStore
         UserId = conversation.UserId.ToString("D"),
         Title = conversation.Title,
         EnabledSourceKeys = conversation.EnabledSourceKeys.ToList(),
+        TeachingContext = conversation.TeachingContext is { } teaching ? new MongoConversationTeachingDocument { WeekKey = teaching.WeekKey, Title = teaching.Title, Body = teaching.Body, SourceReferences = teaching.SourceReferences, SelectedText = teaching.SelectedText } : null,
         CreatedAtUtc = conversation.CreatedAtUtc.UtcDateTime,
         UpdatedAtUtc = conversation.UpdatedAtUtc.UtcDateTime,
     };
@@ -271,6 +272,7 @@ public sealed class MongoConversationStore : IConversationStore
         UserId = Guid.Parse(document.UserId),
         Title = document.Title,
         EnabledSourceKeys = document.EnabledSourceKeys,
+        TeachingContext = document.TeachingContext is { } teaching ? new ConversationTeachingContext(teaching.WeekKey, teaching.Title, teaching.Body, teaching.SourceReferences, teaching.SelectedText) : null,
         Messages = messageDocuments.Select(ToDomain).ToArray(),
         CreatedAtUtc = AsUtc(document.CreatedAtUtc),
         UpdatedAtUtc = AsUtc(document.UpdatedAtUtc),

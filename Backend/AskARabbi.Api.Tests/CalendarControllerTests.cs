@@ -94,9 +94,9 @@ public sealed class CalendarControllerTests
         using var client = await app.CreateAuthenticatedClientAsync();
         var start = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
         var now = new DateTimeOffset(2026, 8, 25, 12, 30, 0, TimeSpan.Zero);
-        var lease = new ChatUsageLease(app.Store.UserId, Guid.Parse("33333333-3333-3333-3333-333333333333"), start, start.AddMonths(1), now.AddMinutes(1), 10_000_000);
+        var lease = new ChatUsageLease(app.Store.UserId, Guid.Parse("33333333-3333-3333-3333-333333333333"), start, start.AddMonths(1), now.AddMinutes(1), 5_000_000);
         Assert.IsTrue(await app.Store.TryAcquireChatAsync(lease, now));
-        Assert.IsTrue(await app.Store.RecordTokensAsync(lease, 10_000_000));
+        Assert.IsTrue(await app.Store.RecordTokensAsync(lease, 5_000_000));
         await app.Store.ReleaseChatAsync(lease);
 
         using var response = await client.GetAsync("/api/calendar/overview?days=90");
@@ -105,7 +105,7 @@ public sealed class CalendarControllerTests
         var json = await response.Content.ReadAsStringAsync();
         StringAssert.Contains(json, "\"gregorianDate\":\"2026-08-25\"");
         Assert.IsTrue(response.Headers.CacheControl?.NoStore);
-        Assert.AreEqual(10_000_000L, await app.Store.GetTokenCountAsync(app.Store.UserId, start, start.AddMonths(1)));
+        Assert.AreEqual(5_000_000L, await app.Store.GetTokenCountAsync(app.Store.UserId, start, start.AddMonths(1)));
         Assert.AreEqual(0, app.GroundedAnswers.CallCount);
     }
 

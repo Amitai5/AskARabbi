@@ -1,4 +1,5 @@
 using AskARabbiLIB.Profiles;
+using AskARabbiLIB.Conversations;
 
 namespace AskARabbiLIB.Grounding;
 
@@ -7,6 +8,9 @@ public sealed record GroundedQuestion
 {
     /// <summary>Gets the user's current question.</summary>
     public required string Question { get; init; }
+
+    /// <summary>Gets full attached reading context, distinct from approved source evidence.</summary>
+    public ConversationTeachingContext? TeachingContext { get; init; }
 
     /// <summary>Gets whether the structured answer should include a concise conversation title suggestion.</summary>
     public bool ShouldGenerateConversationTitle { get; init; }

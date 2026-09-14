@@ -10,6 +10,12 @@ afterEach(() => {
 })
 
 describe('API client', () => {
+  it('sends only the teaching key and selection, never a client-authored teaching body', async () => {
+    const request = vi.fn().mockResolvedValue({ conversation: { title: 'Learning' }, status: 'answered' })
+    const client = createBackendConversationClient({ baseUrl: 'https://api.example.test', request })
+    await client.createWithMessage('message', 'Why?', ['collection:Torah'], { weekKey: 'diaspora:2026-08-29', selectedText: 'Choose life.' })
+    expect(JSON.parse(request.mock.calls[0][1].body)).toEqual({ messageId: 'message', content: 'Why?', enabledSourceKeys: ['collection:Torah'], teaching: { weekKey: 'diaspora:2026-08-29', selectedText: 'Choose life.' } })
+  })
   it('loads registration availability without a cached capacity decision', async () => {
     const request = vi.fn().mockResolvedValue({ isOpen: false })
     const client = createBackendAuthClient({ apiClient: { baseUrl: 'https://api.example.test', request } })

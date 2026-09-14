@@ -32,7 +32,7 @@ export function readPageRoute(): PageRoute {
   if (teaching) { return { view: 'dvarTorah', teaching: { weekKey: teaching, ...progress, ...(query.has('search') ? { search: query.get('search')?.slice(0, 120) } : {}), ...(Number.isInteger(page) && page > 1 ? { page } : {}) } } }
   if (pathname === '/conversations/new') { return { view: 'conversation', isNew: true } }
   const conversationId = decodeSegment(pathname, '/conversations/')
-  return { view: 'conversation', conversationId: conversationId ?? undefined }
+  return conversationId ? { view: 'conversation', conversationId } : { view: 'conversation', isNew: true }
 }
 
 export function conversationPath(id: string | null) {

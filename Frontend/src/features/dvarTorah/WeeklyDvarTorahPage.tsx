@@ -20,6 +20,8 @@ import { TeachingReadButton } from './TeachingReadButton.tsx'
 import { useTeachingReadState, type TeachingReadProgress } from './useTeachingReadState.ts'
 import { useAutomaticTeachingRead } from './useAutomaticTeachingRead.ts'
 import type { TeachingReadStatus } from './dvarTorahTypes.ts'
+import { TeachingAskActions } from './TeachingAskActions.tsx'
+import type { ConversationTeachingContext } from '../conversations/conversationData.ts'
 
 interface WeeklyDvarTorahPageProps {
   client: DvarTorahClient
@@ -27,6 +29,7 @@ interface WeeklyDvarTorahPageProps {
   initialRoute?: TeachingRoute
   onNavigate?(route: TeachingRoute): void
   onAsk?(question: string): void
+  onAskTeaching?(context: ConversationTeachingContext): void
   isAskDisabled?: boolean
 }
 
@@ -49,7 +52,7 @@ const ArchivePageSize = 10
 
 type WeeklyLearningView = 'current' | 'archive' | 'archivedArticle'
 
-export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNavigate, onAsk, isAskDisabled }: WeeklyDvarTorahPageProps) {
+export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNavigate, onAsk, onAskTeaching, isAskDisabled }: WeeklyDvarTorahPageProps) {
   const [publication, setPublication] = useState<WeeklyDvarTorahResponse | null>(() => client.getCachedCurrent?.() ?? null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -281,7 +284,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
                   <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.8} />
                   Back to past teachings
                 </button>
-                <PublishedArticle key={`${archivedArticle.week.weekKey}:${archivedArticle.audio?.version ?? ''}`} article={archivedArticle} progress={progress} client={client} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
+                <PublishedArticle key={`${archivedArticle.week.weekKey}:${archivedArticle.audio?.version ?? ''}`} article={archivedArticle} progress={progress} client={client} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} onAskTeaching={onAskTeaching} isAskDisabled={isAskDisabled} />
               </div>
             ) : loadError !== null ? (
               <LoadError message={loadError} onRetry={retry} />
@@ -292,7 +295,7 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
             ) : publication.dvarTorah === null ? (
               <PendingPublication week={publication.currentWeek} onRetry={retry} />
             ) : (
-              <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} progress={progress} client={client} showFallbackNotice={!offlineSavedAt && !publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} />
+              <PublishedArticle key={`${publication.dvarTorah.week.weekKey}:${publication.dvarTorah.audio?.version ?? ''}`} article={publication.dvarTorah} progress={progress} client={client} showFallbackNotice={!offlineSavedAt && !publication.isCurrentWeek} sources={sources} selectedSourceNumber={selectedSourceNumber} onSelectSource={openSourceReader} audioDock={audioDock} scrollAreaRef={scrollAreaRef} onAskTeaching={onAskTeaching} isAskDisabled={isAskDisabled} />
             )}
           </div>
         </section>
@@ -304,6 +307,8 @@ export function WeeklyDvarTorahPage({ client, offlineSavedAt, initialRoute, onNa
 }
 
 interface PublishedArticleProps {
+  onAskTeaching?(context: ConversationTeachingContext): void
+  isAskDisabled?: boolean
   progress: TeachingReadProgress
   audioDock: HTMLDivElement | null
   scrollAreaRef: RefObject<HTMLElement | null>
@@ -315,7 +320,7 @@ interface PublishedArticleProps {
   onSelectSource(sourceNumber: number, trigger: HTMLButtonElement): void
 }
 
-function PublishedArticle({ article, progress, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef }: PublishedArticleProps) {
+function PublishedArticle({ article, progress, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef, onAskTeaching, isAskDisabled }: PublishedArticleProps) {
   const readingId = `teaching:${article.week.weekKey}`
   const reading = useReadingTarget(readingId, article.body)
   const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
@@ -325,6 +330,7 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
   const bodyWords = useMemo(() => timings?.words.filter((word) => word.section === 'body'), [timings])
   const selectWord = useCallback((word: DvarTorahAudioWord) => playerRef.current?.seekToWord(word), [])
   const articleRef = useRef<HTMLElement | null>(null)
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   const { isFollowing, toggleFollowing } = useNarrationFollow(activeWord, articleRef, scrollAreaRef, selectedSourceNumber !== null)
   const title = useMemo(() => normalizeDvarTorahText(article.title), [article.title])
   const body = useMemo(() => normalizeDvarTorahText(article.body), [article.body])
@@ -351,13 +357,14 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
               <Clock aria-hidden="true" className="size-4 text-brass" strokeWidth={1.7} />About {readingMinutes} min read<span className="sr-only"> · {audioReadingMinutes === null ? 'Based on text length' : 'Based on audio at 1×'}</span>
             </p>
           )}
-          <div role="group" aria-label="Teaching actions" className="readable-menu reading-nonessential flex flex-wrap gap-2"><PrintAction label="Print teaching" hideLabelOnMobile className="min-w-[44px]" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" hideLabelOnMobile /> : null}</div>
+          <div role="group" aria-label="Teaching actions" className="readable-menu reading-nonessential flex flex-wrap gap-2">{onAskTeaching ? <TeachingAskActions context={{ weekKey: article.week.weekKey, title, selectedText: null }} bodyRef={bodyRef} onAsk={onAskTeaching} disabled={isAskDisabled} /> : null}<PrintAction label="Print teaching" hideLabelOnMobile className="min-w-[44px]" getRequest={() => ({ kind: 'teaching', article })} />{reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" hideLabelOnMobile /> : null}</div>
         </div>
       </header>
       {article.audio == null ? <p className="mt-3 text-sm text-muted">Audio is not available for this teaching yet.</p> : null}
       {audioDock === null || article.audio == null ? null : createPortal(<DvarTorahReadAloud ref={playerRef} audio={article.audio} weekKey={article.week.weekKey} title={title} body={body} client={client} onWordChange={setActiveWord} onTimingsChange={setTimings} isFollowing={isFollowing} onToggleFollowing={toggleFollowing} />, audioDock)}
       {timings === null ? null : <p className="mt-3 text-sm text-muted sm:mt-4">Select a word to listen from that point.<span className="sr-only"> Use the left and right arrow keys to move between words, then Enter to play.</span></p>}
-      <div className="reading-content teaching-body mt-5 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-3 sm:mt-8 sm:pl-7">
+      {onAskTeaching ? <p className="mt-3 text-sm text-muted">Highlight a passage to ask about it, with the whole teaching as context.</p> : null}
+      <div ref={bodyRef} className="reading-content teaching-body mt-5 max-w-[46rem] space-y-6 border-l-2 border-brass/55 pl-3 sm:mt-8 sm:pl-7">
         {paragraphs.map((paragraph) => <p key={paragraph.textOffset} className="whitespace-pre-line text-base leading-8 text-ink-soft sm:text-[1.08rem]"><DvarTorahNarratedText text={paragraph.text} textOffset={paragraph.textOffset} activeWord={activeWord?.section === 'body' && activeWord.textOffset >= paragraph.textOffset && activeWord.textOffset < paragraph.textOffset + paragraph.text.length ? activeWord : null} words={bodyWords} onSelectWord={selectWord} sourceNumbersById={sourceNumbersById} selectedSourceNumber={selectedSourceNumber} onSelectSource={onSelectSource} /></p>)}
       </div>
       {sources.length === 0 ? null : <p className="mt-8 inline-flex max-w-[46rem] items-center gap-2 text-sm leading-6 text-muted"><BookOpenText aria-hidden="true" className="size-4 shrink-0 text-pomegranate" strokeWidth={1.7} />Select a numbered reference to read the supporting excerpt and source details.</p>}

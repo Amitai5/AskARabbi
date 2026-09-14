@@ -1,11 +1,13 @@
 import { createApiClient, type ApiClient } from '../../api/apiClient.ts'
-import { normalizeConversationTitle, type ConversationDetails, type ConversationMessage, type ConversationSummary } from './conversationData.ts'
+import { normalizeConversationTitle, type ConversationDetails, type ConversationMessage, type ConversationSummary, type ConversationTeachingContext } from './conversationData.ts'
 
 import type { UsageSummary } from '../settings/settingsTypes.ts'
 
+export type ConversationTeachingRequest = Pick<ConversationTeachingContext, 'weekKey' | 'selectedText'>
+
 export interface ConversationClient {
   list(): Promise<ConversationSummary[]>
-  createWithMessage(messageId: string, content: string, enabledSourceKeys: readonly string[]): Promise<ConversationTurn>
+  createWithMessage(messageId: string, content: string, enabledSourceKeys: readonly string[], teaching?: ConversationTeachingRequest): Promise<ConversationTurn>
   get(conversationId: string): Promise<ConversationDetails>
   appendMessage(conversationId: string, messageId: string, content: string): Promise<ConversationTurn>
   rename(conversationId: string, title: string): Promise<void>
@@ -21,6 +23,7 @@ interface ConversationTurnBase {
 }
 
 export interface CompactConversationTurn extends ConversationTurnBase {
+  teachingContext?: ConversationTeachingContext | null
   conversation: ConversationSummary
   messages: ConversationMessage[]
   createdAtUtc: string
@@ -38,10 +41,10 @@ export function createBackendConversationClient(apiClient: ApiClient = createApi
       const conversations = await apiClient.request<ConversationSummary[]>('/api/conversations', { cache: 'no-store' })
       return conversations.map(normalizeConversationSummary)
     },
-    async createWithMessage(messageId, content, enabledSourceKeys) {
+    async createWithMessage(messageId, content, enabledSourceKeys, teaching) {
       const turn = await apiClient.request<ConversationTurn>('/api/conversations?compact=true', {
         method: 'POST',
-        body: JSON.stringify({ messageId, content, enabledSourceKeys }),
+        body: JSON.stringify({ messageId, content, enabledSourceKeys, ...(teaching ? { teaching: { weekKey: teaching.weekKey, selectedText: teaching.selectedText } } : {}) }),
       })
       return normalizeConversationTurn(turn)
     },

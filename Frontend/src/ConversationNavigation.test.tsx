@@ -124,6 +124,7 @@ describe('Background conversation navigation', () => {
 
   it('waits for the active answer before starting another chat and preserves each draft', async () => {
     const { user, releaseCreate, releaseAppend } = await renderPendingApp()
+    await user.click(screen.getByRole('button', { name: 'Chicken and dairy' }))
     const followUp = 'Explain this source further'
     await user.type(screen.getByLabelText('Message AskRabbi'), followUp)
     await user.click(screen.getByRole('button', { name: 'Send message' }))

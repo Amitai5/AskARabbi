@@ -47,12 +47,13 @@ public sealed class GroundedConversationTurnService
     /// <param name="content">Question text.</param>
     /// <param name="sourceKeys">Approved source selectors for the conversation.</param>
     /// <param name="cancellationToken">Token that can cancel the operation.</param>
+    /// <param name="teachingContext">Optional server-resolved teaching snapshot.</param>
     /// <returns>A stored, answered, limited, or fail-closed first-turn result.</returns>
-    public async Task<GroundedConversationTurnResult> CreateAsync(Guid userId, Guid userMessageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default)
+    public async Task<GroundedConversationTurnResult> CreateAsync(Guid userId, Guid userMessageId, string content, IReadOnlyCollection<string>? sourceKeys, CancellationToken cancellationToken = default, ConversationTeachingContext? teachingContext = null)
     {
         return await WithUsageAsync(userId, async () =>
         {
-            var conversation = await conversations.CreateWithUserMessageAsync(userId, userMessageId, content, sourceKeys, cancellationToken).ConfigureAwait(false);
+            var conversation = await conversations.CreateWithUserMessageAsync(userId, userMessageId, content, sourceKeys, cancellationToken, teachingContext).ConfigureAwait(false);
             return await ProcessStoredMessageAsync(userId, conversation, userMessageId, content, cancellationToken).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -132,7 +133,7 @@ public sealed class GroundedConversationTurnService
         try
         {
             var personalization = await personalizationTask.ConfigureAwait(false);
-            var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization, shouldGenerateConversationTitle);
+            var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization, shouldGenerateConversationTitle) with { TeachingContext = conversation.TeachingContext };
             var recentTurns = CreateRecentTurns(conversation.Messages, userMessageId);
             answerResult = await groundedAnswers.AnswerAsync(question, recentTurns, cancellationToken).ConfigureAwait(false);
             // Custom/local engines may supply only aggregate diagnostics. Real Azure clients

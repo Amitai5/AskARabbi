@@ -1,5 +1,6 @@
 using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Calendar;
+using AskARabbi.Api.Usage;
 using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.Conversations;
@@ -58,7 +59,9 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        var monthlyTokenLimit = new MonthlyUsageOptions().MonthlyTokenLimit.ToString(System.Globalization.CultureInfo.InvariantCulture);
         builder.UseEnvironment(environmentName);
+        builder.UseSetting("Usage:MonthlyTokenLimit", monthlyTokenLimit);
         builder.UseSetting("Registration:AccountLimit", AccountLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("LocalDevelopment:UseDemoServices", useLocalDemoServices.ToString());
         if (configureAi)
@@ -79,6 +82,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 ["MongoDB:DatabaseName"] = "askarabbi",
                 ["LocalDevelopment:UseDemoServices"] = useLocalDemoServices.ToString(),
                 ["Registration:AccountLimit"] = AccountLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["Usage:MonthlyTokenLimit"] = monthlyTokenLimit,
             };
             if (configureAi)
             {
