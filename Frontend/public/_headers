@@ -11,15 +11,3 @@
 
 /reading-bootstrap.js
   Cache-Control: no-cache
-
-/privacy-policy
-  Cache-Control: no-cache
-
-/privacy-policy.html
-  Cache-Control: no-cache
-
-/terms-of-service
-  Cache-Control: no-cache
-
-/terms-of-service.html
-  Cache-Control: no-cache

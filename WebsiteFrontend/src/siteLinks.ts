@@ -6,7 +6,7 @@ if (applicationUrl.protocol !== 'https:' && applicationUrl.protocol !== 'http:')
 
 export const SiteLinks = {
   application: applicationUrl.href,
-  privacy: 'https://askarabbi.ai/privacy-policy',
-  terms: 'https://askarabbi.ai/terms-of-service',
+  privacy: '/privacy',
+  terms: '/terms',
   contact: 'mailto:support@askarabbi.ai',
 } as const

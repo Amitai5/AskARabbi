@@ -12,7 +12,8 @@
     "build": "tsc -b && node scripts/build.mjs",
     "lint": "oxlint",
     "typecheck": "tsc -b --pretty false",
-    "verify": "pnpm lint && pnpm build",
+    "test:run": "node --test scripts/*.test.mjs",
+    "verify": "pnpm lint && pnpm build && pnpm test:run",
     "preview": "vite preview"
   },
   "dependencies": {

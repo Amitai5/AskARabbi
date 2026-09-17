@@ -20,7 +20,10 @@ const markup = render()
 await build({
   plugins: [{
     name: 'website-static-html',
-    transformIndexHtml(html) {
+    transformIndexHtml(html, context) {
+      if (resolve(context.filename) !== resolve('index.html')) {
+        return html
+      }
       const outlet = '<!--app-html-->'
       if (!html.includes(outlet)) {
         throw new Error('The website template is missing its static HTML outlet.')
