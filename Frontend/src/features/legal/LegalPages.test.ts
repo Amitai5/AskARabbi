@@ -20,7 +20,7 @@ describe('Distributed public legal documents', () => {
     expect(page.querySelectorAll('h1')).toHaveLength(1)
     expect(page.querySelector('h1')?.textContent).toBe(title)
     expect(page.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(`https://askarabbi.ai${path}`)
-    expect(page.querySelector('time')?.getAttribute('datetime')).toBe('2026-09-11')
+    expect(page.querySelector('time')?.getAttribute('datetime')).toBe(path === '/privacy-policy' ? '2026-09-17' : '2026-09-11')
     expect(page.querySelector('a[href="mailto:support@askarabbi.ai"]')).not.toBeNull()
     expect(page.querySelector('article')?.textContent).toContain('Settings & Personalization')
     expect(page.body.textContent).not.toMatch(/OPERATOR_PENDING|JURISDICTION_PENDING/)

@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { AnswerAudio } from './AnswerAudio.tsx'
 import { AnswerCopyButton } from './AnswerCopyButton.tsx'
 import { normalizeDisplayText } from '../../displayText.ts'
 import type { ConversationMessage, ConversationSource } from './conversationData.ts'
@@ -8,6 +9,8 @@ import { collectPrintAnswers, type PrintRequest } from '../printing/printTypes.t
 
 interface AssistantMessageProps {
   autoFocusEligible?: boolean
+  conversationId?: string
+  autoPlay?: boolean
   message: ConversationMessage
   selectedSourceNumber: number | null
   onSelectSource(messageId: string, sourceNumber: number, trigger: HTMLButtonElement): void
@@ -16,7 +19,7 @@ interface AssistantMessageProps {
 
 const EmptySources: readonly ConversationSource[] = []
 
-export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource, getPrintRequest, autoFocusEligible = false }: AssistantMessageProps) {
+export const AssistantMessage = memo(function AssistantMessage({ message, selectedSourceNumber, onSelectSource, getPrintRequest, autoFocusEligible = false, conversationId, autoPlay = false }: AssistantMessageProps) {
   const sources = message.sources ?? EmptySources
   const sourceNumbers = useMemo(() => new Set(sources.map((source) => source.number)), [sources])
   const normalizedContent = useMemo(() => normalizeDisplayText(message.content), [message.content])
@@ -26,6 +29,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, select
   return (
     <div className="conversation-message group relative border-l-2 border-pomegranate pb-10 pl-5 sm:pb-0" data-message-role="assistant" data-reading-target={readingId} data-reading-focused={reading.isFocused}>
       <div className="mb-3"><p className="font-display text-xl text-ink">AskRabbi</p></div>
+      {conversationId ? <AnswerAudio key={`${conversationId}:${message.id}`} conversationId={conversationId} messageId={message.id} autoPlay={autoPlay} /> : null}
       <div className="reading-content space-y-4 text-base leading-7 text-ink sm:text-lg">
         {normalizedContent.trim().split(/\n\s*\n/).map((paragraph, index) => (
           <p key={`${message.id}-paragraph-${index}`} dir="auto" className="sm:last:min-h-9 sm:last:pr-32">{renderParagraph(paragraph, sourceNumbers, message.id, selectedSourceNumber, onSelectSource)}</p>
