@@ -151,7 +151,7 @@ dotnet run --project Prototype/AskARabbiPrototype -- ask "What does the Zohar sa
 
 `--profile` accepts a file name from `Prototype/Profiles`; it intentionally does not accept an arbitrary path. It is optional for one-shot automation so existing scripts remain compatible.
 
-`ask` fails closed with a nonzero exit code if evidence is absent or tangential, the index is stale, Azure is unavailable, or citation, quotation, relevance, or claim-support validation fails after one repair. A successful answer normally uses one model request to draft the answer and a second structured request to audit every claim against its cited passages. Console output includes the answer, exact evidence packet, and trace without quote panels, a repeated source bibliography, diagnostic limitations, or a stock disclaimer. JSON output retains the legacy interpretive-notice property for contract compatibility, but conversational renderers ignore it.
+`ask` can answer independently reviewed background or uncertainty even when textual evidence is absent or tangential. It fails closed with a nonzero exit code if the index is stale, Azure is unavailable, or citation, quotation, relevance, or claim-support validation fails after one repair. A successful answer normally uses one model request to draft the answer and a second structured request to audit every claim according to its Source, Background, or Uncertainty kind. Console output includes the answer, exact evidence packet, and trace without quote panels, a repeated source bibliography, diagnostic limitations, or a stock disclaimer. JSON output retains the legacy interpretive-notice property for contract compatibility, but conversational renderers ignore it.
 
 Use global overrides when needed:
 

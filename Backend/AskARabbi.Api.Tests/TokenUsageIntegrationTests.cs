@@ -173,7 +173,7 @@ public sealed class TokenUsageIntegrationTests
 
         Assert.IsNotNull(turn);
         Assert.AreEqual(1_000L, turn.Usage?.TokensUsed);
-        Assert.HasCount(1, turn.Messages);
+        Assert.HasCount(status == GroundedAnswerStatus.ValidationFailed ? 2 : 1, turn.Messages);
         using var next = await client.PostAsJsonAsync("/api/conversations", new { messageId = NextMessageId, content = "Try another question." });
         Assert.AreEqual(HttpStatusCode.Created, next.StatusCode);
     }
@@ -243,7 +243,7 @@ public sealed class TokenUsageIntegrationTests
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         Assert.IsNotNull(turn);
         Assert.IsNotNull(current);
-        Assert.AreEqual(failsValidation ? "validation_failed" : "answered", turn.Status);
+        Assert.AreEqual("answered", turn.Status);
         Assert.AreEqual(315_622L, current.TokensUsed);
         Assert.AreEqual(6.31244m, current.UsedPercent);
         Assert.AreEqual(current, turn.Usage);

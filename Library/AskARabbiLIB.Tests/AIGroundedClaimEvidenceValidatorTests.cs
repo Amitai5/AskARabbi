@@ -233,6 +233,52 @@ public sealed class AIGroundedClaimEvidenceValidatorTests
         Assert.IsNull(result.ReconciledDraft);
     }
 
+    [TestMethod]
+    [TestCategory("Regression")]
+    [DataRow("Background", true, false, true)]
+    [DataRow("Uncertainty", true, false, true)]
+    [DataRow("Background", false, false, false)]
+    [DataRow("Uncertainty", false, false, false)]
+    [DataRow("Background", true, true, false)]
+    [DataRow("Source", true, false, false)]
+    public async Task ValidateAsync_ClaimKind_EnforcesAuditAndCitationBoundaries(string kind, bool supported, bool attachCitation, bool expectedSuccess)
+    {
+        var sourceDraft = CreateDraft();
+        var claim = sourceDraft.Claims[0] with
+        {
+            Kind = Enum.Parse<GroundedClaimKind>(kind),
+            Text = kind == "Background" ? "Rabbi Akiva was an early rabbinic sage." : "I cannot establish that specific conclusion.",
+            EvidenceIds = [],
+            Quotations = [],
+            Attribution = null,
+        };
+        var draft = sourceDraft with { Claims = [claim] };
+        var output = new GroundedSupportValidationDraft
+        {
+            IsResponsive = true,
+            OverallExplanation = "The answer addresses the question.",
+            Evaluations = [new GroundedSupportEvaluationDraft { StatementId = "C1", IsRelevant = true, IsSupported = supported, Explanation = "Checked accuracy and the allowed scope.", SupportingQuotations = attachCitation ? sourceDraft.Claims[0].Quotations : [] }],
+        };
+        var engine = new FakeEngine(AIEngineResult<GroundedSupportValidationDraft>.Success(output, CreateDiagnostics()));
+
+        var result = await new AIGroundedClaimEvidenceValidator(engine, CreatePrompts()).ValidateAsync("Who was Rabbi Akiva?", draft, attachCitation ? CreatePacket() : new EvidencePacket([], 0));
+
+        Assert.AreEqual(expectedSuccess ? ClaimEvidenceValidationStatus.Supported : ClaimEvidenceValidationStatus.Unsupported, result.Status);
+        Assert.IsNotNull(engine.LastMessages);
+        StringAssert.Contains(engine.LastMessages[^1].Content, $"\"kind\":\"{kind}\"");
+        if (expectedSuccess)
+        {
+            Assert.IsNotNull(result.ReconciledDraft);
+            Assert.AreEqual(claim.Text, result.ReconciledDraft.Claims[0].Text);
+            Assert.HasCount(0, result.ReconciledDraft.Claims[0].Quotations);
+            Assert.HasCount(0, result.ReconciledDraft.Claims[0].EvidenceIds);
+        }
+        else
+        {
+            Assert.IsNull(result.ReconciledDraft);
+        }
+    }
+
     private static GroundedPromptSet CreatePrompts() => new()
     {
         SystemBehaviorPrompt = "Use evidence.",

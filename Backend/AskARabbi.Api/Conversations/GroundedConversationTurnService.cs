@@ -11,7 +11,7 @@ using Azure.Identity;
 
 namespace AskARabbi.Api.Conversations;
 
-/// <summary>Stores a user turn, creates one fail-closed grounded answer, and persists only validated output.</summary>
+/// <summary>Stores a user turn and persists a reviewed answer or an honest application-owned recovery reply.</summary>
 public sealed class GroundedConversationTurnService
 {
     private readonly ConversationService conversations;
@@ -130,9 +130,10 @@ public sealed class GroundedConversationTurnService
         var personalizationTask = settings.GetPersonalizationAsync(userId, cancellationToken);
 
         GroundedAnswerResult answerResult;
+        PersonalizationSettings? personalization = null;
         try
         {
-            var personalization = await personalizationTask.ConfigureAwait(false);
+            personalization = await personalizationTask.ConfigureAwait(false);
             var question = CreateQuestion(storedQuestion.Content, conversation.EnabledSourceKeys, personalization, shouldGenerateConversationTitle) with { TeachingContext = conversation.TeachingContext };
             var recentTurns = CreateRecentTurns(conversation.Messages, userMessageId);
             answerResult = await groundedAnswers.AnswerAsync(question, recentTurns, cancellationToken).ConfigureAwait(false);
@@ -159,11 +160,21 @@ public sealed class GroundedConversationTurnService
 
         if (!answerResult.IsSuccess || answerResult.Answer is null)
         {
-            LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, false);
             if (answerResult.Status == GroundedAnswerStatus.ValidationFailed)
             {
                 logger.LogWarning("Grounded validation rejected the generated answer for conversation {ConversationId}: {ValidationError}", conversation.Id, answerResult.ErrorMessage);
             }
+            if (answerResult.Status is GroundedAnswerStatus.ValidationFailed or GroundedAnswerStatus.InsufficientEvidence)
+            {
+                // Preserve the failure in diagnostics, but save a safe conversational reply.
+                // Never expose the rejected draft or attach its unvalidated citations.
+                var recovered = await conversations.AppendAssistantMessageAsync(conversation, assistantMessageId, ConversationRecoveryText.ForLanguage(personalization?.ConversationLanguage), [], cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Conversation disappeared before its recovery reply could be saved.");
+                processingStopwatch.Stop();
+                LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, true);
+                return new GroundedConversationTurnResult("answered", recovered, null, answerResult.Trace, processingStopwatch.Elapsed);
+            }
+            LogTurnMetrics(conversation.Id, answerResult, processingStopwatch.Elapsed, false);
             if (answerResult.Status is GroundedAnswerStatus.AIUnavailable or GroundedAnswerStatus.AuthenticationFailed)
             {
                 logger.LogWarning("Grounded model stage failed for conversation {ConversationId}: provider status {ProviderStatus}, completion reason {CompletionReason}, response {ResponseId}.", conversation.Id, answerResult.Trace.ProviderStatus, answerResult.Trace.CompletionReason, answerResult.Trace.ResponseId);

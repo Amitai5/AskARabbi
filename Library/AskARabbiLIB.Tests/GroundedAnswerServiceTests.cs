@@ -40,32 +40,34 @@ public sealed class GroundedAnswerServiceTests
     public async Task AnswerAsync_AttachedTeachingWithoutEvidence_DoesNotUseCommentaryAsEvidence()
     {
         var retriever = new FakeRetriever([]);
-        var engine = new FakeEngine();
+        var engine = new FakeEngine(Success(CreateUncertaintyDraft()));
         var service = CreateService(retriever, engine);
         var question = CreateQuestion() with { TeachingContext = new("diaspora:2026-08-29", "Lighting before Shabbat", "The teaching discusses lighting a lamp before Shabbat.", "[1] Shabbat 20a", null) };
 
         var result = await service.AnswerAsync(question, []);
 
-        Assert.AreEqual(GroundedAnswerStatus.InsufficientEvidence, result.Status);
-        Assert.AreEqual(0, engine.CallCount);
+        Assert.AreEqual(GroundedAnswerStatus.Success, result.Status);
+        Assert.AreEqual(1, engine.CallCount);
+        Assert.HasCount(0, result.Answer!.Citations);
     }
 
     [TestMethod]
     [TestCategory("Unit")]
-    public async Task AnswerAsync_NoEvidence_ReturnsInsufficientWithoutCallingModel()
+    public async Task AnswerAsync_NoEvidence_ReturnsReviewedUncertaintyWithoutFabricatingSources()
     {
         // Arrange
         var retriever = new FakeRetriever([]);
-        var engine = new FakeEngine();
+        var engine = new FakeEngine(Success(CreateUncertaintyDraft()));
         var service = CreateService(retriever, engine);
 
         // Act
         var result = await service.AnswerAsync(CreateQuestion(), []);
 
         // Assert
-        Assert.AreEqual(GroundedAnswerStatus.InsufficientEvidence, result.Status);
-        Assert.AreEqual(0, engine.CallCount);
-        Assert.AreEqual(GroundedValidationStatus.NotRun, result.Trace.ValidationStatus);
+        Assert.AreEqual(GroundedAnswerStatus.Success, result.Status);
+        Assert.AreEqual(1, engine.CallCount);
+        Assert.AreEqual(GroundedValidationStatus.Passed, result.Trace.ValidationStatus);
+        Assert.HasCount(0, result.Answer!.Citations);
     }
 
     [TestMethod]
@@ -74,7 +76,7 @@ public sealed class GroundedAnswerServiceTests
     {
         // Arrange
         var retriever = new FakeRetriever([]);
-        var engine = new FakeEngine();
+        var engine = new FakeEngine(Success(CreateUncertaintyDraft()));
         var service = CreateService(retriever, engine);
         var sourceKeys = new[] { "collection:Talmud", "work:rif" };
         var question = CreateQuestion() with { SourceKeys = sourceKeys };
@@ -83,10 +85,10 @@ public sealed class GroundedAnswerServiceTests
         var result = await service.AnswerAsync(question, []);
 
         // Assert
-        Assert.AreEqual(GroundedAnswerStatus.InsufficientEvidence, result.Status);
+        Assert.AreEqual(GroundedAnswerStatus.Success, result.Status);
         Assert.IsNotNull(retriever.LastKeywordQuery);
         CollectionAssert.AreEqual(sourceKeys, retriever.LastKeywordQuery.SourceKeys.ToArray());
-        Assert.AreEqual(0, engine.CallCount);
+        Assert.AreEqual(1, engine.CallCount);
     }
 
     [TestMethod]
@@ -259,6 +261,33 @@ public sealed class GroundedAnswerServiceTests
         Assert.AreEqual(GroundedAnswerStatus.ValidationFailed, result.Status);
         StringAssert.Contains(result.ErrorMessage, "internal answer-generation mechanisms");
         Assert.AreEqual(0, validator.CallCount);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task AnswerAsync_InternalNotesInHiddenLimitations_DiscardsNotesWithoutRejectingReviewedClaims(bool background)
+    {
+        var draft = CreateValidDraft() with { Limitations = ["The supplied sources do not address this detail.", "An internal tool did not provide more context.", "This is a limited explanation."] };
+        if (background)
+        {
+            draft = draft with { Claims = [new GroundedClaimDraft { Kind = GroundedClaimKind.Background, Text = "Vampires are fictional; their traits depend on the story.", EvidenceIds = [], Quotations = [] }] };
+        }
+        var engine = new FakeEngine(Success(draft));
+        var audit = new FakeClaimEvidenceValidator();
+        var retriever = new FakeRetriever([new SourceRetrievalHit(CreateSegment(), 1, true)]);
+
+        var result = await CreateService(retriever, engine, claimEvidenceValidator: audit).AnswerAsync(CreateQuestion(), []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsNotNull(result.Answer);
+        CollectionAssert.AreEqual(new[] { "This is a limited explanation." }, result.Answer.Limitations.ToArray());
+        Assert.IsFalse(new GroundedAnswerTextRenderer().Render(result.Answer).Contains("supplied sources", StringComparison.Ordinal));
+        Assert.AreEqual(draft.Claims[0].Text, result.Answer.Claims[0].Text);
+        Assert.AreEqual(background ? 0 : 1, result.Answer.Citations.Count);
+        Assert.AreEqual(1, engine.CallCount);
+        Assert.AreEqual(1, audit.CallCount);
     }
 
     [TestMethod]
@@ -505,14 +534,14 @@ public sealed class GroundedAnswerServiceTests
     public async Task AnswerAsync_NewTopicAfterPortionSummary_DoesNotRetrievePriorPortion(string question)
     {
         var retriever = new FakeRetriever([]);
-        var engine = new FakeEngine();
+        var engine = new FakeEngine(Success(CreateUncertaintyDraft()));
         var service = CreateService(retriever, engine);
         var history = new[] { new GroundedConversationTurn("Summarize Nitzavim.", "Nitzavim describes the covenant.") };
 
         await service.AnswerAsync(new GroundedQuestion { Question = question }, history);
 
         Assert.AreEqual(1, retriever.SearchCallCount, "A new topic must not launch the previous portion's multi-reference search.");
-        Assert.AreEqual(0, engine.CallCount);
+        Assert.AreEqual(1, engine.CallCount);
     }
 
     [TestMethod]
@@ -728,7 +757,7 @@ public sealed class GroundedAnswerServiceTests
         // Arrange
         var segment = CreateSegment();
         var retriever = new FakeRetriever([new SourceRetrievalHit(segment, 1, false)]);
-        var engine = new FakeEngine(Success(CreateValidDraft()));
+        var engine = new FakeEngine(Success(CreateUncertaintyDraft()));
         var service = CreateService(retriever, engine);
         var conversation = new[] { new GroundedConversationTurn("Earlier question about a unique lamp context", "Earlier validated answer") };
 
@@ -788,7 +817,7 @@ public sealed class GroundedAnswerServiceTests
         StringAssert.Contains(retriever.LastKeywordQuery.QueryText, "Search focus: reason given in the passage rationale");
         Assert.IsFalse(retriever.LastKeywordQuery.QueryText.Contains("appearance", StringComparison.Ordinal), "Retrieval must not assume that appearances are the reason for every rule.");
         Assert.IsNotNull(engine.LastMessages);
-        StringAssert.Contains(engine.LastMessages[^1].Content, "\"answerFocus\":\"Explain the reason or rationale");
+        StringAssert.Contains(engine.LastMessages[^1].Content, "explain the reason or rationale the cited authorities give");
         StringAssert.Contains(engine.LastMessages[^1].Content, "Do not substitute a restatement of the rule");
         Assert.HasCount(1, validator.QuestionContexts);
         StringAssert.StartsWith(validator.QuestionContexts[0], "CURRENT QUESTION TO ANSWER:");
@@ -846,7 +875,7 @@ public sealed class GroundedAnswerServiceTests
         Assert.IsNotNull(retriever.LastKeywordQuery);
         StringAssert.Contains(retriever.LastKeywordQuery.QueryText, "Search focus: named rabbis sages authorities schools opinions dispute ruling attribution");
         Assert.IsNotNull(engine.LastMessages);
-        StringAssert.Contains(engine.LastMessages[^1].Content, "\"answerFocus\":\"Identify only the named authorities or schools requested");
+        StringAssert.Contains(engine.LastMessages[^1].Content, "Identify only the named authorities or schools requested");
         StringAssert.Contains(engine.LastMessages[^1].Content, "quote context that supports each attribution");
         Assert.HasCount(1, validator.QuestionContexts);
         StringAssert.StartsWith(validator.QuestionContexts[0], "CURRENT QUESTION TO ANSWER:");
@@ -856,7 +885,7 @@ public sealed class GroundedAnswerServiceTests
 
     [TestMethod]
     [TestCategory("Regression")]
-    public async Task AnswerAsync_ShabbatAutomationQuestionWithTangentialBusinessHit_ReturnsInsufficientWithoutCallingModel()
+    public async Task AnswerAsync_ShabbatAutomationQuestionWithTangentialBusinessHit_DoesNotPromoteItToEvidence()
     {
         // Arrange
         var tangential = CreateSegment() with
@@ -868,7 +897,7 @@ public sealed class GroundedAnswerServiceTests
             Categories = new[] { "Talmud", "Yerushalmi", "Seder Nashim" },
         };
         var retriever = new FakeRetriever([new SourceRetrievalHit(tangential, 1, false)]);
-        var engine = new FakeEngine();
+        var engine = new FakeEngine(Success(CreateUncertaintyDraft()));
         var validator = new FakeClaimEvidenceValidator();
         var service = CreateService(retriever, engine, claimEvidenceValidator: validator);
         var question = new GroundedQuestion { Question = "If my business server runs automatically on Saturday, is that allowed?" };
@@ -877,10 +906,11 @@ public sealed class GroundedAnswerServiceTests
         var result = await service.AnswerAsync(question, []);
 
         // Assert
-        Assert.AreEqual(GroundedAnswerStatus.InsufficientEvidence, result.Status);
-        Assert.AreEqual(0, engine.CallCount);
-        Assert.AreEqual(0, validator.CallCount);
-        StringAssert.Contains(result.ErrorMessage, "Shabbat", StringComparison.OrdinalIgnoreCase);
+        Assert.AreEqual(GroundedAnswerStatus.Success, result.Status);
+        Assert.AreEqual(1, engine.CallCount);
+        Assert.AreEqual(1, validator.CallCount);
+        Assert.HasCount(0, result.Evidence!.Items);
+        Assert.HasCount(0, result.Answer!.Citations);
     }
 
     [TestMethod]
@@ -1327,6 +1357,101 @@ public sealed class GroundedAnswerServiceTests
         Assert.AreEqual(!translationAvailable, rendered.Contains("Some quotations", StringComparison.Ordinal));
     }
 
+    [TestMethod]
+    [TestCategory("Regression")]
+    [DataRow("who was rabbi Akiva", "Rabbi Akiva was an influential early rabbinic sage whose teachings helped shape the Mishnah.")]
+    [DataRow("Who was Rabbi Akiva and why is he important?", "Rabbi Akiva was an influential early rabbinic sage whose teachings helped shape the Mishnah.")]
+    [DataRow("Why is Rabbi Akiva important?", "Rabbi Akiva was an influential early rabbinic sage whose teachings helped shape the Mishnah.")]
+    [DataRow("if someone is jewish and they get bit by a vampire are they allowed to stay jewish", "Vampires are fictional, so becoming one is a storytelling premise. A religious ruling about Jewish status would be a separate question.")]
+    [DataRow("if someone is jewish and they get bit by a vampire and become a vampire are they considered alive or dead", "Vampires are fictional. Whether a vampire counts as alive, dead, or undead depends on the story's rules.")]
+    public async Task AnswerAsync_BackgroundQuestionWithoutPassages_ReturnsAuditedAnswerWithoutCitations(string question, string response)
+    {
+        var draft = CreateValidDraft() with
+        {
+            ConversationTitle = "Jewish learning",
+            Claims = [new GroundedClaimDraft { Kind = GroundedClaimKind.Background, Text = response, EvidenceIds = [], Quotations = [] }],
+            Limitations = [],
+        };
+        var retriever = new FakeRetriever([]);
+        var engine = new FakeEngine(Success(draft));
+        var audit = new FakeClaimEvidenceValidator();
+
+        var result = await CreateService(retriever, engine, claimEvidenceValidator: audit).AnswerAsync(new GroundedQuestion { Question = question, ShouldGenerateConversationTitle = true, ConversationLanguage = "English", QuotationLanguage = "Hebrew" }, []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsNotNull(result.Answer);
+        Assert.AreEqual(response, new GroundedAnswerTextRenderer().Render(result.Answer));
+        Assert.HasCount(0, result.Answer.Citations);
+        Assert.HasCount(0, result.Answer.Claims[0].Quotations);
+        Assert.IsNull(result.Answer.Claims[0].DirectQuotation);
+        Assert.AreEqual(1, engine.CallCount);
+        Assert.AreEqual(1, audit.CallCount);
+        Assert.IsNotNull(result.Trace);
+        Assert.IsFalse(result.Trace.RepairAttempted);
+        Assert.IsNotNull(retriever.LastKeywordQuery);
+        Assert.IsNotNull(retriever.LastKeywordQuery.QueryText);
+        Assert.IsFalse(retriever.LastKeywordQuery.QueryText.Contains("opinions dispute ruling", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_BackgroundAndSourcedTeaching_OnlyMaterializesTheRealCitation()
+    {
+        var draft = CreateValidDraft();
+        var background = new GroundedClaimDraft { Kind = GroundedClaimKind.Background, Text = "Shabbat is the Jewish Sabbath.", EvidenceIds = [], Quotations = [] };
+        draft = draft with { Claims = [background, .. draft.Claims] };
+        var segment = CreateSegment();
+        var engine = new FakeEngine(Success(draft));
+
+        var result = await CreateService(new FakeRetriever([new SourceRetrievalHit(segment, 1, true)]), engine).AnswerAsync(CreateQuestion(), []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsNotNull(result.Answer);
+        Assert.HasCount(0, result.Answer.Claims[0].Citations);
+        Assert.HasCount(1, result.Answer.Claims[1].Citations);
+        Assert.AreEqual(1, result.Answer.Citations.Single().Number);
+        StringAssert.StartsWith(new GroundedAnswerTextRenderer().Render(result.Answer), "Shabbat is the Jewish Sabbath.\n\n");
+        Assert.AreEqual("A lamp may not be kindled.", result.Answer.Claims[1].DirectQuotation);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    [DataRow((int)GroundedClaimKind.Background)]
+    [DataRow((int)GroundedClaimKind.Uncertainty)]
+    [DataRow(99)]
+    public async Task AnswerAsync_UncitedKindWithSourceAttribution_RejectsBeforeAudit(int kind)
+    {
+        var draft = CreateValidDraft();
+        draft = draft with { Claims = [draft.Claims[0] with { Kind = (GroundedClaimKind)kind }] };
+        var engine = new FakeEngine(Success(draft), Success(draft));
+        var audit = new FakeClaimEvidenceValidator();
+
+        var result = await CreateService(new FakeRetriever([new SourceRetrievalHit(CreateSegment(), 1, true)]), engine, claimEvidenceValidator: audit).AnswerAsync(CreateQuestion(), []);
+
+        Assert.AreEqual(GroundedAnswerStatus.ValidationFailed, result.Status);
+        Assert.IsNull(result.Answer);
+        Assert.AreEqual(0, audit.CallCount);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task AnswerAsync_UnsupportedBackground_RepairsToReviewedUncertainty()
+    {
+        var invalid = CreateUncertaintyDraft();
+        invalid = invalid with { Claims = [invalid.Claims[0] with { Kind = GroundedClaimKind.Background, Text = "Jewish law definitively treats all vampires as dead." }] };
+        var engine = new FakeEngine(Success(invalid), Success(CreateUncertaintyDraft()));
+        var audit = new FakeClaimEvidenceValidator(ClaimEvidenceValidationResult.Unsupported("An unsourced religious ruling is not background."), ClaimEvidenceValidationResult.Supported());
+
+        var result = await CreateService(new FakeRetriever([]), engine, claimEvidenceValidator: audit).AnswerAsync(new GroundedQuestion { Question = "Is a vampire alive or dead under Jewish law?" }, []);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorMessage);
+        Assert.IsNotNull(result.Answer);
+        Assert.AreEqual(CreateUncertaintyDraft().Claims[0].Text, result.Answer.Claims[0].Text);
+        Assert.AreEqual(GroundedValidationStatus.Repaired, result.Trace.ValidationStatus);
+        Assert.AreEqual(2, audit.CallCount);
+        Assert.HasCount(0, result.Answer.Citations);
+    }
+
     private sealed class RecordingCanonicalReader(IReadOnlyList<SourceSegment> segments) : ICanonicalSourceReader
     {
         internal List<(string Reference, SourceRetrievalQuery Filters)> Queries { get; } = [];
@@ -1338,6 +1463,12 @@ public sealed class GroundedAnswerServiceTests
     }
 
     private static GroundedQuestion CreateQuestion() => new() { Question = "What does the text say about lighting a lamp before Shabbat?" };
+
+    private static GroundedAnswerDraft CreateUncertaintyDraft() => CreateValidDraft() with
+    {
+        Claims = [new GroundedClaimDraft { Kind = GroundedClaimKind.Uncertainty, Text = "I cannot establish that specific conclusion. Which passage did you have in mind?", EvidenceIds = [], Quotations = [] }],
+        Limitations = [],
+    };
 
     private static GroundedAnswerService CreateService(FakeRetriever retriever, FakeEngine engine, GroundedAnswerOptions? options = null, TimeProvider? timeProvider = null, IGroundedClaimEvidenceValidator? claimEvidenceValidator = null) => new(retriever, engine, CreatePrompts(), claimEvidenceValidator ?? new FakeClaimEvidenceValidator(), options, timeProvider);
 

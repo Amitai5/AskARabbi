@@ -18,9 +18,8 @@ flowchart LR
     History[Recent validated conversation] --> Search
     History --> Prompt
     Search --> Adequate{Evidence connects the topic and supporting concepts?}
-    Adequate -->|No| ToolEligible{Approved research or calendar capability available?}
-    ToolEligible -->|No| Insufficient[Stop with InsufficientEvidence]
-    ToolEligible -->|Yes| Prompt
+    Adequate -->|No| Empty[No usable textual evidence]
+    Empty --> Prompt
     Adequate -->|Yes| Evidence[Build a bounded evidence packet]
     Evidence --> Prompt
     Question --> Prompt
@@ -35,11 +34,11 @@ flowchart LR
     Support -->|No| Repair
     Repair --> ValidateAgain{Both validation layers pass now?}
     ValidateAgain -->|Yes| Materialize
-    ValidateAgain -->|No| Fail[Show validation failure]
+    ValidateAgain -->|No| Fail[Save an honest recovery reply in the web chat]
     Materialize --> Answer[Render conversational answer]
 ```
 
-The most important rule is that the AI does not get to answer from general model knowledge when trusted evidence is missing. It can use its knowledge to propose better searches or likely canonical references, but those must resolve to approved original text before supporting an answer. Bounded source and dictionary readers can add verified evidence, while calendar functions provide calculated facts. If these paths cannot establish support or the draft cannot be validated, AskARabbi stops instead of displaying an unsupported answer.
+Religious rulings, attributed teachings, exact quotations and calendar calculations require verified evidence. The AI can propose better searches or likely canonical references, but those must resolve to approved original text before supporting a Source claim. Bounded source and dictionary readers can add verified evidence, while calendar functions provide calculated facts. Basic biography, introductory background and clearly fictional premises can be answered without Torah citations after independent review. Religious rulings and attributed teachings still need source support. If support or validation ultimately fails, the web API saves an honest, localized recovery reply rather than leaving the user with no assistant message.
 
 ## 1. Understand the current question
 
@@ -90,7 +89,7 @@ The result is a ranked collection of source segments such as verses, Mishnah pas
 
 ## 3. Build a usable evidence packet
 
-Before packet construction, a deterministic adequacy gate checks whether the candidates connect the identified topic to enough of the question’s supporting concepts. A Shabbat automation question therefore needs Shabbat-anchored evidence about more than an isolated generic word. When approved research capabilities are registered, an empty or inadequate initial packet requires further research rather than an immediate refusal. Without an applicable research or calendar capability, the service returns `InsufficientEvidence`. It never substitutes unsupported model memory for evidence.
+Before packet construction, a deterministic adequacy gate checks whether the candidates connect the identified topic to enough of the question’s supporting concepts. A Shabbat automation question therefore needs Shabbat-anchored evidence about more than an isolated generic word. An empty or inadequate initial packet does not block drafting. Research remains necessary for Source claims when relevant evidence is missing; Background and Uncertainty may proceed without citations after independent review. Calendar facts still require trusted calculations.
 
 After that gate passes, the model is not given every search result. `EvidencePacketBuilder` chooses a smaller packet that gives the answer enough textual support without flooding the prompt.
 
@@ -157,7 +156,7 @@ The behavior contract tells the AI to:
 - Use only the supplied evidence for factual and interpretive claims.
 - Distinguish Torah-level rules, rabbinic rules, later interpretation, custom, and modern application when the evidence supports those distinctions.
 - Preserve a disagreement when it materially changes the answer.
-- Cite every substantive claim.
+- Cite every Source claim; keep reviewed Background and Uncertainty uncited.
 - Express each claim as one independently verifiable proposition and split compound statements whose parts need different evidence.
 - Copy at least one exact quotation for every cited evidence record.
 - Cite both an earlier text and a later interpretation when claiming that the later authority relied on that earlier text.
@@ -205,13 +204,14 @@ The draft remains untrusted until `GroundedAnswerService` applies two validation
 The deterministic layer checks that:
 
 - There is at least one properly formed claim.
-- Every substantive claim and disagreement cites one or more evidence IDs.
+- Every Source claim and disagreement cites one or more evidence IDs. Background and Uncertainty must have empty evidence and quotation arrays and null attribution.
 - Every cited ID exists in the evidence packet for this exact question.
 - Every cited evidence ID has a quotation attached to that same statement.
 - Every quotation is a character-for-character substring of both the text shown to the model and the trusted complete source segment or local calculation result.
 - Quotation roles are present and source relationships are complete.
 - Claims, attributions, limitations, and follow-up questions stay within their allowed sizes.
 - Conversation titles, claims, disagreements, attributions, quotation roles, and follow-up questions do not expose internal answer-generation mechanisms.
+- Internal mechanism references in hidden limitation metadata are discarded before materialization; those notes cannot reject otherwise valid, independently reviewed prose.
 - A combined portion-and-summary answer has the exact direct-answer prefix and required three-paragraph shape.
 
 The exact-substring check means the model cannot clean up grammar, silently translate, combine separated phrases, insert ellipses, or alter punctuation while presenting text as a direct quotation.
@@ -231,7 +231,7 @@ An exact quotation is therefore necessary but no longer sufficient. A model cann
 
 If the first draft fails either validation layer, the answer model receives the precise validation error, its original draft, and the exact same evidence packet. It gets one chance to repair relevance, support, citation coverage, JSON structure, or quotation accuracy. It may split, merge, add, remove, or rewrite statements and reassign IDs that already exist in that packet so every remaining proposition has complete support. It cannot invent an ID, source, quotation, attribution, or relationship. The repaired draft must pass both layers again.
 
-The repair cannot search for different passages, add unsupported sources, or escape the original evidence boundary. If the repaired draft still fails, AskARabbi displays `ValidationFailed` rather than showing the invalid answer.
+The repair can use remaining bounded source-research calls but cannot invent sources or convert an unsupported ruling into Background. If it still fails, the library retains `ValidationFailed` in diagnostics. The web API saves an application-owned, localized uncertainty reply without the rejected draft or its citations. This reply uses the normal assistant-message ID, persists across reloads, and makes repeated delivery idempotent. Provider outages remain separate errors.
 
 ## 7. Attach trustworthy citation details
 
@@ -304,7 +304,7 @@ If the user then asks “Why did the rabbis choose that?”, the system searches
 
 ## What this workflow guarantees—and what it does not
 
-The workflow guarantees that displayed substantive claims resolve to retrieved evidence IDs, displayed quotations match trusted source text, citation metadata comes from the corpus rather than the model, and every displayed claim has passed a separate relevance-and-support audit.
+The workflow requires displayed Source claims to resolve to retrieved evidence IDs, quotations to match trusted source text, and citation metadata to come from the corpus rather than the model. Generated Background and Uncertainty claims must pass independent relevance, accuracy, and scope review without fabricated citations. If no draft can pass, the web chat saves an application-owned uncertainty reply instead of the rejected content.
 
 It does not guarantee that:
 
