@@ -2,14 +2,15 @@
 
 ## Fixed public topology
 
-AskRabbi uses one public web origin and one API origin:
+AskRabbi uses separate origins for the public website, application, and API:
 
 | Surface | Production URL | Purpose |
 | --- | --- | --- |
-| Frontend | `https://askarabbi.ai` | React application, sign-in screen, conversations, settings, and password-reset UI |
+| Public website | `https://askarabbi.ai` | Static explanatory page built from `WebsiteFrontend` |
+| Frontend | `https://app.askarabbi.ai` | React application, sign-in screen, conversations, settings, and password-reset UI |
 | Backend | `https://api.askarabbi.ai` | ASP.NET Core API, WorkOS callback, application cookie, and Cosmos DB access |
 | WorkOS callback | `https://api.askarabbi.ai/api/user/callback` | Exact OAuth redirect URI registered with WorkOS |
-| Password reset | `https://askarabbi.ai/reset-password` | SPA route that consumes WorkOS's `token` query parameter |
+| Password reset | `https://app.askarabbi.ai/reset-password` | SPA route that consumes WorkOS's `token` query parameter |
 
 The tracked backend `appsettings.Production.json` contains these non-secret URLs, exact production CORS origin, collection names, and API host name. The Vite production build defaults to `https://api.askarabbi.ai`. Secrets are supplied only to the backend at runtime.
 
@@ -100,12 +101,12 @@ Set these runtime environment variables on the API host:
 | `AI__MaximumOutputTokens` | Optional | `8000` is the production default and includes hidden reasoning plus structured answer tokens |
 | `AI__ServiceTier` | Optional | `Priority` requests lower-latency priority processing for conversational file-search, answer, and validation calls; Azure can fall back to standard processing when capacity is unavailable |
 
-The following non-secret values are already tracked in `appsettings.Production.json`. Set environment overrides only if the topology changes:
+The following non-secret values are already tracked in `appsettings.Production.json`. Any runtime overrides must match the current application subdomain:
 
 ```text
 WorkOS__RedirectUri=https://api.askarabbi.ai/api/user/callback
-WorkOS__FrontendUri=https://askarabbi.ai/
-Cors__AllowedOrigins__0=https://askarabbi.ai
+WorkOS__FrontendUri=https://app.askarabbi.ai/
+Cors__AllowedOrigins__0=https://app.askarabbi.ai
 AllowedHosts=api.askarabbi.ai
 ```
 
@@ -130,9 +131,9 @@ Use the WorkOS **Production** environment, not the staging credentials. In **App
 1. Copy its production API key once and store it as `WorkOS__ApiKey` on the API host.
 2. Copy the matching client ID into `WorkOS__ClientId`.
 3. Add the exact redirect URI `https://api.askarabbi.ai/api/user/callback`.
-4. Set the sign-in URL to `https://askarabbi.ai/`.
-5. Set the default application/homepage and allowed sign-out URI to `https://askarabbi.ai/`.
-6. Set the password-reset URL to `https://askarabbi.ai/reset-password` so the generated link arrives as `/reset-password?token=...`.
+4. Set the initiate-login URL to `https://app.askarabbi.ai/`.
+5. Set the default application/homepage and allowed sign-out URI to `https://app.askarabbi.ai/`.
+6. Set the password-reset URL to `https://app.askarabbi.ai/reset-password` so the generated link arrives as `/reset-password?token=...`.
 7. Enable Email + Password and Google OAuth. Complete any Google provider credentials requested by WorkOS for production.
 8. Under **Sessions**, set **Maximum session length** to **30 days** and **Inactivity timeout** to **7 days**. Keep the access-token duration short; do not increase it to 30 days. Verify these settings in the WorkOS **Production** application before activating longer browser sign-in. The app cannot extend an expired or revoked WorkOS session.
 
@@ -145,6 +146,14 @@ The API defaults to `Session:MaximumLifetimeDays=30` and `Session:InactivityTime
 - The API enforces both cutoffs even when an expired cookie is manually replayed. Logout, account deletion, and rejected WorkOS refreshes clear both cookies. Background/offline browser activity without an API request does not extend sign-in.
 - Both cookies use the Azure-managed Data Protection keys described above, so restarting or scaling the same Container App to zero does not reset their deadlines or require keeping a replica running.
 - Rollout requires one fresh sign-in for existing sessions: older cookies do not contain a trustworthy original sign-in timestamp or the session-bound activity cookie. Clearing browser data, private browsing, or a stricter WorkOS session policy can still end sign-in earlier.
+
+### Application subdomain migration
+
+The September 17, 2026 cutover applied both URL overrides to `askarabbi-api-production--0000036` using the existing image. The ready revision retained Azure-managed Data Protection and scaling from zero to five replicas. Live checks confirmed HTTP 200 health, valid registration availability, credentialed CORS for the application only, and the unchanged WorkOS API callback. The WorkOS Production dashboard confirmed homepage, initiate-login, sign-out, and password-reset destinations on `app.askarabbi.ai`. Full sign-in and password reset with a real account were not exercised during this configuration change.
+
+When moving the application off the public website, update all four WorkOS destinations above (homepage, initiate login, sign-out, and password reset). Keep the exact OAuth callback on `https://api.askarabbi.ai/api/user/callback` so the backend can exchange the code and issue its cookie.
+
+Set `WorkOS__FrontendUri=https://app.askarabbi.ai/` and `Cors__AllowedOrigins__0=https://app.askarabbi.ai` on the existing API Container App to activate the new domain before the updated image is released. Remove any other production `Cors__AllowedOrigins__*` entries for the public website. These two non-secret overrides match the tracked production defaults and are preserved by subsequent image deployments. Verify that the new revision is healthy and that credentialed preflights allow the app origin and reject the website origin. Keep local development URLs on localhost.
 
 WorkOS production redirect URIs must use HTTPS and must match the URI sent by the API exactly. Keep staging and production API keys/client IDs separate.
 
@@ -195,7 +204,7 @@ pnpm verify
 pnpm build
 ```
 
-Deploy the generated `Frontend/dist` directory. A standard production build automatically targets `https://api.askarabbi.ai`. The optional build variable below is useful for an intentional alternate environment, but it is not a secret:
+Deploy the generated `Frontend/dist` directory at `https://app.askarabbi.ai`; deploy `WebsiteFrontend/dist` separately at `https://askarabbi.ai`. A standard production build automatically targets `https://api.askarabbi.ai`. The optional build variable below is useful for an intentional alternate environment, but it is not a secret:
 
 ```text
 VITE_API_BASE_URL=https://api.askarabbi.ai
@@ -222,16 +231,16 @@ docker build --file Backend/AskARabbi.Api/Dockerfile --tag askarabbi-api:local .
 docker build --file Backend/AskARabbi.DvarTorahJob/Dockerfile --tag askarabbi-dvar-torah-job:local .
 ```
 
-The production configuration requires HTTPS for WorkOS URLs, always marks authentication cookies `Secure`, enables HSTS, and accepts credentialed browser requests only from `https://askarabbi.ai`.
+The production configuration requires HTTPS for WorkOS URLs, always marks authentication cookies `Secure`, enables HSTS, and accepts credentialed browser requests only from `https://app.askarabbi.ai`.
 
 ## Production smoke checks
 
 Perform these checks after DNS and TLS are active:
 
 1. `GET https://api.askarabbi.ai/health` returns HTTP `200`.
-2. `https://askarabbi.ai` loads without mixed-content or CORS errors and sends API requests only to `https://api.askarabbi.ai`.
+2. `https://app.askarabbi.ai` loads without mixed-content or CORS errors and sends API requests only to `https://api.askarabbi.ai`.
 3. Email sign-in, Google sign-in, sign-up, session refresh, and logout complete through the WorkOS production environment.
-4. A password-reset email opens `https://askarabbi.ai/reset-password?token=...`, accepts a new password, and requires signing in again.
+4. A password-reset email opens `https://app.askarabbi.ai/reset-password?token=...`, accepts a new password, and requires signing in again.
 5. Saving Personalization creates or updates the user's `conversationSettings` record in Cosmos.
 6. Saving Settings persists both conversation defaults without erasing Personalization.
 7. Creating, renaming, loading, and deleting a conversation affects only the authenticated user's records.

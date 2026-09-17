@@ -80,7 +80,7 @@ Verification:
 pnpm verify
 ```
 
-The Vite development server defaults to `http://localhost:5173`, and development API calls default to `http://localhost:5090`. A production build defaults to `https://api.askarabbi.ai` for the frontend hosted at `https://askarabbi.ai`. Override only the public API origin with `VITE_API_BASE_URL`; Vite exposes every `VITE_*` value to browser code, so never place a WorkOS key, MongoDB connection string, or other secret there. Use `pnpm preview` after `pnpm build` to inspect the production bundle locally, and follow the [production deployment plan](../docs/PRODUCTION_DEPLOYMENT.md) for DNS, SPA rewrites, WorkOS, and backend secrets.
+The Vite development server defaults to `http://localhost:5173`, and development API calls default to `http://localhost:5090`. A production build defaults to `https://api.askarabbi.ai` for the frontend hosted at `https://app.askarabbi.ai`. Override only the public API origin with `VITE_API_BASE_URL`; Vite exposes every `VITE_*` value to browser code, so never place a WorkOS key, MongoDB connection string, or other secret there. Use `pnpm preview` after `pnpm build` to inspect the production bundle locally, and follow the [production deployment plan](../docs/PRODUCTION_DEPLOYMENT.md) for DNS, SPA rewrites, WorkOS, and backend secrets.
 
 ## Authentication boundary
 

@@ -1,0 +1,34 @@
+{
+  "name": "@askarabbi/website-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && node scripts/build.mjs",
+    "lint": "oxlint",
+    "typecheck": "tsc -b --pretty false",
+    "verify": "pnpm lint && pnpm build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "1.33.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.0",
+    "oxlint": "1.79.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.2.2"
+  }
+}

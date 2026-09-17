@@ -54,7 +54,7 @@ public sealed class ConfigurationOptionsTests
             ApiKey = "key",
             ClientId = "client",
             RedirectUri = "http://api.askarabbi.ai/api/user/callback",
-            FrontendUri = "http://askarabbi.ai/",
+            FrontendUri = "http://app.askarabbi.ai/",
         };
 
         Assert.ThrowsExactly<InvalidOperationException>(() => options.Validate(true));

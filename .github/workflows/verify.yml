@@ -46,7 +46,9 @@ jobs:
           version: 11.19.0
           runtime: node@24
           cache: true
-          cache-dependency-path: Frontend/pnpm-lock.yaml
+          cache-dependency-path: |
+            Frontend/pnpm-lock.yaml
+            WebsiteFrontend/pnpm-lock.yaml
           package-json-file: Frontend/package.json
           install: false
 
@@ -55,6 +57,12 @@ jobs:
 
       - name: Lint, test, and build frontend
         run: pnpm --dir Frontend verify
+
+      - name: Install public website dependencies
+        run: pnpm --dir WebsiteFrontend install --frozen-lockfile
+
+      - name: Lint and build public website
+        run: pnpm --dir WebsiteFrontend verify
 
       - name: Restore library solution
         run: dotnet restore Library/AskARabbiLIB.slnx
