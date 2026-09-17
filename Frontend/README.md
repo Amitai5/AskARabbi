@@ -95,3 +95,7 @@ dotnet run --project Backend/AskARabbi.Api --launch-profile local-demo
 cd Frontend
 pnpm dev
 ```
+
+## Voice questions
+
+The composer supports bounded Record question / Stop recording turns with transcript review before Send. Voice questions can receive spoken answers while text and citations stay visible; saved answers also provide Listen to answer. Permission denial and audio failures leave typed chat usable. See [voice setup, privacy, and verification](../docs/VOICE_CHAT.md). No browser Speech credentials or additional frontend dependencies are required.

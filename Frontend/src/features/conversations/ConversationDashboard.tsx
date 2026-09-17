@@ -80,6 +80,8 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedConversation, setSelectedConversation] = useState<ConversationDetails | null>(null)
+  const voiceDraftFor = useRef<string | null | undefined>(undefined)
+  const [autoReadAnswerId, setAutoReadAnswerId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [draftTeachingContext, setDraftTeachingContext] = useState<ConversationTeachingContext | null>(null)
   const activeTeachingContext = selectedConversation === null ? draftTeachingContext : selectedConversation.teachingContext
@@ -145,6 +147,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   }, [exitFocusedReading])
 
   function restoreLocation() {
+    setAutoReadAnswerId(null)
     exitFocusedReading()
     const route = readPageRoute()
     setRestoredRoute(route)
@@ -179,6 +182,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   }
 
   function navigateView(view: Exclude<ActiveView, 'settings'>, replaceUrl = false) {
+    setAutoReadAnswerId(null)
     const path = view === 'conversation' ? conversationPath(selectedIdRef.current) : view === 'calendar' ? '/calendar' : '/teachings'
     const isNewDestination = `${window.location.pathname}${window.location.search}` !== path
     writePageUrl(path, replaceUrl)
@@ -189,6 +193,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   }
 
   function navigateSettings(section: SettingsSectionId, settingId?: string, keepNavigationOpen = false) {
+    setAutoReadAnswerId(null)
     if (activeView !== 'settings') { settingsReturnPath.current = `${window.location.pathname}${window.location.search}` }
     focusedReading.exit()
     window.history.pushState(window.history.state, '', `/settings/${section}${settingId ? `#${settingId}` : ''}`)
@@ -384,6 +389,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   }, [activeView, focusedReading.target, isLoadingConversation, isLoadingConversations, latestDisplayedMessageId, selectedId])
 
   function handleNewConversation() {
+    voiceDraftFor.current = undefined
     if (!navigator.onLine || isLoadingConversations) {
       return
     }
@@ -392,6 +398,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   }
 
   function openNewConversation(initialDraft: string, replaceUrl = false, teachingContext: ConversationTeachingContext | null = null) {
+    setAutoReadAnswerId(null)
     rememberSelectedConversation()
     selectionRequestId.current += 1
     shouldScrollToLatestRef.current = true
@@ -415,6 +422,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
 
   async function handleSelectConversation(id: string, updateUrl = true) {
     if (!navigator.onLine) { return }
+    setAutoReadAnswerId(null)
     rememberSelectedConversation()
     const requestId = selectionRequestId.current + 1
     selectionRequestId.current = requestId
@@ -573,6 +581,9 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
       return
     }
 
+    const readSpokenAnswer = voiceDraftFor.current === selectedId
+    voiceDraftFor.current = undefined
+    setAutoReadAnswerId(null)
     const messageId = crypto.randomUUID()
     const timestamp = new Date().toISOString()
     const conversationId = selectedId ?? `pending:${messageId}`
@@ -640,6 +651,9 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
       if (conversationId !== conversation.id) { completedPendingIds.current.set(conversationId, conversation.id) }
       setConversations((current) => [toSummary(conversation), ...current.filter((value) => value.id !== conversationId && value.id !== conversation.id)])
       const isAnswerVisible = readPageRoute().view === 'conversation' && selectedIdRef.current === conversationId && document.visibilityState !== 'hidden'
+      if (turn.status === 'answered' && isAnswerVisible && readSpokenAnswer) {
+        setAutoReadAnswerId(conversation.messages.filter(message => message.role === 'Assistant').at(-1)?.id ?? null)
+      }
       if (turn.status === 'answered' && !isAnswerVisible) {
         setUnreadConversationIds(current => new Set(current).add(conversation.id))
         setReadyNotice(toSummary(conversation))
@@ -711,6 +725,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
   }
 
   function handleDraftChange(value: string) {
+    if (!value.trim()) { voiceDraftFor.current = undefined }
     setDraft(value)
     setDraftNotice(null)
     if (selectedId === null) { newDraft.current = value }
@@ -892,7 +907,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                       <article className="reading-column mx-auto max-w-[46rem] space-y-7 sm:space-y-9">
                         {displayedMessages.map((message) => (
                           message.role === 'Assistant'
-                            ? <AssistantMessage key={message.id} message={message} autoFocusEligible={message.id === latestDisplayedMessageId} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} getPrintRequest={getAnswerPrintRequest} />
+                            ? <AssistantMessage key={message.id} message={message} conversationId={selectedConversation?.id} autoPlay={message.id === autoReadAnswerId} autoFocusEligible={message.id === latestDisplayedMessageId} selectedSourceNumber={sourceReaderSelection?.messageId === message.id ? sourceReaderSelection.sourceNumber : null} onSelectSource={handleOpenSourceReader} getPrintRequest={getAnswerPrintRequest} />
                             : <UserMessage key={message.id} message={message} />
                         ))}
                         {isSending && isOnline ? <AnswerProgress sourceDescription={formatSourceSelection(selectedSourceKeys)} /> : null}
@@ -909,7 +924,7 @@ function DashboardContent({ user, initialPersonalizationProfile, initialUserSett
                 {draftNotice ? <p role="status" className="mx-auto mb-2 max-w-[50rem] text-sm text-ink-soft">{draftNotice}</p> : null}
                 {activeTeachingContext ? <TeachingContextCard context={activeTeachingContext} onRemove={selectedConversation === null ? () => { setDraftTeachingContext(null); newDraftTeachingContext.current = null } : undefined} /> : null}
                 <div className="mx-auto flex w-full max-w-[62rem] justify-center">
-                  <MessageComposer focusKey={composerFocusKey} draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} enterSendsMessage={userSettings.enterSendsMessage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
+                  <MessageComposer voiceScope={`${selectedId ?? 'new'}:${conversationStarterIndex}`} onVoiceDraft={() => { voiceDraftFor.current = selectedId }} focusKey={composerFocusKey} draft={draft} selectedSourceKeys={selectedSourceKeys} conversationLanguage={personalizationProfile.conversationLanguage} quotationLanguage={personalizationProfile.quotationLanguage} enterSendsMessage={userSettings.enterSendsMessage} isChatDisabled={isChatDisabled} isSending={pendingQuestions.size > 0 || isLoadingConversation || isLoadingConversations} onDraftChange={handleDraftChange} onSelectedSourceKeysChange={handleSelectedSourceKeysChange} onSubmit={() => void handleSubmit()} />
                 </div>
               </div>
             </div>

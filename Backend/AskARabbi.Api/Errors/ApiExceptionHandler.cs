@@ -1,4 +1,5 @@
 using AskARabbi.Api.Authentication;
+using AskARabbi.Api.Voice;
 using AskARabbiLIB.Persistence.Mongo;
 using AskARabbiLIB.Usage;
 using AskARabbi.Api.Contracts.ConversationSettings;
@@ -30,6 +31,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             ChatUsageException { Code: "usage_limit_reached" } limited => (StatusCodes.Status429TooManyRequests, "Monthly chat allowance reached", limited.Message, limited.Code),
             ChatUsageException { Code: "chat_in_progress" } busy => (StatusCodes.Status409Conflict, "Answer in progress", busy.Message, busy.Code),
             ChatUsageException accounting => (StatusCodes.Status503ServiceUnavailable, "Chat usage unavailable", accounting.Message, accounting.Code),
+            VoiceUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Voice unavailable", exception.Message, "voice_unavailable"),
             UnauthenticatedRequestException => (StatusCodes.Status401Unauthorized, "Authentication required", "Sign in before using this endpoint.", "authentication_required"),
             IdentityRequestRejectedException rejected => (StatusCodes.Status400BadRequest, "Authentication request rejected", rejected.Message, "authentication_rejected"),
             IdentityProviderUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Authentication unavailable", "The identity service is unavailable or not configured.", "authentication_unavailable"),
@@ -40,7 +42,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         if (status >= StatusCodes.Status500InternalServerError)
         {
-            if (exception is IdentityProviderUnavailableException or PersistenceUnavailableException)
+            if (exception is IdentityProviderUnavailableException or PersistenceUnavailableException or VoiceUnavailableException)
             {
                 logger.LogWarning("A configured external boundary is unavailable. ExceptionType: {ExceptionType}", exception.GetType().Name);
             }

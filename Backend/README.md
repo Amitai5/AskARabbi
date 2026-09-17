@@ -19,7 +19,7 @@ Warm answer requests use one bounded managed-corpus search, up to 20 candidates,
 - `AskARabbiBackend.slnx` owns all four projects.
 - Both production hosts reference `AskARabbiLIB` for calendar, Dvar Torah orchestration, account, conversation, personalization, usage, and MongoDB contracts and implementations.
 
-The API and library pin `WorkOS.net` 6.2.0, `MongoDB.Driver` 3.11.0, and `Zmanim` 1.5.0. The shared library also isolates the official Azure Speech and Blob SDKs behind narration/storage boundaries. The weekly job alone installs native Speech dependencies and FFmpeg for one seekable MP3 encode; neither a browser model nor per-listener synthesis is needed. WorkOS and MongoDB avoid custom authentication and wire-protocol clients. Zmanim supplies the weekly parashah schedule while .NET supplies numeric Hebrew-calendar conversion. These integrations must remain covered by dependency updates and security scanning. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) for their notices.
+The API and library pin `WorkOS.net` 6.2.0, `MongoDB.Driver` 3.11.0, and `Zmanim` 1.5.0. The shared library also isolates the official Azure Speech and Blob SDKs behind narration/storage boundaries. The weekly job alone installs native Speech dependencies and FFmpeg for one seekable MP3 encode; weekly playback does not require per-listener synthesis. Optional conversation voice instead uses the Azure Speech REST endpoints to synthesize saved answers on demand without additional runtime dependencies. WorkOS and MongoDB avoid custom authentication and wire-protocol clients. Zmanim supplies the weekly parashah schedule while .NET supplies numeric Hebrew-calendar conversion. These integrations must remain covered by dependency updates and security scanning. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) for their notices.
 
 ## Configuration and secrets
 
@@ -161,3 +161,7 @@ dotnet run --project Backend/AskARabbi.Api --launch-profile local-demo
 - Add the final CSRF policy, rate limits, dependency readiness checks, WorkOS webhooks, account deletion, retention jobs, and live-provider smoke tests. Restrictive credentialed CORS is already enforced from an exact origin allow-list.
 
 See the [authentication design](../docs/AUTHENTICATION.md) and [technical design](../docs/TECHNICAL.md) for the surrounding boundaries.
+
+## Conversation voice
+
+Optional authenticated push-to-talk transcription and saved-answer playback use Azure Speech REST endpoints and the API managed identity. VoiceChat defaults off and does not alter grounded turns or saved conversation schemas. See [voice configuration and operational limits](../docs/VOICE_CHAT.md); enabling requires the API identity’s Speech role and existing restricted custom endpoint, separately from the weekly job.
