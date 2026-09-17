@@ -19,7 +19,7 @@ Text sizes: `small`, `default`, `large`, `extra-large`. Line spacing: `compact`,
 
 Reading changes apply immediately and autosave after a short debounce. Writes are serialized so rapid changes cannot save out of order. Failed/offline writes retain the local choice, expose Retry, and sync when the device reconnects. Other settings retain their existing save behavior.
 
-Answers and teachings with at least 150 words or 1,000 characters offer Focus. If enabled by default, only the latest eligible chat answer enters automatically. Focus hides navigation, other messages, and the composer; Exit focused reading or Escape returns to the regular view. Teaching audio, word seeking, citations, and copying retain their existing state. The offline teaching also uses the cached presentation preferences.
+If focused reading is enabled, only the latest eligible chat answer (at least 150 words or 1,000 characters) enters automatically. Focus hides navigation, other messages, and the composer; Exit focused reading or Escape returns to the regular view. Current, archived, and offline Dvar Torah teachings always use the regular page view, with no Focus control or automatic entry. Teaching text size, line spacing, theme, audio, word seeking, and citations are unchanged. The offline teaching also uses the cached presentation preferences.
 
 ## API and storage
 

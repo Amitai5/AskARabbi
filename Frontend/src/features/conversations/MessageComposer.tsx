@@ -61,20 +61,22 @@ export function MessageComposer({ focusKey = 0, voiceScope = 'new', draft, selec
           placeholder="Ask about Jewish learning…"
           className="message-composer-input field-sizing-content max-h-40 min-h-10 w-full resize-none overflow-y-auto bg-transparent px-2 py-2 text-ink outline-none placeholder:text-muted/80"
         />
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <SourceFilterMenu key={isSending || isChatDisabled ? 'source-filter-disabled' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending || isChatDisabled} onChange={onSelectedSourceKeysChange} />
             <span className="hidden truncate text-sm leading-4 text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
           </div>
-          <button type="submit" disabled={voiceBusy || isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message" title="Send message (Ctrl/Cmd+Enter)" aria-keyshortcuts={enterSendsMessage ? 'Enter Control+Enter Meta+Enter' : 'Control+Enter Meta+Enter'}>
-            <ArrowUp aria-hidden="true" className="size-4" strokeWidth={1.9} />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <VoiceInput key={`${voiceScope}:${isChatDisabled || isSending ? 'disabled' : 'ready'}`} draft={draft} language={conversationLanguage} disabled={isChatDisabled || isSending} onBusyChange={setVoiceBusy} onTranscript={value => { onDraftChange(value); onVoiceDraft?.(); inputRef.current?.focus() }} />
+            <button type="submit" disabled={voiceBusy || isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-11 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted sm:size-9" aria-label="Send message" title="Send message (Ctrl/Cmd+Enter)" aria-keyshortcuts={enterSendsMessage ? 'Enter Control+Enter Meta+Enter' : 'Control+Enter Meta+Enter'}>
+              <ArrowUp aria-hidden="true" className="size-4" strokeWidth={1.9} />
+            </button>
+          </div>
         </div>
         {selectedSourceKeys.length === 0 ? <p className="px-2 pt-2 text-sm font-medium leading-4 text-pomegranate" role="alert">Select at least one source before sending.</p> : null}
-        <VoiceInput key={`${voiceScope}:${isChatDisabled || isSending ? 'disabled' : 'ready'}`} draft={draft} language={conversationLanguage} disabled={isChatDisabled || isSending} onBusyChange={setVoiceBusy} onTranscript={value => { onDraftChange(value); onVoiceDraft?.(); inputRef.current?.focus() }} />
       </form>
       <div className="mt-1.5 text-center text-sm leading-5 text-muted">
-        <p id="message-keyboard-help" className="sr-only md:not-sr-only">{enterSendsMessage ? 'Enter to send · Shift+Enter for a new line · Ctrl/Cmd+Enter also sends' : 'Enter for a new line · Ctrl/Cmd+Enter to send'}</p>
+        <p id="message-keyboard-help" className="sr-only">{enterSendsMessage ? 'Enter to send · Shift+Enter for a new line · Ctrl/Cmd+Enter also sends' : 'Enter for a new line · Ctrl/Cmd+Enter to send'}</p>
         <p>AskRabbi can make mistakes. Check the cited sources. <LegalLinks /></p>
       </div>
     </div>

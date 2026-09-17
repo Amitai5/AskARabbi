@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssistantMessage } from '../conversations/AssistantMessage.tsx'
 import { WeeklyDvarTorahPage } from '../dvarTorah/WeeklyDvarTorahPage.tsx'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
+import type { WeeklyDvarTorahArticle } from '../dvarTorah/dvarTorahTypes.ts'
 import { createDemoApplicationClients } from '../../test/demoApplicationClients.ts'
 import { cacheReadingPreferences, DefaultReadingPreferences } from './readingPreferences.ts'
 import { ReadingPreferencesProvider } from './ReadingPreferencesProvider.tsx'
@@ -18,6 +19,8 @@ beforeEach(() => {
   localStorage.clear()
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() })
 })
+
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 function FocusLayout({ children }: { children: ReactNode }) {
   const { target } = useFocusedReading()
@@ -62,32 +65,53 @@ describe('focused reading', () => {
     expect(screen.queryByRole('button', { name: 'Exit focused reading' })).not.toBeInTheDocument()
   })
 
-  it('keeps the same teaching audio element and timing request when entering and exiting focus', async () => {
+  it.each([
+    ['current', false], ['current', true],
+    ['archived', false], ['archived', true],
+    ['offline', false], ['offline', true],
+  ] as const)('keeps %s teachings out of focused reading when automatic focus is %s', async (view, focusLongContent) => {
     const week = { weekKey: 'diaspora:2026-09-12', shabbatDate: '2026-09-12', hebrewDate: '1 Tishrei 5787', parashah: null, holiday: 'Rosh Hashanah', inIsrael: false }
+    const article: WeeklyDvarTorahArticle = { title: 'A thoughtful question', body: longText, week, tags: [], sources: [], centralTeaching: 'Careful study', torahGroundingPercent: 100, generatedAtUtc: '2026-09-10T12:00:00Z', publishedAtUtc: '2026-09-10T12:00:00Z', audio: { version: 'v1', voice: 'Andrew', audioUrl: '', timingsUrl: '', durationMs: 240000 } }
+    const preferences = { ...DefaultReadingPreferences, focusLongContent }
+    cacheReadingPreferences('reader', preferences, false)
+    const settingsClient = createDemoApplicationClients().conversationSettingsClient
+    settingsClient.getReadingPreferences = vi.fn().mockResolvedValue(preferences)
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
     const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
     const client: DvarTorahClient = {
       getReadState: async () => ({ readWeekKeys: [] }),
       setReadState: vi.fn().mockResolvedValue(undefined),
-      getCurrent: async () => ({ currentWeek: week, isCurrentWeek: true, dvarTorah: { title: 'A thoughtful question', body: longText, week, tags: [], sources: [], centralTeaching: 'Careful study', torahGroundingPercent: 100, generatedAtUtc: '2026-09-10T12:00:00Z', publishedAtUtc: '2026-09-10T12:00:00Z', audio: { version: 'v1', voice: 'Andrew', audioUrl: '', timingsUrl: '', durationMs: 240000 } } }),
+      getCurrent: async () => ({ currentWeek: week, isCurrentWeek: true, dvarTorah: article }),
       getArchive: async () => ({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 }),
-      getArchived: vi.fn(),
+      getArchived: vi.fn().mockResolvedValue(article),
       getAudioUrl: () => 'https://example.test/audio.mp3',
       getAudioTimings: vi.fn().mockResolvedValue(null),
     }
-    const { unmount } = render(<FocusedReadingProvider><FocusLayout><WeeklyDvarTorahPage client={client} /></FocusLayout></FocusedReadingProvider>)
-    const trigger = await screen.findByRole('button', { name: 'Focus teaching' })
+    const onAskTeaching = vi.fn()
+    const { unmount } = render(<ReadingPreferencesProvider userId="reader" client={settingsClient}><FocusedReadingProvider><FocusLayout><WeeklyDvarTorahPage client={client} initialRoute={view === 'archived' ? { weekKey: week.weekKey } : undefined} offlineSavedAt={view === 'offline' ? '2026-09-10T12:00:00Z' : undefined} onAskTeaching={view === 'offline' ? undefined : onAskTeaching} /></FocusLayout></FocusedReadingProvider></ReadingPreferencesProvider>)
+    expect(await screen.findByRole('heading', { name: article.title })).toBeVisible()
+    await waitFor(() => expect(client.getAudioTimings).toHaveBeenCalledTimes(1))
+    expect(settingsClient.getReadingPreferences).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: /focus/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('main')).not.toHaveClass('focused-reading')
+    expect(screen.getByRole('article')).not.toHaveAttribute('data-reading-target')
+    expect(screen.getByRole('article')).not.toHaveAttribute('data-reading-focused')
+    expect(screen.getByRole('button', { name: 'Print teaching' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Listen to this teaching' })).toBeVisible()
     const audio = screen.getByLabelText('Dvar Torah recording')
-    const calls = client.getAudioTimings as ReturnType<typeof vi.fn>
-    await waitFor(() => expect(calls).toHaveBeenCalledTimes(1))
-    fireEvent.click(trigger)
+    if (view !== 'offline') {
+      expect(screen.getByRole('navigation', { name: 'Weekly learning' })).toBeVisible()
+      expect(screen.getByRole('button', { name: `Mark as read: ${article.title}` })).toBeEnabled()
+      fireEvent.click(screen.getByRole('button', { name: 'Ask about this teaching' }))
+      expect(onAskTeaching).toHaveBeenCalledWith({ weekKey: week.weekKey, title: article.title, selectedText: null })
+    }
+    if (view === 'archived') {
+      expect(client.getArchived).toHaveBeenCalledWith(week.weekKey)
+      expect(screen.getByRole('button', { name: 'Back to past teachings' })).toBeVisible()
+    }
     expect(screen.getByLabelText('Dvar Torah recording')).toBe(audio)
-    expect(screen.getByRole('button', { name: 'Mark as read: A thoughtful question' }).closest('.reading-nonessential')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Exit focused reading' }))
-    expect(screen.getByLabelText('Dvar Torah recording')).toBe(audio)
-    expect(calls).toHaveBeenCalledTimes(1)
+    expect(client.getAudioTimings).toHaveBeenCalledTimes(1)
     expect(pause).not.toHaveBeenCalled()
     unmount()
-    vi.restoreAllMocks()
   })
 })

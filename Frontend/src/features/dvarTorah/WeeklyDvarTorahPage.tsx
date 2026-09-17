@@ -12,8 +12,6 @@ import { createNarratedParagraphs, estimateReadingMinutes, formatAudioTime } fro
 import { normalizeDvarTorahText } from './dvarTorahText.ts'
 import { useNarrationFollow } from './useNarrationFollow.ts'
 import type { DvarTorahAudioTimings, DvarTorahAudioWord, DvarTorahWeek, WeeklyDvarTorahArchiveResponse, WeeklyDvarTorahArticle, WeeklyDvarTorahResponse, WeeklyDvarTorahSource } from './dvarTorahTypes.ts'
-import { FocusReadingButton } from '../reading/FocusedReading.tsx'
-import { useReadingTarget } from '../reading/focusedReadingContext.ts'
 import type { TeachingRoute } from '../conversations/pageRoutes.ts'
 import { PrintAction } from '../printing/PrintAction.tsx'
 import { TeachingReadButton } from './TeachingReadButton.tsx'
@@ -321,8 +319,6 @@ interface PublishedArticleProps {
 }
 
 function PublishedArticle({ article, progress, client, showFallbackNotice = false, sources, selectedSourceNumber, onSelectSource, audioDock, scrollAreaRef, onAskTeaching, isAskDisabled }: PublishedArticleProps) {
-  const readingId = `teaching:${article.week.weekKey}`
-  const reading = useReadingTarget(readingId, article.body)
   const [activeWord, setActiveWord] = useState<DvarTorahAudioWord | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [timings, setTimings] = useState<DvarTorahAudioTimings | null>(null)
@@ -341,7 +337,7 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
   const cancelAutomaticRead = useAutomaticTeachingRead(article.week.weekKey, readingMinutes, progress)
   const isRead = progress.keys?.has(article.week.weekKey) ?? false
   return (
-    <article ref={articleRef} data-reading-target={readingId} data-reading-focused={reading.isFocused} className="teaching-article mt-5 sm:mt-7" aria-label={normalizeDvarTorahText(article.title)}>
+    <article ref={articleRef} className="teaching-article mt-5 sm:mt-7" aria-label={normalizeDvarTorahText(article.title)}>
       {!showFallbackNotice ? null : (
         <p className="mb-6 rounded-lg border border-brass/40 bg-brass/5 px-4 py-3 text-sm leading-6 text-ink-soft">
           This week’s teaching is still being prepared. Here is the latest available Dvar Torah.
@@ -360,7 +356,6 @@ function PublishedArticle({ article, progress, client, showFallbackNotice = fals
           <div role="group" aria-label="Teaching actions" className="teaching-actions readable-menu reading-nonessential">
             {onAskTeaching ? <TeachingAskActions context={{ weekKey: article.week.weekKey, title, selectedText: null }} onAsk={onAskTeaching} disabled={isAskDisabled} /> : null}
             <PrintAction label="Print teaching" getRequest={() => ({ kind: 'teaching', article })} />
-            {reading.isLong ? <FocusReadingButton id={readingId} label="Focus teaching" /> : null}
           </div>
         </div>
       </header>

@@ -16,6 +16,17 @@ function renderComposer(options: { enterSendsMessage?: boolean; isSending?: bool
 }
 
 describe('Composer keyboard preferences', () => {
+  it('groups the microphone immediately before Send and keeps keyboard guidance screen-reader only', () => {
+    renderComposer()
+    const microphone = screen.getByRole('button', { name: 'Record question' })
+    const send = screen.getByRole('button', { name: 'Send message' })
+
+    expect(microphone.parentElement?.nextElementSibling).toBe(send)
+    expect(microphone.textContent).toBe('')
+    expect(microphone).toHaveAttribute('type', 'button')
+    expect(document.getElementById('message-keyboard-help')).toHaveAttribute('class', 'sr-only')
+  })
+
   it('adds a new line with Enter by default and preserves an unfinished question', async () => {
     const { user, input, onSubmit } = renderComposer()
     await user.click(input)
