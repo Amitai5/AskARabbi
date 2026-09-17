@@ -39,7 +39,7 @@ The repository now contains a reusable .NET library, a thin console application,
 
 - **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable frontend authentication boundary; a .NET 10 ASP.NET Core API; WorkOS AuthKit code exchange and password recovery behind a narrow adapter; encrypted application cookies; owner-scoped MongoDB stores; Azure OpenAI Responses; forced managed file-search retrieval; independently reviewed answers, application-written recovery replies, and token-usage enforcement; and deterministic frontend, library, and API tests.
 - **Committed direction:** User-facing Google and other reviewed WorkOS methods; Azure Cosmos DB for MongoDB application persistence; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
-- **Remaining design work:** long-term retrieval migration criteria, server-side session persistence, and future private-conversation retention. The API combines managed vector retrieval with local canonical-source access; the weekly publisher has a separate implemented content/review contract. Model deployment names are environment configuration. The public topology is `https://askarabbi.ai` plus `https://api.askarabbi.ai`.
+- **Remaining design work:** long-term retrieval migration criteria, server-side session persistence, and future private-conversation retention. The API combines managed vector retrieval with local canonical-source access; the weekly publisher has a separate implemented content/review contract. Model deployment names are environment configuration. The public topology is `https://askarabbi.ai` for the explanatory website, `https://app.askarabbi.ai` for the application, and `https://api.askarabbi.ai` for the backend.
 
 Dependencies and infrastructure should be selected only when an implementation milestone needs them. This keeps the first version small and prevents an early prototype from silently becoming the permanent privacy or security architecture.
 
@@ -513,7 +513,7 @@ The shared library owns provider-neutral validation. API recovery wording and pe
 - Conduct scholarly, accessibility, privacy, and security reviews.
 - Red-team hallucination, prompt injection, judgmental language, and cross-user access.
 - Publish accurate terms, privacy disclosures, source attribution, and limitations.
-- Deploy the initial release to [askarabbi.ai](https://askarabbi.ai).
+- Deploy the initial application release to [app.askarabbi.ai](https://app.askarabbi.ai).
 
 ## Open decisions
 

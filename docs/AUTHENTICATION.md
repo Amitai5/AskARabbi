@@ -14,6 +14,8 @@ The implementation was checked against:
 - [Password reset](https://workos.com/docs/reference/authkit/password-reset)
 - [Official WorkOS .NET SDK](https://github.com/workos/workos-dotnet)
 
+Production authentication returns users to `https://app.askarabbi.ai/`. WorkOS homepage, initiate-login, and sign-out settings use that URL; password recovery uses `https://app.askarabbi.ai/reset-password`. The OAuth callback remains `https://api.askarabbi.ai/api/user/callback`, and the API allows credentialed CORS only from the application origin. The public website at `https://askarabbi.ai` links into the application. See [production deployment](PRODUCTION_DEPLOYMENT.md#application-subdomain-migration) for the runtime and WorkOS cutover settings.
+
 ## Implemented flow
 
 ```mermaid

@@ -39,7 +39,7 @@ The remaining sections preserve the September 1 baseline; unchecked historical i
 - [ ] Bind `api.askarabbi.ai` to the Container App, create the required Cloudflare DNS records, and validate HTTPS.
 - [ ] Configure the WorkOS production application with its API key, client ID, Google login, email/password login, callback URL, sign-out URL, and password-reset URL.
 - [ ] Add `WorkOS__ApiKey` and `WorkOS__ClientId` as Container App secrets and secret-backed environment variables.
-- [ ] Validate the existing frontend production deployment at `https://askarabbi.ai`, including the SPA fallback for `/reset-password`.
+- [ ] Validate the existing frontend production deployment at `https://app.askarabbi.ai`, including the SPA fallback for `/reset-password`.
 
 ## Blockers before AskARabbi can answer questions
 
@@ -61,7 +61,7 @@ The remaining sections preserve the September 1 baseline; unchecked historical i
 
 - [ ] Confirm `GET https://api.askarabbi.ai/health` returns HTTP 200.
 - [ ] Test email sign-in, Google sign-in, sign-up, session refresh, logout, and password reset through the WorkOS production environment.
-- [ ] Verify credentialed CORS succeeds only from `https://askarabbi.ai`.
+- [ ] Verify credentialed CORS succeeds only from `https://app.askarabbi.ai`.
 - [ ] Create, rename, load, and delete conversations and verify ownership isolation in Cosmos DB.
 - [ ] Save personalization and conversation settings and verify one update cannot erase the other.
 - [ ] Ask representative questions and verify every displayed citation resolves to the exact approved source text.

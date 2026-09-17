@@ -12,7 +12,7 @@ AskRabbi is an AI-assisted learning application for people who want to explore J
 
 The goal is not to produce a one-word ruling. The goal is to show the conversation: which texts are relevant, how later authorities interpreted them, where views differ, and how a conclusion developed over time. Every response should give the user enough context to continue learning and enough agency to decide what the material means for their own Jewish life.
 
-AskRabbi is intended for [askarabbi.ai](https://askarabbi.ai).
+Learn about AskRabbi at [askarabbi.ai](https://askarabbi.ai) and use the application at [app.askarabbi.ai](https://app.askarabbi.ai).
 
 ## Why AskRabbi?
 
@@ -130,6 +130,7 @@ AskRabbi is being built around the following commitments:
 | Layer | Technology | Responsibility |
 | --- | --- | --- |
 | Web application | React, TypeScript, and Vite | Accounts, chat, source viewer, settings, and usage experience |
+| Public website | React, TypeScript, Vite, and Tailwind CSS | Standalone static introduction to the project and its learning experience; see [`WebsiteFrontend`](WebsiteFrontend/README.md) |
 | Application API | ASP.NET Core and C# | Users, conversations, authorization, quotas, and orchestration |
 | Identity | WorkOS AuthKit integration implemented | Purpose-specific hosted login/sign-up, password recovery, rotating provider sessions, verified identity projection, and backend-owned application cookies |
 | Prototype retrieval | SQLite FTS5 through `AskARabbiLIB` | Exact references, tiered full-concept/pair/fallback BM25 search, deterministic vocabulary expansion, Unicode normalization, provenance filters, and bounded evidence |
@@ -139,7 +140,7 @@ AskRabbi is being built around the following commitments:
 | AI provider | Azure OpenAI Responses API through `IAIEngine` | Typed structured claims, independent review, one repair, and bounded source, dictionary, and calendar research; the API owns saved recovery replies |
 | Text provider | Sefaria initially | Jewish texts, translations, relationships, and canonical references |
 
-The public topology is fixed: the frontend runs at `https://askarabbi.ai` and the API runs in Azure Container Apps behind `https://api.askarabbi.ai`, with WorkOS AuthKit for identity and Azure Cosmos DB for MongoDB for application persistence. The backend is packaged in ACR and its production-only GitHub workflow deploys verified commits by immutable digest. The API composes managed Responses file-search retrieval and local canonical-source access with the shared reviewed-answer pipeline. The console uses the same validation contract, while the API additionally persists localized recovery replies. Deployment health and authenticated smoke tests must be checked for the released revision. See the [production deployment plan](docs/PRODUCTION_DEPLOYMENT.md), [managed corpus operations](docs/MANAGED_VECTOR_STORE.md), and [production readiness checklist](docs/PRODUCTION_READINESS.md).
+The public topology is fixed: the public website runs at `https://askarabbi.ai`, the application frontend runs at `https://app.askarabbi.ai` and the API runs in Azure Container Apps behind `https://api.askarabbi.ai`, with WorkOS AuthKit for identity and Azure Cosmos DB for MongoDB for application persistence. The backend is packaged in ACR and its production-only GitHub workflow deploys verified commits by immutable digest. The API composes managed Responses file-search retrieval and local canonical-source access with the shared reviewed-answer pipeline. The console uses the same validation contract, while the API additionally persists localized recovery replies. Deployment health and authenticated smoke tests must be checked for the released revision. See the [production deployment plan](docs/PRODUCTION_DEPLOYMENT.md), [managed corpus operations](docs/MANAGED_VECTOR_STORE.md), and [production readiness checklist](docs/PRODUCTION_READINESS.md).
 
 For component ownership and claim/recovery contracts, read [answer reliability](docs/ANSWER_RELIABILITY.md). The [chat workflow](docs/CHAT_WORKFLOW.md) traces the question-to-answer path, and the [technical design](docs/TECHNICAL.md) covers architecture, API shape, retrieval, privacy, testing, and remaining proposals.
 
@@ -158,7 +159,7 @@ The broad delivery path is:
 3. Generate citation-backed answers and measure source faithfulness.
 4. Add saved/private chat modes, source settings, and usage controls.
 5. Conduct scholarly review, privacy review, accessibility testing, and adversarial evaluation.
-6. Prepare the initial release for [askarabbi.ai](https://askarabbi.ai).
+6. Prepare the initial application release for [app.askarabbi.ai](https://app.askarabbi.ai).
 
 ## Continuous integration
 
