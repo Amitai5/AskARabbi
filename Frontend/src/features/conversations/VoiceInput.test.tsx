@@ -29,6 +29,18 @@ function setup(options: { draft?: string; language?: string; disabled?: boolean 
 }
 
 describe('Push-to-talk question input', () => {
+  it('renders an accessible microphone icon without persistent recording copy', () => {
+    const { container } = setup()
+    const microphone = screen.getByRole('button', { name: 'Record question' })
+
+    expect(microphone.textContent).toBe('')
+    expect(microphone.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(microphone).toHaveAttribute('title', 'Record question')
+    expect(container).not.toHaveTextContent(/Speak in|up to 30 seconds|Record only when|Azure Speech/)
+    expect(screen.queryByRole('link', { name: 'Voice privacy' })).not.toBeInTheDocument()
+    expect(client.isAvailable).not.toHaveBeenCalled()
+  })
+
   it('requests the microphone only after activation, transcribes after stop, and preserves the draft', async () => {
     const { user, onTranscript, onBusyChange } = setup()
     expect(startQuestionRecording).not.toHaveBeenCalled()
@@ -40,6 +52,31 @@ describe('Push-to-talk question input', () => {
     expect(client.transcribe).toHaveBeenCalledWith(expect.any(Blob), 'en-US', expect.any(AbortSignal))
     expect(onBusyChange).toHaveBeenLastCalledWith(false)
     expect(screen.getByRole('status')).toHaveTextContent('Review or edit it')
+    expect(screen.getByRole('status')).toHaveClass('sr-only')
+  })
+
+  it('uses icon-only loading and cancel controls while opening and transcribing', async () => {
+    let available!: (value: boolean) => void
+    let transcribed!: (value: string) => void
+    vi.mocked(client.isAvailable).mockReturnValue(new Promise(resolve => { available = resolve }))
+    vi.mocked(client.transcribe).mockReturnValue(new Promise(resolve => { transcribed = resolve }))
+    const { user, onTranscript } = setup()
+
+    await user.click(screen.getByRole('button', { name: 'Record question' }))
+    expect(screen.getByRole('button', { name: 'Opening microphone' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Opening microphone' })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: 'Cancel recording' }).textContent).toBe('')
+    expect(screen.getByRole('status')).toHaveClass('sr-only')
+    await act(async () => available(true))
+    expect(screen.getByRole('button', { name: 'Stop recording' }).textContent).toBe('')
+    await user.click(screen.getByRole('button', { name: 'Stop recording' }))
+    expect(screen.getByRole('button', { name: 'Transcribing question' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Transcribing question' })).toHaveAttribute('aria-busy', 'true')
+    await act(async () => transcribed('What is Shabbat?'))
+
+    expect(onTranscript).toHaveBeenCalledWith('Existing draft\nWhat is Shabbat?')
+    expect(screen.getByRole('button', { name: 'Record question' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Cancel recording' })).not.toBeInTheDocument()
   })
 
   it('allows keyboard activation and keeps Send disabled until the transcript is ready', async () => {
@@ -90,16 +127,19 @@ describe('Push-to-talk question input', () => {
     vi.mocked(startQuestionRecording).mockRejectedValue(new DOMException('Denied', 'NotAllowedError'))
     const { user, onTranscript } = setup()
     await user.click(screen.getByRole('button', { name: 'Record question' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Microphone permission was denied')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Microphone permission was denied')
     expect(onTranscript).not.toHaveBeenCalled()
     expect(client.transcribe).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Dismiss voice error' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Record question' })).toHaveFocus()
   })
 
   it('does not request a microphone when voice is unconfigured', async () => {
     vi.mocked(client.isAvailable).mockResolvedValue(false)
     const { user } = setup()
     await user.click(screen.getByRole('button', { name: 'Record question' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Voice is not enabled')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Voice is not enabled')
     expect(startQuestionRecording).not.toHaveBeenCalled()
   })
 
@@ -108,7 +148,7 @@ describe('Push-to-talk question input', () => {
     const { user, onTranscript } = setup()
     await user.click(screen.getByRole('button', { name: 'Record question' }))
     await user.click(await screen.findByRole('button', { name: 'Stop recording' }))
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(message))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(message))
     expect(onTranscript).not.toHaveBeenCalled()
   })
 
@@ -158,7 +198,7 @@ describe('Push-to-talk question input', () => {
     const { user, onTranscript } = setup({ draft: 'x'.repeat(4000) })
     await user.click(screen.getByRole('button', { name: 'Record question' }))
     await user.click(await screen.findByRole('button', { name: 'Stop recording' }))
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('too long'))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('too long'))
     expect(onTranscript).not.toHaveBeenCalled()
   })
 
@@ -172,6 +212,7 @@ describe('Push-to-talk question input', () => {
     vi.mocked(canRecordQuestion).mockReturnValue(false)
     setup()
     expect(screen.getByRole('button', { name: 'Record question' })).toBeDisabled()
-    expect(screen.getByText(/unavailable in this browser/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Record question' })).toHaveAccessibleDescription('Voice recording is unavailable in this browser. You can still type.')
+    expect(screen.getByText(/unavailable in this browser/)).toHaveClass('sr-only')
   })
 })

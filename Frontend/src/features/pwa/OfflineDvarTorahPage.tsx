@@ -5,8 +5,6 @@ import { LegalLinks } from '../legal/LegalLinks.tsx'
 import { WeeklyDvarTorahPage } from '../dvarTorah/WeeklyDvarTorahPage.tsx'
 import type { DvarTorahClient } from '../dvarTorah/dvarTorahClient.ts'
 import { OfflineLibraryChanged, readOfflineLibrary, type SavedTeaching } from './offlineLibrary.ts'
-import { FocusedReadingToolbar } from '../reading/FocusedReading.tsx'
-import { useFocusedReading } from '../reading/focusedReadingContext.ts'
 import { OfflineHolidayCalendar } from './OfflineHolidayCalendar.tsx'
 
 interface OfflineReader {
@@ -16,7 +14,6 @@ interface OfflineReader {
 }
 
 export function OfflineDvarTorahPage() {
-  const { target } = useFocusedReading()
   const [reader, setReader] = useState<OfflineReader | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,8 +49,7 @@ export function OfflineDvarTorahPage() {
   }, [revision])
 
   return (
-    <main className={`flex h-dvh min-h-0 flex-col overflow-hidden bg-parchment text-ink ${target ? 'focused-reading' : ''}`}>
-      <FocusedReadingToolbar />
+    <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-parchment text-ink">
       <header className="reading-nonessential flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-8">
         <Brand compact />
         <a href="/" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-ink-soft hover:text-pomegranate"><ArrowLeft aria-hidden="true" className="size-4" />Back to AskRabbi online</a>

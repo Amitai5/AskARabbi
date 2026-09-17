@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, ScanText } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { FocusContext, useFocusedReading } from './focusedReadingContext.ts'
 
 export function FocusedReadingProvider({ children }: { children: ReactNode }) {
@@ -17,12 +17,6 @@ export function FocusedReadingProvider({ children }: { children: ReactNode }) {
     trigger.current = null
   }, [target])
   return <FocusContext.Provider value={{ target, available: true, enter, exit }}>{children}</FocusContext.Provider>
-}
-
-export function FocusReadingButton({ id, label = 'Focus answer', hideLabelOnMobile = false }: { id: string; label?: string; hideLabelOnMobile?: boolean }) {
-  const { enter, available, target } = useFocusedReading()
-  if (!available) { return null }
-  return <button type="button" data-focus-reading hidden={target === id} onClick={event => enter(id, event.currentTarget)} aria-label={label} title={label} className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-ink-soft transition hover:bg-stone hover:text-pomegranate focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pomegranate"><ScanText aria-hidden="true" className="size-4" /><span className={hideLabelOnMobile ? 'hidden sm:inline' : undefined}>Focus</span></button>
 }
 
 export function FocusedReadingToolbar() {

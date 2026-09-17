@@ -123,8 +123,6 @@
 .focused-reading .conversation-message { content-visibility: visible; contain-intrinsic-size: none; }
 /* Scale the reading measure with content size, not the smaller navigation font. */
 .focused-reading .reading-column { max-width: calc(var(--reading-font-size) * 38); }
-.focused-reading .teaching-article { margin-top: 0; border-top: 0; }
-.focused-reading .teaching-body { max-width: none; }
 
 /* Scale the desktop design tokens without transforming the viewport or scroll containers. */
 @media (min-width: 64rem) {
