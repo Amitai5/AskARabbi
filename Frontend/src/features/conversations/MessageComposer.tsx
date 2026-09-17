@@ -1,10 +1,12 @@
-import { useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { VoiceInput } from './VoiceInput.tsx'
 import { ArrowUp } from 'lucide-react'
 import { LegalLinks } from '../legal/LegalLinks.tsx'
 import { SourceFilterMenu } from './SourceFilterMenu.tsx'
 
 interface MessageComposerProps {
   focusKey?: number
+  voiceScope?: string
   draft: string
   selectedSourceKeys: readonly string[]
   conversationLanguage: string
@@ -14,10 +16,12 @@ interface MessageComposerProps {
   enterSendsMessage?: boolean
   onDraftChange(value: string): void
   onSelectedSourceKeysChange(sourceKeys: string[]): void
+  onVoiceDraft?(): void
   onSubmit(): void
 }
 
-export function MessageComposer({ focusKey = 0, draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, isChatDisabled = false, enterSendsMessage = false, onDraftChange, onSelectedSourceKeysChange, onSubmit }: MessageComposerProps) {
+export function MessageComposer({ focusKey = 0, voiceScope = 'new', draft, selectedSourceKeys, conversationLanguage, quotationLanguage, isSending, isChatDisabled = false, enterSendsMessage = false, onDraftChange, onSelectedSourceKeysChange, onSubmit, onVoiceDraft }: MessageComposerProps) {
+  const [voiceBusy, setVoiceBusy] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
@@ -26,7 +30,7 @@ export function MessageComposer({ focusKey = 0, draft, selectedSourceKeys, conve
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!isChatDisabled && !isSending && draft.trim().length > 0 && selectedSourceKeys.length > 0) {
+    if (!voiceBusy && !isChatDisabled && !isSending && draft.trim().length > 0 && selectedSourceKeys.length > 0) {
       onSubmit()
     }
   }
@@ -62,11 +66,12 @@ export function MessageComposer({ focusKey = 0, draft, selectedSourceKeys, conve
             <SourceFilterMenu key={isSending || isChatDisabled ? 'source-filter-disabled' : 'source-filter-ready'} selectedSourceKeys={selectedSourceKeys} isDisabled={isSending || isChatDisabled} onChange={onSelectedSourceKeysChange} />
             <span className="hidden truncate text-sm leading-4 text-muted sm:inline">{conversationLanguage} · quotes in {quotationLanguage}</span>
           </div>
-          <button type="submit" disabled={isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message" title="Send message (Ctrl/Cmd+Enter)" aria-keyshortcuts={enterSendsMessage ? 'Enter Control+Enter Meta+Enter' : 'Control+Enter Meta+Enter'}>
+          <button type="submit" disabled={voiceBusy || isChatDisabled || isSending || draft.trim().length === 0 || selectedSourceKeys.length === 0} className="flex size-9 items-center justify-center rounded-full bg-pomegranate text-white transition hover:bg-pomegranate-dark disabled:cursor-not-allowed disabled:bg-stone-deep disabled:text-muted" aria-label="Send message" title="Send message (Ctrl/Cmd+Enter)" aria-keyshortcuts={enterSendsMessage ? 'Enter Control+Enter Meta+Enter' : 'Control+Enter Meta+Enter'}>
             <ArrowUp aria-hidden="true" className="size-4" strokeWidth={1.9} />
           </button>
         </div>
         {selectedSourceKeys.length === 0 ? <p className="px-2 pt-2 text-sm font-medium leading-4 text-pomegranate" role="alert">Select at least one source before sending.</p> : null}
+        <VoiceInput key={`${voiceScope}:${isChatDisabled || isSending ? 'disabled' : 'ready'}`} draft={draft} language={conversationLanguage} disabled={isChatDisabled || isSending} onBusyChange={setVoiceBusy} onTranscript={value => { onDraftChange(value); onVoiceDraft?.(); inputRef.current?.focus() }} />
       </form>
       <div className="mt-1.5 text-center text-sm leading-5 text-muted">
         <p id="message-keyboard-help" className="sr-only md:not-sr-only">{enterSendsMessage ? 'Enter to send · Shift+Enter for a new line · Ctrl/Cmd+Enter also sends' : 'Enter for a new line · Ctrl/Cmd+Enter to send'}</p>

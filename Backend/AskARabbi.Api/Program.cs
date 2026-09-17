@@ -8,6 +8,7 @@ using AskARabbi.Api.DvarTorahAudio;
 using AskARabbi.Api.Errors;
 using AskARabbi.Api.Persistence;
 using AskARabbi.Api.Usage;
+using AskARabbi.Api.Voice;
 using AskARabbiLIB;
 using AskARabbiLIB.Accounts;
 using AskARabbiLIB.AI;
@@ -103,6 +104,7 @@ weeklyDvarTorahOptions.Validate();
 builder.Services.AddSingleton(weeklyDvarTorahOptions);
 builder.Services.AddSingleton<WeeklyDvarTorahService>();
 builder.Services.AddDvarTorahAudio(builder.Configuration, builder.Environment);
+builder.Services.AddConversationVoice(builder.Configuration, builder.Environment);
 if (groundedChatOptions.IsConfigured)
 {
     var managedManifestPath = Path.Combine(AppContext.BaseDirectory, "Data", "document-manifest.json");
@@ -229,6 +231,7 @@ app.UseRouting();
 app.UseCors(FrontendCorsOptions.PolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseMiddleware<AskARabbi.Api.Accounts.UserDataOperationMiddleware>();
 
 app.MapHealthChecks("/health");

@@ -1,4 +1,5 @@
 using AskARabbi.Api.Authentication;
+using AskARabbi.Api.Voice;
 using AskARabbi.Api.Calendar;
 using AskARabbiLIB.Calendar;
 using AskARabbiLIB.Accounts;
@@ -53,6 +54,9 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     internal InMemoryWeeklyDvarTorahStore WeeklyDvarTorah { get; } = new();
 
     internal FakeDvarTorahAudioReader DvarTorahAudio { get; } = new();
+
+    internal FakeVoiceService Voice { get; } = new();
+    internal bool IsVoiceEnabled { get; init; }
 
     internal bool IsAudioEnabled { get; set; } = true;
 
@@ -117,6 +121,10 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 services.RemoveAll<IWeeklyDvarTorahStore>();
                 services.RemoveAll<IDvarTorahAudioReader>();
                 services.RemoveAll<DvarTorahAudioOptions>();
+                services.RemoveAll<VoiceOptions>();
+                services.RemoveAll<IVoiceService>();
+                services.AddSingleton(new VoiceOptions { Enabled = IsVoiceEnabled });
+                services.AddSingleton<IVoiceService>(Voice);
 
                 services.AddSingleton<IUserAuthenticationService>(Authentication);
                 services.AddSingleton<IUserAccountStore>(Store);
