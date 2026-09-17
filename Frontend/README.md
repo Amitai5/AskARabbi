@@ -84,7 +84,7 @@ The Vite development server defaults to `http://localhost:5173`, and development
 
 ## Authentication boundary
 
-Public [Privacy Policy](https://askarabbi.ai/privacy-policy) and [Terms of Service](https://askarabbi.ai/terms-of-service) documents are standalone Vite HTML entries included in the normal production build. They remain readable without sign-in or JavaScript. See [legal policy maintenance](../docs/LEGAL_POLICIES.md) for the source files, integrated notices, data-practice evidence, and release checks.
+Public [Privacy Policy](https://askarabbi.ai/privacy) and [Terms of Service](https://askarabbi.ai/terms) documents are owned and built by `WebsiteFrontend`. The application links to them with absolute website URLs, including section anchors and printed copies; its Cloudflare Pages redirects preserve old policy routes. They remain readable without sign-in or JavaScript. See [legal policy maintenance](../docs/LEGAL_POLICIES.md) for the source files, integrated notices, data-practice evidence, and release checks.
 
 `src/features/auth/AuthProvider.tsx` depends on the narrow `AuthClient` contract in `authTypes.ts`; `backendAuthClient.ts` implements it with the AskRabbi API. Email supplies a WorkOS login hint, Google selects WorkOS Google OAuth directly, and account creation supplies the WorkOS sign-up screen hint. The backend owns every authorization URL, callback, token exchange, password-reset confirmation, user mapping, and secure application session. No WorkOS API key or provider secret belongs in this Vite project. Hermetic UI tests inject in-memory clients from `src/test` instead of contacting external services. See the [production authentication design](../docs/AUTHENTICATION.md).
 

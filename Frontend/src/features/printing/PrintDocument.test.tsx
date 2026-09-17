@@ -20,8 +20,8 @@ describe('study copy content', () => {
     expect(container.querySelector('#answer-1-source-1')).toHaveTextContent('Choose life, that thou mayest live.')
     expect(screen.getByText('דברים')).toHaveAttribute('dir', 'rtl')
     expect(screen.getByText(/Public Domain/)).toBeVisible()
-    expect(screen.getByRole('link', { name: 'askarabbi.ai/terms-of-service' })).toHaveAttribute('href', 'https://askarabbi.ai/terms-of-service')
-    expect(screen.getByRole('link', { name: 'askarabbi.ai/privacy-policy' })).toHaveAttribute('href', 'https://askarabbi.ai/privacy-policy')
+    expect(screen.getByRole('link', { name: 'askarabbi.ai/terms' })).toHaveAttribute('href', 'https://askarabbi.ai/terms')
+    expect(screen.getByRole('link', { name: 'askarabbi.ai/privacy' })).toHaveAttribute('href', 'https://askarabbi.ai/privacy')
     const watermark = container.querySelector('.print-watermark')!
     expect(watermark.closest('tfoot')).not.toBeNull()
     expect(container.querySelector('a')).toHaveTextContent('AskRabbi')

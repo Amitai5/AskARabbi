@@ -1,3 +1,4 @@
+/* Policy documents use the public website's shared palette and typography. */
 .legal-page { margin: 0; font-size: 1rem; line-height: 1.75; }
 .legal-page a { color: var(--color-pomegranate); text-decoration: underline; text-underline-offset: .2em; }
 .legal-page a:hover { text-decoration-thickness: 2px; }

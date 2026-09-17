@@ -65,8 +65,8 @@ describe('LoginPage', () => {
     const privacy = screen.getByRole('link', { name: /^Privacy Policy/ })
     expect(terms).toBeVisible()
     expect(privacy).toBeVisible()
-    expect(terms).toHaveAttribute('href', '/terms-of-service')
-    expect(privacy).toHaveAttribute('href', '/privacy-policy')
+    expect(terms).toHaveAttribute('href', 'https://askarabbi.ai/terms')
+    expect(privacy).toHaveAttribute('href', 'https://askarabbi.ai/privacy')
     for (const link of [terms, privacy]) {
       expect(link).toHaveAttribute('target', '_blank')
       expect(link).toHaveAttribute('rel', 'noopener noreferrer')

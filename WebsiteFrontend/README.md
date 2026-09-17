@@ -19,7 +19,7 @@ pnpm verify
 pnpm preview
 ```
 
-`verify` runs Oxlint, TypeScript checking, and the production build. `preview` serves the result at **http://127.0.0.1:4174**.
+`verify` runs Oxlint, TypeScript checking, the production build, and Node's built-in tests for published policy pages, links, assets, and redirect rules. `preview` serves the result at **http://127.0.0.1:4174**.
 
 ## Static publishing
 
@@ -29,12 +29,14 @@ The build-only renderer stays under ignored `node_modules/.website-prerender/`. 
 
 ## Links and content
 
-Calls to action open `https://app.askarabbi.ai`. To point at a different main application, copy `.env.example` to `.env.local` and change `VITE_APP_URL` to an absolute HTTP(S) URL, then restart or rebuild. For the local main application, use `http://localhost:5173`. Legal links point to the published policies at `https://askarabbi.ai`; Contact opens an email draft to its documented support address. Never put secrets in `VITE_*` values.
+Calls to action open `https://app.askarabbi.ai`. To point at a different main application, copy `.env.example` to `.env.local` and change `VITE_APP_URL` to an absolute HTTP(S) URL, then restart or rebuild. For the local main application, use `http://localhost:5173`. Legal links open this website's `/privacy` and `/terms` pages (published at `https://askarabbi.ai/privacy` and `https://askarabbi.ai/terms`); Contact opens an email draft to its documented support address. Never put secrets in `VITE_*` values.
 
 Copy follows the repository's project and frontend documentation. The example question illustrates the learning process; it is not a fabricated answer or live chat. No API calls, analytics, cookies, external font requests, or account state are needed by this website.
 
 ## Design and ownership
 
+- `privacy.html`, `terms.html`, and `src/legal.css` own the public legal documents, responsive section navigation, and print styling. The documents use the website theme and need no scripts or app settings. Preserve their effective dates, wording, and section IDs when changing hosting only.
+- `public/_redirects` preserves the old `/privacy-policy` and `/terms-of-service` URLs; `public/_headers` keeps the policy responses revalidated. Deploy the full `dist/` directory to include these Cloudflare Pages rules.
 - `src/components/` contains the page's individual sections, brand, and shared call-to-action link.
 - `src/index.css` mirrors the main frontend's light palette and display/body font stacks. The website keeps normal document-scale typography for reading.
 - `public/library-manuscript.webp` and `public/favicon.svg` are copies of the existing frontend artwork. Keep their originals in `Frontend` and these copies in sync if the brand changes.

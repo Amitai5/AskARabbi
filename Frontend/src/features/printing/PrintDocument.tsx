@@ -1,5 +1,6 @@
 import { BookOpen } from 'lucide-react'
 import { normalizeDisplayText } from '../../displayText.ts'
+import { LegalUrls } from '../legal/legalUrls.ts'
 import { addCivilDays } from '../calendar/calendarAgenda.ts'
 import { formatBeginning, formatCivilDate, formatEventRange } from '../calendar/calendarFormatting.ts'
 import type { CalendarEvent, CalendarRange } from '../calendar/calendarTypes.ts'
@@ -34,7 +35,7 @@ export function PrintDocument({ request, options, selectedIds, events, days }: P
       {options.includeNotes ? <StudyNotes /> : null}
     </> : null}
     {request.kind === 'calendar' ? <PrintedCalendar request={request} options={options} events={events.filter(event => selectedIds.has(event.id))} /> : null}
-    <p className="print-disclaimer">{request.kind === 'calendar' ? 'Check the location, time zone, and date before using local times. Community customs may differ.' : request.kind === 'teaching' && !options.includeSourceReferences ? 'Source references are available with this teaching on AskARabbi.ai. This is an educational reflection, not personal halakhic guidance.' : 'AskRabbi offers source-based Jewish learning, not personal halakhic rulings. Check the cited sources; for practical guidance, consult a qualified rabbi.'} Terms: <a href="https://askarabbi.ai/terms-of-service" target="_blank" rel="noopener noreferrer">askarabbi.ai/terms-of-service</a>. Privacy: <a href="https://askarabbi.ai/privacy-policy" target="_blank" rel="noopener noreferrer">askarabbi.ai/privacy-policy</a>.</p>
+    <p className="print-disclaimer">{request.kind === 'calendar' ? 'Check the location, time zone, and date before using local times. Community customs may differ.' : request.kind === 'teaching' && !options.includeSourceReferences ? 'Source references are available with this teaching on AskARabbi.ai. This is an educational reflection, not personal halakhic guidance.' : 'AskRabbi offers source-based Jewish learning, not personal halakhic rulings. Check the cited sources; for practical guidance, consult a qualified rabbi.'} Terms: <a href={LegalUrls['terms-of-service']} target="_blank" rel="noopener noreferrer">askarabbi.ai/terms</a>. Privacy: <a href={LegalUrls['privacy-policy']} target="_blank" rel="noopener noreferrer">askarabbi.ai/privacy</a>.</p>
     </td></tr></tbody><tfoot><tr><td><footer className="print-watermark"><a href="https://askarabbi.ai" target="_blank" rel="noopener noreferrer" aria-label="AskARabbi.ai"><BookSymbol /><span>AskARabbi.ai</span></a></footer></td></tr></tfoot></table>
   </main>
 }

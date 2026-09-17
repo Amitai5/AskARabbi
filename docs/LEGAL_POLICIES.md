@@ -2,12 +2,12 @@
 
 The public documents live at:
 
-- `https://askarabbi.ai/privacy-policy`
-- `https://askarabbi.ai/terms-of-service`
+- `https://askarabbi.ai/privacy`
+- `https://askarabbi.ai/terms`
 
-Their source files are `Frontend/privacy-policy.html` and `Frontend/terms-of-service.html`. Vite builds both as complete HTML entries in `Frontend/dist`; Vite preview and Cloudflare Pages resolve the extensionless URLs to these files. They reuse the application theme and `src/features/legal/legal.css`, include section navigation and print styles, and do not load React, call account APIs, or require JavaScript to read the text. The existing reading-preference bootstrap only applies appearance settings.
+Their source files are `WebsiteFrontend/privacy.html` and `WebsiteFrontend/terms.html`. Vite builds both as complete HTML entries in `WebsiteFrontend/dist`; Vite preview and Cloudflare Pages resolve `/privacy` and `/terms` to these files. They reuse the public website theme and `src/legal.css`, include section navigation and print styles, and do not load React, call account APIs, or require JavaScript. The application's reading-preference bootstrap is not used by the website.
 
-Deploy the entire `Frontend/dist` output, including both HTML documents. Cloudflare Pages serves these files before its SPA fallback. Keep those routes public and preserve section IDs, since notices link directly to individual sections. The host configuration requests revalidation for the documents. An existing service worker uses network-first navigation and can show the offline library when disconnected; offline UI labels legal links as available online.
+Deploy the entire `WebsiteFrontend/dist` output at `askarabbi.ai`, including both HTML documents, `_headers`, and `_redirects`. Deploy the updated `Frontend/dist` at `app.askarabbi.ai`; it contains policy redirects but no legal documents or policy-only styles. Publish the website first so the app's new links resolve immediately. Cloudflare Pages redirects old website and app policy URLs, including `.html` and trailing-slash variants, to the canonical website pages. Preserve section IDs so existing fragment links still work. Policy responses require revalidation; app notices label these public documents as available online.
 
 Preserve the `email_off` HTML comments around contact links. They use Cloudflare's [documented email-obfuscation exception](https://developers.cloudflare.com/waf/tools/scrape-shield/email-address-obfuscation/#prevent-cloudflare-from-obfuscating-email) so the privacy and legal contact remains readable and clickable without JavaScript. Confirm this against the deployed site because local preview does not perform Cloudflare's HTML rewriting.
 
@@ -43,4 +43,4 @@ Keep the effective date and version aligned across both documents when making a 
 
 The documents do not create a consent database, age-verification system, automated privacy-request workflow, retention schedule, or new WorkOS-hosted UI settings. The app presents legal links before its authentication handoff; no server-side record of agreement is introduced. Privacy requests beyond existing self-service controls go to the support contact. Legal applicability, enforceability, any required sensitive-data consent mechanism, and provider contractual safeguards require operational and legal review; these pages alone do not establish compliance.
 
-Run `pnpm --dir Frontend verify` for frontend lint, tests, type checking, and production build. Browser checks should include both direct URLs, reload, no-JavaScript reading, section links, return navigation, legal links opening without losing a form draft, and mobile and dark appearance. Production checks should confirm the actual HTML title and content, not merely an HTTP 200 from the SPA fallback.
+Run `pnpm --dir WebsiteFrontend verify` for website lint, type checking, static builds, and the dependency-free Node tests for complete documents, section links, local assets, redirect rules, and policy caching. Run `pnpm --dir Frontend verify` for application links, print URLs, compatibility redirects, and the app build. Browser checks should include direct URLs, reload, no-JavaScript reading, section and cross-document links, return navigation, and mobile layout. The website uses its own light theme independently of app reading settings. Check redirect status and fragment preservation on Cloudflare Pages; Vite preview does not interpret `_redirects` or `_headers`. Confirm actual document titles and content, not merely HTTP 200 from a fallback.

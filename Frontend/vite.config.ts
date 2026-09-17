@@ -11,8 +11,6 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         offline: resolve(import.meta.dirname, 'offline.html'),
-        privacy: resolve(import.meta.dirname, 'privacy-policy.html'),
-        terms: resolve(import.meta.dirname, 'terms-of-service.html'),
       },
     },
   },
