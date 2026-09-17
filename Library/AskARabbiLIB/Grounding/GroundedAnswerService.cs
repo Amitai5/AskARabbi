@@ -185,12 +185,6 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
                 ? canonicalSegments.Select(segment => new SourceRetrievalHit(segment, 1, true)).ToArray()
                 : await retriever.SearchAsync(query, cancellationToken).ConfigureAwait(false);
             var adequacy = SourceEvidenceAdequacyEvaluator.Evaluate(retrievalText, hits);
-            if (!adequacy.IsAdequate && canonicalSegments.Count == 0 && !mayUseTools)
-            {
-                retrievalStopwatch.Stop();
-                return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, adequacy.ErrorMessage ?? "The retrieved passages were not adequate to ground an answer. The model was not called.", null, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
-            }
-
             // Establish topical relevance in the retrieved language before substituting the
             // exact reference's translation; an English question need not share Spanish words.
             var evidenceHits = canonicalSegments.Count == 0 && adequacy.IsAdequate
@@ -204,15 +198,10 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             packet = ModernApplicationEvidence.Append(packet, ConversationReferenceGuide.GetReferences(question.Question, recentConversation));
         }
         retrievalStopwatch.Stop();
-        if (packet.Items.Count == 0 && !mayUseTools)
-        {
-            return CreateFailure(GroundedAnswerStatus.InsufficientEvidence, "Retrieved passages could not fit safely within the evidence budget. The model was not called.", packet, retrievalStopwatch.Elapsed, hits.Count, GroundedValidationStatus.NotRun, false, null);
-        }
-
         var diagnostics = new List<AIResponseDiagnostics>();
         // Word research may become necessary while explaining an otherwise supported passage.
         var toolSession = toolRegistry is not null && (hasDictionary || hasSourceResearch || (prefetchedParashah is null && mayUseTools))
-            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count, initialRequiredToolName: hasSourceResearch && packet.Items.Count == 0 ? "search_source_passages" : null)
+            ? new AIToolExecutionSession(toolRegistry, toolContext, packet.Items.Count)
             : null;
         var messages = BuildMessages(question, recentConversation, packet, currentDate, questionFocus.Instruction);
         var firstResult = await GenerateDraftAsync(messages, toolSession, cancellationToken).ConfigureAwait(false);
@@ -629,7 +618,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var payload = new
         {
             instruction = prompts.CurrentQuestionInstruction,
-            researchRequired = packet.Items.Count == 0 && toolRegistry?.Definitions.Any(definition => definition.Name == "search_source_passages") == true,
+            sourceResearchAvailable = toolRegistry?.Definitions.Any(definition => definition.Name == "search_source_passages") == true,
             currentQuestion = question.Question,
             teachingContext = question.TeachingContext,
             answerFocus,
@@ -711,20 +700,20 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         if (requestsRationale && requestsAuthorities)
         {
             return new QuestionFocus(
-                "Explain the reason the cited authorities give and identify only the authorities or schools named in the evidence. Do not substitute a restatement of the rule, its Torah-versus-rabbinic classification, or an unrelated workaround. Quote context that directly supports both the rationale and attribution; if either is missing, say so directly.",
+                "For religious rules and attributed teachings, explain the reason the cited authorities give and identify only the authorities or schools named in the evidence. Do not substitute a restatement of the rule, its Torah-versus-rabbinic classification, or an unrelated workaround. Quote context that directly supports both the rationale and attribution; if either is missing, say so directly. For ordinary history, biography, and fictional premises, answer with reviewed Background instead of forcing the question into a religious ruling.",
                 "reason given in the passage named authorities opinions dispute attribution");
         }
         if (requestsRationale)
         {
             return new QuestionFocus(
-                "Explain the reason or rationale the cited authorities give. Do not substitute a restatement of the rule, its Torah-versus-rabbinic classification, or an unrelated workaround. Quote context that directly states or clearly supports the reason; if the evidence establishes the rule but not why it was adopted, say that directly.",
+                "For religious rules and attributed teachings, explain the reason or rationale the cited authorities give. Do not substitute a restatement of the rule, its Torah-versus-rabbinic classification, or an unrelated workaround. Quote context that directly states or clearly supports the reason; if the evidence establishes the rule but not why it was adopted, say that directly. For ordinary history, biography, and fictional premises, answer with reviewed Background instead of forcing the question into a religious ruling.",
                 "reason given in the passage rationale");
         }
         if (requestsAuthorities)
         {
             return new QuestionFocus(
-                "Identify only the named authorities or schools requested, state what each actually says or decides, and quote context that supports each attribution. Do not substitute an anonymous summary of the rule or a later practical workaround; if the evidence does not name who adopted the position, say that directly.",
-                "named rabbis sages authorities schools opinions dispute ruling attribution");
+                "For a biography or identity question such as 'Who was Rabbi Akiva?', answer with concise, well-established historical background; do not turn it into a question about legal rulings or require a Torah quotation for basic biography. For a question asking who held a position: Identify only the named authorities or schools requested, state what each actually says or decides, and quote context that supports each attribution. Do not substitute an anonymous summary of the rule or a later practical workaround; if the evidence does not name who adopted the position, say that directly.",
+                tokens.Overlaps(AuthorityQualifierTokens) ? "named rabbis sages authorities schools opinions dispute ruling attribution" : null);
         }
         if (tokens.Overlaps(["connection", "relationship", "wordplay", "pun", "prayer", "blessing"]))
         {
@@ -789,11 +778,9 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             error = "The follow-up question must not expose internal answer-generation mechanisms.";
             return false;
         }
-        if (draft.Limitations.Any(ContainsInternalMechanismReference))
-        {
-            error = "Limitations must not expose internal answer-generation mechanisms.";
-            return false;
-        }
+        // Limitations are diagnostic metadata, not rendered answer prose. Discard internal
+        // notes instead of rejecting otherwise valid claims or exposing those notes to callers.
+        var limitations = draft.Limitations.Where(value => !ContainsInternalMechanismReference(value)).ToArray();
         if (requirements?.ClaimCount is { } requiredClaimCount && draft.Claims.Count != requiredClaimCount)
         {
             error = $"This answer requires exactly {requiredClaimCount} sourced claims.";
@@ -804,7 +791,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
             error = $"The first claim must be exactly: {requiredText}";
             return false;
         }
-        if (requirements?.RequiresPlainAnswerShape == true && (draft.Disagreements.Count > 0 || draft.Limitations.Count > 0 || draft.ClarifyingQuestion is not null || draft.HumanGuidanceRecommended))
+        if (requirements?.RequiresPlainAnswerShape == true && (draft.Disagreements.Count > 0 || limitations.Length > 0 || draft.ClarifyingQuestion is not null || draft.HumanGuidanceRecommended))
         {
             error = "This answer must contain only the requested direct answer and explanation paragraphs.";
             return false;
@@ -815,13 +802,28 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var resolvedClaimQuotations = new List<IReadOnlyList<GroundedQuotationDraft>>(draft.Claims.Count);
         foreach (var claim in draft.Claims)
         {
-            if (!ValidateSourcedStatement(claim.Text, 4_000, claim.EvidenceIds, evidence, orderedIds, out error))
+            if (!Enum.IsDefined(claim.Kind))
+            {
+                error = "Every claim must identify Source, Background, or Uncertainty as its kind.";
+                return false;
+            }
+            if (!ValidateSourcedStatement(claim.Text, 4_000, claim.EvidenceIds, evidence, orderedIds, out error, claim.Kind == GroundedClaimKind.Source))
             {
                 return false;
             }
             if (!ValidateAttribution(claim.Attribution, out error))
             {
                 return false;
+            }
+            if (claim.Kind != GroundedClaimKind.Source)
+            {
+                if (claim.Quotations is not { Count: 0 } || claim.Attribution is not null)
+                {
+                    error = "Background and uncertainty must have empty quotations and no source attribution; religious quotations and attributed teachings require Source claims.";
+                    return false;
+                }
+                resolvedClaimQuotations.Add([]);
+                continue;
             }
             IReadOnlyList<GroundedQuotationDraft> resolvedQuotations = [];
             if (!ValidateQuotationShape(claim.Quotations, out error) || (validateQuotations && !TryResolveQuotations(claim.Quotations, claim.EvidenceIds, evidence, out resolvedQuotations, out error)))
@@ -856,7 +858,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         var citationById = orderedIds.Select((id, index) => CreateCitation(index + 1, evidence[id])).ToDictionary(citation => citation.EvidenceId, StringComparer.Ordinal);
         var claims = draft.Claims.Select((claim, index) => CreateClaim(claim, resolvedClaimQuotations[index], citationById)).ToArray();
         var disagreements = draft.Disagreements.Select((disagreement, index) => CreateDisagreement(disagreement, resolvedDisagreementQuotations[index], citationById)).ToArray();
-        answer = new GroundedAnswer(claims, disagreements, draft.Limitations.Select(value => value.Trim()).ToArray(), draft.ClarifyingQuestion?.Trim(), draft.HumanGuidanceRecommended, citationById.Values.OrderBy(citation => citation.Number).ToArray())
+        answer = new GroundedAnswer(claims, disagreements, limitations.Select(value => value.Trim()).ToArray(), draft.ClarifyingQuestion?.Trim(), draft.HumanGuidanceRecommended, citationById.Values.OrderBy(citation => citation.Number).ToArray())
         {
             SuggestedConversationTitle = suggestedConversationTitle,
             InterpretiveNotice = prompts.InterpretiveNotice.Trim(),
@@ -975,7 +977,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
     private static GroundedClaim CreateClaim(GroundedClaimDraft draft, IReadOnlyList<GroundedQuotationDraft> resolvedQuotations, IReadOnlyDictionary<string, SourceCitation> citationById)
     {
         var quotations = CreateQuotations(resolvedQuotations, citationById);
-        return new GroundedClaim(draft.Text.Trim(), draft.EvidenceIds.Distinct(StringComparer.Ordinal).Select(id => citationById[id]).ToArray(), quotations[0].Text, quotations[0].Source)
+        return new GroundedClaim(draft.Text.Trim(), draft.EvidenceIds.Distinct(StringComparer.Ordinal).Select(id => citationById[id]).ToArray(), quotations.FirstOrDefault()?.Text, quotations.FirstOrDefault()?.Source)
         {
             Attribution = draft.Attribution?.Trim(),
             Quotations = quotations,
@@ -993,7 +995,7 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
 
     private static IReadOnlyList<GroundedQuotation> CreateQuotations(IReadOnlyList<GroundedQuotationDraft> drafts, IReadOnlyDictionary<string, SourceCitation> citationById) => drafts.Select(draft => new GroundedQuotation(draft.Text, draft.Role.Trim(), citationById[draft.EvidenceId])).ToArray();
 
-    private static bool ValidateSourcedStatement(string? text, int maximumTextLength, IReadOnlyList<string>? evidenceIds, IReadOnlyDictionary<string, EvidenceItem> evidence, ICollection<string> orderedIds, out string? error)
+    private static bool ValidateSourcedStatement(string? text, int maximumTextLength, IReadOnlyList<string>? evidenceIds, IReadOnlyDictionary<string, EvidenceItem> evidence, ICollection<string> orderedIds, out string? error, bool requiresEvidence = true)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > maximumTextLength)
         {
@@ -1004,6 +1006,11 @@ public sealed class GroundedAnswerService : IGroundedAnswerService
         {
             error = "Claims and disagreements must not expose internal answer-generation mechanisms.";
             return false;
+        }
+        if (!requiresEvidence)
+        {
+            error = evidenceIds is { Count: 0 } ? null : "Background and uncertainty must have an empty evidenceIds array; use Source for cited claims.";
+            return error is null;
         }
         if (evidenceIds is null || evidenceIds.Count is < 1 or > 12)
         {

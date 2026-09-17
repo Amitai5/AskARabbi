@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AskARabbi.Api.Authentication;
 using AskARabbi.Api.Configuration;
 using AskARabbiLIB.AI;
@@ -54,5 +55,12 @@ public sealed class ProductionConfigurationTests
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "separate support obligation");
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "isResponsive");
         StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "stating that a rule is rabbinic does not answer why");
+        StringAssert.Contains(groundedPrompts.SystemBehaviorPrompt, "Who was Rabbi Akiva?");
+        StringAssert.Contains(groundedPrompts.SystemBehaviorPrompt, "Vampires are fictional");
+        StringAssert.Contains(groundedPrompts.SupportValidationPrompt, "The draft's label is not authority to bypass these requirements");
+        using var schema = JsonDocument.Parse(groundedPrompts.ResponseJsonSchema);
+        var claimSchema = schema.RootElement.GetProperty("properties").GetProperty("claims").GetProperty("items");
+        CollectionAssert.AreEqual(new[] { "Source", "Background", "Uncertainty" }, claimSchema.GetProperty("properties").GetProperty("kind").GetProperty("enum").EnumerateArray().Select(value => value.GetString()).ToArray());
+        CollectionAssert.Contains(claimSchema.GetProperty("required").EnumerateArray().Select(value => value.GetString()).ToArray(), "kind");
     }
 }

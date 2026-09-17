@@ -85,13 +85,15 @@ public sealed class ConversationsControllerTests
 
     [TestMethod]
     [TestCategory("Regression")]
-    public async Task Create_GroundingValidationFails_ReturnsSafeMessageWithoutInternalDetails()
+    [DataRow(GroundedAnswerStatus.ValidationFailed)]
+    [DataRow(GroundedAnswerStatus.InsufficientEvidence)]
+    public async Task Create_AnswerCannotBeSupported_PersistsRecoveryReplyWithoutRejectedContent(GroundedAnswerStatus status)
     {
         // Arrange
         await using var application = new TestApplicationFactory();
         application.GroundedAnswers.NextResult = new GroundedAnswerResult
         {
-            Status = GroundedAnswerStatus.ValidationFailed,
+            Status = status,
             ErrorMessage = "Direct quotation for evidence ID 'E5' does not match the source.",
             Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.FromMilliseconds(20), 6, 6, 4_648, null, GroundedValidationStatus.Failed, true, "test-response", "test-model"),
         };
@@ -109,12 +111,52 @@ public sealed class ConversationsControllerTests
         // Assert
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         Assert.IsNotNull(result);
-        Assert.AreEqual("validation_failed", result.Status);
-        Assert.AreEqual("AskARabbi could not fully support every statement with the cited sources, so it did not show the answer. Please try again.", result.Message);
-        Assert.IsNotNull(result.Message);
-        Assert.IsFalse(result.Message.Contains("E5", StringComparison.Ordinal));
+        Assert.AreEqual("answered", result.Status);
+        Assert.IsNull(result.Message);
         Assert.AreEqual(Conversation.DefaultTitle, result.Conversation.Title);
-        Assert.HasCount(1, result.Conversation.Messages);
+        Assert.HasCount(2, result.Conversation.Messages);
+        var reply = result.Conversation.Messages[1];
+        Assert.AreEqual(ConversationMessageRole.Assistant, reply.Role);
+        StringAssert.StartsWith(reply.Content, "I'm not confident enough to give a reliable answer");
+        Assert.IsFalse(reply.Content.Contains("E5", StringComparison.Ordinal));
+        Assert.HasCount(0, reply.Sources);
+
+        using var replay = await client.PostAsJsonAsync($"/api/conversations/{result.Conversation.Id}/messages?compact=true", new { messageId = Guid.Parse("44444444-4444-4444-4444-444444444444"), content = "Why do Jewish customs differ?" });
+        var replayResult = await replay.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+        var saved = await client.GetFromJsonAsync<ConversationResponse>($"/api/conversations/{result.Conversation.Id}", JsonOptions);
+
+        Assert.IsNotNull(replayResult);
+        Assert.AreEqual("answered", replayResult.Status);
+        Assert.HasCount(2, replayResult.Messages);
+        Assert.IsNotNull(saved);
+        Assert.AreEqual(reply.Content, saved.Messages[1].Content);
+        Assert.AreEqual(1, application.GroundedAnswers.CallCount);
+    }
+
+    [TestMethod]
+    [TestCategory("Regression")]
+    public async Task Create_RecoveryReply_UsesSavedResponseLanguage()
+    {
+        await using var application = new TestApplicationFactory();
+        using var client = await application.CreateAuthenticatedClientAsync();
+        using var settings = await client.PutAsJsonAsync("/api/conversation-settings/personalization", new
+        {
+            fullName = "Test Learner", birthDateTime = "1990-01-02T12:00:00", birthTimeZone = "America/Los_Angeles",
+            conversationLanguage = "Spanish", quotationLanguage = "Hebrew", religiousMovement = "Unspecified", jewishHeritage = "Other",
+        });
+        Assert.AreEqual(HttpStatusCode.OK, settings.StatusCode);
+        application.GroundedAnswers.NextResult = new GroundedAnswerResult
+        {
+            Status = GroundedAnswerStatus.ValidationFailed,
+            Trace = new GroundedAnswerTrace(TimeSpan.Zero, TimeSpan.Zero, 0, 0, 0, null, GroundedValidationStatus.Failed, true, null, "test-model"),
+        };
+
+        using var response = await client.PostAsJsonAsync("/api/conversations?compact=true", new { messageId = Guid.Parse("55555555-4444-4444-4444-444444444444"), content = "Explain this custom." });
+        var result = await response.Content.ReadFromJsonAsync<ConversationTurnDeltaResponse>(JsonOptions);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("answered", result.Status);
+        StringAssert.StartsWith(result.Messages.Single(message => message.Role == ConversationMessageRole.Assistant).Content, "Todavía no puedo responder");
     }
 
     [TestMethod]

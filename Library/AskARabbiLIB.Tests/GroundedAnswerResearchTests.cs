@@ -136,7 +136,7 @@ public sealed class GroundedAnswerResearchTests
         Assert.HasCount(2, sources.Searches);
         Assert.HasCount(1, sources.Reads);
         Assert.IsTrue(audit.SawReligiousEvidence);
-        Assert.AreEqual("search_source_passages", engine.InitialRequiredToolName);
+        Assert.IsNull(engine.InitialRequiredToolName);
     }
 
     [TestMethod]

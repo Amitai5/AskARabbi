@@ -4,6 +4,9 @@ namespace AskARabbiLIB.Grounding;
 
 internal sealed record GroundedClaimDraft
 {
+    [JsonPropertyName("kind")]
+    public GroundedClaimKind Kind { get; init; } = GroundedClaimKind.Source;
+
     [JsonPropertyName("text")]
     public required string Text { get; init; }
 

@@ -111,8 +111,19 @@ internal sealed class AIGroundedClaimEvidenceValidator : IGroundedClaimEvidenceV
             }
         }
         var mappings = new Dictionary<string, IReadOnlyList<GroundedQuotationDraft>>(StringComparer.Ordinal);
+        var statementsById = statements.ToDictionary(statement => statement.StatementId, StringComparer.Ordinal);
         foreach (var evaluation in evaluations)
         {
+            var statement = statementsById[evaluation.StatementId];
+            if (statement.Kind != GroundedClaimKind.Source)
+            {
+                if (!Enum.IsDefined(statement.Kind) || statement.EvidenceIds is not { Count: 0 } || statement.Quotations is not { Count: 0 } || statement.Attribution is not null || evaluation.SupportingQuotations is not { Count: 0 })
+                {
+                    return ClaimEvidenceValidationResult.Unsupported("Reviewed background and uncertainty must remain uncited and cannot acquire religious authority from the audit.", result.Diagnostics);
+                }
+                mappings.Add(evaluation.StatementId, []);
+                continue;
+            }
             if (evaluation.SupportingQuotations is not { Count: > 0 and <= 12 } quotations)
             {
                 return ClaimEvidenceValidationResult.Unsupported("The audit did not supply exact supporting passages for every claim.", result.Diagnostics);
@@ -141,7 +152,7 @@ internal sealed class AIGroundedClaimEvidenceValidator : IGroundedClaimEvidenceV
     private static IReadOnlyList<GroundedSupportStatement> CreateStatements(GroundedAnswerDraft draft)
     {
         var statements = new List<GroundedSupportStatement>(draft.Claims.Count + draft.Disagreements.Count);
-        statements.AddRange(draft.Claims.Select((claim, index) => new GroundedSupportStatement($"C{index + 1}", "claim", claim.Text, claim.Attribution, claim.EvidenceIds, claim.Quotations)));
+        statements.AddRange(draft.Claims.Select((claim, index) => new GroundedSupportStatement($"C{index + 1}", "claim", claim.Text, claim.Attribution, claim.EvidenceIds, claim.Quotations, claim.Kind)));
         statements.AddRange(draft.Disagreements.Select((disagreement, index) => new GroundedSupportStatement($"D{index + 1}", "disagreement", disagreement.Text, disagreement.Attribution, disagreement.EvidenceIds, disagreement.Quotations)));
         return statements;
     }

@@ -9,8 +9,9 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "text": { "type": "string", "description": "One coherent explanatory paragraph. The first paragraph directly answers the current answerFocus. Every factual proposition must be supported by the combined cited passages; narrative paragraphs may cover multiple connected events. Use ordinary Unicode punctuation, not control characters." },
-          "evidenceIds": { "type": "array", "description": "Existing packet evidence IDs that together directly support the complete proposition.", "items": { "type": "string" } },
+          "kind": { "type": "string", "enum": ["Source", "Background", "Uncertainty"], "description": "Source for religious rulings, attributed teachings, exact quotations and calculated dates; Background for well-established biography, definitions and clearly fictional framing; Uncertainty for an honest limit or necessary clarification. Background and Uncertainty must have empty evidenceIds and quotations and null attribution." },
+          "text": { "type": "string", "description": "One coherent explanatory paragraph. The first paragraph directly answers the current answerFocus. Source propositions must be supported by cited passages. Background must be well-established and must not introduce unsourced religious rulings or attributed teachings. Uncertainty must not smuggle in factual conclusions. Use ordinary Unicode punctuation, not control characters." },
+          "evidenceIds": { "type": "array", "description": "For Source, existing evidence IDs that support the entire paragraph. Empty for Background and Uncertainty.", "items": { "type": "string" } },
           "attribution": { "type": ["string", "null"] },
           "quotations": {
             "type": "array",
@@ -26,7 +27,7 @@
             }
           }
         },
-        "required": ["text", "evidenceIds", "attribution", "quotations"]
+        "required": ["kind", "text", "evidenceIds", "attribution", "quotations"]
       }
     },
     "disagreements": {
