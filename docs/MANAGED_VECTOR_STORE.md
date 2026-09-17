@@ -1,6 +1,6 @@
 # Managed Sefaria vector store
 
-AskRabbi's first production retriever uses an Azure OpenAI managed vector store through a forced Responses API `file_search` tool call. The application does not create an Assistant and ignores all model-authored prose from that retrieval response; it accepts only the included scored file-search results. `AzureOpenAIVectorStoreRetriever` reconstructs and filters those results, `GroundedAnswerService` builds the bounded evidence packet, and the existing deterministic quotation/citation checks plus independent claim-support audit decide whether an answer may be shown.
+AskRabbi's first production retriever uses an Azure OpenAI managed vector store through a forced Responses API `file_search` tool call. The application does not create an Assistant and ignores all model-authored prose from that retrieval response; it accepts only the included scored file-search results. `AzureOpenAIVectorStoreRetriever` reconstructs and filters those results, `GroundedAnswerService` builds the bounded evidence packet, and exact quotation checks plus independent kind-specific review decide whether generated content may be shown. Empty ordinary retrieval can still lead to reviewed background or honest uncertainty; see [answer reliability](ANSWER_RELIABILITY.md). The retrieval adapter's forced `file_search` is distinct from the writer's optional follow-up `search_source_passages` capability.
 
 ## Why this design
 
@@ -33,7 +33,7 @@ The current checked snapshot passes with 1,441 logical documents, 8,332 bounded 
 
 Publication creates one or more deterministic UTF-8 Markdown uploads per manifest document. No upload exceeds 60,000 UTF-8 bytes and a source record is never split across files; this avoids the provider failures observed with larger individual uploads while remaining below the 10,000-file store limit. The schema-v2 store metadata records both the logical-document count and provider-file count.
 
-The publisher supplies the Azure maximum of 16 reviewed attributes on each file: corpus fingerprint, stable document ID, English/Hebrew title, language/name/code, collection, categories, edition, license/category, attribution URL, normalized path, optional work key/usage note, and provider. The current Azure Responses file-search result does not reliably return those attributes, so the production image bundles only the validated 2.6 MB document manifest and reconstructs citation provenance from the stable document prefix inside each record. Returned attributes, when present, must agree with that manifest. Raw JSON, normalized Markdown, and the SQLite index remain outside the image. Every searchable record contains:
+The publisher supplies the Azure maximum of 16 reviewed attributes on each file: corpus fingerprint, stable document ID, English/Hebrew title, language/name/code, collection, categories, edition, license/category, attribution URL, normalized path, optional work key/usage note, and provider. The current Azure Responses file-search result does not reliably return those attributes, so the production image bundles the validated 2.6 MB document manifest and reconstructs citation provenance from the stable document prefix inside each record. Returned attributes, when present, must agree with that manifest. The full raw/normalized corpus and developer segment index remain outside the image. The API also bundles a curated [canonical-source archive and read-only search index](../Backend/AskARabbi.Api/Data/README.md) for original-text lookup and local keyword research; this does not replace managed semantic retrieval. Every searchable record contains:
 
 - The existing stable document and segment IDs.
 - Canonical reference and zero-based document ordinal.
@@ -119,8 +119,8 @@ Do not switch only the store ID or only the fingerprint. Update them in one Cont
 3. Publish a new store; never mutate the active corpus in place.
 4. Verify forced file-search retrieval and exact-reference lookups against the new store.
 5. Deploy the new store ID and fingerprint together.
-6. Verify live fail-closed behavior, source filters, quotations, and usage accounting.
+6. Verify source filters, exact quotations, reviewed background with empty results, saved recovery, and token accounting. Confirm unavailable/stale retrieval remains an error.
 7. Keep the previous store during the rollback window.
 8. Delete an old store only after resolving its exact ID and confirming no environment references it.
 
-If retrieval is unavailable or the store is stale, the API returns `retrieval_unavailable`; it does not call the model with no evidence. If retrieval is merely irrelevant, it returns `insufficient_evidence`. Failed structured generation or validation likewise returns a typed status and never persists unsupported assistant content.
+If retrieval is unavailable or the store is stale, the API returns `retrieval_unavailable`; it does not bypass the dependency by drafting from general knowledge. If retrieval succeeds but is empty or irrelevant, ordinary drafting may continue with independently reviewed Background or Uncertainty and optional bounded research. Source claims still need verified evidence. An unrepaired validation failure or a required-coverage `InsufficientEvidence` result becomes a fixed saved API reply with no sources and `answered`, while the original library status remains in diagnostics. Provider errors keep their existing typed outcomes; rejected drafts are never saved as assistant messages.

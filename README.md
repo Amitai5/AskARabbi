@@ -1,14 +1,14 @@
 # AskRabbi
 
 [![Project status](https://img.shields.io/badge/status-early%20development-D97706?style=for-the-badge)](#project-status)
-[![Website](https://img.shields.io/badge/askarabbi.ai-planned-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://askarabbi.ai)
+[![Website](https://img.shields.io/badge/askarabbi.ai-website-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://askarabbi.ai)
 [![React](https://img.shields.io/badge/React-implemented-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-implemented-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![.NET](https://img.shields.io/badge/.NET-prototype-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-implemented-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 
 > Source-grounded Jewish learning, with context and citations—not judgment.
 
-AskRabbi is a planned AI-assisted learning experience for people who want to explore Judaism through its texts. It will help users ask everyday, difficult, personal, or highly specific questions and receive an accessible explanation grounded in sources from Tanakh, Talmud, rabbinic literature, and other parts of the Jewish textual tradition.
+AskRabbi is an AI-assisted learning application for people who want to explore Judaism through its texts. Religious teachings and interpretations require verified sources from the Jewish textual tradition. Basic biography, introductory background, and clearly fictional premises can receive independently reviewed answers without Torah citations. When an answer cannot be validated, the web API saves an honest reply inviting clarification.
 
 The goal is not to produce a one-word ruling. The goal is to show the conversation: which texts are relevant, how later authorities interpreted them, where views differ, and how a conclusion developed over time. Every response should give the user enough context to continue learning and enough agency to decide what the material means for their own Jewish life.
 
@@ -52,15 +52,15 @@ That distinction is central to this project:
 
 AskRabbi can support learning and preparation for a conversation with a trusted rabbi, teacher, or community leader. It is not a substitute for them, especially when a question is personal, urgent, or consequential.
 
-## Planned experience
+## Application experience
 
 ### Source-grounded conversations
 
-Users will be able to have a natural conversation with an AI that retrieves relevant Jewish texts before answering. Responses will be grounded in the retrieved material, not presented as unsupported model knowledge.
+The conversation pipeline retrieves approved sources, drafts claims as `Source`, `Background`, or `Uncertainty`, and independently reviews every generated statement. Source claims require exact quotations and supporting evidence; ordinary background and honest uncertainty stay uncited. Empty or tangential search results do not automatically block a basic answer. See [answer reliability](docs/ANSWER_RELIABILITY.md) for the boundaries and recovery behavior.
 
 ### Transparent citations
 
-Answers link claims to precise textual references. Saved assistant messages retain exact validated quotations, bounded source context, work, canonical reference, language, edition or translation, license, a direct Sefaria passage link, and separate edition attribution when available.
+Source-backed claims link to precise textual references. Their saved source records retain exact validated quotations, bounded source context, work, canonical reference, language, edition or translation, license, a direct Sefaria passage link, and separate edition attribution when available. Reviewed background and recovery replies have no source records; the application does not attach unrelated citations to them.
 
 ### Hebrew and translation together
 
@@ -68,11 +68,11 @@ The system will preserve source-language text—including Hebrew and Aramaic whe
 
 ### Selectable source collections
 
-Each new conversation enables the core Torah, Tanakh, Mishnah, and Talmud collections by default. Users can add approved supplemental works, select every approved source, or narrow the set for that conversation; sending is disabled when no source remains selected.
+Each new conversation enables every approved source by default. Users can narrow the set to the core Torah, Tanakh, Mishnah, and Talmud collections or another non-empty combination. Sending remains disabled when no source is selected; the selected corpus governs source-backed claims even when an answer ultimately needs no citations.
 
 ### Chat history and AI privacy
 
-AskRabbi saves questions, answers, and their source references in the user's account so conversations can be reopened and continued. Users can delete saved chats or their account in **Settings → Your data**. A separate private-chat mode is a future design, not an available zero-retention feature.
+AskRabbi saves questions, reviewed answers with any source references, and application-written recovery replies in the user's account so conversations can be reopened and continued. Rejected drafts are not saved as assistant messages. Users can delete saved chats or their account in **Settings → Your data**. A separate private-chat mode is a future design, not an available zero-retention feature.
 
 Chats, source lookups, answer checks, repairs, and background Dvar Torah generation disable Azure OpenAI's stored-response feature with `store=false`. This does not disable AskRabbi's own chat history or Microsoft's separate abuse-monitoring storage. Microsoft may retain prompts and answers for abuse monitoring, including authorized human review, under its [Azure AI privacy terms](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy).
 
@@ -109,9 +109,9 @@ AskRabbi is an independent project and is not currently affiliated with or endor
 5. **Map the discussion** across primary text, commentary, later rulings, customs, and modern applications.
 6. **Lead with the bottom line** in one or two direct sentences, then give a concise explanation that distinguishes material consensus, disagreement, and uncertainty.
 7. **Quote every source or calculated result in context** and, when describing an interpretive chain, show both the later view and the earlier passage it relies on.
-8. **Validate every citation and quotation** against the retrieved text or exact tool result, then independently audit whether each claim actually follows from the evidence it cites.
-9. **Repair once or fail visibly** using the same evidence packet; never fall back to unsupported model knowledge.
-10. **Leave the decision with the user** and end with a visible reminder that the explanation is one interpretation, not infallible truth or binding *psak*.
+8. **Validate by claim kind.** Check exact citations and quotations for Source claims, then independently audit evidence support, background accuracy, and honest uncertainty as appropriate.
+9. **Repair once, then recover honestly.** The repair can use remaining bounded research. If validation still fails or required evidence is insufficient, the API saves a localized clarification reply without the rejected text or citations. Provider and retrieval outages retain distinct errors.
+10. **Leave the decision with the user.** Guidance is educational, with human consultation suggested when relevant; renderers do not append a stock disclaimer to every answer.
 
 ## Product commitments
 
@@ -125,9 +125,9 @@ AskRabbi is being built around the following commitments:
 - **Privacy by design.** Saved and private conversations must have genuinely different retention behavior.
 - **Visible provenance.** Users should know where text came from, which edition they are reading, and how to inspect it.
 
-## Planned technology
+## Application structure
 
-| Layer | Planned technology | Responsibility |
+| Layer | Technology | Responsibility |
 | --- | --- | --- |
 | Web application | React, TypeScript, and Vite | Accounts, chat, source viewer, settings, and usage experience |
 | Application API | ASP.NET Core and C# | Users, conversations, authorization, quotas, and orchestration |
@@ -135,21 +135,21 @@ AskRabbi is being built around the following commitments:
 | Prototype retrieval | SQLite FTS5 through `AskARabbiLIB` | Exact references, tiered full-concept/pair/fallback BM25 search, deterministic vocabulary expansion, Unicode normalization, provenance filters, and bounded evidence |
 | Production retrieval | Azure OpenAI managed vector store | Forced Responses `file_search`, stable source filters enforced locally, manifest-backed provenance, and bounded evidence behind `ISourceRetriever` |
 | Application persistence | Azure Cosmos DB for MongoDB integrated | Owner-scoped accounts, saved conversation metadata/messages, personalization/preferences, monthly usage counters, and global weekly Dvar Torah publications |
-| Weekly publisher | .NET 10 Azure Container Apps Job and Docker image scaffolded | Sunday UTC cron, Hebrew-week selection, idempotent generation leasing, and atomic publication; content generator intentionally pending approval |
-| AI provider | Azure OpenAI Responses API through `IAIEngine` | Strict structured output from an approved evidence packet plus explicitly registered, bounded local calendar functions; production uses the Container App's Entra identity and the prototype supports a local API key |
+| Weekly publisher | .NET 10 Azure Container Apps Job | Hebrew-week selection, idempotent generation leasing, independent content/safety review, and atomic publication under its separate 80% Torah-grounding policy |
+| AI provider | Azure OpenAI Responses API through `IAIEngine` | Typed structured claims, independent review, one repair, and bounded source, dictionary, and calendar research; the API owns saved recovery replies |
 | Text provider | Sefaria initially | Jewish texts, translations, relationships, and canonical references |
 
-The public topology is fixed: the frontend runs at `https://askarabbi.ai` and the API runs in Azure Container Apps behind `https://api.askarabbi.ai`, with WorkOS AuthKit for identity and Azure Cosmos DB for MongoDB for application persistence. The backend is packaged in ACR and its production-only GitHub workflow deploys verified commits by immutable digest. The `askarabbi-gpt-5-mini` deployment and full managed Sefaria corpus exist, and the production API composes managed Responses file-search retrieval with the same fail-closed grounded-answer pipeline used by the prototype. Deploying this integration and completing authenticated live validation remain before public chat can be enabled. See the [production deployment plan](docs/PRODUCTION_DEPLOYMENT.md), [managed corpus operations](docs/MANAGED_VECTOR_STORE.md), and [production readiness checklist](docs/PRODUCTION_READINESS.md).
+The public topology is fixed: the frontend runs at `https://askarabbi.ai` and the API runs in Azure Container Apps behind `https://api.askarabbi.ai`, with WorkOS AuthKit for identity and Azure Cosmos DB for MongoDB for application persistence. The backend is packaged in ACR and its production-only GitHub workflow deploys verified commits by immutable digest. The API composes managed Responses file-search retrieval and local canonical-source access with the shared reviewed-answer pipeline. The console uses the same validation contract, while the API additionally persists localized recovery replies. Deployment health and authenticated smoke tests must be checked for the released revision. See the [production deployment plan](docs/PRODUCTION_DEPLOYMENT.md), [managed corpus operations](docs/MANAGED_VECTOR_STORE.md), and [production readiness checklist](docs/PRODUCTION_READINESS.md).
 
-For the implemented question-to-answer path, read the [chat workflow](docs/CHAT_WORKFLOW.md). For the proposed architecture, privacy contract, API shape, retrieval pipeline, data model, testing strategy, and phased delivery plan, read the [technical design](docs/TECHNICAL.md).
+For component ownership and claim/recovery contracts, read [answer reliability](docs/ANSWER_RELIABILITY.md). The [chat workflow](docs/CHAT_WORKFLOW.md) traces the question-to-answer path, and the [technical design](docs/TECHNICAL.md) covers architecture, API shape, retrieval, privacy, testing, and remaining proposals.
 
 ## Project status
 
-AskRabbi is in **early development**. The Azure API, registry, Cosmos DB foundation, model deployment, full managed corpus, and grounded production code path exist, but the public product is not launch-ready: the latest frontend/backend must be deployed, WorkOS must be configured and validated, and the remaining security and operational controls must be completed.
+AskRabbi remains under active development. The repository implements the frontend, authenticated API, managed and local retrieval, reviewed conversational answers, saved recovery, and a separate weekly publisher. Read the deployment guide for the released environment and outstanding operational checks; repository tests alone do not certify production health.
 
-The [`Frontend`](Frontend) application is a responsive React, TypeScript, Tailwind CSS, and Vite experience connected to the .NET API for backend-owned WorkOS email/Google/sign-up flows, rotating session hydration, saved conversations, a lazy weekly Dvar Torah view, source filters, Cosmos-backed personalization/preferences, exact-period usage, password recovery, logout, and grounded chat turns. [`Backend`](Backend) provides the tested .NET 10 ASP.NET Core boundary with S256 PKCE, restrictive credentialed CORS, owner-scoped Azure Cosmos DB for MongoDB stores, managed Azure OpenAI retrieval/generation, `GET /health`, and a separate scheduled Container Apps Job image for weekly publication. The message endpoint stores the user question, retrieves approved evidence, validates the structured answer and its exact quotations, persists only a validated assistant answer, and increments usage only after success. The weekly generator uses no-subscription public feeds, enforces at least 80% Torah grounding, stores searchable tags and bounded source provenance, and fails closed through independent neutrality, violence, hate, racism, sexism, protected-group, and inclusion review; its production execution gate remains disabled pending credentials and a non-production smoke test. An explicit Development-only local profile exercises the same HTTP controllers and cookie flow without credentials. The [authentication design](docs/AUTHENTICATION.md) records the flow and remaining launch hardening.
+The [`Frontend`](Frontend) application is a responsive React, TypeScript, Tailwind CSS, and Vite experience connected to the .NET API for backend-owned WorkOS email/Google/sign-up flows, rotating session hydration, saved conversations, a lazy weekly Dvar Torah view, source filters, Cosmos-backed personalization/preferences, exact-period usage, password recovery, logout, and grounded chat turns. [`Backend`](Backend) provides the tested .NET 10 ASP.NET Core boundary with S256 PKCE, restrictive credentialed CORS, owner-scoped Azure Cosmos DB for MongoDB stores, managed Azure OpenAI retrieval/generation, `GET /health`, and a separate scheduled Container Apps Job image for weekly publication. The message endpoint stores the user question, retrieves approved evidence, validates each generated claim according to its kind, and persists the reviewed answer or an application-written recovery reply. All provider-reported chat tokens count toward usage, including retrieval, audits, repairs, and unsuccessful drafts. The weekly generator uses no-subscription public feeds, enforces at least 80% Torah grounding, stores searchable tags and bounded source provenance, and fails closed through independent neutrality, violence, hate, racism, sexism, protected-group, and inclusion review; its configuration and rollout are documented in the [weekly job guide](Backend/AskARabbi.DvarTorahJob/README.md). Conversation recovery does not relax this publication gate. An explicit Development-only local profile exercises the same HTTP controllers and cookie flow without credentials. The [authentication design](docs/AUTHENTICATION.md) records the flow and remaining launch hardening.
 
-The reusable `AskARabbiLIB` project and its tests live under `Library`, while the separate `AskARabbiPrototype` solution is a thin Spectre.Console host. AI Chat is the default experience: it is continuous, profile-aware, locally retrieved, and fail-closed behind exact citation/quotation checks plus an independent claim-support audit. Source Search remains a separate local tool for manifest search and source inspection. Interactive chat accepts strict local JSON profiles or process-only custom context. The normal model prompt receives calculated age rather than exact birth data; when a calendar question requires the saved birth date, trusted server code uses it privately and exposes only the calculated result as validated evidence. All model-facing instructions and response schemas are reviewable under [`Prototype/Prompts`](Prototype/Prompts). The local segment index is reproducible and untracked; AI configuration is unnecessary unless AI Chat or the one-shot `ask` command is used. See the [library guide](Library/README.md), [prototype guide](Prototype/README.md), [profile guide](Prototype/Profiles/README.md), [chat workflow](docs/CHAT_WORKFLOW.md), and [technical design](docs/TECHNICAL.md).
+The reusable `AskARabbiLIB` project and its tests live under `Library`, while the separate `AskARabbiPrototype` solution is a thin Spectre.Console host. AI Chat is the default experience: it is continuous, profile-aware, and locally retrieved. Exact citation/quotation checks protect Source claims; all generated kinds pass an independent audit. Unlike the web API, the console reports unrecovered library failures rather than saving a fixed reply. Source Search remains a separate local tool for manifest search and source inspection. Interactive chat accepts strict local JSON profiles or process-only custom context. The normal model prompt receives calculated age rather than exact birth data; when a calendar question requires the saved birth date, trusted server code uses it privately and exposes only the calculated result as validated evidence. All model-facing instructions and response schemas are reviewable under [`Prototype/Prompts`](Prototype/Prompts). The local segment index is reproducible and untracked; AI configuration is unnecessary unless AI Chat or the one-shot `ask` command is used. See the [library guide](Library/README.md), [prototype guide](Prototype/README.md), [profile guide](Prototype/Profiles/README.md), [chat workflow](docs/CHAT_WORKFLOW.md), and [technical design](docs/TECHNICAL.md).
 
 The broad delivery path is:
 
@@ -162,7 +162,7 @@ The broad delivery path is:
 
 ## Continuous integration
 
-The separate `Verify` workflow runs for pushes to every branch and for every pull request. It installs the locked frontend dependencies, lints, tests, and builds the Vite application; it also restores and builds all three .NET solutions, runs the library and backend MSTest suites, enforces at least 80% library branch coverage from the Cobertura report, and retains the .NET test results for troubleshooting.
+The separate `Verify` workflow runs for pushes to `staging` and `production`, and for every pull request. It installs the locked frontend dependencies, lints, tests, and builds the Vite application; it also restores and builds all three .NET solutions, runs the library and backend MSTest suites, enforces at least 80% library branch coverage from the Cobertura report, and retains the .NET test results for troubleshooting.
 
 The `Deploy Backend` workflow runs only after `Verify` succeeds for a push to `production`. It authenticates to Azure through GitHub OIDC, builds the API container, pushes a commit-SHA image to ACR, deploys that image to Azure Container Apps by immutable digest, and verifies the revision and public health endpoint. It never deploys pull requests, failed builds, staging branches, or any branch other than `production`. The frontend retains its separate production deployment.
 

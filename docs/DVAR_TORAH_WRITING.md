@@ -1,5 +1,7 @@
 # Writing the weekly D'var Torah
 
+This guide governs the separate weekly publication pipeline. The [conversational claim kinds and saved recovery replies](ANSWER_RELIABILITY.md) do not alter its draft schema, 80% Torah-grounding requirements, independent review, or fail-closed publication behavior.
+
 The listener should not need to have read the parashah. Build one understandable spoken argument from the Torah, rather than a summary of every episode or a list of impressive sources. This editorial contract draws on the supplied *Master Guide to Writing a Dvar Torah* and the Vayigash example; neither substitutes for approved evidence. The additional preparation guides reinforce a brief orientation, one textual question and central takeaway, credited interpretation, and practical application: [Coffee Shop Rabbi](https://coffeeshoprabbi.com/2014/06/16/how-to-write-a-dvar-torah/), [Temple Bnai Torah](https://tbtwantagh.org/preparing-your-dvar-torah/), and [Chabad's writing and delivery guide](https://www.chabad.org/library/article_cdo/aid/3562825/jewish/How-to-Craft-an-Amazing-Dvar-Torah.htm). These inform the writing method, not the factual evidence for an article.
 
 ## The recurring welcome

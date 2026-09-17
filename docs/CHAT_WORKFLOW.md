@@ -2,7 +2,7 @@
 
 This document explains how AskARabbi turns a person’s question into a conversational, source-grounded answer. It focuses on how the system finds religious texts, gives them to the AI, checks what the AI writes, and presents the result. Configuration, credentials, deployment, and service setup belong in the [technical documentation](TECHNICAL.md), not here.
 
-For the editable writing instructions themselves, see the [prompt catalog](../Prototype/Prompts/README.md).
+For claim boundaries, component ownership, API statuses, and compatibility, see [answer reliability](ANSWER_RELIABILITY.md). For the editable writing instructions themselves, see the [shared prompt catalog](../Prototype/Prompts/README.md).
 
 ## The short version
 
@@ -15,7 +15,7 @@ flowchart LR
     ResolvedSearch --> Evidence
     Compound -->|No| Search[Search the approved corpus]
     Profile[User profile] --> Prompt[Build the writing request]
-    History[Recent validated conversation] --> Search
+    History[Recent untrusted conversation context] --> Search
     History --> Prompt
     Search --> Adequate{Evidence connects the topic and supporting concepts?}
     Adequate -->|No| Empty[No usable textual evidence]
@@ -28,13 +28,15 @@ flowchart LR
     Calendar --> Calculated[Add verified original or calculated evidence]
     Calculated --> Draft
     Draft -->|Structured draft| Validate{IDs, structure, and exact quotes valid?}
-    Validate -->|Yes| Support{Claims relevant and supported?}
+    Validate -->|Yes| Support{Claims pass kind-specific review?}
     Validate -->|No| Repair[One repair with remaining bounded research]
     Support -->|Yes| Materialize[Attach trusted source details]
     Support -->|No| Repair
     Repair --> ValidateAgain{Both validation layers pass now?}
     ValidateAgain -->|Yes| Materialize
-    ValidateAgain -->|No| Fail[Save an honest recovery reply in the web chat]
+    ValidateAgain -->|No| Fail[Library ValidationFailed]
+    Fail --> Recovery[API saves localized recovery reply]
+    Fail --> Console[Prototype reports failure]
     Materialize --> Answer[Render conversational answer]
 ```
 
@@ -83,7 +85,7 @@ Questions without a recognized topic anchor retain the existing full-concept, co
 
 Before its first production search, the retriever verifies that the configured store is completed and that its schema version, full-corpus fingerprint, provider, logical-document count, and bounded provider-file count match the expected immutable publication. Returned chunks must contain a complete AskRabbi record with a valid stable segment ID, context token, canonical reference, excerpt bounds, and document prefix found in the checksum-validated permissive manifest bundled with the API. Partial, unknown, or altered records are ignored or rejected rather than treated as evidence.
 
-Production also searches a read-only SQLite index built from the checksum-verified canonical archive during the API image build. `ResearchSourceRetriever` combines semantic and keyword ranks with reciprocal-rank fusion before applying topical adequacy and evidence budgets. It does this even when semantic results are broadly relevant: naming a custom does not establish its reason or associated prayer. Exact-reference hits do not trigger an additional keyword search. Both paths retain the same source and language restrictions, and all resulting claims still pass quotation and independent support validation. The keyword index adds about 302 MiB to the server image and local query work, not a frontend download or provisioned database service. The answer audit requires an explanation of the relationship asked about, rather than accepting an accurate but incomplete description of only an earlier source.
+Production also searches a read-only SQLite index built from the checksum-verified canonical archive during the API image build. `ResearchSourceRetriever` combines semantic and keyword ranks with reciprocal-rank fusion before applying topical adequacy and evidence budgets. It does this even when semantic results are broadly relevant: naming a custom does not establish its reason or associated prayer. Exact-reference hits do not trigger an additional keyword search. Both paths retain the same source and language restrictions. Source claims pass exact-quotation checks, and every generated statement passes the independent review for its kind. The keyword index adds about 302 MiB to the server image and local query work, not a frontend download or provisioned database service. The answer audit requires an explanation of the relationship asked about, rather than accepting an accurate but incomplete description of only an earlier source.
 
 The result is a ranked collection of source segments such as verses, Mishnah passages, Talmud passages, or commentary segments. At most 50 initial candidates move to the evidence-building stage.
 
@@ -102,34 +104,34 @@ For the strongest matches, the packet can include:
 
 Each passage receives a request-local evidence ID such as `E1` or `E2`. These IDs are deliberately opaque. The model uses them to connect a claim to a passage, while the application retains the real title, reference, edition, language, license, URL, and file path.
 
-The default evidence budget is:
+The library/prototype defaults and production API overrides are:
 
-| Evidence boundary | Default |
-|---|---:|
-| Initial candidates | 50 |
-| Segments sent to the model | 24 |
-| Total source text | 48,000 characters |
-| One presented segment | 6,000 characters |
-| Segments from one document | 9 |
-| Neighboring context radius | 6 segments |
+| Evidence boundary | Library/prototype default | Production API |
+|---|---:|---:|
+| Initial candidates | 50 | 20 |
+| Segments sent to the model | 24 | 10 |
+| Total source text | 48,000 characters | 16,000 characters |
+| One presented segment | 6,000 characters | 2,400 characters |
+| Segments from one document | 9 | 3 |
+| Neighboring context radius | 6 segments | 2 segments |
 
-An unusually long segment is marked as an explicit excerpt centered near the relevant words. It is never silently cut without an excerpt label. If no relevant passage is found, or no passage can fit safely inside the evidence budget, the workflow ends with `InsufficientEvidence` before the model writes anything.
+An unusually long segment is marked as an explicit excerpt centered near the relevant words. It is never silently cut without an excerpt label. If no relevant passage fits, ordinary drafting can continue with an empty packet. The model may provide independently reviewed Background or Uncertainty, or seek verified sources within the remaining tool budget. It cannot infer permission to make an uncited religious ruling.
 
 ## 4. Tell the AI what kind of answer to write
 
-Once corpus evidence exists—or a recognized calendar request is allowed to obtain calculated evidence—AskARabbi constructs the writing request from:
+After retrieval, including an empty ordinary result, AskARabbi constructs the writing request from:
 
 1. The trusted behavior contract in [`system-behavior.txt`](../Prototype/Prompts/system-behavior.txt).
-2. Up to two recent validated question-and-answer turns under the current production default.
+2. Up to two recent question-and-reply pairs under the current production default, including saved recovery replies when present.
 3. The current question.
-4. An application-generated answer focus describing whether the user asked for a rationale, named authorities, or a general direct answer.
+4. An application-generated answer focus distinguishing religious rationale/authority questions from biography, introductory background, and fiction.
 5. The minimized user profile.
 6. The bounded evidence packet.
 7. The strict response shape in [`grounded-answer.schema.json`](../Prototype/Prompts/grounded-answer.schema.json).
 
 The production answer model uses medium reasoning. Earlier turns are explicitly labeled as continuity context rather than evidence or additional questions to answer.
 
-For a recognized calendar question, the request also exposes a small function schema catalog. The server registers the providers explicitly, rejects unknown functions and arguments, disables parallel calls, and allows at most four executions in one request. No service locator, broad assembly scan, web access, or arbitrary code tool is available.
+The request can expose registered source and dictionary research plus relevant calendar functions. The server registers providers explicitly, rejects unknown functions and arguments, disables parallel calls, and shares at most four executions across drafting and repair. `sourceResearchAvailable` reports whether source research is registered; an empty packet does not force a search call. No service locator, broad assembly scan, web access, or arbitrary code tool is available.
 
 ### Local calendar calculations
 
@@ -143,17 +145,17 @@ The caller must explicitly state whether the relevant event or current time is a
 
 Successful output becomes an application-owned `EvidenceItem` with an opaque ID, exact result text, calculation method, and assumptions. That output is a calculated fact, not a religious text or *psak*. The model must cite its ID and quote the exact contiguous result; failed calculations create no evidence.
 
-One compound request needs a different order of operations. When a person explicitly asks both for their bar- or bat-mitzvah portion and what that portion is about, the server resolves the weekly reading before corpus retrieval. It then searches every canonical chapter anchor and a whole-story semantic query in parallel, keeps only Torah passages inside that parashah, and requires representative coverage across at least three distinct references. The derived date supports which reading applies; the Torah passages support the description. The writing contract then requires one direct opening sentence followed by exactly two substantive paragraphs covering the beginning, middle, and end of the story. If Torah is disabled or that coverage cannot be loaded, the service fails before generation instead of producing a shallow summary or a paragraph about missing sources.
+One compound request needs a different order of operations. When a person explicitly asks both for their bar- or bat-mitzvah portion and what that portion is about, the server resolves the weekly reading before corpus retrieval. It then searches every canonical chapter anchor and a whole-story semantic query in parallel, keeps only Torah passages inside that parashah, and requires representative coverage across at least three distinct references. The derived date supports which reading applies; the Torah passages support the description. The writing contract then requires one direct opening sentence followed by exactly two substantive paragraphs covering the beginning, middle, and end of the story. If Torah is disabled or that coverage cannot be loaded, the library returns `InsufficientEvidence` before generation. The API then saves its fixed recovery reply; the console reports the library failure.
 
 The behavior contract tells the AI to:
 
 - Begin with a direct bottom-line answer in one or two natural sentences.
-- Answer the dimension the user actually requested: an evidenced reason for “why” and evidenced names and positions for “who.”
+- Answer the dimension requested: source-supported religious reasoning or attributed positions when needed, and reviewed general knowledge for ordinary biography or background.
 - Treat prior turns only as reference-resolution context and avoid repeating the previous conclusion in place of the new answer.
 - Sound like a warm study companion rather than a report or legal brief.
 - Usually write two or three connected claims and roughly 180–325 words of explanatory prose.
 - Never mention functions, tools, calls, searches, prompts, evidence containers, validation, models, providers, or other answer-generation mechanics.
-- Use only the supplied evidence for factual and interpretive claims.
+- Use supplied evidence for Source claims. Keep Background within well-established introductory facts or explicit fiction, and Uncertainty within honest limits.
 - Distinguish Torah-level rules, rabbinic rules, later interpretation, custom, and modern application when the evidence supports those distinctions.
 - Preserve a disagreement when it materially changes the answer.
 - Cite every Source claim; keep reviewed Background and Uncertainty uncited.
@@ -169,8 +171,8 @@ This last point protects the workflow from prompt-like text embedded in a biogra
 
 The first model response is not yet the final chat message. It is a structured draft with separate fields for:
 
-- Claims.
-- Evidence IDs supporting each claim.
+- Claims with a required `kind`: `Source`, `Background`, or `Uncertainty`.
+- Evidence IDs supporting each Source claim; empty arrays for uncited kinds.
 - Optional supported attribution.
 - Exact quotations and a short explanation of what each quotation proves.
 - Material disagreements.
@@ -178,10 +180,11 @@ The first model response is not yet the final chat message. It is a structured d
 - An optional follow-up question.
 - Whether human guidance is recommended.
 
-A simplified claim looks like this:
+A simplified Source claim looks like this (the quotation below is a placeholder, not a usable evidence span):
 
 ```json
 {
+  "kind": "Source",
   "text": "The short answer is that the restriction on chicken and dairy is rabbinic rather than the Torah's original meat-and-milk prohibition.",
   "evidenceIds": ["E1"],
   "attribution": null,
@@ -195,7 +198,19 @@ A simplified claim looks like this:
 }
 ```
 
-The model supplies prose, evidence IDs, and exact quotation text. Each claim or disagreement must contain one independently verifiable proposition, and its cited IDs and quotations must support that entire proposition. It does not get final authority over citation titles, editions, links, licenses, file locations, or the contents of calculated evidence.
+An uncited uncertainty claim uses the same fields with no source data:
+
+```json
+{
+  "kind": "Uncertainty",
+  "text": "I cannot establish that conclusion from the material available here.",
+  "evidenceIds": [],
+  "attribution": null,
+  "quotations": []
+}
+```
+
+The model supplies prose, evidence IDs, and exact quotation text. Source claims and disagreements need support for their complete proposition; Background and Uncertainty require empty evidence and quotation arrays and null attribution. It does not get final authority over citation titles, editions, links, licenses, file locations, or the contents of calculated evidence.
 
 ## 6. Validate every claim, quotation, and inference
 
@@ -218,18 +233,18 @@ The exact-substring check means the model cannot clean up grammar, silently tran
 
 The source-chain rule is equally important. If the AI says, “Rabbi X reached this conclusion because of verse Y,” it must cite and quote evidence for Rabbi X’s interpretation and verse Y. If only one half was retrieved, the AI must narrow the claim or state the limitation.
 
-The second layer is an independent structured claim-support audit. Its question context labels one current question as the sole answer target and keeps earlier user questions in a separate reference-resolution section. It receives each drafted claim or disagreement and only the trusted passages cited by those statements. It first decides whether the complete draft actually answers the requested dimension. A draft fails this gate when, for example, it repeats “the rule is rabbinic” after the user asks why the rule was adopted, or gives an anonymous summary after the user asks which rabbis held a view. For every statement it must then separately decide:
+The second layer is an independent structured claim-support audit. Its question context labels one current question as the sole answer target and keeps earlier user questions in a separate reference-resolution section. It receives each drafted claim or disagreement, its kind, and the complete bounded evidence packet. For Source statements, it can reconcile support against any supplied passage, followed by exact-quotation revalidation. Background is checked for accuracy and restricted scope using general knowledge; Uncertainty is checked for honest limits. Neither uncited kind can acquire quotations or conceal a religious ruling. It first decides whether the complete draft actually answers the requested dimension. A draft fails this gate when, for example, it repeats “the rule is rabbinic” after the user asks why the rule was adopted, or gives an anonymous summary after the user asks which rabbis held a view. For every statement it must then separately decide:
 
 - Whether the statement materially answers the user’s question.
-- Whether the cited text directly states the claim or supports a clear, limited inference.
+- For Source, whether supplied text directly states the claim or supports a clear, limited inference.
 - Whether a modern application is honestly labeled as an analogy rather than presented as a direct ancient ruling.
 - Whether the draft imported reasoning from an unrelated legal subject or overstated an authority’s position.
 
-An exact quotation is therefore necessary but no longer sufficient. A model cannot pass simply by attaching real words from an irrelevant passage to an unsupported conclusion. The audit uses a separate strict response schema in [`grounded-support-validation.schema.json`](../Prototype/Prompts/grounded-support-validation.schema.json) and the editable contract in [`grounded-support-validation.txt`](../Prototype/Prompts/grounded-support-validation.txt).
+For Source claims, an exact quotation is necessary but not sufficient. A model cannot pass simply by attaching real words from an irrelevant passage to an unsupported conclusion. The audit uses a separate strict response schema in [`grounded-support-validation.schema.json`](../Prototype/Prompts/grounded-support-validation.schema.json) and the editable contract in [`grounded-support-validation.txt`](../Prototype/Prompts/grounded-support-validation.txt).
 
 ### One repair attempt
 
-If the first draft fails either validation layer, the answer model receives the precise validation error, its original draft, and the exact same evidence packet. It gets one chance to repair relevance, support, citation coverage, JSON structure, or quotation accuracy. It may split, merge, add, remove, or rewrite statements and reassign IDs that already exist in that packet so every remaining proposition has complete support. It cannot invent an ID, source, quotation, attribution, or relationship. The repaired draft must pass both layers again.
+If the first draft fails either validation layer, the answer model receives the precise validation error, its original draft, and the current evidence packet. It gets one chance to repair relevance, kind, support, citation coverage, JSON structure, or quotation accuracy. It may rewrite statements and use remaining bounded research to expand verified evidence, but cannot invent an ID, source, quotation, attribution, or relationship. The repaired draft must pass both layers again.
 
 The repair can use remaining bounded source-research calls but cannot invent sources or convert an unsupported ruling into Background. If it still fails, the library retains `ValidationFailed` in diagnostics. The web API saves an application-owned, localized uncertainty reply without the rejected draft or its citations. This reply uses the normal assistant-message ID, persists across reloads, and makes repeated delivery idempotent. Provider outages remain separate errors.
 
@@ -249,7 +264,7 @@ Calculated calendar evidence is labeled `Calendar calculations`, links to the pi
 
 ## 8. Render the final conversational answer
 
-The host turns the validated structured answer into a readable conversation. The prototype applies Spectre.Console color; the backend uses `GroundedAnswerTextRenderer` to persist concise provider-neutral prose while separately saving the application-materialized source records:
+The host turns the validated structured answer into a readable conversation. An answer containing only Background or Uncertainty has no citations or source cards. API recovery bypasses model rendering and stores fixed localized text with `sources: []`; it still appears as a normal assistant message. The prototype applies Spectre.Console color; the backend uses `GroundedAnswerTextRenderer` to persist concise provider-neutral prose while separately saving the application-materialized source records:
 
 - `AskARabbi AI` identifies the responder.
 - The direct answer appears first in bold.
@@ -268,19 +283,19 @@ Prototype readers can use `/evidence` to inspect the complete packet. Production
 
 ## 9. Process a follow-up question
 
-Only successfully validated answers enter conversation history: process memory in the prototype and the user-owned conversation store in production. On a follow-up:
+The prototype keeps successfully reviewed answers in process memory. Production saves reviewed answers and fixed recovery replies in the user's conversation store, never rejected drafts. On a follow-up:
 
 - Retrieval uses the new question plus up to two recent user questions.
 - The current question is classified for answer focus; rationale and authority follow-ups receive focused retrieval terms.
-- The writing request includes up to two recent validated question-and-answer turns under the current production default.
+- The writing request includes up to two recent saved question-and-reply pairs as untrusted continuity context under the current production default.
 - The selected profile remains available for respectful personalization.
 - Source retrieval runs again.
 - Relevant local calendar tools are made available again with a fresh request-local execution limit and current-time snapshot.
 - A new evidence packet is built.
-- The new draft must pass the full citation and quotation validation again.
+- The new draft must pass kind-specific structure checks, exact validation for any quotations, and independent review again.
 - The independent audit receives the new question as the sole answer target and can reject a fully cited answer that merely repeats an earlier conclusion.
 
-AskARabbi never treats an earlier AI answer as sufficient evidence for a later answer. Conversation history helps the model understand what “that,” “it,” or “what about this case?” means, but every new substantive answer must return to the approved corpus.
+AskARabbi never treats an earlier AI answer as sufficient evidence for a later answer. Conversation history helps the model understand what “that,” “it,” or “what about this case?” means, but religious conclusions still need fresh verified support and uncited statements still need independent review.
 
 ## Worked example: chicken and milk
 
@@ -334,6 +349,7 @@ Grounding makes an answer traceable and harder to fabricate. It does not turn an
 | Claim relevance and support audit | [`grounded-support-validation.txt`](../Prototype/Prompts/grounded-support-validation.txt) |
 | Draft repair instruction | [`validation-repair.txt`](../Prototype/Prompts/validation-repair.txt) |
 | Production turn orchestration | [`GroundedConversationTurnService.cs`](../Backend/AskARabbi.Api/Conversations/GroundedConversationTurnService.cs) |
+| Localized saved recovery wording | [`ConversationRecoveryText.cs`](../Backend/AskARabbi.Api/Conversations/ConversationRecoveryText.cs) |
 | Interactive prototype loop | [`AIChatConsole.cs`](../Prototype/AskARabbiPrototype/AIChatConsole.cs) |
 | Production text rendering | [`GroundedAnswerTextRenderer.cs`](../Library/AskARabbiLIB/Grounding/GroundedAnswerTextRenderer.cs) and [`AssistantMessage.tsx`](../Frontend/src/features/conversations/AssistantMessage.tsx) |
 | Prototype console rendering | [`ConsolePresentation.cs`](../Prototype/AskARabbiPrototype/ConsolePresentation.cs) |

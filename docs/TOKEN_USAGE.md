@@ -29,6 +29,12 @@ Settings and the profile menu show up to two decimal places of the remaining per
 
 The chat lease expires after ten minutes to recover from a crashed replica, longer than the existing five-minute API mutation timeout. A lost lease or failed accounting write stops additional AI work. Received usage writes use their own bounded timeout so a browser disconnect cannot cancel an already-known charge.
 
+## Reviewed answers and recovery
+
+[Answer reliability](ANSWER_RELIABILITY.md) uses the same admission and accounting boundary for all claim kinds. A basic background answer can avoid unnecessary follow-up source research, but initial retrieval, drafting, and independent review still use their normal budget. Empty evidence no longer implies that generation stops before spending model tokens.
+
+When the library returns `ValidationFailed` or `InsufficientEvidence`, the API saves fixed localized recovery text and returns `answered`. This adds no provider call and does not refund tokens already spent on retrieval, drafts, audits, or repair. The original outcome stays in diagnostics. Retrying a saved reply with the same message ID reuses it without new model work; quota and provider failures are not converted into recovery success.
+
 ## API/frontend release contract
 
 Deploy the backend and frontend together. No Mongo data rewrite is required; new fields are additive, and the legacy `answerCount` field remains readable but is not used for enforcement. Historical chats did not retain accurate per-user token totals, so old answer counts are **not** converted into invented token usage. Tracking starts when this release runs.
@@ -68,4 +74,4 @@ Conversation completion logs distinguish `model total tokens` (drafts, audits, t
 
 - **Performance:** small indexed Mongo quota reads and accounting writes per provider response; duplicate weekly runs avoid corpus/model initialization, and turn responses include usage to avoid an extra browser round trip.
 - **Correctness:** account-scoped enforcement, atomic accounting, repeat-write protection, and backend checks independent of browser state. The in-flight overshoot and unavailable historical usage are intentional limitations described above.
-- **Maintenance:** one configurable token limit and one shared usage response, with no new runtime dependencies or changes to AI answer/grounding contracts.
+- **Maintenance:** one configurable token limit and one shared usage response, with no new runtime dependencies. The separate internal claim-kind contract does not change the usage response or persisted token counter.

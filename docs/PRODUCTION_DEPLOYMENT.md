@@ -209,7 +209,9 @@ Configure the static host to rewrite unknown application routes to `/index.html`
 
 ## Backend image publish
 
-Normal production releases are automatic. A push or merge to `production` starts `Verify`; only a successful push verification can start `Deploy Backend`. The workflow builds both images from the root Docker context so they can reference `AskARabbiLIB`; only the API image includes the 2.6 MB trusted document manifest. `.dockerignore` prevents the raw corpus, normalized Markdown, SQLite index, frontend, local configuration, development settings, and build output from entering either image context.
+Normal production releases are automatic. A push or merge to `production` starts `Verify`; only a successful push verification can start `Deploy Backend`. The workflow builds both images from the root Docker context so they can reference `AskARabbiLIB`. The API image includes the trusted document manifest, shared conversational prompts, and [canonical-source archive](../Backend/AskARabbi.Api/Data/README.md); its Docker build generates the read-only canonical-search index. The full raw/normalized corpus, developer segment index, frontend, credentials, and developer build output are excluded.
+
+Conversational writer, repair, auditor, strict schemas, and the matching library must deploy together. The [claim-kind and recovery change](ANSWER_RELIABILITY.md) needs no new secret, configuration key, dependency, database migration, or frontend response contract. Keep existing corpus settings and assets: uncited background is not an outage bypass. Weekly publication keeps its separate validation rules.
 
 Each image is tagged with the verified Git commit SHA, and the API and job are updated to their respective digests. Re-running a deployment does not depend on a mutable `latest` tag. Runtime secrets and environment variables are not passed as Docker build arguments.
 
@@ -237,8 +239,21 @@ Perform these checks after DNS and TLS are active:
 9. Restart the API and verify that existing application sessions behave according to the deployed Data Protection key storage.
 10. Verify the existing weekly article and authenticated audio stream from the custom API origin, then check the new runtime's dependency logs. Complete the network-denial checks in [PRODUCTION_NETWORK.md](PRODUCTION_NETWORK.md); a public `/health` response alone does not prove the database or OpenAI firewall is correct.
 
+### Conversation reliability checks
+
+Use an authenticated test account against the deployed revision:
+
+- Ask “Who was Rabbi Akiva?” and verify a useful introductory answer can appear without Torah citations; inspect diagnostics to confirm independent review.
+- Ask the reported vampire identity and alive/dead questions. Fiction should remain clearly fictional; any real religious ruling must be supported rather than attached to unrelated passages.
+- Ask a known source-backed question and inspect exact quotations, edition, provenance, and enabled-source filtering.
+- In a controlled test environment, force `ValidationFailed` and `InsufficientEvidence`. Verify `answered` with one localized recovery message, `sources: []`, persistence after reload, idempotent replay of the same message ID, and no title from rejected content.
+- Confirm the original validation outcome and actual provider tokens remain in diagnostics; the fixed reply should add no model request.
+- Use controlled dependency/usage failures to confirm provider, retrieval, cancellation, and quota errors are not presented as successful recovery. Do not disrupt production dependencies to simulate failures.
+
+Local implementation tests and live prototype probes are documented in [answer reliability](ANSWER_RELIABILITY.md); they do not replace these deployed API checks.
+
 ## Remaining launch controls
 
 Azure-managed ASP.NET Core Data Protection is already enabled and verified across Container App revisions. Before broad public access, replace or complete the planned shared server-side session/revocation design and finish rate limits, CSRF review, WorkOS webhook validation, dependency readiness checks, backups and retention, account deletion, telemetry redaction, and live-provider smoke automation.
 
-The backend invokes the grounded answer pipeline and deliberately excludes local corpus data. The full managed corpus is published and its ID/fingerprint are bound together; production chat becomes usable after this integration is deployed, WorkOS is configured, and authenticated source/citation smoke tests pass. Track the remaining launch controls in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+The backend combines managed semantic retrieval, local canonical-source access, reviewed claim types, and API-owned recovery. Keep the managed corpus ID and fingerprint bound together and validate authenticated chat behavior for the deployed revision. Track the remaining launch controls in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).

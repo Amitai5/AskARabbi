@@ -22,7 +22,7 @@ Missing/incorrect confirmation returns `400`; unauthenticated requests return `4
 
 ## Data scope and retention
 
-AskRabbi stores saved questions, answers, source references, and conversation metadata in its MongoDB-backed account history. Disabling Azure OpenAI response storage does not stop this application persistence. Settings and the sign-in screen distinguish saved history from Azure AI processing; see [chat storage and provider retention](CHAT_PRIVACY.md).
+AskRabbi stores saved questions, reviewed answers with any source references, application-written recovery replies, and conversation metadata in its MongoDB-backed account history. Citation-free background and recovery replies follow the same ownership, deletion, and concurrency rules as other saved messages. The [answer-reliability change](ANSWER_RELIABILITY.md) adds no new personal-data collection or schema. Disabling Azure OpenAI response storage does not stop this application persistence. Settings and the sign-in screen distinguish saved history from Azure AI processing; see [chat storage and provider retention](CHAT_PRIVACY.md).
 
 Account deletion removes the owner's conversation headers, messages (including orphaned messages), settings/personalization, usage records, and account record, plus the corresponding WorkOS user in the configured environment. Settings are owner-scoped by their Mongo `_id`, while conversations, messages, and usage use `userId`.
 

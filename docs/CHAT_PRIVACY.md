@@ -6,7 +6,7 @@ AskRabbi saves chats so users can reopen and continue them. The application disa
 
 | Data or processing | Storage boundary |
 | --- | --- |
-| Saved questions, answers, source references, and conversation metadata | Stored by AskRabbi in Azure Cosmos DB for MongoDB as owner-scoped chat history. |
+| Saved questions, reviewed answers, any source references, recovery replies, and conversation metadata | Stored by AskRabbi in Azure Cosmos DB for MongoDB as owner-scoped chat history. |
 | Model drafts, validation, repairs, and calendar-function continuations | The shared `AzureResponsesTransport` sets `StoredOutputEnabled = false` (`store=false`) on Responses requests. Retries use the same policy. |
 | Source lookups | `AzureOpenAIVectorStoreClient.SearchAsync` explicitly sends `store=false`, including retries. |
 | Background Dvar Torah research, writing, and review | Use the same model and source-search clients. These are application jobs, not Azure Responses `background=true` requests. |
@@ -15,6 +15,8 @@ AskRabbi saves chats so users can reopen and continue them. The application disa
 | Backups and operational/security logs | Separate retention policies apply. This application does not promise immediate physical purge of provider backups or logs. |
 
 Microsoft documents [stateless Responses requests](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses#encrypted-reasoning-items), their distinction from [stateful background mode](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses#background-tasks), and [provider data processing and abuse monitoring](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy). No fixed provider-retention duration is promised here.
+
+Reviewed background answers can have no citations. If validation or required evidence fails, the API saves application-written localized recovery text instead of the rejected draft or its citations. That reply is normal saved history, can be sent as untrusted context on a later turn, and follows the same deletion rules. Original failure/usage diagnostics remain separate from assistant-message storage. These changes do not alter provider retention or enable private chat; see [answer reliability](ANSWER_RELIABILITY.md).
 
 ## User-visible disclosure
 

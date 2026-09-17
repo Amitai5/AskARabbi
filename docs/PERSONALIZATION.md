@@ -10,13 +10,13 @@ Saved personalization is read again for every new answer, including replies in a
 | Birth date and time | Entered in the birthplace's local clock. The ordinary prompt receives only a child, teenager, or adult audience group. Private calendar tools use the birth time and resolved birthplace to calculate sea-level sunset; an unknown boundary is explicitly qualified. |
 | Birthplace | A five-digit U.S. ZIP or supported city, resolved to coordinates and an IANA time zone on save. Used privately for Hebrew birthdays and bar/bat mitzvah anniversaries, never for today's date. A one-time copy button can copy current location without linking future moves. |
 | Current location | A five-digit U.S. ZIP or supported city. Supplies the calendar and current-date chat tools with local timezone/sunset, and selects Israel/Diaspora automatically. Explicit user-requested reading-cycle overrides remain possible in chat. |
-| Conversation language | Explanations, generated chat titles, quotation roles, and follow-ups use this language independently of the question's language and earlier answers. Application-written navigation replies and answer transitions are localized too. |
+| Conversation language | Explanations, generated chat titles, quotation roles, and follow-ups use this language independently of the question's language and earlier answers. Application-written navigation replies, answer transitions, and fixed validation/insufficient-evidence recovery replies are localized too. |
 | Torah and source quotation language | Selects approved wording in that language for the same passage, independently of explanation language. English quotations stay English even when the explanation is Hebrew, Persian, or another language. A specifically requested comparison can include both editions. |
 | Religious movement or practice | Supplies the user's self-described perspective when relevant. It is not a score for literacy, observance, or Jewishness, and does not establish a religious ruling. All 13 visible choices are preserved. |
 | Heritage or community | Helps with relevant, source-supported community distinctions and ordinary transliteration. Ashkenazi context may use Teves/Shabbos; Sephardi or Mizrahi context may use Tevet/Shabbat. Explicit harmless wording preferences take precedence outside verbatim quotations. All 15 choices are preserved; mixed, converted, unsure, and undisclosed backgrounds do not imply a single custom. |
 | Additional information | Learning goals, desired depth, unfamiliar terminology, accessibility needs, family context, and harmless style preferences reach drafting, repair, and auditing. They may shorten the default answer. They cannot override selected languages, evidence, privacy, safety, or citation rules. |
 
-The ten languages are English, French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The separate account setting for opening source context remains a presentation preference; email-update consent is not a model instruction.
+The ten languages are English, French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The separate account setting for opening source context remains a presentation preference; email-update consent is not a model instruction. Reviewed Background and Uncertainty can be citation-free, so a quotation-language preference never creates a source requirement or an invented translation. Fixed recovery replies use the response language, default to English for an absent or unsupported value, and are not model-personalized from the user's biography; see [answer reliability](ANSWER_RELIABILITY.md).
 
 ## Enforcement
 
@@ -41,7 +41,7 @@ Chat paragraphs and source quotations/context use independent native `dir="auto"
 
 ## Impact and rollout
 
-- Correctness: preferences now reach both model stages, survive repairs, and take effect without starting a new chat. Source verification remains mandatory.
+- Correctness: preferences now reach both model stages, survive repairs, and take effect without starting a new chat. Source verification remains mandatory for source-backed statements; all generated claim kinds still receive independent review.
 - Privacy: only a preferred-name token, broad audience group, background, and relevant user-supplied context enter the ordinary model prompt; exact birth details stay in server-side calendar context.
 - Performance: no new model-validation stage was added. Prompts contain additional bounded instructions/context, and generic translation selection can add bounded local archive reads. Non-English or explicitly personalized date answers use the existing calendar-capable model path instead of returning a fixed English answer.
 - Maintenance: one shared preference contract and centralized application-written language strings prevent drafting, auditing, and rendering from diverging. No new production dependencies or infrastructure changes are required.

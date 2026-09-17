@@ -1,22 +1,22 @@
 # AskRabbi technical design
 
-[![Architecture](https://img.shields.io/badge/architecture-proposed-475569?style=for-the-badge&logo=diagramsdotnet&logoColor=white)](#status-and-scope)
+[![Architecture](https://img.shields.io/badge/architecture-implemented-475569?style=for-the-badge&logo=diagramsdotnet&logoColor=white)](#status-and-scope)
 [![Vite](https://img.shields.io/badge/Vite-implemented-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 [![React](https://img.shields.io/badge/React-implemented-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-implemented-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-.NET%2010-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet)
 [![Sefaria](https://img.shields.io/badge/texts-Sefaria-7C3AED?style=for-the-badge)](https://developers.sefaria.org/)
 
-This document describes the implemented local grounding prototype and the production frontend/API path for an account-based, source-grounded AI chat application. WorkOS identity, Azure Cosmos DB for MongoDB persistence, Azure OpenAI generation, managed Responses file-search retrieval, validated assistant persistence, and monthly usage enforcement are wired in code. Full corpus publication, live integration validation, and public-launch hardening remain.
+This document describes the implemented local grounding prototype and the production frontend/API path for an account-based, source-grounded AI chat application. WorkOS identity, Azure Cosmos DB for MongoDB persistence, Azure OpenAI generation, managed Responses file-search retrieval, reviewed answers, saved recovery replies, and monthly token enforcement are wired in code. Deployment-specific integration checks and public-launch hardening must be verified separately.
 
-For the product mission, intended experience, and guiding principles, read the [project README](../README.md). For the step-by-step implemented question, retrieval, grounding, validation, and follow-up path, read the [chat workflow](CHAT_WORKFLOW.md).
+For the product mission, intended experience, and guiding principles, read the [project README](../README.md). For the step-by-step question, retrieval, validation, and follow-up path, read the [chat workflow](CHAT_WORKFLOW.md). [Answer reliability](ANSWER_RELIABILITY.md) defines the three internal claim kinds, component ownership, API recovery, diagnostics, and compatibility.
 
 ## Contents
 
 - [Status and scope](#status-and-scope)
 - [Implemented local prototype](#implemented-local-prototype)
 - [Design goals](#design-goals)
-- [Proposed system architecture](#proposed-system-architecture)
+- [System architecture](#system-architecture)
 - [Component responsibilities](#component-responsibilities)
 - [Citation contract](#citation-contract)
 - [Answer behavior contract](#answer-behavior-contract)
@@ -27,7 +27,7 @@ For the product mission, intended experience, and guiding principles, read the [
 - [Security and correctness baseline](#security-and-correctness-baseline)
 - [Observability](#observability)
 - [Testing and evaluation strategy](#testing-and-evaluation-strategy)
-- [Suggested repository layout](#suggested-repository-layout)
+- [Repository layout](#repository-layout)
 - [Delivery plan](#delivery-plan)
 - [Open decisions](#open-decisions)
 - [Non-goals for the first release](#non-goals-for-the-first-release)
@@ -35,11 +35,11 @@ For the product mission, intended experience, and guiding principles, read the [
 
 ## Status and scope
 
-The repository now contains a reusable .NET library, a thin console application, the production frontend shell, and a tested .NET 10 API foundation. The decisions below are divided into two groups:
+The repository now contains a reusable .NET library, a thin console application, the production frontend shell, and a tested .NET 10 API foundation. The implemented architecture and remaining proposals are distinguished below:
 
-- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable frontend authentication boundary; a .NET 10 ASP.NET Core API; WorkOS AuthKit code exchange and password recovery behind a narrow adapter; encrypted application cookies; owner-scoped MongoDB stores; Azure OpenAI Responses; forced managed file-search retrieval; fail-closed answer persistence and usage enforcement; and deterministic frontend, library, and API tests.
+- **Implemented foundation:** Vite, React, TypeScript, and Tailwind CSS; a responsive login/dashboard shell; a replaceable frontend authentication boundary; a .NET 10 ASP.NET Core API; WorkOS AuthKit code exchange and password recovery behind a narrow adapter; encrypted application cookies; owner-scoped MongoDB stores; Azure OpenAI Responses; forced managed file-search retrieval; independently reviewed answers, application-written recovery replies, and token-usage enforcement; and deterministic frontend, library, and API tests.
 - **Committed direction:** User-facing Google and other reviewed WorkOS methods; Azure Cosmos DB for MongoDB application persistence; saved and private conversations; configurable usage limits; bilingual Jewish texts; source selection; and verifiable citations.
-- **Open implementation choices:** long-term retrieval migration criteria, server-side session persistence, conversation retention, and the weekly Dvar Torah's approved content/model contract. The first production retriever is an Azure OpenAI managed vector store, the model deployment is `askarabbi-gpt-5-mini`, the weekly publisher is an isolated .NET 10 Azure Container Apps Job, and the public topology is fixed at `https://askarabbi.ai` plus `https://api.askarabbi.ai`.
+- **Remaining design work:** long-term retrieval migration criteria, server-side session persistence, and future private-conversation retention. The API combines managed vector retrieval with local canonical-source access; the weekly publisher has a separate implemented content/review contract. Model deployment names are environment configuration. The public topology is `https://askarabbi.ai` plus `https://api.askarabbi.ai`.
 
 Dependencies and infrastructure should be selected only when an implementation milestone needs them. This keeps the first version small and prevents an early prototype from silently becoming the permanent privacy or security architecture.
 
@@ -51,30 +51,30 @@ Dependencies and infrastructure should be selected only when an implementation m
 - `SourceIndexBuilder` verifies normalized Markdown checksums, parses canonical `##` references, validates segment counts/ranges, and atomically builds an untracked SQLite FTS5 index.
 - The v3 index stores exact segments on disk with schema metadata and a corpus-and-license fingerprint. The document manifest remains in memory; segment text does not. A corpus change makes an older local index fail verification until it is deliberately rebuilt.
 - `SqliteSourceRetriever` supports exact-reference lookup, tiered BM25 keyword retrieval, normalized Hebrew/Unicode search, provenance filters, neighboring context, and bounded results. A deterministic query planner prioritizes reviewed concepts and keeps every fallback attached to a recognized topic anchor, such as `Shabbat`, while retaining full, paired, and broad tiers for questions without a reviewed anchor.
-- `GroundedAnswerService` retrieves at most 50 candidates, rejects empty or tangential evidence before generation, and builds a default evidence packet of at most 24 segments and 48,000 text characters. It favors source diversity, can pair Hebrew and translation versions by canonical reference, and includes a six-segment context radius while capping one document at nine included segments. Recognized calendar-only questions may instead continue with explicitly registered deterministic tools; tool results become exact request-local evidence and pass the same quotation and support validation.
+- `GroundedAnswerService` retrieves at most 50 candidates by default and filters tangential evidence before building a packet of at most 24 segments and 48,000 text characters. Ordinary empty retrieval still allows reviewed Background or Uncertainty. Production overrides these limits with 20 candidates, 10 segments, and 16,000 characters. It favors source diversity, can pair Hebrew and translation versions by canonical reference, and includes a six-segment context radius while capping one document at nine included segments. Recognized calendar-only questions may instead continue with explicitly registered deterministic tools; tool results become exact request-local evidence and pass the same quotation and support validation.
 - `UserProfile` and `UserProfileJsonSerializer` provide strict, reusable profile validation, deterministic age calculation, normalized JSON, and rejection of unknown fields. Interactive chat requires a selected or custom profile; one-shot `ask` accepts an optional profile file name from `Prototype/Profiles`.
 - `AzureOpenAIEngine` supports both `ApiKeyCredential` and Entra `TokenCredential`, explicitly supplies the configured deployment on every Responses API call, sets `store=false`, requests strict JSON Schema output, propagates cancellation, and returns typed failures plus response/token/latency diagnostics. The local console reads `AI:APIKey` from .NET User Secrets or an environment variable and chooses the API-key path; the reusable library retains its Entra-capable constructor for future hosting.
 - Every model-facing instruction, the strict response schemas, and the application-controlled interpretive notice live in `Prototype/Prompts`. The host loads and validates them into `GroundedPromptSet` only when AI Chat or `ask` is used, so Source Search remains independent of prompt and Azure configuration. The behavior contract uses conversational BLUF and targets two or three connected claims and 180–325 words of explanatory prose for ordinary questions.
 - Optional `AzureKeyVaultSecretStore` is lazy, cancellation-aware, and caches requested values for 15 minutes. The prototype does not use it to load the Azure OpenAI API key.
-- Retrieved material is delimited as untrusted data. Every substantive claim and disagreement must quote every evidence ID it cites, every quotation must exactly match its source segment, and a claimed later-to-earlier reasoning chain requires exact passages for both links. A second structured model request independently checks each statement's relevance and support from its cited passages. One same-evidence repair is allowed after either validation layer before the answer fails visibly.
+- Retrieved material is delimited as untrusted data. Source claims and disagreements must quote every cited evidence ID, every quotation must exactly match trusted text, and a claimed later-to-earlier reasoning chain requires both links. Background and Uncertainty have no evidence IDs, quotations, or attribution. A second structured request audits every statement according to its kind and can reconcile Source citations against any supplied passage. One repair can use remaining bounded research. Unrecovered library failures are reported by the console; the API converts `ValidationFailed` and `InsufficientEvidence` into saved localized replies.
 - Profile fields are separately labeled as untrusted personalization context. Normal prompts contain calculated age rather than exact birth date, time, or time zone. For a relevant calendar request, trusted local code can privately use saved birth data and expose only the derived result as calculated evidence. Profile fields never enter lexical retrieval, never count as religious source evidence, and may not be used to stereotype or assume observance.
-- The Spectre.Console host starts with AI Chat as the first option and exposes Source Search separately. All approved logical sources begin enabled; `/sources` displays the on/off inventory with edition, passage, and language counts and changes the source set used by each subsequent retrieval. Before chat it requires a saved local JSON profile or process-memory custom context. Questions and follow-ups use a spaced `You` / `AskARabbi AI` transcript with a bold direct answer and natural follow-on paragraphs. Compact citation numbers remain beside their claims; exact quotations already written in a paragraph are highlighted yellow in place and are not repeated, while supporting quotations absent from the prose retain one yellow quotation with a cyan source line. Full retrieved context remains available through `/evidence` instead of being dumped into every answer. It omits a redundant closing bibliography because validated sources already appear inline. The editable application-controlled interpretive notice ends every validated answer in italic grey. Clearing or leaving AI Chat removes conversation turns, answers, evidence references, and traces from process memory; the only prototype persistence is a user-explicit local profile JSON that never contains chat content.
+- The Spectre.Console host starts with AI Chat as the first option and exposes Source Search separately. All approved logical sources begin enabled; `/sources` displays the on/off inventory with edition, passage, and language counts and changes the source set used by each subsequent retrieval. Before chat it requires a saved local JSON profile or process-memory custom context. Questions and follow-ups use a spaced `You` / `AskARabbi AI` transcript with a bold direct answer and natural follow-on paragraphs. Compact citation numbers remain beside their claims; exact quotations already written in a paragraph are highlighted yellow in place and are not repeated, while supporting quotations absent from the prose retain one yellow quotation with a cyan source line. Full retrieved context remains available through `/evidence` instead of being dumped into every answer. It omits a redundant closing bibliography because validated sources already appear inline. Hidden limitations and the legacy interpretive-notice property are not appended to displayed answers. Clearing or leaving AI Chat removes conversation turns, answers, evidence references, and traces from process memory; the only prototype persistence is a user-explicit local profile JSON that never contains chat content.
 - Prototype composition is split by responsibility: `ConsoleApplication` owns only process-level orchestration; `ApplicationStateLoader` loads the manifest and local configuration; `AIChatConsole` owns the in-memory conversation; `SourceSearchConsole` owns source inspection; `SegmentIndexConsole` owns local index lifecycle; `OneShotCommandExecutor` owns automation commands; and `ConsolePresentation` owns Spectre rendering. Safety-critical behavior remains in `AskARabbiLIB` and is covered by the library test solution.
 
 The implementation adapts the useful interface/configuration, prompt-building, retry, diagnostic, credential-specific client, Key Vault, and invariant BSON temporal-serialization ideas from ClearVowAI. AskRabbi supplies its own focused MongoDB stores because the audited ClearVowAI services contained serializers and BSON use but no reusable owner-scoped Mongo repository. It deliberately excludes Foundry Agents and model-controlled hosted retrieval, broad assembly scanning, service-locator-based tool resolution, web search, image handling, SQL/Redis services, cryptographic key rotation, Newtonsoft.Json, NJsonSchema, Tiktoken, and unrelated setup helpers. Its focused tool registry inspects only explicit provider instances for two local attributes and enforces schemas, call limits, cancellation, and safe failures. The managed-vector adapter separately forces a single-purpose Responses file-search call and retains application control behind `ISourceRetriever`; it is not an Agent engine.
 
 ## Design goals
 
-1. **Ground every substantive claim.** The model should answer from a bounded evidence packet built from approved source collections.
+1. **Match support to the claim.** Religious conclusions and attributed teachings require verified evidence. Basic biography, introductory background, and explicit fiction may be uncited after independent accuracy and scope review.
 2. **Make citations inspectable.** A citation must resolve to the passage and edition that actually supports the nearby claim.
 3. **Preserve textual context.** Original language, translation, genre, author or tradition, time period, and canonical reference must remain distinguishable.
 4. **Represent disagreement.** Retrieval and generation must not collapse minority, majority, historical, and contemporary views into one anonymous position.
 5. **Avoid prescriptive judgment.** The application explains sources and reasoning; it does not issue personalized *psak* or evaluate a user's Jewish identity or observance.
 6. **Make privacy modes real.** “Private” must change storage, logging, analytics, and debugging behavior—not merely hide a chat from the sidebar.
-7. **Fail visibly.** When evidence is missing, conflicting, or weak, the response should narrow its claim, ask for context, or decline to answer.
+7. **Recover honestly.** When evidence or validation cannot support a generated answer, the API saves a localized clarification reply without rejected text. Provider and retrieval outages remain explicit errors.
 8. **Keep providers replaceable.** Application contracts should prevent identity, storage, retrieval, or model vendors from leaking throughout the codebase.
 
-## Proposed system architecture
+## System architecture
 
 ```mermaid
 flowchart LR
@@ -92,17 +92,19 @@ flowchart LR
 
     Orchestrator --> Model[Language model]
     Retriever --> Model
-    Model --> Validator[Citation and response validator]
-    Validator --> Api
+    Model --> Validator[Kind-specific checks and independent audit]
+    Validator -->|Reviewed answer| Api
+    Validator -->|Insufficient evidence or unrepaired validation failure| Recovery[API-owned localized recovery]
+    Recovery --> Api
 
     Api -->|account, preferences, and usage| AppData[(Azure Cosmos DB for MongoDB)]
     Api -->|saved chat content only| AppData
     WeeklyJob[Scheduled .NET Container Apps Job] -->|leased generation and atomic publication| AppData
     Api -->|current or latest Dvar Torah| AppData
-    Api -->|stream response| Web
+    Api -->|saved answer or typed error| Web
 ```
 
-The answer model is intentionally downstream of retrieval and a deterministic evidence-adequacy gate. It receives a limited, structured source packet and instructions about what it may claim. Exact citation validation and an independent claim-support audit occur after generation and before the response is treated as complete.
+The answer model remains downstream of retrieval and evidence filtering, but an empty ordinary packet is a valid input. It receives a bounded packet and the Source/Background/Uncertainty contract. Exact citation checks and independent review occur before generated content can be saved. The API owns recovery wording and persistence; the library keeps the original failure and trace. Compound parashah preflight, retrieval outages, and provider failures retain their separate behavior.
 
 ## Component responsibilities
 
@@ -124,13 +126,13 @@ The frontend must treat all authorization and quota data as display information.
 
 The current shell implements compact responsive Personalization and Settings screens plus a weekly-learning destination separated from recent conversations. That weekly React module and its `GET /api/dvar-torah` request load only after selection; current articles cache through the weekly boundary, while pending and fallback responses retry on a short cache. Personalization captures full name; birth date and time; one reviewed U.S. IANA time zone; independent conversation and source-quotation languages; religious movement or practice; Jewish heritage or community; and optional context limited to 2,000 characters. Supported languages are English by default plus French, German, Hebrew, Italian, Persian, Polish, Russian, Spanish, and Yiddish. The backend validates and persists that profile. Settings loads the authenticated account email, exact monthly usage window, and conversation defaults from the API, and it sends password-reset requests to the backend. Only a versioned session-storage integer for non-sensitive welcome copy remains session-local.
 
-Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New drafts enable every approved source but remain browser-only until the first message is submitted; users can narrow that selection before or after creation. The create request persists metadata and that first message together, preventing abandoned drafts from becoming empty sidebar records. The first validated structured response may return a concise conversation title; MongoDB persists that generated title in the same conversation-metadata update as the first assistant message, while explicit user renames remain authoritative afterward. Non-empty source selections are validated and persisted by the API; clearing every source disables submission instead of allowing an ungrounded fallback. The exact selection is stored with the canonical conversation context. Conversation and quotation languages are presentation preferences, not source evidence. Retrieval searches all available approved editions within the selected sources so a preference such as Persian or Russian cannot erase the evidence corpus; exact quotations must still be copied from an available edition and may not be machine-invented as source text.
+Each frontend conversation owns an enabled-source-key set that matches `DocumentSourceCatalog`: `collection:Torah`, `collection:Tanakh`, `collection:Mishnah`, `collection:Talmud`, `work:rif`, `work:mishneh_torah`, `work:shulchan_arukh_with_rema`, `work:zohar`, `work:zohar_chadash`, and `work:mesillat_yesharim`. New drafts enable every approved source but remain browser-only until the first message is submitted; users can narrow that selection before or after creation. The create request persists metadata and that first message together, preventing abandoned drafts from becoming empty sidebar records. The first validated structured response may return a concise conversation title; MongoDB persists that generated title in the same conversation-metadata update as the first assistant message, while explicit user renames remain authoritative afterward. Non-empty source selections are validated and persisted by the API; clearing every source disables submission. This selection governs source-backed content without forcing citations onto reviewed background. The exact selection is stored with the canonical conversation context. Conversation and quotation languages are presentation preferences, not source evidence. Retrieval searches all available approved editions within the selected sources so a preference such as Persian or Russian cannot erase the evidence corpus; exact quotations must still be copied from an available edition and may not be machine-invented as source text.
 
 The browser does not calculate a Hebrew birthday. Because the Hebrew date changes at sunset, a time zone alone cannot establish precise local sunset. The future API should request birthplace when the birth time is near sunset, use historical offset data and a reviewed sunset/calendar implementation, preserve the user-entered civil details, return the calculated Hebrew date and assumptions, and allow correction. Personalization remains untrusted user context: it may guide wording and relevant source distinctions, but it cannot count as evidence or justify assumptions about observance or identity.
 
 ### ASP.NET Core API
 
-The implemented backend is a .NET 10 controller API. `GET /health` reports process health; dependency-specific readiness checks are still pending. `UserController` owns allow-listed WorkOS AuthKit login hints, constant-time state validation, S256 PKCE, code exchange, rotating session refresh, local-account resolution, safe session projection, password recovery, and logout. `ConversationsController` owns saved conversation creation, navigation summaries, owner-authorized context loading, grounded message turns, title/source updates, and deletion. `GroundedConversationTurnService` checks usage, obtains personalization, reconstructs limited recent validated history, calls the provider-neutral grounding service, persists only validated assistant text under a deterministic ID, and records successful usage. `ConversationSettingsController` owns personalization, account-backed conversation defaults, and exact UTC calendar-month usage reporting. `DvarTorahController` returns the upcoming Shabbat plus either its complete published article or the most recent earlier publication, and never exposes generating or failed drafts.
+The implemented backend is a .NET 10 controller API. `GET /health` reports process health; dependency-specific readiness checks are still pending. `UserController` owns allow-listed WorkOS AuthKit login hints, constant-time state validation, S256 PKCE, code exchange, rotating session refresh, local-account resolution, safe session projection, password recovery, and logout. `ConversationsController` owns saved conversation creation, navigation summaries, owner-authorized context loading, grounded message turns, title/source updates, and deletion. `GroundedConversationTurnService` checks usage, obtains personalization, reconstructs limited recent saved history as untrusted context, calls the provider-neutral grounding service, and saves a reviewed answer or fixed localized recovery reply under the same deterministic assistant ID. All provider-reported chat tokens count, including unsuccessful generation. `ConversationSettingsController` owns personalization, account-backed conversation defaults, and exact UTC calendar-month usage reporting. `DvarTorahController` returns the upcoming Shabbat plus either its complete published article or the most recent earlier publication, and never exposes generating or failed drafts.
 
 The browser receives an encrypted `HttpOnly` application cookie and never receives the WorkOS API key or access token. Its rotating WorkOS refresh token is contained only inside the ASP.NET Core protected ticket and is unavailable to JavaScript; the API renews it near provider-token expiration and rejects provider-revoked sessions. The ticket lasts at most eight sliding hours. A reviewed shared server-side session/revocation store and shared data-protection key ring remain required before horizontally scaled public deployment. WorkOS and MongoDB may be omitted for process-only health checks, and their endpoints normally fail explicitly with `503`. A separate `local-demo` launch profile is accepted only in the `Development` environment and supplies process-memory substitutes for an end-to-end local walkthrough; production cannot enable it. Credentialed CORS permits only exact configured origins, with the Vite origin defaulted solely in Development.
 
@@ -157,22 +159,22 @@ The implemented controller boundary is:
 | `ConversationsController` | Saved conversation lifecycle, source settings, message ingestion, and canonical context |
 | `ConversationSettingsController` | Current personalization and exact monthly usage window |
 
-The message endpoint returns a stable status plus canonical conversation context by default. `compact=true` returns navigation metadata plus only the current user/assistant messages; the production frontend uses that additive contract and merges the delta into context it already holds. This keeps response size bounded as a conversation grows while preserving compatibility for existing clients. Sequential retries with the same client message ID reuse the deterministic assistant ID and do not call the model again. Validated assistant messages persist bounded structured source snapshots containing exact quotations, presented context, canonical passage links, edition attribution, language, license, and excerpt state. A persistent reservation/finalization record is still required to prevent duplicate provider work and usage increments from truly simultaneous retries across multiple replicas. Streaming and private mode remain product work.
+The message endpoint returns a stable status plus canonical conversation context by default. `compact=true` returns navigation metadata plus only the current user/assistant messages; the production frontend uses that additive contract and merges the delta into context it already holds. This keeps response size bounded as a conversation grows while preserving compatibility for existing clients. Sequential retries with the same client message ID reuse the deterministic assistant ID and do not call the model again. Source-backed answers persist bounded snapshots containing exact quotations, presented context, canonical passage links, edition attribution, language, license, and excerpt state. Reviewed uncited answers and fixed recovery replies have empty `sources` arrays and use the same `answered` status. An account/month admission lease prevents concurrent provider work across replicas, and accounting uses repeat-write protection; see [token usage](TOKEN_USAGE.md). Streaming and private mode remain product work.
 
 ### Chat orchestration
 
 The orchestrator should coordinate a request without containing vendor-specific HTTP or database logic. A request moves through:
 
 1. Authentication, authorization, and usage-policy checks.
-2. Input validation and privacy-mode resolution.
+2. Input validation and loading the owner-scoped saved conversation.
 3. Question analysis and optional clarification.
 4. Retrieval from only the user's enabled source collections.
-5. Deterministic evidence-adequacy validation and construction of a bounded packet.
-6. Model generation using the product's nonjudgmental behavior contract.
-7. Deterministic quotation/citation validation and an independent claim-support audit.
-8. Materializing trusted source metadata and returning the response.
-9. Durable storage of validated prose and its bounded source snapshots only when the request uses saved mode.
-10. Usage accounting without retaining private message content.
+5. Deterministic evidence filtering and construction of a bounded packet, which may be empty for an ordinary question.
+6. Structured drafting with typed claims and optional registered research.
+7. Deterministic checks and independent kind-specific review, with one repair using remaining research.
+8. Materializing reviewed content and its actual citations, or returning the original typed library failure.
+9. Saving reviewed prose/source snapshots or an API-owned recovery reply for `ValidationFailed` and `InsufficientEvidence`; returning distinct errors for outages and other failures.
+10. Reporting usage already recorded from every provider response; recovery adds no model call.
 
 Cancellation must propagate from the browser through retrieval and model requests so abandoned generations do not continue consuming capacity.
 
@@ -213,7 +215,7 @@ The local proof of concept implements:
 
 The first production adapter is `AzureOpenAIVectorStoreRetriever`. `AzureOpenAIVectorStoreCorpusPublisher` creates deterministic uploads capped at 60,000 UTF-8 bytes and marks each compact source record with stable segment/document IDs, canonical reference, context token, exact text, and explicit excerpt bounds. The checked 1,441-document corpus becomes 8,332 provider files. The publisher supplies sixteen provenance attributes, but the current Responses results omit them; the API therefore bundles the validated manifest, resolves each stable document prefix locally, and treats any returned attributes only as consistency checks. Before accepting a search result, the retriever verifies store schema/fingerprint/logical-document/provider-file counts and revalidates every complete record, permissive license, requested source/category/language filter, stable ID, and bound locally.
 
-Azure OpenAI performs managed keyword/semantic search through a forced Responses `file_search` call, but it does not own final answer generation or citation metadata. Retrieval-model prose is discarded; only scored file-search results proceed through local provenance/filter checks and then the same evidence builder and validation layers as SQLite. This means a production answer has a small retrieval-model call followed by the separate grounded-answer call. Azure AI Search remains a future migration option if evaluation shows a need for stronger hybrid ranking, custom analyzers, relationship expansion, or predictable provisioned throughput. See [MANAGED_VECTOR_STORE.md](MANAGED_VECTOR_STORE.md) for publication, IAM, cost, and rollback operations.
+Azure OpenAI performs managed keyword/semantic search through a forced Responses `file_search` call, but it does not own final answer generation or citation metadata. Retrieval-model prose is discarded; only scored file-search results proceed through local provenance/filter checks and then the same evidence builder and validation layers as SQLite. An uncached managed search uses a retrieval-model call; drafting, the independent audit, and any tool continuations or repair are separate provider work. Empty results can lead to reviewed background, while a failed retrieval dependency is not bypassed. The API also bundles a checksum-verified [canonical archive and search index](../Backend/AskARabbi.Api/Data/README.md) for bounded original-text access. Azure AI Search remains a future migration option if evaluation shows a need for stronger hybrid ranking, custom analyzers, relationship expansion, or predictable provisioned throughput. See [MANAGED_VECTOR_STORE.md](MANAGED_VECTOR_STORE.md) for publication, IAM, cost, and rollback operations.
 
 #### Bilingual handling
 
@@ -246,9 +248,9 @@ SourceCitation
   SupportedClaimIds
 ```
 
-The production conversation contract maps validated citations into additive `sources` arrays on assistant messages. Each entry contains the exact matched quotation list, the evidence text presented to the model, a canonical Sefaria passage URL derived from the trusted reference, and a separate edition-attribution URL. Legacy message records without this field remain valid and return an empty list. Clicking an inline citation opens the matching array entry in a responsive reader: an independently scrollable right rail at the `xl` breakpoint and a modal bottom sheet on smaller screens. Both surfaces provide previous/next navigation and keep surrounding context collapsed unless the saved account preference explicitly opens it.
+The production conversation contract maps validated citations into additive `sources` arrays on assistant messages. Each entry contains the exact matched quotation list, the evidence text presented to the model, a canonical Sefaria passage URL derived from the trusted reference, and a separate edition-attribution URL. Legacy message records without this field remain valid and return an empty list. New reviewed Background/Uncertainty answers and fixed recovery replies also legitimately return empty lists; claim kinds stay internal and do not change the HTTP or MongoDB message schema. Clicking an inline citation opens the matching array entry in a responsive reader: an independently scrollable right rail at the `xl` breakpoint and a modal bottom sheet on smaller screens. Both surfaces provide previous/next navigation and keep surrounding context collapsed unless the saved account preference explicitly opens it.
 
-Before a completed answer is shown, validation should confirm that:
+For each source-backed statement shown, validation must confirm that:
 
 - The canonical reference exists in the approved corpus.
 - The quotation matches the identified version.
@@ -257,13 +259,14 @@ Before a completed answer is shown, validation should confirm that:
 - Descriptions of consensus or disagreement are supported by more than one isolated passage when appropriate.
 - The answer does not cite retrieved text that says something materially different.
 
-If validation fails, the system should regenerate from the same bounded evidence, remove the unsupported claim, or tell the user that it could not verify the answer. It should never repair a citation by inventing a more plausible reference.
+If validation fails, one repair can rewrite or remove unsupported statements and use remaining bounded research. If it still fails, the library returns `ValidationFailed`; the API saves fixed localized uncertainty with no rejected draft or sources. Background claims cannot hide unsupported religious conclusions, and neither writer nor auditor may invent citations. Hidden internal-mechanism notes in valid-sized limitation metadata are filtered before materialization; user-visible internal details remain invalid.
 
 ## Answer behavior contract
 
 System behavior and automated evaluations should enforce the following rules:
 
-- Explain relevant sources, categories, reasoning, and historical development.
+- Explain relevant sources, categories, reasoning, and historical development with the evidence required by each claim kind.
+- Permit reviewed basic background without citations, while keeping religious rulings, attributed teachings, exact quotations, and calculated dates source-backed.
 - Label the community, authority, or interpretive framework associated with a view.
 - Separate direct textual statements from later inference and modern application.
 - Avoid declaring what the user personally must believe or do.
@@ -318,7 +321,7 @@ The implemented foundation exposes:
 | `GET /api/conversations` | List recent owned conversation summaries |
 | `POST /api/conversations` | Persist the first user message, run its grounded response, and return the new conversation with its one-time AI-generated title when successful |
 | `GET /api/conversations/{conversationId}` | Return one owner-authorized conversation and its messages with trusted assistant-source snapshots |
-| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn, run fail-closed retrieval/generation/validation, persist only a validated answer and trusted sources, and return canonical context plus a typed outcome |
+| `POST /api/conversations/{conversationId}/messages` | Idempotently store a user turn, run retrieval/drafting/review, and return canonical context plus a typed outcome. Reviewed answers and fixed recovery replies are saved with `answered`; sources may be empty. |
 | `PUT /api/conversations/{conversationId}/title` | Rename an owned conversation |
 | `PUT /api/conversations/{conversationId}/sources` | Replace approved source selectors |
 | `DELETE /api/conversations/{conversationId}` | Delete an owned conversation and its messages |
@@ -379,7 +382,7 @@ Before public access, the implementation should include:
 - Output encoding and sanitization for source text or model-produced markup.
 - Dependency, container, and secret scanning in continuous integration.
 
-Provider error payloads and stack traces must not be returned to clients. Expected validation, authorization, quota, retrieval, and provider failures should map to intentional application errors.
+Provider error payloads and stack traces must not be returned to clients. Authorization, quota, retrieval, and provider failures retain intentional errors. An unrepaired validation failure or insufficient-evidence result instead produces the API-owned saved recovery reply; its original status remains in completion diagnostics.
 
 ## Observability
 
@@ -388,7 +391,7 @@ Useful telemetry does not require collecting conversations. Recommended signals 
 - Request count, latency, status, cancellation, and streaming duration.
 - Retrieval latency, candidate count, source categories, and empty-result rate.
 - Model latency, token counts, finish reason, and provider error category.
-- Citation-validation pass rate and regeneration count.
+- Validation result, repair count, original library status, and whether any assistant reply was persisted; HTTP `answered` alone does not distinguish reviewed generation from fixed recovery.
 - Usage reservation and reconciliation failures.
 - Ingestion freshness, changed segments, failed licenses, and index version.
 
@@ -404,7 +407,8 @@ Use MSTest for .NET tests, with deterministic fakes or strict mocks around ident
 - Saved/private persistence behavior, including failure paths.
 - Usage reservations, concurrency, cancellation, and idempotency.
 - Input validation and precise application errors.
-- Citation-validation acceptance and rejection.
+- Source citation/quotation acceptance and rejection; background accuracy and scope; honest uncertainty.
+- Empty/tangential evidence, misleading claim kinds, hidden limitation metadata, and saved localized recovery with retry/reload behavior.
 - Provider timeouts and partial streaming failures.
 - Deletion and retention rules.
 
@@ -412,7 +416,7 @@ Integration tests use in-memory identity and persistence substitutes plus inject
 
 ### Frontend tests
 
-The current Vitest and Testing Library suite covers invalid login input, injected login/logout behavior, rotating welcome copy, conversation creation, rename and confirmed deletion, core-source defaults and source persistence, message storage, clickable citation navigation, exact quotation/context display, pending-answer animation, profile validation, U.S. time-zone selection, API-reported usage, password-reset disclosure, settings preferences, and save toasts. Adapter tests verify credentialed requests, structured API failures, authorization-state mapping, idempotency IDs, and offset-free birth-time serialization. Later milestones should add coverage for:
+The current Vitest and Testing Library suite covers invalid login input, injected login/logout behavior, rotating welcome copy, conversation creation, rename and confirmed deletion, all-approved-source defaults and source persistence, message storage, clickable citation navigation, exact quotation/context display, pending-answer animation, profile validation, U.S. time-zone selection, API-reported usage, password-reset disclosure, settings preferences, and save toasts. Adapter tests verify credentialed requests, structured API failures, authorization-state mapping, idempotency IDs, and offset-free birth-time serialization. Later milestones should add coverage for:
 
 - Mode selection and unmistakable privacy language.
 - Streaming, cancellation, retry, and error states.
@@ -429,16 +433,17 @@ Key measures should include:
 
 - Retrieval recall for expert-selected sources.
 - Citation precision and exact quotation match.
-- Claim-level faithfulness to the evidence packet.
+- Source-claim faithfulness to the evidence packet and accuracy/scope of uncited background.
 - Correct identification of disagreement and source hierarchy.
-- Abstention when the enabled corpus lacks support.
+- Honest uncertainty and saved recovery when support is missing, without refusing basic biography or explicit fiction solely for lacking citations.
+- Rabbi Akiva biography and fictional vampire identity/life-status cases, including rejection of unsupported real-world halakhic conclusions.
 - Robustness to prompt injection inside user input and retrieved content.
 - Nonjudgmental language without erasing substantive differences.
 - Equivalent source quality across supported query languages.
 
 The release gate should include review by people with appropriate Jewish textual expertise. Automated scoring alone cannot establish interpretive quality.
 
-## Suggested repository layout
+## Repository layout
 
 The repository now has explicit production frontend and backend boundaries alongside the two independent proof-of-concept solutions:
 
@@ -452,22 +457,24 @@ Prototype/
 └── AskARabbiPrototype/
 ```
 
-`AskARabbiLIB.slnx` owns manifest search, segment indexing/retrieval, AI/secret adapters, grounding/validation, session models, and all MSTest coverage. `AskARabbiPrototype.slnx` contains only the Spectre.Console host and references the library project; it has no test project and owns no reusable algorithms or corpus models.
+`AskARabbiLIB.slnx` owns reusable corpus/retrieval, AI/secret adapters, grounding/validation, session models, and library MSTest coverage. `Backend/AskARabbiBackend.slnx` separately owns the API, weekly-job hosts, and their test projects. `AskARabbiPrototype.slnx` contains only the Spectre.Console host and references the library project; it has no test project and owns no reusable algorithms or corpus models.
 
 ```text
 AskARabbi/
 ├── Frontend/                     # Implemented Vite, React, TypeScript, and Tailwind shell
-├── Backend/                      # .NET 10 ASP.NET Core host and integration tests
+├── Backend/                      # .NET 10 API, saved recovery, weekly job, and host tests
 ├── Library/                      # Reusable corpus, retrieval, AI, and grounding code
-├── Prototype/                    # Local Spectre.Console search and AI host
+├── Prototype/                    # Local console host and shared conversational prompts
 ├── Tools/                        # Reproducible managed-corpus publisher and verifier
 ├── Data/                         # Raw and normalized licensed corpus metadata
 ├── docs/
+│   ├── ANSWER_RELIABILITY.md      # Claim kinds, ownership, outcomes, and compatibility
+│   ├── CHAT_WORKFLOW.md           # Retrieval, drafting, review, and rendering
 │   └── TECHNICAL.md
 └── README.md
 ```
 
-The number of .NET projects should be revisited during scaffolding. If the first implementation does not benefit from four assemblies, fewer projects with clear internal boundaries are preferable.
+The shared library owns provider-neutral validation. API recovery wording and persistence stay in the API host; the console preserves library failures, and the weekly publisher retains its separate review and publication contract.
 
 ## Delivery plan
 

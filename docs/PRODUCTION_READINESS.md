@@ -2,6 +2,20 @@
 
 This is the historical September 1, 2026 readiness baseline, not the current deployment target. Production now runs `askarabbi-api-production` and `askarabbi-dvar-torah-production` in `askarabbi-containerapps-production`; use [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) and [PRODUCTION_NETWORK.md](PRODUCTION_NETWORK.md) for current configuration. The former question-count allowance is replaced by the [5M-token monthly quota](TOKEN_USAGE.md). Old resource names and pending checks below describe that earlier checkpoint only.
 
+## Current conversational reliability checks
+
+The [answer-reliability contract](ANSWER_RELIABILITY.md) supersedes the historical source-only persistence and success-only accounting descriptions below. These implementation checks do not certify a deployed revision:
+
+- [x] Independently review Source, Background, and Uncertainty; source-backed statements retain exact quotation and evidence requirements.
+- [x] Allow basic biography and explicit fiction with empty or tangential evidence, without bypassing provider/retrieval failures.
+- [x] Save localized API recovery replies for `ValidationFailed` and `InsufficientEvidence`, retaining original diagnostics and idempotent message IDs.
+- [x] Cover citation-free answers, misclassified religious claims, hidden limitation metadata, and recovery persistence/retries with deterministic library/API tests.
+- [x] Count every provider-reported chat token and enforce account/month admission across replicas; fixed recovery adds no model call.
+- [ ] Complete authenticated deployed-revision biography, fiction, source-backed answer, recovery/reload, and failure smoke checks in [production deployment](PRODUCTION_DEPLOYMENT.md#conversation-reliability-checks).
+- [ ] Confirm weekly publication still uses its independent grounding and publication gate in the released deployment.
+
+The remaining sections preserve the September 1 baseline; unchecked historical items are not a current incident report.
+
 ## Completed foundation
 
 - [x] Azure resource group `AARProduction` exists.

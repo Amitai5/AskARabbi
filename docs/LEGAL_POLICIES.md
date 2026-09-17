@@ -35,6 +35,8 @@ Provider and regulatory references consulted:
 - [California privacy rights](https://oag.ca.gov/privacy/ccpa)
 - [FTC COPPA guidance](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions)
 
+The conversational [answer-reliability contract](ANSWER_RELIABILITY.md) permits reviewed introductory background without citations and saves fixed recovery replies when validation or required evidence fails. Those replies remain ordinary account history and can be processed as later context. This changes neither provider retention nor account-deletion scope, and does not create a guarantee that every answer is source-backed or human-reviewed.
+
 ## Maintaining the documents
 
 Keep the effective date and version aligned across both documents when making a joint update. Review text against actual behavior when changing providers, analytics, stored data, model training, retention, account eligibility, or paid features. The initial Terms use a 13-year minimum (or a higher local minimum), guardian permission for minors, no mandatory arbitration, and liability limitations subject to mandatory legal protections.
